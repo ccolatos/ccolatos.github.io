@@ -39,13 +39,13 @@
     // Compute the distinct nodes from the links.
     links.forEach(function(link) {
       link.id = "rel" + link.source + link.target; 
-      var sLinkSrc = link.source;
-      var sLinkTgt = link.target;
+      var linkSrc = link.cohort + link.source;
+      var linkTgt = link.cohort + link.target;
 
-      link.source = nodes[link.source] || 
-        (nodes[link.source] = {name: link.source, cohort: link.cohort});
-      link.target = nodes[link.target] || 
-          (nodes[link.target] = {name: link.target, cohort: link.cohort});
+      link.source = nodes[linkSrc] || 
+        (nodes[linkSrc] = {name: link.source, cohort: link.cohort});
+      link.target = nodes[linkTgt] || 
+          (nodes[linkTgt] = {name: link.target, cohort: link.cohort});
     });
 
     var force = d3.layout.force()
