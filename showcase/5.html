@@ -37,6 +37,8 @@
       {cohort:'a',source:'2',target:'3',},{cohort:'a',source:'2',target:'5',},{cohort:'a',source:'2',target:'3',},{cohort:'a',source:'2',target:'10',},{cohort:'a',source:'2',target:'11',},{cohort:'a',source:'2',target:'12',},{cohort:'a',source:'3',target:'5',},{cohort:'a',source:'3',target:'9',},{cohort:'a',source:'3',target:'10',},{cohort:'a',source:'3',target:'10',},{cohort:'a',source:'3',target:'12',},{cohort:'a',source:'4',target:'3',},{cohort:'a',source:'4',target:'12',},{cohort:'a',source:'5',target:'7',},{cohort:'a',source:'5',target:'3',},{cohort:'a',source:'5',target:'3',},{cohort:'a',source:'6',target:'3',},{cohort:'a',source:'6',target:'4',},{cohort:'a',source:'6',target:'5',},{cohort:'a',source:'6',target:'13',},{cohort:'a',source:'6',target:'8',},{cohort:'a',source:'6',target:'2',},{cohort:'a',source:'7',target:'2',},{cohort:'a',source:'7',target:'8',},{cohort:'a',source:'8',target:'10',},{cohort:'a',source:'8',target:'6',},{cohort:'a',source:'8',target:'3',},{cohort:'a',source:'8',target:'7',},{cohort:'a',source:'9',target:'2',},{cohort:'a',source:'9',target:'3',},{cohort:'a',source:'10',target:'4',},{cohort:'a',source:'11',target:'6',},{cohort:'a',source:'11',target:'13',},{cohort:'a',source:'11',target:'13',},{cohort:'a',source:'12',target:'13',},{cohort:'a',source:'13',target:'4',},{cohort:'a',source:'13',target:'12',},{cohort:'b',source:'1',target:'5',},{cohort:'b',source:'1',target:'7',},{cohort:'b',source:'1',target:'4',},{cohort:'b',source:'1',target:'2',},{cohort:'b',source:'1',target:'5',},{cohort:'b',source:'2',target:'12',},{cohort:'b',source:'2',target:'1',},{cohort:'b',source:'2',target:'5',},{cohort:'b',source:'2',target:'7',},{cohort:'b',source:'3',target:'9',},{cohort:'b',source:'3',target:'11',},{cohort:'b',source:'3',target:'2',},{cohort:'b',source:'3',target:'11',},{cohort:'b',source:'4',target:'7',},{cohort:'b',source:'4',target:'3',},{cohort:'b',source:'4',target:'3',},{cohort:'b',source:'4',target:'2',},{cohort:'b',source:'5',target:'10',},{cohort:'b',source:'5',target:'6',},{cohort:'b',source:'5',target:'12',},{cohort:'b',source:'6',target:'11',},{cohort:'b',source:'6',target:'4',},{cohort:'b',source:'7',target:'1',},{cohort:'b',source:'7',target:'12',},{cohort:'b',source:'7',target:'4',},{cohort:'b',source:'7',target:'4',},{cohort:'b',source:'7',target:'2',},{cohort:'b',source:'7',target:'4',},{cohort:'b',source:'8',target:'9',},{cohort:'b',source:'9',target:'8',},{cohort:'b',source:'9',target:'3',},{cohort:'b',source:'9',target:'7',},{cohort:'b',source:'9',target:'1',},{cohort:'b',source:'10',target:'3',},{cohort:'b',source:'11',target:'3',},{cohort:'b',source:'11',target:'4',},{cohort:'b',source:'11',target:'3',},{cohort:'b',source:'11',target:'4',},{cohort:'b',source:'12',target:'8',},{cohort:'b',source:'12',target:'4',},
     ];
 
+    var maxConnections = 0;
+
     // Compute the distinct nodes from the links.
     links.forEach(function(link) {
       link.id = "rel" + link.source + link.target; 
@@ -44,17 +46,20 @@
       var linkTgt = link.cohort + link.target;
 
       link.source = nodes[linkSrc] || 
-        (nodes[linkSrc] = {name: link.source, cohort: link.cohort});
+        (nodes[linkSrc] = { name: link.source, cohort: link.cohort, connections: 0 });
       link.target = nodes[linkTgt] || 
-          (nodes[linkTgt] = {name: link.target, cohort: link.cohort});
+          (nodes[linkTgt] = {name: link.target, cohort: link.cohort, connections: 0 });
+
+      link.source.connections++;
+      maxConnections = Math.max(maxConnections, link.source.connections);
     });
 
     var force = d3.layout.force()
         .nodes(d3.values(nodes))
         .links(links)
         .size([width, height])
-        .linkDistance(300)
-        .charge(-800)
+        .linkDistance(200)
+        .charge(-500)
         .on("tick", tick)
         .start();
      
@@ -105,7 +110,7 @@
      
     // add the nodes
     node.append("circle")
-        .attr("r", '1em')
+        .attr("r", size)
         .attr("fill", function(d) { return colorize(d); });
 
     // add the side-text
@@ -119,6 +124,7 @@
     node.append("text")
        .attr("text-anchor", "middle")
        .attr("style", "font-weight:bold;")
+       .attr("style", function(d) { return 'font-size:' + size(d); })
        .text(function(d) { return d.name; });
      
     // add the curvy lines
@@ -150,6 +156,10 @@
         b: 'lightblue',
       }
       return colors[d.cohort];
+    }
+
+    function size(d) {
+      return Math.max(d.connections / maxConnections * 1.5, .25) + 'em';
     }
   </script>
 </body>
