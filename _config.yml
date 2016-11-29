@@ -1,0 +1,11 @@
+name: Chris Colatos
+markdown: kramdown
+permalink: /projects/:year/:month/:day/:title
+
+paginate: 10
+paginate_path: "/projects/page:num/"
+
+gems:
+  - jekyll-sitemap
+  - jekyll-paginate
+  - jemoji
