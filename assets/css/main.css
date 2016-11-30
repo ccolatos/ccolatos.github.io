@@ -310,7 +310,7 @@ a.pure-button-primary {
 }
 
 .timeline ul {
-    padding: 1em 0 4em 0;
+    padding: 1em 0 2em 0;
 }
 
 .timeline ul li {
@@ -380,21 +380,11 @@ time {
 }
 
 .timeline ul li div {
-    visibility: hidden;
-    opacity: 0;
     transition: all .5s ease-in-out;
+    opacity: 0;
 }
 
-/* Move inwards*/
-.timeline ul li:nth-child(odd) div {
-    transform: translate3d(200px, 0, 0);
-}
-.timeline ul li:nth-child(even) div {
-    transform: translate3d(-200px, 0, 0);
-}
 .timeline ul li.in-view div {
-    transform: none;
-    visibility: visible;
     opacity: 1;
 }
 
@@ -460,5 +450,16 @@ time {
     }
     .timeline ul li:nth-child(even) div {
         left: -27.5em; 
+    }
+
+    /* Move inwards*/
+    .timeline ul li:nth-child(odd) div {
+        transform: translate3d(12.5em, 0, 0);
+    }
+    .timeline ul li:nth-child(even) div {
+        transform: translate3d(-12.5em, 0, 0);
+    }
+    .timeline ul li.in-view div {
+        transform: none;
     }
 }
