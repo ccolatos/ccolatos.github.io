@@ -310,7 +310,7 @@ a.pure-button-primary {
 }
 
 .timeline ul {
-    padding: 2em 0;
+    padding: 1em 0 4em 0;
 }
 
 .timeline ul li {
@@ -342,6 +342,7 @@ a.pure-button-primary {
     padding: 1em;
     background: #1f8dd6;
     color: white;
+    line-height: 1.1em;
 }
 
 /* Box position */
