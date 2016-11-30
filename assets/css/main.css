@@ -84,6 +84,7 @@ a {
 a.pure-button-primary {
     background: white;
     color: #1f8dd6;
+    border: #1f8dd6 solid 3px;
     border-radius: 5px;
     font-size: 120%;
 }
@@ -136,7 +137,7 @@ a.pure-button-primary {
  */
 
 .splash-container {
-    background: #1f8dd6;
+    background: #F77050 url(../img/robotdj5.png) no-repeat fixed center center;
     z-index: 1;
     overflow: hidden;
     /* The following styles are required for the "scroll-over" effect */
@@ -160,12 +161,12 @@ a.pure-button-primary {
 
 /* This is the main heading that appears on the blue section */
 .splash-head {
+    border: 3px solid #2d3e50;
     font-size: 20px;
     font-weight: bold;
     color: white;
-    border: 3px solid white;
+    text-shadow: -2px 0 #2d3e50, 0 2px #2d3e50, 2px 0 #2d3e50, 0 -2px #2d3e50;
     padding: 1em 1.6em;
-    font-weight: 100;
     border-radius: 5px;
     line-height: 1em;
 }
@@ -173,8 +174,9 @@ a.pure-button-primary {
 /* This is the subheading that appears on the blue section */
 .splash-subhead {
     color: white;
+    font-weight: bold;
+    text-shadow: 0px 0px 1px #2d3e50;
     letter-spacing: 0.05em;
-    opacity: 0.8;
 }
 
 /*
@@ -282,5 +284,9 @@ a.pure-button-primary {
     /* We increase the header font size even more */
     .splash-head {
         font-size: 300%;
+    }
+
+    .splash-container {
+        background-position: bottom left;
     }
 }
