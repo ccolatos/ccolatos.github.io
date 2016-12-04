@@ -246,6 +246,10 @@ a.pure-button-primary {
     margin-right: .5em;
 }
 
+.content-subhead i.fa {
+    width: 1em;
+}
+
 /* This is the class used for the background areas. */
 .ribbon {
     background: #2d3e50;
