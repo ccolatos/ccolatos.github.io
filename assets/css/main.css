@@ -145,6 +145,7 @@ a.pure-button-primary {
 }
 
 .home-menu a {
+    font-size: .75em;
     color: #e7e7e7;
 }
 .home-menu li a:hover,
@@ -418,6 +419,12 @@ time {
         left: -1.25em;
         border-width: .75em 1.5em .75em 0;
         border-color: transparent #111 transparent transparent;
+    }
+}
+
+@media (min-width: 24em) {
+    .home-menu a {
+        font-size: 1em;
     }
 }
 
