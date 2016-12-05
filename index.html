@@ -41,7 +41,7 @@
 
     <!-- Faceboom Open Graph data -->
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="Chris Colatos" />
+    <meta property="og:title" content="Chris Colatos"/>
     <meta property="og:description" content="Chris Colatos Personal Website" />
     <meta property="og:image" content="assets/img/icons/twitter-fb.png" />
 
@@ -59,25 +59,27 @@
     <div class="header">
       <div class="home-menu pure-menu pure-menu-horizontal pure-menu-fixed">
         <ul class="pure-menu-list">
-          <li class="pure-menu-item"><a href="./showcase/" class="pure-menu-link">Showcase</a></li>
+          <li class="pure-menu-item"><a href="#statement" class="pure-menu-link">Statement</a></li>
+          <li class="pure-menu-item"><a href="#bio" class="pure-menu-link">Bio</a></li>
           <li class="pure-menu-item"><a href="#works" class="pure-menu-link">Works</a></li>
-          <li class="pure-menu-item"><a href="Chris_Colatos_Curriculum_Vitae.pdf" class="pure-menu-link">CV</a></li>
-          <li class="pure-menu-item"><a href="#contact" class="pure-menu-link">Contact Me</a></li>
+          <li class="pure-menu-item"><a href="#teaching" class="pure-menu-link">Teaching</a></li>
+          <li class="pure-menu-item"><a href="Chris_Colatos_Curriculum_Vitae.pdf" target="_blank" class="pure-menu-link">CV</a></li>
+          <li class="pure-menu-item"><a href="#contact" class="pure-menu-link">Contact</a></li>
         </ul>
       </div>
     </div>
     <div class="splash-container" id="intro">
       <div class="splash">
         <h1 class="splash-head">Chris Colatos</h1>
-        <p class="splash-subhead" id="descriptor">
-          Artist & Educator
+        <p class="splash-subhead">
+          <span>INTERACTIVE MULTIMEDIA ARTIST  |  </span"><span id="change_this">EDUCATOR</span>
         </p>
         <p>
           <a href="#works" class="pure-button pure-button-primary">See my works</a>
         </p>
       </div>
     </div>
-    <div class="content-wrapper">
+    <div class="content-wrapper" id="statement">
       <div class="content">
         <h2 class="content-head is-center">Artist Statement</h2>
         <p>My work emerges from a desire to discover something new. I create interactive, multi-sensory works layered in sound and gesture, utilizing a diverse array of materials of archetypal and experimental form. Installations and compositions are living components of a larger ecology, drawing from a range of influences and inspired artistry across mediums, methods and traditions in both technical and non-technical settings. Works contemplate sensory constituents of perception, interplay, contrasts between natural and artificial, emotion, imagination, presence, permanence and ephemerality. Experiments and designs are intended to evoke presence and personal meaning, and shift with each participant’s interpretation in a particular moment. Emergent and conceptual frameworks are employed to invoke engagement and reflection. Compositions, improvisations and performances embrace interaction, environmental presence, autonomy, communication and transformation.</p>
@@ -128,7 +130,7 @@
 
       </div>
 
-      <div class="l-box-lrg pure-g">
+      <div class="l-box-lrg pure-g" id="bio">
         <div class="l-box-lrg is-center pure-u-1 pure-u-md-1-2 pure-u-lg-2-5">
           <a href="Chris_Colatos_Curriculum_Vitae.pdf" target="_blank"><img class="pure-img-responsive" alt="CV" width="300" src="assets/img/resume.png"></a>
         </div>
@@ -153,7 +155,7 @@
           <div class="pure-u-sm-1-4">
             <a href="https://www.facebook.com/AppleTrainingHawaii" target="_blank">
               <h3 class="content-subhead">
-                <i class="fa fa-facebook fa-3x"></i>Facebook
+                <i class="fa fa-facebook fa-3x"></i>Facebook &nbsp
               </h3>
             </a>
           </div><div class="pure-u-sm-1-4">
@@ -218,36 +220,46 @@
     })();
 
     (function() {
-      var desc = [
-        'Developing Technologies to Enable New Forms of Expression and Creativity',
-        'Interactive Environments as Real-Time Compositional Tools',
-        'Applications and Effects of Sound on Learning Efficacy',
-        'Interdisciplinary Arts Curriculum Development',
-        'Technical and Creative Project Development ',
-        'Research and Thesis Advising and Critique',
-        'The Recording Studio as an Instrument',
-        'New Interfaces for Musical Expression',
-        'Indeterminacy and Graphic Notation',
-        'Human-Computer Interaction',
-        'Custom Instrument Design',
-        'Experimental Composition',
-        'Sound Producing Objects',
-        'Intermedia Installation',
-        'Percussion Ensembles',
-        'Electroacoustic Music',
-        'Interactive Design',
-        'Technical Writing',
-        'Signal Processing',
-        'Performance Art',
-        'Electronic Music',
-        'Adaptive Audio',
-        'Sound Design',
-        'Soundscape',
-        'New Media',
-        'Artist & Educator',
+      var words = [
+      'Developing Technologies to Enable New Forms of Expression and Creativity',
+      'New Media',
+      'Interactive Environments as Real-Time Compositional Tools',
+      'Soundscape',
+      'Applications and Effects of Sound on Learning Efficacys',
+      'Sound Design',
+      'Interdisciplinary Arts Curriculum Developments',
+      'Adaptive Audio',
+      'Custom Instrument Design and Orchestrations',
+      'Electronic Music',
+      'Technical and Creative Project Developments',
+      'Performance Art',
+      'Research and Thesis Advising and Critique',
+      'Signal Processing',
+      'Soundart and Experimental Composition',
+      'Interactive Design',
+      'The Recording Studio as an Instrument',
+      'Percussion Ensemble',
+      'New Interfaces for Musical Expression',
+      'Electroacoustic Music',
+      'Indeterminacy and Graphic Notation',
+      'Intermedia Installation',
+      'Experiments in Musical Intelligence',
+      'Sound Producing Objects',
+      'The Mysticism of Sound and Music',
+      'Human-Computer Interaction',
       ];
 
-      document.getElementById('descriptor').innerHTML = desc[Math.floor(Math.random() * desc.length)];
+      var numWords = words.length;
+      var changeSpeed = 1500;
+
+      var i = setInterval(function() {
+        document.getElementById('change_this').innerHTML = randomWord();
+      }, 1500);
+
+      function randomWord(prev) {
+        var next = words[Math.floor(Math.random() * numWords)];
+        return (next === prev) ? randomWord(prev) : next;
+      };
 
     })();
   </script>
