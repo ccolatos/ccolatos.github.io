@@ -30,15 +30,13 @@ a {
 }
 
 blockquote {
-    background: #2d3e50;
-    color: #ddd;
-    border-left: 1em solid #1f8dd6;
+    border-left: 1em solid #ddd;
     margin: 1.5em 1em;
     padding: .5em 1em;
     quotes: "\201C""\201D";
 }
 blockquote:before {
-    color: #5B7EA3;
+    color: #222;
     content: open-quote;
     font-size: 4em;
     line-height: .1em;
@@ -101,7 +99,7 @@ blockquote:last-child {
  * I want my pure-button elements to look a little different
  */
 .pure-button {
-    background-color: #1f8dd6;
+    background-color: #111;
     color: white;
     padding: 0.5em 2em;
     border-radius: 5px;
@@ -109,8 +107,8 @@ blockquote:last-child {
 
 a.pure-button-primary {
     background: white;
-    color: #1f8dd6;
-    border: #1f8dd6 solid 3px;
+    color: #222222;
+    border:  3px solid grey;
     border-radius: 5px;
     font-size: 120%;
 }
@@ -127,7 +125,7 @@ a.pure-button-primary {
     box-shadow: 0 1px 1px rgba(0,0,0, 0.10);
 }
 .home-menu {
-    background: #2d3e50;
+    background: #222222;
 }
 .pure-menu.pure-menu-fixed {
     /* Fixed menus normally have a border at the bottom. */
@@ -137,23 +135,23 @@ a.pure-button-primary {
 }
 
 .home-menu .pure-menu-heading {
-    color: white;
+    color: #e7e7e7;
     font-weight: 400;
     font-size: 120%;
 }
 
 .home-menu .pure-menu-selected a {
-    color: white;
+    color: #e7e7e7;
 }
 
 .home-menu a {
-    color: #eee;
+    color: #e7e7e7;
 }
 .home-menu li a:hover,
 .home-menu li a:focus {
     background: none;
     border: none;
-    color: #AECFE5;
+    color: #fff;
 }
 
 
@@ -163,7 +161,8 @@ a.pure-button-primary {
  */
 
 .splash-container {
-    background: #F77050 url(../img/robotdj5.png) no-repeat fixed center center;
+    background-color: black;
+    /*background: #F77050 url(../img/robotdj5.png) no-repeat fixed center center;*/
     z-index: 1;
     overflow: hidden;
     /* The following styles are required for the "scroll-over" effect */
@@ -187,8 +186,8 @@ a.pure-button-primary {
 
 /* This is the main heading that appears on the blue section */
 .splash-head {
-    background: rgba(255,255,255,.1);
-    border: 3px solid black;
+    /*background: rgba(255,255,255,.1);*/
+    /*border: 3px solid grey;*/
     font-size: 1.75em;
     font-weight: bold;
     color: white;
@@ -202,7 +201,7 @@ a.pure-button-primary {
 .splash-subhead {
     color: white;
     font-weight: bold;
-    text-shadow: 0px 0px 1px #2d3e50;
+    text-shadow: 0px 0px 1px grey;
     letter-spacing: 0.05em;
 }
 
@@ -232,16 +231,21 @@ a.pure-button-primary {
 
 /* This is a modifier class used when the content-head is inside a ribbon */
 .content-head-ribbon {
-    color: white;
+    color: eee;
 }
 
 /* This is the class used for the content sub-headers (<h3>) */
 .ribbon .content-subhead {
-    color: #1f8dd6;
-}
-.light-ribbon .content-subhead {
     color: white;
 }
+
+.light-ribbon {
+    background-color: lightgrey;
+} .light-ribbon h2 {
+    color: black;
+}
+
+
 .content-subhead i {
     margin-right: .5em;
 }
@@ -252,14 +256,11 @@ a.pure-button-primary {
 
 /* This is the class used for the background areas. */
 .ribbon {
-    background: #2d3e50;
+    background: #2b2b2b;
     color: #ddd;
+} .ribbon h2 {
+    color: white;
 }
-
-.light-ribbon {
-    background: #1f8dd6;
-}
-
 
 /* This is the class used for the footer */
 .footer {
@@ -353,7 +354,7 @@ a.pure-button-primary {
     bottom: 0;
     width: calc(100vw - 7rem);
     padding: 1em;
-    background: #1f8dd6;
+    background: #111;
     color: white;
     line-height: 1.1em;
 }
@@ -389,7 +390,7 @@ time {
 }
 
 .timeline ul li.in-view::after {
-    background: #1f8dd6;
+    background: #111;
 }
 
 .timeline ul li div {
@@ -411,12 +412,12 @@ time {
     .timeline ul li:nth-child(odd) div::before {
         left: -1.25em;
         border-width: .75em 1.5em .75em 0;
-        border-color: transparent #1f8dd6 transparent transparent;
+        border-color: transparent #111 transparent transparent;
     }
     .timeline ul li:nth-child(even) div::before {
         left: -1.25em;
         border-width: .75em 1.5em .75em 0;
-        border-color: transparent #1f8dd6 transparent transparent;
+        border-color: transparent #111 transparent transparent;
     }
 }
 
@@ -449,12 +450,12 @@ time {
     .timeline ul li:nth-child(odd) div::before {
         left: -1.25em;
         border-width: .75em 1.5em .75em 0;
-        border-color: transparent #1f8dd6 transparent transparent;
+        border-color: transparent #111 transparent transparent;
     }
     .timeline ul li:nth-child(even) div::before {
         right: -1.25em;
         border-width: .75em 0 .75em 1.5em;
-        border-color: transparent transparent transparent #1f8dd6;
+        border-color: transparent transparent transparent #111;
     }
 
     /* Box position */
