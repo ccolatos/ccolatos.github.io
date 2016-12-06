@@ -190,8 +190,8 @@ a.pure-button-primary {
     width: auto;
 }
 
- .splash div {
-    color: white;
+ .splash div, .splash h2 {
+    color: #eef;
 }
 
 /* This is the main heading that appears on the blue section */
@@ -202,7 +202,7 @@ a.pure-button-primary {
     font-weight: bold;
     color: white;
     text-shadow: -2px 0 #2d3e50, 0 2px #2d3e50, 2px 0 #2d3e50, 0 -2px #2d3e50;
-    padding: 0 1.5em .75em 1.25em;
+    padding: 0 1.5em .25em 1.5em;
     border-radius: 5px;
     line-height: 1em;
 }
