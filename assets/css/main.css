@@ -314,7 +314,7 @@ a.pure-button-primary {
 }
 
 /* Boxes */
-.timeline ul li div {
+.timeline ul li > div {
     position: relative;
     bottom: 0;
     width: calc(100vw - 7rem);
@@ -325,13 +325,13 @@ a.pure-button-primary {
 }
 
 /* Box position */
-.timeline ul li div {
+.timeline ul li > div {
     left: 3.5em;
     width: calc(100vw - 10rem);
 }
 
 /* Boxes */
-.timeline ul li div::before {
+.timeline ul li > div::before {
     content: '';
     position: absolute;
     bottom: .5em;
@@ -340,12 +340,32 @@ a.pure-button-primary {
     border-style: solid;
 }
 
-time {
-    display: block;
+.timeline .title {
+    margin-bottom: 1em;
+}
+
+.timeline time,
+.timeline h2,
+.timeline h4 {
+    display: inline;
+    color: white;
     font-size: 1.25em;
     font-weight: bold;
-    margin-bottom: 8px;
+    margin: 0 0 .5em 0;
     text-shadow: 0px 0px 2px #2d3e50;
+}
+
+.timeline h4 {
+    font-weight: normal;
+    font-style: italic;
+}
+
+.timeline time::after {
+    content: ' - ';
+}
+
+.timeline h4::before {
+    content: ', ';
 }
 
 /* EFFECTS
@@ -359,12 +379,12 @@ time {
     background: #111;
 }
 
-.timeline ul li div {
+.timeline ul li > div {
     transition: all .5s ease-in-out;
     opacity: 0;
 }
 
-.timeline ul li.in-view div {
+.timeline ul li.in-view > div {
     opacity: 1;
 }
 
@@ -421,12 +441,12 @@ time {
 
 @media (max-width: 48em) {
     /* Arrows */
-    .timeline ul li:nth-child(odd) div::before {
+    .timeline ul li:nth-child(odd) > div::before {
         left: -1.25em;
         border-width: .75em 1.5em .75em 0;
         border-color: transparent #111 transparent transparent;
     }
-    .timeline ul li:nth-child(even) div::before {
+    .timeline ul li:nth-child(even) > div::before {
         left: -1.25em;
         border-width: .75em 1.5em .75em 0;
         border-color: transparent #111 transparent transparent;
@@ -455,38 +475,38 @@ time {
     }
 
     /* Box sizes */
-    .timeline ul li div {
+    .timeline ul li > div {
         width: 24em;
     }
 
     /* Arrows */
-    .timeline ul li:nth-child(odd) div::before {
+    .timeline ul li:nth-child(odd) > div::before {
         left: -1.25em;
         border-width: .75em 1.5em .75em 0;
         border-color: transparent #111 transparent transparent;
     }
-    .timeline ul li:nth-child(even) div::before {
+    .timeline ul li:nth-child(even) > div::before {
         right: -1.25em;
         border-width: .75em 0 .75em 1.5em;
         border-color: transparent transparent transparent #111;
     }
 
     /* Box position */
-    .timeline ul li:nth-child(odd) div {
+    .timeline ul li:nth-child(odd) > div {
         left: 3.5em;
     }
-    .timeline ul li:nth-child(even) div {
+    .timeline ul li:nth-child(even) > div {
         left: -27.5em; 
     }
 
     /* Move inwards*/
-    .timeline ul li:nth-child(odd) div {
+    .timeline ul li:nth-child(odd) > div {
         transform: translate3d(12.5em, 0, 0);
     }
-    .timeline ul li:nth-child(even) div {
+    .timeline ul li:nth-child(even) > div {
         transform: translate3d(-12.5em, 0, 0);
     }
-    .timeline ul li.in-view div {
+    .timeline ul li.in-view  > div {
         transform: none;
     }
 }
