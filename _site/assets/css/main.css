@@ -1,0 +1,512 @@
+* {
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+}
+
+/*
+ * -- BASE STYLES --
+ * Most of these are inherited from Base, but I want to change a few.
+ */
+body {
+    line-height: 1.7em;
+    color: #7f8c8d;
+    font-size: 12px;
+    width: 100%;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+label {
+    color: #34495e;
+}
+
+a {
+    text-decoration: none;
+}
+
+blockquote {
+    border-left: 1em solid #ddd;
+    margin: 1.5em 1em;
+    padding: .5em 1em;
+    quotes: "\201C""\201D";
+}
+blockquote:before {
+    color: #222;
+    content: open-quote;
+    font-size: 4em;
+    line-height: .1em;
+    margin-right: .25em;
+    vertical-align: -.4em;
+}
+blockquote:first-child {
+    display: inline;
+}
+blockquote:last-child {
+    margin-bottom: 0;
+}
+
+.pure-img-responsive {
+    max-width: 100%;
+    height: auto;
+}
+
+/*
+ * -- LAYOUT STYLES --
+ * These are some useful classes which I will need
+ */
+.l-box {
+    padding: 1em;
+}
+
+.l-box-lrg {
+    padding: 2em;
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+}
+
+.is-center {
+    text-align: center;
+}
+
+.content {
+    padding: 1em;
+}
+
+/*
+ * -- PURE FORM STYLES --
+ * Style the form inputs and labels
+ */
+.pure-form label {
+    margin: 1em 0 0;
+    font-weight: bold;
+    font-size: 100%;
+}
+
+.pure-form input[type] {
+    border: 2px solid #ddd;
+    box-shadow: none;
+    font-size: 100%;
+    width: 100%;
+    margin-bottom: 1em;
+}
+
+/*
+ * -- PURE BUTTON STYLES --
+ * I want my pure-button elements to look a little different
+ */
+.pure-button {
+    background-color: #111;
+    color: white;
+    padding: 0.5em 2em;
+    border-radius: 5px;
+}
+
+a.pure-button-primary {
+    background: white;
+    color: #222222;
+    border:  3px solid grey;
+    border-radius: 5px;
+    font-size: 120%;
+}
+
+
+/*
+ * -- MENU STYLES --
+ * I want to customize how my .pure-menu looks at the top of the page
+ */
+
+.home-menu {
+    padding: 0.5em;
+    text-align: center;
+    box-shadow: 0 1px 1px rgba(0,0,0, 0.10);
+}
+.home-menu {
+    background: #222222;
+}
+.pure-menu.pure-menu-fixed {
+    /* Fixed menus normally have a border at the bottom. */
+    border-bottom: 2px solid black;
+    /* I need a higher z-index here because of the scroll-over effect. */
+    z-index: 4;
+}
+
+.home-menu .pure-menu-heading {
+    color: #e7e7e7;
+    font-weight: 400;
+    font-size: 120%;
+}
+
+.home-menu .pure-menu-selected a {
+    color: #e7e7e7;
+}
+
+.home-menu a {
+    font-size: .75em;
+    color: #e7e7e7;
+}
+.home-menu li a:hover,
+.home-menu li a:focus {
+    background: none;
+    border: none;
+    color: #fff;
+}
+
+
+/*
+ * -- SPLASH STYLES --
+ * This is the blue top section that appears on the page.
+ */
+
+.splash-container {
+    background-color: black;
+    /*background: #F77050 url(../img/robotdj5.png) no-repeat fixed center center;*/
+    z-index: 1;
+    overflow: hidden;
+    /* The following styles are required for the "scroll-over" effect */
+    width: 100%;
+    height: 88%;
+    top: 0;
+    left: 0;
+    position: fixed !important;
+}
+
+.splash {
+    /* absolute center .splash within .splash-container */
+    width: 80%;
+    height: 80%;
+    margin: auto;
+    position: absolute;
+    top: 8.25em; left: 0; bottom: 0; right: 0;
+    text-align: center;
+    text-transform: uppercase;
+}
+
+.splash img {
+    height: 30%;
+    width: auto;
+}
+
+ .splash div, .splash h2 {
+    color: #eef;
+}
+
+/* This is the main heading that appears on the blue section */
+.splash-head {
+    /*background: rgba(255,255,255,.1);*/
+    /*border: 3px solid grey;*/
+    font-size: 1.75em;
+    font-weight: bold;
+    color: white;
+    text-shadow: -2px 0 #2d3e50, 0 2px #2d3e50, 2px 0 #2d3e50, 0 -2px #2d3e50;
+    padding: 0 1.5em .25em 1.5em;
+    border-radius: 5px;
+    line-height: 1em;
+}
+
+/* This is the subheading that appears on the blue section */
+.splash-subhead {
+    color: white;
+    font-weight: bold;
+    text-shadow: 0px 0px 1px grey;
+    letter-spacing: 0.05em;
+}
+
+/*
+ * -- CONTENT STYLES --
+ * This represents the content area (everything below the blue section)
+ */
+.content-wrapper {
+    /* These styles are required for the "scroll-over" effect */
+    position: absolute;
+    top: 87%;
+    width: 100%;
+    min-width: 320px;
+    min-height: 12%;
+    z-index: 2;
+    background: white;
+
+}
+
+/* This is the class used for the main content headers (<h2>) */
+.content-head {
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin: 2em 0 1em;
+}
+
+/* This is a modifier class used when the content-head is inside a ribbon */
+.content-head-ribbon {
+    color: eee;
+}
+
+/* This is the class used for the content sub-headers (<h3>) */
+.ribbon .content-subhead {
+    color: white;
+}
+
+.light-ribbon {
+    background-color: lightgrey;
+} .light-ribbon h2 {
+    color: black;
+}
+
+
+.content-subhead i {
+    margin-right: .5em;
+}
+
+.content-subhead i.fa {
+    width: 1em;
+}
+
+/* This is the class used for the background areas. */
+.ribbon {
+    background: #2b2b2b;
+    color: #ddd;
+} .ribbon h2 {
+    color: white;
+}
+
+/* This is the class used for the footer */
+.footer {
+    background: #111;
+}
+
+/*
+ * -- TIMELINE STYLES --
+ */
+
+.timeline-container {
+    width: 90%;
+    max-width: 90em;
+    margin: 0 auto;
+    text-align: center;
+}
+
+.timeline ul {
+    padding: 1em 0 2em 0;
+}
+
+.timeline ul li {
+    list-style-type: none;
+    position: relative;
+    width: .5em;
+    /*margin: 0 auto;*/
+    padding-top: 4em;
+    background: #2d3e50;
+}
+
+/* Round markers */
+.timeline ul li::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    transform: translateX(-50%);
+    width: 2.5em;
+    height: 2.5em;
+    border-radius: 50%;
+    background: inherit;
+}
+
+/* Boxes */
+.timeline ul li > div {
+    position: relative;
+    bottom: 0;
+    width: calc(100vw - 7rem);
+    padding: 1em;
+    background: #111;
+    color: white;
+    line-height: 1.1em;
+}
+
+/* Box position */
+.timeline ul li > div {
+    left: 3.5em;
+    width: calc(100vw - 10rem);
+}
+
+/* Boxes */
+.timeline ul li > div::before {
+    content: '';
+    position: absolute;
+    bottom: .5em;
+    width: 0;
+    height: 0;
+    border-style: solid;
+}
+
+.timeline .title {
+    margin-bottom: 1em;
+}
+
+.timeline time,
+.timeline h2,
+.timeline h4 {
+    display: inline;
+    color: white;
+    font-size: 1.25em;
+    font-weight: bold;
+    margin: 0 0 .5em 0;
+    text-shadow: 0px 0px 2px #2d3e50;
+}
+
+.timeline h4 {
+    font-weight: normal;
+    font-style: italic;
+}
+
+.timeline time::after {
+    content: ' - ';
+}
+
+.timeline h4::before {
+    content: ', ';
+}
+
+/* EFFECTS
+–––––––––––––––––––––––––––––––––––––––––––––––––– */
+
+.timeline ul li::after {
+    transition: background .5s ease-in-out;
+}
+
+.timeline ul li.in-view::after {
+    background: #111;
+}
+
+.timeline ul li > div {
+    transition: all .5s ease-in-out;
+    opacity: 0;
+}
+
+.timeline ul li.in-view > div {
+    opacity: 1;
+}
+
+/*
+ * -- TABLET (AND UP) MEDIA QUERIES --
+ * On tablets and other medium-sized devices, we want to customize some
+ * of the mobile styles.
+ */
+ @media (min-width: 24em) {
+    .home-menu a {
+        font-size: 1em;
+    }
+}
+
+@media (min-width: 48em) {
+
+    /* We increase the body font size */
+    body {
+        font-size: 16px;
+    }
+
+    /* We can align the menu header to the left, but float the
+    menu items to the right. */
+    .home-menu {
+        text-align: left;
+    }
+        .home-menu ul {
+            float: right;
+        }
+
+    /* We increase the height of the splash-container */
+/*    .splash-container {
+        height: 500px;
+    }*/
+
+    /* We decrease the width of the .splash, since we have more width
+    to work with */
+    /*.splash {
+        width: 50%;
+        height: 50%;
+    }*/
+
+    .splash-head {
+        font-size: 250%;
+    }
+
+
+    /* We remove the border-separator assigned to .l-box-lrg */
+    .l-box-lrg {
+        border: none;
+    }
+
+}
+
+@media (max-width: 48em) {
+    /* Arrows */
+    .timeline ul li:nth-child(odd) > div::before {
+        left: -1.25em;
+        border-width: .75em 1.5em .75em 0;
+        border-color: transparent #111 transparent transparent;
+    }
+    .timeline ul li:nth-child(even) > div::before {
+        left: -1.25em;
+        border-width: .75em 1.5em .75em 0;
+        border-color: transparent #111 transparent transparent;
+    }
+}
+
+/*
+ * -- DESKTOP (AND UP) MEDIA QUERIES --
+ * On desktops and other large devices, we want to over-ride some
+ * of the mobile and tablet styles.
+ */
+
+
+@media (min-width: 64em) {
+    /* We increase the header font size even more */
+    .splash-head {
+        font-size: 300%;
+    }
+
+    .splash-container {
+        background-position: bottom left;
+    }
+
+    .timeline ul li {
+      margin: 0 auto;
+    }
+
+    /* Box sizes */
+    .timeline ul li > div {
+        width: 24em;
+    }
+
+    /* Arrows */
+    .timeline ul li:nth-child(odd) > div::before {
+        left: -1.25em;
+        border-width: .75em 1.5em .75em 0;
+        border-color: transparent #111 transparent transparent;
+    }
+    .timeline ul li:nth-child(even) > div::before {
+        right: -1.25em;
+        border-width: .75em 0 .75em 1.5em;
+        border-color: transparent transparent transparent #111;
+    }
+
+    /* Box position */
+    .timeline ul li:nth-child(odd) > div {
+        left: 3.5em;
+    }
+    .timeline ul li:nth-child(even) > div {
+        left: -27.5em; 
+    }
+
+    /* Move inwards*/
+    .timeline ul li:nth-child(odd) > div {
+        transform: translate3d(12.5em, 0, 0);
+    }
+    .timeline ul li:nth-child(even) > div {
+        transform: translate3d(-12.5em, 0, 0);
+    }
+    .timeline ul li.in-view  > div {
+        transform: none;
+    }
+}

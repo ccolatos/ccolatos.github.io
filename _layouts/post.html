@@ -1,0 +1,48 @@
+---
+layout: showcase
+---
+<div>
+  <div>
+    <h1 class="post-title">{{ page.title }}</h1>
+    <h3 class="post-subheader post-no-top-margin">{{ page.description }}</h3>
+    {% if page.date %}
+    <h3 class="content-subhead post-no-top-margin">
+      <info datetime="{{ page.date }}">
+        {{ page.date | date_to_string }}
+      </info>
+    </h3>
+    {% endif %}
+    <!-- Post content -->
+    <div>
+      {{ content }}
+    </div>
+    <!-- Post info -->
+    <hr />
+    <div>
+      <!-- Categories-->
+      <p>
+      <i class="fa fa-folder-open" aria-hidden="true"></i>
+      {% unless page.categories == empty %}
+        {% for category in page.categories %} 
+          <a href="/notes/categories#{{ category }}-ref">
+            {{ category | join: "/" }} ({{ site.categories[category].size }}){% unless forloop.last %},{% endunless %}
+          </a>
+        {% endfor %}
+      {% endunless %}
+      </p>
+
+      <!-- Tags -->
+      <p>
+      <i class="fa fa-tags" aria-hidden="true"></i>
+      {% unless page.tags == empty %}
+        {% for tag in page.tags %} 
+          <a href="/notes/tags#{{ tag }}-ref">
+          {{ tag }} ({{ site.tags[tag].size }}){% unless forloop.last %},{% endunless %}
+          </a>
+        {% endfor %}
+      {% endunless %}
+      </p>
+    </div>
+    <p>Want to make changes to this post? Contribute directly via <a href="https://github.com/{{ site.github.owner_name }}/{{ site.github.owner_name }}.github.io/tree/master/{{ page.path }}">GitHub</a> or leave a comment below!</p>
+  </div>
+</div>
