@@ -1,6 +1,6 @@
 name: Chris Colatos
 markdown: kramdown
-permalink: /showcase/:year/:month/:day/:title
+permalink: /showcase/:title
 
 paginate: 10
 paginate_path: "/showcase/page:num/"
