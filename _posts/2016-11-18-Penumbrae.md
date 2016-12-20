@@ -5,5 +5,5 @@ caption: action abstraction
 description: 
 categories: [Teacher]
 image: penumbrae.jpg
+picture: penumbrae.jpg
 ---
-BLAH BLAH

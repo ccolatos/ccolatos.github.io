@@ -17,6 +17,12 @@
   box-sizing: border-box;
 }
 
+audio, 
+video {
+  width: 100% !important;
+  height: auto !important;
+}
+
 a {
   text-decoration: none;
   color: black;
@@ -127,6 +133,10 @@ p.post-caption {
 
 .post-title a {
   color: black;
+}
+
+.post-content {
+  margin-top: 2em;
 }
 
 .post-content p {

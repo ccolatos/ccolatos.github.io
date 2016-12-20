@@ -7,17 +7,31 @@ css: ['/assets/css/main.css', '/assets/css/blog.css']
     <div>
       <h1 class="post-title">{{ page.title }}</h1>
       <h3 class="post-subheader post-no-top-margin">{{ page.caption }}</h3>
-      {% if page.date %}
+      <h3 class="content-subhead post-no-top-margin"></h3>
       <!--
-      <h3 class="content-subhead post-no-top-margin">
+      {% if page.date %}
         <info datetime="{{ page.date }}">
           {{ page.date | date_to_string }}
         </info>
-      </h3>
       {% endif %}
       -->
       <!-- Post content -->
       <div class="post-content">
+        {% if page.picture %}
+          <img class="pure-img-responsive" src="/media/images/{{ page.picture }}">
+        {% endif %}
+        {% if page.audio %}
+          <audio controls autoplay>
+            <source src="/media/audio/{{ page.audio }}">
+            <p>Please update your browser to listen to Audio.</p>
+          </audio>
+        {% endif %}
+        {% if page.video %}
+          <video controls autoplay>
+            <source src="/media/videos/{{ page.video }}">
+            <p>Please update your browser to watch Video.</p>
+          </video>
+        {% endif %}
         {{ content }}
       </div>
       <!-- Post info -->
