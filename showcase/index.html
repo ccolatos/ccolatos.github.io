@@ -1,59 +1,65 @@
 ---
 layout: showcase
+css: ['/assets/css/blog.css']
 ---
 <!-- Loops through the paginated posts -->
-<section class="posts">
-  <h1 class="content-subhead">Showcase</h1>
-  {% for post in paginator.posts %}
-    <!-- A single blog post -->
-    <article class="post">
-      <header class="post-header">
-        <h2 class="post-title"><a href="{{ post.url }}">{{ post.title }}</a></h2>
-        <p class="post-meta">
-          <info datetime="{{ post.date }}">
-            {{ post.date | date_to_string }}
-          </info>
-        </p>
-        <p class="post-meta">
-          {% for category in post.categories %}
-          <a class="post-category" href="./categories#{{ category }}-ref">{{ category }}</a>
-          {% endfor %}
-        </p>
-      </header>
-      <div class="post-description">
-        <div class="post-images pure-g">
-          {% if post.image %}
-          <div class="pure-u-1 pure-u-md-1-1">
-            <a href="{{ post.url }}">
-            <img class="pure-img-responsive"
-              src="{{ post.image }}">
-            </a>
+<main class="l-box pure-u-1 pure-u-md-3-4">
+  <section class="posts">
+    <h1 class="content-subhead">Showcase</h1>
+    {% for post in paginator.posts %}
+      <!-- A single blog post -->
+      <article class="post">
+        <header class="post-header">
+          <h2 class="post-title"><a href="{{ post.url }}">{{ post.title }}</a></h2>
+          <!-- 
+          <p class="post-meta">
+            <info datetime="{{ post.date }}">
+              {{ post.date | date_to_string }}
+            </info>
+          </p>
+          -->
+          <p>{{ post.caption }}</p>
+          <p class="post-meta">
+            {% for category in post.categories %}
+            <a class="post-category" href="./categories#{{ category }}-ref">{{ category }}</a>
+            {% endfor %}
+          </p>
+        </header>
+        <div class="post-description">
+          <div class="post-images pure-g">
+            {% if post.image %}
+            <div class="pure-u-1 pure-u-md-1-1">
+              <a href="{{ post.url }}">
+              <img class="pure-img-responsive"
+                src="/media/images/{{ post.image }}">
+              </a>
+            </div>
+            {% endif %}
           </div>
-          {% endif %}
+          <p>{{ post.description }}</p>
         </div>
-        <p>{{ post.description }}</p>
-      </div>
-    </article>
-  {% endfor %}
-</section>
+      </article>
+    {% endfor %}
+  </section>
 
-<!-- Pagination links -->
-<div class="pure-g">
-  <div class="pure-u-1-3 left-aligned">
-  {% if paginator.previous_page %}
-      <a href="{{ paginator.previous_page_path }}">Previous</a>
-  {% else %}
-    <span class="inactive">Previous</span>
-  {% endif %}
+  <!-- Pagination links -->
+  <div class="pure-g is-center">
+    <div class="pure-u-1-3 left-aligned">
+    {% if paginator.previous_page %}
+        <a href="{{ paginator.previous_page_path }}">Previous</a>
+    {% else %}
+      <span class="inactive">Previous</span>
+    {% endif %}
+    </div>
+    <div class="pure-u-1-3 center-aligned">
+    <span class="inactive">Page: {{ paginator.page }} of {{ paginator.total_pages }}</span>
+    </div>
+    <div class="pure-u-1-3 right-aligned">
+    {% if paginator.next_page %}
+      <a href="{{ paginator.next_page_path }}">Next</a>
+    {% else %}
+      <span class="inactive">Next</span>
+    {% endif %}
+    </div>
   </div>
-  <div class="pure-u-1-3 center-aligned">
-  <span class="inactive">Page: {{ paginator.page }} of {{ paginator.total_pages }}</span>
-  </div>
-  <div class="pure-u-1-3 right-aligned">
-  {% if paginator.next_page %}
-    <a href="{{ paginator.next_page_path }}">Next</a>
-  {% else %}
-    <span class="inactive">Next</span>
-  {% endif %}
-  </div>
-</div>
+</main>
