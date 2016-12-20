@@ -1,48 +1,52 @@
 ---
 layout: showcase
+css: ['/assets/css/main.css', '/assets/css/blog.css']
 ---
-<div>
+<main class="l-box pure-u-1 pure-u-lg-1-2">
   <div>
-    <h1 class="post-title">{{ page.title }}</h1>
-    <h3 class="post-subheader post-no-top-margin">{{ page.caption }}</h3>
-    {% if page.date %}
-    <!--
-    <h3 class="content-subhead post-no-top-margin">
-      <info datetime="{{ page.date }}">
-        {{ page.date | date_to_string }}
-      </info>
-    </h3>
-    {% endif %}
-    -->
-    <!-- Post content -->
     <div>
-      {{ content }}
-    </div>
-    <!-- Post info -->
-    <hr />
-    <div>
-      <!-- Categories-->
-      <p>
-      <i class="fa fa-tags" aria-hidden="true"></i>
-      {% unless page.categories == empty %}
-        {% for category in page.categories %} 
-          <a href="/notes/categories#{{ category }}-ref">
-            {{ category | join: "/" }} ({{ site.categories[category].size }}){% unless forloop.last %},{% endunless %}
-          </a>
-        {% endfor %}
-      {% endunless %}
-      </p>
-
-      <!-- 
-      <p>
-      <i class="" aria-hidden="true"></i>
-      {% unless page.tags == empty %}
-        {% for tag in page.tags %} 
-          <a href="/notes/tags#{{ tag }}-ref">
-          {{ tag }} ({{ site.tags[tag].size }}){% unless forloop.last %},{% endunless %}
-          </a>
-        {% endfor %}
-      {% endunless %}
-      </p>
+      <h1 class="post-title">{{ page.title }}</h1>
+      <h3 class="post-subheader post-no-top-margin">{{ page.caption }}</h3>
+      {% if page.date %}
+      <!--
+      <h3 class="content-subhead post-no-top-margin">
+        <info datetime="{{ page.date }}">
+          {{ page.date | date_to_string }}
+        </info>
+      </h3>
+      {% endif %}
       -->
-</div>
+      <!-- Post content -->
+      <div class="post-content">
+        {{ content }}
+      </div>
+      <!-- Post info -->
+      <div>
+        <!-- Categories-->
+        <p>
+        <i class="fa fa-tags" aria-hidden="true"></i>
+        {% unless page.categories == empty %}
+          {% for category in page.categories %} 
+            <a href="/showcase/categories#{{ category }}-ref">
+              {{ category | join: "/" }} ({{ site.categories[category].size }}){% unless forloop.last %},{% endunless %}
+            </a>
+          {% endfor %}
+        {% endunless %}
+        </p>
+
+        <!-- 
+        <p>
+        <i class="" aria-hidden="true"></i>
+        {% unless page.tags == empty %}
+          {% for tag in page.tags %} 
+            <a href="/notes/tags#{{ tag }}-ref">
+            {{ tag }} ({{ site.tags[tag].size }}){% unless forloop.last %},{% endunless %}
+            </a>
+          {% endfor %}
+        {% endunless %}
+        </p>
+        -->
+      </div>
+    </div>
+  </div>
+</main>

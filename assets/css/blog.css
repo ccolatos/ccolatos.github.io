@@ -19,11 +19,11 @@
 
 a {
   text-decoration: none;
-  color: rgb(61, 146, 201);
+  color: black;
 }
 a:hover,
 a:focus {
-  text-decoration: underline;
+  text-decoration: none;
 }
 
 h3 {
@@ -59,7 +59,7 @@ p.post-caption {
 }
 
 .sidebar {
-  background: rgb(61, 79, 93);
+  /*background: rgb(61, 79, 93);*/
   color: #fff;
 }
 
@@ -72,7 +72,7 @@ p.post-caption {
 }
 .brand-tagline {
   font-weight: 300;
-  color: rgb(176, 202, 219);
+  /*color: rgb(176, 202, 219);*/
 }
 
 .nav-list {
@@ -87,7 +87,7 @@ p.post-caption {
 }
 .nav-item a {
   background: transparent;
-  border: 2px solid rgb(176, 202, 219);
+  /*border: 2px solid rgb(176, 202, 219);*/
   color: #fff;
   margin-top: 1em;
   letter-spacing: 0.05em;
@@ -96,7 +96,7 @@ p.post-caption {
 }
 .nav-item a:hover,
 .nav-item a:focus {
-  border: 2px solid rgb(61, 146, 201);
+  /*border: 2px solid rgb(61, 146, 201);*/
   text-decoration: none;
 }
 
@@ -121,7 +121,7 @@ p.post-caption {
 }
 .post-title {
   font-size: 2em;
-  color: rgb(61, 146, 201);
+  color: black;
   margin-bottom: 0.2em;
 }
 
@@ -129,11 +129,15 @@ p.post-caption {
   color: black;
 }
 
+.post-content p {
+  color: black;
+}
 
 .post-no-top-margin {
   margin-top: 0em;
 }
 .post-subheader {
+  font-style: italic;
   margin-bottom: 0.2em;
 }
 .post-avatar {
@@ -225,7 +229,7 @@ p.post-caption {
 }
 
 .tabordion input[name="sections"]:checked + label { 
-  background: #4d85d1;
+  background: black;
   color: white;
 }
 
@@ -239,6 +243,10 @@ ul.posts-list {
 
 ul.posts-list > li {
   list-style: none;
+}
+
+ul.posts-list > li > a{
+  font-weight: bold;
 }
 
 .footer {
