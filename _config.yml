@@ -1,9 +1,9 @@
 name: Chris Colatos
 markdown: kramdown
-permalink: /showcase/:title
+permalink: /works/:title
 
 paginate: 10
-paginate_path: "/showcase/page:num/"
+paginate_path: "/works/page:num/"
 
 gems:
   - jekyll-sitemap
