@@ -41,7 +41,7 @@ css: ['/assets/css/main.css', '/assets/css/blog.css']
         <i class="fa fa-tags" aria-hidden="true"></i>
         {% unless page.categories == empty %}
           {% for category in page.categories %} 
-            <a href="/showcase/categories#{{ category }}-ref">
+            <a href="/works/categories#{{ category }}-ref">
               {{ category | join: "/" }} ({{ site.categories[category].size }}){% unless forloop.last %},{% endunless %}
             </a>
           {% endfor %}
