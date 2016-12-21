@@ -21,13 +21,13 @@ css: ['/assets/css/main.css', '/assets/css/blog.css']
           <img class="pure-img-responsive" src="/media/pictures/{{ page.picture }}">
         {% endif %}
         {% if page.audio %}
-          <audio controls autoplay>
+          <audio controls="controls" preload="auto">
             <source src="{{ page.audio }}">
             <p>Please update your browser to listen to Audio.</p>
           </audio>
         {% endif %}
         {% if page.video %}
-          <video controls autoplay>
+          <video controls="controls" preload="auto">
             <source src="{{ page.video }}">
             <p>Please update your browser to watch Video.</p>
           </video>
