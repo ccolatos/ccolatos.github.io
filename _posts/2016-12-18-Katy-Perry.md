@@ -5,5 +5,5 @@ caption: algorithmically produced composition, Vogue Italia
 description: 
 categories: [Teacher]
 image: Katy-Perry-thumbnail.png
-video: KATYPERRY_VOGUEIT.mov
+video: https://www.dropbox.com/sh/mnxu7mqmqbhojzu/AABqYj4NzhNxLqJAmvfRGaJka/KATYPERRY_VOGUEIT.mov?dl=1
 ---
