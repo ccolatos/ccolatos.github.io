@@ -1,7 +1,7 @@
 ---
 layout: post
 title: Trilement
-caption: Game Development, Audio Design and Implementation by Jason Martinez, Aryien Shapiro, Sam Bussard
+caption: Audio Design and Implementation by Jason Martinez, Aryien Shapiro, Sam Bussard
 description: 
 categories: [Student Work]
 image: trilement.png
