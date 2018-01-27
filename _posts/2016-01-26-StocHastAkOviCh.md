@@ -5,5 +5,5 @@ caption: A programmable sequencer application developed in Logic’s graphical M
 description: 
 categories: [Chris Colatos]
 image: colatos.png
-video: https://www.dropbox.com/s/36yvpt0xbkank3d/colatos_logic_step_sequencer.zip?dl=0
+video: https://www.dropbox.com/s/36yvpt0xbkank3d/colatos_logic_step_sequencer.zip?dl=1
 ---
