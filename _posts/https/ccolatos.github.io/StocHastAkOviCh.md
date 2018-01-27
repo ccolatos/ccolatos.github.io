@@ -5,5 +5,5 @@ caption: Programmable sequencer developed in Logic Pro’s MIDI environment. Pro
 description: DOWNLOAD HERE: https://ccolatos.github.io/colatos_logic_step_sequencer.zip
 categories: [Chris Colatos]
 image: colatos.png
-video: https://ccolatos.github.io/colatos_logic_step_sequencer.zip
+video:
 ---
