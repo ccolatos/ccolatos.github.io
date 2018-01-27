@@ -1,7 +1,7 @@
 ---
 layout: post
 title: St0cHastAk0v1Ch
-caption: Programmable sequencer developed in Logic’s Environment. Probability distribution autocomposer functionality with Shostakovich homage-scale constraint. Controls for independent and global pitch and velocity, independent and vector nonlinear pitch and modulation, independent and global note on/off, and quick-drum sequencer. Video features Mike Keneally on guitar. <a href="https://ccolatos.github.io/colatos_logic_step_sequencer.zip">CLICK <font color="red">HERE</font> TO DOWNLOAD THE SEQUENCER</a> 
+caption: Programmable sequencer developed in Logic’s Environment. Video features Mike Keneally on guitar. <a href="https://ccolatos.github.io/colatos_logic_step_sequencer.zip">CLICK <font color="red">HERE</font> TO DOWNLOAD THE SEQUENCER</a> 
 description: 
 categories: [Chris Colatos]
 image: colatos.png
