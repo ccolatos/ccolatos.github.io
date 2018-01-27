@@ -5,5 +5,4 @@ caption: Programmable sequencer developed in Logic’s graphical MIDI environmen
 description: https://ccolatos.github.io/colatos_logic_step_sequencer.zip
 categories: [Chris Colatos]
 image: colatos.png
-video:
 ---
