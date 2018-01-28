@@ -1,7 +1,7 @@
 ---
 layout: post
 title: Katy Perry
-caption: Algorithmically Produced Composition by Chris Colatos for Katy Perry and Vogue
+caption: Algorithmically Produced Composition for Katy Perry and Vogue by Chris Colatos 
 description: 
 categories: [Chris Colatos]
 image: Katy-Perry-thumbnail.png
