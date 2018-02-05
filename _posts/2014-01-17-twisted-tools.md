@@ -1,7 +1,7 @@
 ---
 layout: post
 title: Twisted Tools
-caption: Sound Design
+caption: Sound Design for TT Instruments
 description: 
 categories: [Chris Colatos]
 image: ultraloop.png
