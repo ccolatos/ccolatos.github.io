@@ -1,7 +1,7 @@
 ---
 layout: post
 title: Twisted Tools
-caption: Sound Design for TT Instruments
+caption: Drum Programming, Sound Design and Composition for Twisted Tools Instruments
 description: 
 categories: [Chris Colatos]
 image: ultraloop.png
