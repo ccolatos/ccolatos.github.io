@@ -1,7 +1,7 @@
 ---
 layout: post
 title: Armed Control 
-caption: Live Motion Tracking Visualizations for Musical Performance by Anthony Buich
+caption: Live Motion Tracking Generated Visualizations for Musical Performance by Anthony Buich
 description: 
 categories: [Student Work]
 image: AB.png
