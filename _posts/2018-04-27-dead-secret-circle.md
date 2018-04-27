@@ -1,7 +1,7 @@
 ---
 layout: post
 title: Dead Secret Circle
-caption: Audio, multiplatform/VR game, Recording Engineer, Sound Designer, VO Editor, Dialog processing / mastering
+caption: Multiplatform/VR, Recording Engineer, Sound Designer, VO Editor, Dialog Processing / Mastering
 description: 
 categories: [Chris Colatos]
 image: DSC.png
