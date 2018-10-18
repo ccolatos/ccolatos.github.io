@@ -5,5 +5,5 @@ caption: Interactive Soundscape Installation by William Sammons
 description: 
 categories: [Student Work]
 image: WS.png
-video: https://www.dropbox.com/s/k54xwtio921fer6/Sammons.mov?dl=1
+video: https://www.dropbox.com/s/052lun4iugive7i/Sammons.mov?dl=0
 ---
