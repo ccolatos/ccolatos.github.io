@@ -5,5 +5,5 @@ caption: Programmable and autocomposing step sequencer developed in Logic’s MI
 description: 
 categories: [Chris Colatos]
 image: colatos.png
-video: https://www.dropbox.com/s/h4nk5477vf4shqp/St0cHastAk0v1Ch.mov?dl=0
+video: https://www.dropbox.com/s/h4nk5477vf4shqp/St0cHastAk0v1Ch.mov?dl=1
 ---
