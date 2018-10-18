@@ -5,5 +5,5 @@ caption: Complete Audio Design - Sound Design, Original Music, String Quartet Co
 description: 
 categories: [Student Work]
 image: trilement.png
-video: https://www.dropbox.com/s/qqo2hylhid1mpmi/Trilement.mov?dl=1
+video: https://www.dropbox.com/s/xgkfh2w77vpafud/Trilement.mov?dl=0
 ---
