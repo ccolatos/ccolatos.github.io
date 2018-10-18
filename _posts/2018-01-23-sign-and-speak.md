@@ -5,5 +5,5 @@ caption: Interactive Flex Sensor Glove and Software by Jeff Andrews and Michael 
 description: 
 categories: [Student Work]
 image: SS.png
-video: https://www.dropbox.com/s/l6d8kteyk7b71q3/Sign_And_Speak.mp4?dl=1
+video: https://www.dropbox.com/s/pt7zksprgcb66m0/Sign_And_Speak.mp4?dl=0
 ---
