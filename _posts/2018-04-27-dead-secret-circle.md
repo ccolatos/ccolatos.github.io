@@ -5,5 +5,5 @@ caption: Multiplatform/VR, Recording Engineer, Sound Designer, VO Editor, Dialog
 description: 
 categories: [Chris Colatos]
 image: DSC.png
-video: https://www.dropbox.com/s/2abbheows2dwjvi/Dead_Secret_Circle.mp4?dl=1
+video: https://www.dropbox.com/s/wthjeaiqoi9w7id/Dead_Secret_Circle.mp4?dl=0
 ---
