@@ -5,5 +5,5 @@ caption: Drum Programming, Sound Design and Composition for Twisted Tools Instru
 description: 
 categories: [Chris Colatos]
 image: twistedtools.png
-video: https://youtu.be/CeXzzuANd04
+video: https://drive.google.com/file/d/1AO00uStISumERUjQNxuXm9zMZbhDrmtM/view?usp=share_link
 ---
