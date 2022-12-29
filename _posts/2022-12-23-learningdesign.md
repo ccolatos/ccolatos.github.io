@@ -1,6 +1,6 @@
 ---
 layout: post
-title: Learning Design
+title: Active Learning Design
 caption: Designed and developed creative arts higher education teaching and active learning applications in multiple modalities for 7 North American campuses.
 description: 
 categories: [Chris Colatos]
