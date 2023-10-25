@@ -1,7 +1,7 @@
 ---
 layout: post
 title: Sign And Speak
-caption: Student project — Sign And Speak is a prototype accessibility tool that converts American Sign Language into spoken word. Creators — Jeff Andrews, Michael Carter
+caption: Interactive Audio student project — Sign And Speak is a prototype accessibility tool that converts American Sign Language into spoken word. Creators — Jeff Andrews, Michael Carter
 description:
 categories: [Student Work]
 image: signandspeak.png
