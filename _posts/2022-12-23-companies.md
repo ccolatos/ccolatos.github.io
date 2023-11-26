@@ -5,5 +5,5 @@ caption: Producer, Engineer, Music Supervisor, Songwriter, Arranger, and Perform
 description: 
 categories: [Chris Colatos]
 image: companies.png
-video: companies.png
+video:
 ---
