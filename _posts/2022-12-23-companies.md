@@ -1,6 +1,6 @@
 ---
 layout: post
-title: Clientele
+title: Companies
 caption: Producer, Engineer, Music Supervisor, Songwriter, Arranger, and Performer
 description: 
 categories: [Chris Colatos]
