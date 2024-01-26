@@ -1,6 +1,6 @@
 ---
 layout: post
-title: Adaptive Learning Design Implications: Effects of Multimedia on Learning Efficacy and Cognitive Load
+title: Adaptive Learning Design Implications - Effects of Multimedia on Learning Efficacy and Cognitive Load
 caption: This research was conducted and authored by Chris Colatos as part of a collaborative project between The University of Edinburgh and Columbia University. The project was supervised by Professors Ryan S. Baker (Penn GSE) and Dragan Gašević (Monash University).
 description: 
 categories: [Chris Colatos]
