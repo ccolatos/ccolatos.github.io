@@ -1,7 +1,7 @@
 ---
 layout: post
-title: Interactive Audio Program Student Work
-caption: Ex'pression College Interactive Audio Program Student Work. <a href="https://www.youtube.com/playlist?list=PLWlNASqHqsTRNxV-LfhrfwfSeB7emwE8C" target="_blank"> CLICK <font color="red">HERE</font> TO SEE A FEW PROJECTS</a>
+title: Interactive Audio Student Work
+caption: Ex'pression College Interactive Audio BSc Program Student Work. <a href="https://www.youtube.com/playlist?list=PLWlNASqHqsTRNxV-LfhrfwfSeB7emwE8C" target="_blank"> CLICK <font color="red">HERE</font> TO SEE A FEW PROJECTS</a>
 description:
 categories: [Student Work]
 image: IA.png
