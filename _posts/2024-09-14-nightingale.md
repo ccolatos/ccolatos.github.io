@@ -1,7 +1,7 @@
 ---
 layout: post
 title: Nightingale
-caption: Inspired by my favorite instrument, the windchime, Nightingale is a sonification of Plato's dialog Phaedrus. Sound and musical traits algorithmically represent words.
+caption: Inspired by the ethereal tones of wind chimes, Nightingale is an algorithmic sonification of Plato's Phaedrus, transforming dialogue into sound and musical traits.
 description:
 categories: [Chris Colatos]
 image: phaedrus.png
