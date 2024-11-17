@@ -1,7 +1,7 @@
 ---
 layout: post
 title: Modigliani Bridge
-caption: 
+caption: Bridge section showcasing composition and performance.
 description:
 categories: [Chris Colatos]
 image: modigliani.png
