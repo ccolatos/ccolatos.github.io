@@ -20,8 +20,6 @@ caption: Interactive Audio student project — Sign And Speak is a prototype acc
 <p>#AccessibilityTech</p>
 <p>#TangibleInterfaces</p>
 <p>#DataMapping</p>
-
-
 description:
 categories: [Student Work]
 image: signandspeak.png
