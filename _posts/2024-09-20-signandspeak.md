@@ -1,7 +1,7 @@
 ---
 layout: post
 title: Sign And Speak
-caption: "Interactive Audio student project — Sign And Speak is a prototype accessibility tool that converts American Sign Language into spoken word. Creators — Jeff Andrews, Michael Carter
+caption: "Interactive Audio student project — Sign And Speak is a prototype accessibility tool that converts American Sign Language into spoken word. Creators — Jeff Andrews, Michael Carter |
 #AlgorithmicProcessing #GestureRecognition #AssistiveTech #HCI #RealTimeProcessing #DigitalSignalProcessing #MaxMSP #CreativeCoding #InteractiveAudio #ComputationalLinguistics #SensorFusion #WearableTech #Arduino #EmbeddedSystems #HumanCenteredDesign #AccessibilityTech #TangibleInterfaces #DataMapping"
 description:
 categories: [Student Work]
