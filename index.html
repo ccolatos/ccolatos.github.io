@@ -314,17 +314,18 @@
   function initAudio() {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-    // iOS audio session unlock: play a real tone directly to destination
-    // iOS Safari requires actual audio signal flowing to destination from a user gesture
-    // Silent buffers and muted audio elements don't count
-    var unlockOsc = audioCtx.createOscillator();
-    var unlockGain = audioCtx.createGain();
-    unlockOsc.connect(unlockGain);
-    unlockGain.connect(audioCtx.destination);
-    unlockGain.gain.setValueAtTime(0.001, audioCtx.currentTime); // barely perceptible
-    unlockGain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.5);
-    unlockOsc.start(audioCtx.currentTime);
-    unlockOsc.stop(audioCtx.currentTime + 0.5);
+    // iOS audio session keepalive: a permanent 1Hz oscillator at near-zero gain
+    // connected directly to destination, bypassing the master gain chain.
+    // This prevents iOS from deciding the context is idle and suspending it.
+    // 1Hz is below human hearing, and 0.001 gain makes it imperceptible,
+    // but iOS sees continuous audio output and keeps the session alive.
+    var keepaliveOsc = audioCtx.createOscillator();
+    var keepaliveGain = audioCtx.createGain();
+    keepaliveOsc.frequency.value = 1;
+    keepaliveGain.gain.value = 0.001;
+    keepaliveOsc.connect(keepaliveGain);
+    keepaliveGain.connect(audioCtx.destination);
+    keepaliveOsc.start();
     audioCtx.resume();
 
     analyser = audioCtx.createAnalyser();
