@@ -138,7 +138,6 @@
   </style>
 </head>
 <body>
-
   <nav id="mainNav">
     <a href="#" class="nav-mark">Chris Colatos</a>
     <div class="nav-right">
@@ -154,7 +153,6 @@
       <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation"><span></span><span></span></button>
     </div>
   </nav>
-
   <section class="hero" id="top">
     <canvas id="heroCanvas"></canvas>
     <div class="hero-content">
@@ -166,7 +164,6 @@
     <div class="hero-audio-hint" id="audioHint" onclick="document.getElementById('audioToggle').click()">Click to activate generative audio</div>
     <div class="hero-scroll"><div class="hero-scroll-line"></div></div>
   </section>
-
   <section id="bio"><div class="section-inner">
     <div class="section-label reveal">Biography</div>
     <div class="bio-grid">
@@ -188,7 +185,6 @@
       </div>
     </div>
   </div></section>
-
   <section id="teaching"><div class="section-inner">
     <div class="section-label reveal">Teaching &amp; Learning</div>
     <h2 class="section-heading reveal">Philosophy</h2>
@@ -201,7 +197,6 @@
       <div class="accordion-item"><button class="accordion-trigger" aria-expanded="false"><span>Commitment</span><span class="icon">+</span></button><div class="accordion-panel"><div class="accordion-panel-inner">My enthusiasm and dedication to teaching and learning continue to grow, and I hope my work benefits learners and connects them with their passion and lifelong learning. It is an honor and a commitment that I undertake with seriousness and gratitude that I am able to support learners in their academic and professional endeavors.</div></div></div>
     </div></div>
   </div></section>
-
   <section id="works"><div class="section-inner">
     <div class="section-label reveal">Selected Works</div>
     <h2 class="section-heading reveal">Portfolio</h2>
@@ -226,7 +221,6 @@
       <div class="work-entry reveal"><div class="work-entry-image" data-embed="sc:1956804363"><img src="media/pictures/modigliani.png" alt="Modigliani Bridge" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">Modigliani Bridge</div><div class="work-entry-caption">Bridge section showcasing algorithmically produced composition</div><span class="work-entry-category">Chris Colatos</span></div></div>
     </div>
   </div></section>
-
   <section id="contact"><div class="section-inner reveal">
     <h2 class="contact-heading">Get in Touch</h2>
     <p class="contact-sub">Learning Leadership &nbsp;|&nbsp; Creative Innovation</p>
@@ -235,41 +229,64 @@
       <a href="https://www.linkedin.com/in/ColatosChris" class="contact-link" target="_blank"><svg viewBox="0 0 24 24"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.79M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z"/></svg>LinkedIn</a>
     </div>
   </div></section>
-
   <footer>&copy; 2026 &nbsp; Chris Colatos &nbsp;&middot;&nbsp; Learning Leadership | Creative Innovation</footer>
-
   <div class="modal-overlay" id="modal"><button class="modal-close" id="modalClose">&times;</button><div class="modal-content" id="modalContent"></div></div>
-
 <script>
 (function() {
   'use strict';
-
   var canvas = document.getElementById('heroCanvas');
   var ctx = canvas.getContext('2d');
   var w, h, mouseX = 0.5, mouseY = 0.5, tgtX = 0.5, tgtY = 0.5;
-  var time = 0;
+  var time = 0, audioActive = false, audioCtx = null, analyser = null, masterGain = null;
   var isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-  var hasGyro = false;
-  var autoLFOPhase = Math.random() * Math.PI * 2;
-  var lastInputTime = performance.now();
+  var lastInputTime = performance.now(), autoLFOPhase = Math.random() * Math.PI * 2;
   var particles = [], NUM_P = 40;
-  var audioCtx = null, analyser = null, masterGain = null, audioActive = false;
   var fmCarrier, fmMod, fmModGain, fmCarrierGain;
   var fmCarrier2, fmMod2, fmModGain2, fmCarrierGain2;
-  var subOsc, subGain;
-  var shimmerOscs = [], shimmerGains = [];
+  var subOsc, subGain, shimmerOscs = [], shimmerGains = [];
   var noiseBuffer, freqData, timeData;
-  var stochasticEvents = [], stochasticTimer = null;
   var PHI = (1 + Math.sqrt(5)) / 2;
   var scrollDepth = 0;
 
+  // Sequencer state: 4 rows x 16 steps, each cell = probability (0, .25, .5, .75, 1)
+  var SEQ_ROWS = 4, SEQ_STEPS = 16;
+  var rowLabels = ['KICK', 'LOW', 'MID', 'HI'];
+  var grid = [];
+  for (var r = 0; r < SEQ_ROWS; r++) {
+    grid[r] = [];
+    for (var s = 0; s < SEQ_STEPS; s++) grid[r][s] = 0;
+  }
+  // Seed an interesting default pattern
+  var seedPattern = [
+    [1,.0,.0,.0, .5,.0,.0,.25, 1,.0,.0,.0, .5,.0,.25,.0],
+    [.0,.0,.75,.0, .0,.0,.5,.0, .0,.25,.0,.0, .75,.0,.0,.5],
+    [.5,.0,.0,.5, .0,.25,.0,.0, .5,.0,.0,.75, .0,.0,.5,.0],
+    [.0,.5,.0,.0, .25,.0,.75,.0, .0,.5,.0,.25, .0,.75,.0,.0]
+  ];
+  for (var r = 0; r < SEQ_ROWS; r++)
+    for (var s = 0; s < SEQ_STEPS; s++) grid[r][s] = seedPattern[r][s];
+
+  var currentStep = 0, lastStepTime = 0;
+  var stepFlash = []; // tracks flash intensity per cell
+  for (var r = 0; r < SEQ_ROWS; r++) { stepFlash[r] = []; for (var s = 0; s < SEQ_STEPS; s++) stepFlash[r][s] = 0; }
+
+  // Grid layout (calculated on resize)
+  var gridX, gridY, gridW, gridH, cellW, cellH;
+  function calcGrid() {
+    gridW = Math.min(w * 0.8, 900);
+    gridH = Math.min(h * 0.22, 160);
+    gridX = (w - gridW) / 2;
+    gridY = h * 0.72 - gridH / 2;
+    cellW = gridW / SEQ_STEPS;
+    cellH = gridH / SEQ_ROWS;
+  }
+
   function resize() {
-    w = canvas.width = window.innerWidth;
-    h = canvas.height = window.innerHeight;
+    w = canvas.width = window.innerWidth; h = canvas.height = window.innerHeight;
+    calcGrid();
     particles = [];
-    for (var i = 0; i < NUM_P; i++) {
+    for (var i = 0; i < NUM_P; i++)
       particles.push({ x: Math.random() * w, y: Math.random() * h, vx: (Math.random() - 0.5) * 0.2, vy: (Math.random() - 0.5) * 0.2, size: Math.random() * 1.2 + 0.3, alpha: Math.random() * 0.08 + 0.02 });
-    }
   }
   resize();
   window.addEventListener('resize', resize);
@@ -277,23 +294,48 @@
     var docH = document.documentElement.scrollHeight - window.innerHeight;
     scrollDepth = docH > 0 ? Math.min(window.scrollY / docH, 1) : 0;
   });
-  document.addEventListener('mousemove', function(e) { tgtX = e.clientX / w; tgtY = e.clientY / h; lastInputTime = performance.now(); });
-  document.addEventListener('touchmove', function(e) {
-    if (e.touches.length) { tgtX = e.touches[0].clientX / w; tgtY = e.touches[0].clientY / h; lastInputTime = performance.now(); }
-  }, { passive: true });
-  document.addEventListener('touchstart', function(e) {
-    if (e.touches.length) { tgtX = e.touches[0].clientX / w; tgtY = e.touches[0].clientY / h; lastInputTime = performance.now(); }
-  }, { passive: true });
 
-  // Gyroscope for mobile
+  // Input: mouse
+  document.addEventListener('mousemove', function(e) { tgtX = e.clientX / w; tgtY = e.clientY / h; lastInputTime = performance.now(); });
+  // Input: touch
+  function handleTouch(e) {
+    if (e.touches.length) { tgtX = e.touches[0].clientX / w; tgtY = e.touches[0].clientY / h; lastInputTime = performance.now(); }
+  }
+  document.addEventListener('touchmove', handleTouch, { passive: true });
+  document.addEventListener('touchstart', handleTouch, { passive: true });
+
+  // Grid click/tap detection
+  function gridHitTest(px, py) {
+    if (!audioActive) return null;
+    if (px < gridX || px > gridX + gridW || py < gridY || py > gridY + gridH) return null;
+    var col = Math.floor((px - gridX) / cellW);
+    var row = Math.floor((py - gridY) / cellH);
+    if (col < 0 || col >= SEQ_STEPS || row < 0 || row >= SEQ_ROWS) return null;
+    return { row: row, col: col };
+  }
+  function cycleCell(row, col) {
+    var states = [0, 0.25, 0.5, 0.75, 1];
+    var idx = states.indexOf(grid[row][col]);
+    grid[row][col] = states[(idx + 1) % states.length];
+  }
+  canvas.addEventListener('click', function(e) {
+    var rect = canvas.getBoundingClientRect();
+    var hit = gridHitTest(e.clientX - rect.left, e.clientY - rect.top);
+    if (hit) { cycleCell(hit.row, hit.col); e.stopPropagation(); }
+  });
+  canvas.addEventListener('touchend', function(e) {
+    if (!e.changedTouches.length) return;
+    var rect = canvas.getBoundingClientRect();
+    var t = e.changedTouches[0];
+    var hit = gridHitTest(t.clientX - rect.left, t.clientY - rect.top);
+    if (hit) { cycleCell(hit.row, hit.col); e.preventDefault(); }
+  }, { passive: false });
+
+  // Gyro
   function initGyro() {
     if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-      DeviceOrientationEvent.requestPermission().then(function(state) {
-        if (state === 'granted') { bindGyro(); hasGyro = true; }
-      }).catch(function() {});
-    } else if ('DeviceOrientationEvent' in window) {
-      bindGyro(); hasGyro = true;
-    }
+      DeviceOrientationEvent.requestPermission().then(function(s) { if (s === 'granted') bindGyro(); }).catch(function() {});
+    } else if ('DeviceOrientationEvent' in window) { bindGyro(); }
   }
   function bindGyro() {
     window.addEventListener('deviceorientation', function(e) {
@@ -304,7 +346,6 @@
     }, { passive: true });
   }
 
-  // Autonomous drift: very slow, only after 30 seconds of no input
   function getAutoDrift() {
     var t = performance.now() / 1000;
     return {
@@ -316,68 +357,53 @@
   // ===== AUDIO =====
   function initAudio() {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
     audioCtx.resume();
-    audioCtx.resume();
+    analyser = audioCtx.createAnalyser(); analyser.fftSize = 2048; analyser.smoothingTimeConstant = 0.75;
+    freqData = new Uint8Array(analyser.frequencyBinCount); timeData = new Uint8Array(analyser.fftSize);
+    var comp = audioCtx.createDynamicsCompressor(); comp.threshold.value = -20; comp.knee.value = 10; comp.ratio.value = 6;
+    masterGain = audioCtx.createGain(); masterGain.gain.value = 0.001;
+    masterGain.connect(comp); comp.connect(analyser); analyser.connect(audioCtx.destination);
 
-    analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 2048;
-    analyser.smoothingTimeConstant = 0.75;
-    freqData = new Uint8Array(analyser.frequencyBinCount);
-    timeData = new Uint8Array(analyser.fftSize);
-
-    var comp = audioCtx.createDynamicsCompressor();
-    comp.threshold.value = -20; comp.knee.value = 10; comp.ratio.value = 6;
-
-    masterGain = audioCtx.createGain();
-    masterGain.gain.value = 0.001; // nonzero so iOS keeps audio session alive
-    masterGain.connect(comp);
-    comp.connect(analyser);
-    analyser.connect(audioCtx.destination);
-
+    // Noise buffer for percussion
     var bufSz = audioCtx.sampleRate;
     noiseBuffer = audioCtx.createBuffer(1, bufSz, audioCtx.sampleRate);
     var nd = noiseBuffer.getChannelData(0);
     for (var i = 0; i < bufSz; i++) nd[i] = Math.random() * 2 - 1;
 
-    // FM Voice 1 (Chowning: 1:phi ratio)
+    // FM Voice 1
     fmMod = audioCtx.createOscillator(); fmMod.type = 'sine'; fmMod.frequency.value = 55 * PHI;
     fmModGain = audioCtx.createGain(); fmModGain.gain.value = 30;
     fmCarrier = audioCtx.createOscillator(); fmCarrier.type = 'sine'; fmCarrier.frequency.value = 55;
-    fmCarrierGain = audioCtx.createGain(); fmCarrierGain.gain.value = 0.18;
+    fmCarrierGain = audioCtx.createGain(); fmCarrierGain.gain.value = 0.15;
     fmMod.connect(fmModGain); fmModGain.connect(fmCarrier.frequency);
     fmCarrier.connect(fmCarrierGain); fmCarrierGain.connect(masterGain);
     fmMod.start(); fmCarrier.start();
 
-    // FM Voice 2 (detuned, beating)
+    // FM Voice 2
     fmMod2 = audioCtx.createOscillator(); fmMod2.type = 'sine'; fmMod2.frequency.value = 55 * PHI * 1.004;
     fmModGain2 = audioCtx.createGain(); fmModGain2.gain.value = 25;
     fmCarrier2 = audioCtx.createOscillator(); fmCarrier2.type = 'sine'; fmCarrier2.frequency.value = 55.7;
-    fmCarrierGain2 = audioCtx.createGain(); fmCarrierGain2.gain.value = 0.13;
+    fmCarrierGain2 = audioCtx.createGain(); fmCarrierGain2.gain.value = 0.1;
     fmMod2.connect(fmModGain2); fmModGain2.connect(fmCarrier2.frequency);
     fmCarrier2.connect(fmCarrierGain2); fmCarrierGain2.connect(masterGain);
     fmMod2.start(); fmCarrier2.start();
 
     // Sub
     subOsc = audioCtx.createOscillator(); subOsc.type = 'sine'; subOsc.frequency.value = 27.5;
-    subGain = audioCtx.createGain(); subGain.gain.value = 0.1;
+    subGain = audioCtx.createGain(); subGain.gain.value = 0.08;
     subOsc.connect(subGain); subGain.connect(masterGain); subOsc.start();
 
-    // Risset shimmer
+    // Shimmer
     var harmonics = [1, 2, 3, 4, 5, 6, 7, 8];
     var drifts = [0, 0.17, -0.13, 0.23, -0.19, 0.29, -0.11, 0.07];
     for (var i = 0; i < harmonics.length; i++) {
       var o = audioCtx.createOscillator(); o.type = 'sine'; o.frequency.value = 110 * harmonics[i] + drifts[i];
-      var g = audioCtx.createGain(); g.gain.value = 0.012 / (i + 1);
+      var g = audioCtx.createGain(); g.gain.value = 0.008 / (i + 1);
       o.connect(g); g.connect(masterGain); o.start();
       shimmerOscs.push(o); shimmerGains.push(g);
     }
 
-    // iOS: route the full audio graph through an HTML <audio> element
-    // This is the definitive iOS Safari fix: Web Audio alone doesn't fully activate
-    // the iOS audio session, but an <audio> element with .play() from a user gesture does.
-    // We create a MediaStreamDestination, connect our analyser output to it,
-    // and play the resulting stream through a real <audio> tag.
+    // iOS: MediaStreamDestination
     if (isMobile && audioCtx.createMediaStreamDestination) {
       var msDest = audioCtx.createMediaStreamDestination();
       analyser.connect(msDest);
@@ -388,107 +414,110 @@
     }
   }
 
-  function updateAudioParams() {
-    if (!audioActive || !audioCtx) return;
-    var now = audioCtx.currentTime;
-    var sd = scrollDepth;
-    var scrollOctaveShift = 1.0 - sd * 0.3;
+  // Get current base frequency from mouseX
+  function getBaseFreq() {
     var scale = [55, 61.875, 68.75, 82.5, 91.667, 110, 123.75, 137.5, 165, 183.333, 220];
     var idx = mouseX * (scale.length - 1);
     var lo = Math.floor(idx), hi = Math.min(lo + 1, scale.length - 1);
-    var baseFreq = (scale[lo] + (scale[hi] - scale[lo]) * (idx - lo)) * scrollOctaveShift;
-    var modCeiling = 500 * (1 - sd * 0.6);
-    var modIdx = 8 + mouseY * mouseY * modCeiling;
+    return scale[lo] + (scale[hi] - scale[lo]) * (idx - lo);
+  }
+
+  // Get tempo from mouseY: top = 75 BPM, bottom = 155 BPM
+  function getStepInterval() {
+    var bpm = 75 + mouseY * 80;
+    return (60 / bpm / 4) * 1000; // 16th note interval in ms
+  }
+
+  function updateAudioParams() {
+    if (!audioActive || !audioCtx) return;
+    var now = audioCtx.currentTime;
+    var baseFreq = getBaseFreq();
+    var modIdx = 20 + mouseY * 80; // gentler modulation, tempo is the main Y control
 
     fmCarrier.frequency.linearRampToValueAtTime(baseFreq, now + 0.12);
     fmMod.frequency.linearRampToValueAtTime(baseFreq * PHI, now + 0.12);
     fmModGain.gain.linearRampToValueAtTime(modIdx, now + 0.12);
-    var fmVol = sd < 0.4 ? 0.18 : sd < 0.65 ? 0.18 - (sd - 0.4) * 0.4 : sd < 0.9 ? 0.08 + (sd - 0.65) * 0.16 : 0.12 - (sd - 0.9) * 0.8;
-    fmVol = Math.max(fmVol, 0.02);
-    fmCarrierGain.gain.linearRampToValueAtTime(fmVol, now + 0.3);
+    fmCarrierGain.gain.linearRampToValueAtTime(0.12, now + 0.3);
 
     fmCarrier2.frequency.linearRampToValueAtTime(baseFreq * 1.003, now + 0.12);
     fmMod2.frequency.linearRampToValueAtTime(baseFreq * PHI * 1.006, now + 0.12);
     fmModGain2.gain.linearRampToValueAtTime(modIdx * 0.85, now + 0.12);
-    fmCarrierGain2.gain.linearRampToValueAtTime(fmVol * 0.7, now + 0.3);
+    fmCarrierGain2.gain.linearRampToValueAtTime(0.08, now + 0.3);
 
     subOsc.frequency.linearRampToValueAtTime(baseFreq * 0.5, now + 0.2);
-    subGain.gain.linearRampToValueAtTime(0.1 + sd * 0.08, now + 0.3);
 
-    var shimmerMult = sd < 0.15 ? 0.5 + sd * 3 : sd < 0.65 ? 1.0 + (sd - 0.15) * 1.5 : 1.8 - (sd - 0.65) * 2;
-    shimmerMult = Math.max(shimmerMult, 0.3);
     var harmonics = [1, 2, 3, 4, 5, 6, 7, 8];
     var drifts = [0, 0.17, -0.13, 0.23, -0.19, 0.29, -0.11, 0.07];
     for (var i = 0; i < shimmerOscs.length; i++) {
       shimmerOscs[i].frequency.linearRampToValueAtTime(baseFreq * 2 * harmonics[i] + drifts[i], now + 0.3);
-      shimmerGains[i].gain.linearRampToValueAtTime((0.012 / (i + 1)) * shimmerMult, now + 0.3);
     }
-
-    var masterVol = sd > 0.9 ? 0.4 * (1 - (sd - 0.9) * 6) : 0.4;
-    masterGain.gain.linearRampToValueAtTime(Math.max(masterVol, 0.05), now + 0.5);
-
     requestAnimationFrame(updateAudioParams);
   }
 
-  // Stochastic percussion (Xenakis Poisson process)
-  function scheduleStochastic() {
-    if (!audioActive) return;
-    var scrollBoost = scrollDepth > 0.65 && scrollDepth < 0.9 ? 1 + (scrollDepth - 0.65) * 4 : 1;
-    var scrollDampen = scrollDepth > 0.9 ? Math.max(0.1, 1 - (scrollDepth - 0.9) * 8) : 1;
-    var rate = (0.3 + mouseX * mouseX * 14) * scrollBoost * scrollDampen;
-    var interval = Math.max(20, -Math.log(Math.random()) / rate * 1000);
-    stochasticTimer = setTimeout(function() { triggerPluck(); scheduleStochastic(); }, interval);
-  }
-
-  function triggerPluck() {
-    if (!audioCtx || !audioActive) return;
+  // Sequencer percussion triggers
+  function triggerKick(baseFreq) {
     var now = audioCtx.currentTime;
-    var scale = [55, 61.875, 68.75, 82.5, 91.667, 110, 123.75, 137.5, 165, 183.333, 220];
-    var idx = mouseX * (scale.length - 1);
-    var baseFreq = scale[Math.min(Math.floor(idx), scale.length - 1)];
-    var ratios = [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 16];
-    var freq = baseFreq * ratios[Math.floor(Math.random() * ratios.length)];
-    while (freq > 12000) freq *= 0.5;
-    while (freq < 30) freq *= 2;
-
-    var amp = 0.1 + Math.random() * 0.3;
-    var decay = 0.04 + Math.random() * 0.35;
-    var Q = 30 + Math.random() * 120;
-
+    var osc = audioCtx.createOscillator(); osc.type = 'sine';
+    osc.frequency.setValueAtTime(baseFreq * 2, now);
+    osc.frequency.exponentialRampToValueAtTime(baseFreq * 0.25, now + 0.12);
+    var g = audioCtx.createGain(); g.gain.setValueAtTime(0.4, now);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+    osc.connect(g); g.connect(masterGain); osc.start(now); osc.stop(now + 0.3);
+    // Add noise click
     var src = audioCtx.createBufferSource(); src.buffer = noiseBuffer;
-    var bp = audioCtx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = freq; bp.Q.value = Q;
-    var env = audioCtx.createGain();
-    env.gain.setValueAtTime(amp, now);
-    env.gain.exponentialRampToValueAtTime(0.0001, now + decay);
-    src.connect(bp); bp.connect(env); env.connect(masterGain);
-    src.start(now, Math.random() * 0.8, 0.05);
-    setTimeout(function() { try { src.disconnect(); bp.disconnect(); env.disconnect(); } catch(e) {} }, (decay + 0.3) * 1000);
-
-    stochasticEvents.push({ x: logFreqToX(freq), y: h * (0.2 + Math.random() * 0.55), birth: performance.now(), amp: amp });
+    var hp = audioCtx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 800;
+    var ng = audioCtx.createGain(); ng.gain.setValueAtTime(0.15, now); ng.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+    src.connect(hp); hp.connect(ng); ng.connect(masterGain); src.start(now, Math.random() * 0.5, 0.05);
   }
 
-  function logFreqToX(freq) {
-    return ((Math.log(freq) - Math.log(25)) / (Math.log(14000) - Math.log(25))) * w;
+  function triggerPluck(baseFreq, harmonicRatio, amp, decay) {
+    var now = audioCtx.currentTime;
+    var freq = baseFreq * harmonicRatio;
+    while (freq > 10000) freq *= 0.5;
+    var src = audioCtx.createBufferSource(); src.buffer = noiseBuffer;
+    var bp = audioCtx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = freq;
+    bp.Q.value = 40 + Math.random() * 80;
+    var g = audioCtx.createGain(); g.gain.setValueAtTime(amp, now);
+    g.gain.exponentialRampToValueAtTime(0.001, now + decay);
+    src.connect(bp); bp.connect(g); g.connect(masterGain);
+    src.start(now, Math.random() * 0.8, 0.05);
+  }
+
+  function advanceSequencer() {
+    if (!audioActive) return;
+    var now = performance.now();
+    var interval = getStepInterval();
+    if (now - lastStepTime < interval) return;
+    lastStepTime = now;
+
+    var baseFreq = getBaseFreq();
+    for (var r = 0; r < SEQ_ROWS; r++) {
+      var prob = grid[r][currentStep];
+      if (prob > 0 && Math.random() < prob) {
+        stepFlash[r][currentStep] = 1;
+        if (r === 0) triggerKick(baseFreq);
+        else if (r === 1) triggerPluck(baseFreq, 1, 0.25, 0.2 + Math.random() * 0.15);
+        else if (r === 2) triggerPluck(baseFreq, 3, 0.18, 0.12 + Math.random() * 0.1);
+        else triggerPluck(baseFreq, 7, 0.14, 0.08 + Math.random() * 0.08);
+      }
+    }
+    currentStep = (currentStep + 1) % SEQ_STEPS;
   }
 
   // ===== DRAW =====
   function draw() {
     time += 0.005;
-    mouseX += (tgtX - mouseX) * 0.04;
-    mouseY += (tgtY - mouseY) * 0.04;
-
-    // Autonomous drift: only after 30 seconds idle, blends gently
+    mouseX += (tgtX - mouseX) * 0.04; mouseY += (tgtY - mouseY) * 0.04;
     if (audioActive) {
       var inputAge = performance.now() - lastInputTime;
       if (inputAge > 30000) {
         var drift = getAutoDrift();
-        var driftWeight = Math.min(1, (inputAge - 30000) / 10000) * 0.5;
-        mouseX = mouseX * (1 - driftWeight) + drift.x * driftWeight;
-        mouseY = mouseY * (1 - driftWeight) + drift.y * driftWeight;
+        var dw = Math.min(1, (inputAge - 30000) / 10000) * 0.5;
+        mouseX = mouseX * (1 - dw) + drift.x * dw; mouseY = mouseY * (1 - dw) + drift.y * dw;
       }
+      advanceSequencer();
     }
-
-    if (audioActive && analyser) { drawActiveMode(); } else { drawQuietMode(); }
+    if (audioActive && analyser) drawActiveMode(); else drawQuietMode();
     requestAnimationFrame(draw);
   }
 
@@ -515,43 +544,98 @@
   }
 
   function drawActiveMode() {
-    ctx.fillStyle = 'rgba(10, 10, 10, 0.14)';
-    ctx.fillRect(0, 0, w, h);
-    analyser.getByteFrequencyData(freqData);
-    analyser.getByteTimeDomainData(timeData);
+    ctx.fillStyle = 'rgba(10, 10, 10, 0.18)'; ctx.fillRect(0, 0, w, h);
+    analyser.getByteFrequencyData(freqData); analyser.getByteTimeDomainData(timeData);
     var binCount = analyser.frequencyBinCount, nyquist = audioCtx.sampleRate / 2;
 
-    // Spectral bars
-    var numBars = 160, logMin = Math.log(25), logMax = Math.log(nyquist);
+    // Spectral bars (bottom)
+    var numBars = 120, logMin = Math.log(25), logMax = Math.log(nyquist);
     for (var i = 0; i < numBars; i++) {
       var freq = Math.exp(logMin + (i / numBars) * (logMax - logMin));
       var bin = Math.round(freq / nyquist * binCount); if (bin >= binCount) bin = binCount - 1;
-      var val = freqData[bin] / 255; if (val < 0.01) continue;
-      var x = (i / numBars) * w, barW = w / numBars, barH = val * h * 0.55;
-      ctx.fillStyle = 'rgba(' + Math.round(196 + val * 59) + ',' + Math.round(168 + val * 76) + ',' + Math.round(130 + val * 110) + ',' + (val * 0.35) + ')';
+      var val = freqData[bin] / 255; if (val < 0.02) continue;
+      var x = (i / numBars) * w, barW = w / numBars, barH = val * h * 0.35;
+      ctx.fillStyle = 'rgba(' + Math.round(196 + val * 59) + ',' + Math.round(168 + val * 76) + ',' + Math.round(130 + val * 110) + ',' + (val * 0.25) + ')';
       ctx.fillRect(x, h - barH, barW - 0.5, barH);
     }
 
-    // Waveform oscilloscope
-    var sliceW = w / timeData.length, waveY = h * 0.38, waveAmp = h * 0.22;
+    // Waveform oscilloscope (upper area)
+    var sliceW = w / timeData.length, waveY = h * 0.28, waveAmp = h * 0.12;
     ctx.beginPath();
     for (var i = 0; i < timeData.length; i++) { var y = waveY + ((timeData[i] - 128) / 128) * waveAmp; i === 0 ? ctx.moveTo(0, y) : ctx.lineTo(i * sliceW, y); }
-    ctx.lineWidth = 10; ctx.strokeStyle = 'rgba(196,168,130,0.04)'; ctx.stroke();
-    ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(196,168,130,0.12)'; ctx.stroke();
-    ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(220,200,170,0.65)'; ctx.stroke();
+    ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(196,168,130,0.03)'; ctx.stroke();
+    ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(196,168,130,0.1)'; ctx.stroke();
+    ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(220,200,170,0.5)'; ctx.stroke();
 
-    // Stochastic event particles
-    var now = performance.now();
-    for (var i = stochasticEvents.length - 1; i >= 0; i--) {
-      var ev = stochasticEvents[i], age = (now - ev.birth) / 1000;
-      if (age > 2.5) { stochasticEvents.splice(i, 1); continue; }
-      var fade = Math.max(0, 1 - age / 2.5);
-      ctx.beginPath(); ctx.arc(ev.x, ev.y, age * 60, 0, Math.PI * 2);
-      ctx.strokeStyle = 'rgba(196,168,130,' + (fade * ev.amp * 2.5) + ')'; ctx.lineWidth = 0.8; ctx.stroke();
-      ctx.beginPath(); ctx.arc(ev.x, ev.y, age * 35, 0, Math.PI * 2);
-      ctx.strokeStyle = 'rgba(245,244,240,' + (fade * ev.amp * 1.5) + ')'; ctx.lineWidth = 0.5; ctx.stroke();
-      if (age < 0.1) { var ff = 1 - age / 0.1; ctx.beginPath(); ctx.arc(ev.x, ev.y, 4 * ff + 1, 0, Math.PI * 2); ctx.fillStyle = 'rgba(255,250,240,' + (ff * 0.9) + ')'; ctx.fill(); }
+    // ===== SEQUENCER GRID =====
+    calcGrid();
+    // Grid background
+    ctx.fillStyle = 'rgba(20, 20, 20, 0.6)';
+    ctx.fillRect(gridX - 1, gridY - 1, gridW + 2, gridH + 2);
+
+    // Draw cells
+    for (var r = 0; r < SEQ_ROWS; r++) {
+      for (var s = 0; s < SEQ_STEPS; s++) {
+        var cx = gridX + s * cellW, cy = gridY + r * cellH;
+        var prob = grid[r][s];
+        var flash = stepFlash[r][s];
+
+        // Cell background based on probability
+        if (prob > 0 || flash > 0) {
+          var baseAlpha = prob * 0.3;
+          var flashAlpha = flash * 0.7;
+          var totalAlpha = Math.min(1, baseAlpha + flashAlpha);
+          var rr = 196 + flash * 59, gg = 168 + flash * 82, bb = 130 + flash * 125;
+          ctx.fillStyle = 'rgba(' + Math.round(rr) + ',' + Math.round(gg) + ',' + Math.round(bb) + ',' + totalAlpha + ')';
+          ctx.fillRect(cx + 1, cy + 1, cellW - 2, cellH - 2);
+        }
+
+        // Cell border
+        ctx.strokeStyle = 'rgba(196,168,130,0.08)';
+        ctx.lineWidth = 0.5;
+        ctx.strokeRect(cx + 0.5, cy + 0.5, cellW - 1, cellH - 1);
+
+        // Probability dots
+        if (prob > 0 && flash < 0.3) {
+          var numDots = Math.round(prob * 4);
+          for (var d = 0; d < numDots; d++) {
+            var dotX = cx + cellW * 0.3 + d * (cellW * 0.12);
+            var dotY = cy + cellH * 0.5;
+            ctx.beginPath(); ctx.arc(dotX, dotY, 1.5, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(196,168,130,0.5)'; ctx.fill();
+          }
+        }
+
+        // Decay flash
+        if (flash > 0) stepFlash[r][s] = Math.max(0, flash - 0.06);
+      }
     }
+
+    // Row labels
+    ctx.font = '9px "DM Sans", sans-serif';
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    for (var r = 0; r < SEQ_ROWS; r++) {
+      ctx.fillStyle = 'rgba(196,168,130,0.3)';
+      ctx.fillText(rowLabels[r], gridX - 8, gridY + r * cellH + cellH / 2);
+    }
+
+    // Playhead
+    var phX = gridX + currentStep * cellW;
+    ctx.fillStyle = 'rgba(196,168,130,0.15)';
+    ctx.fillRect(phX, gridY, cellW, gridH);
+    // Playhead line
+    ctx.beginPath(); ctx.moveTo(phX, gridY); ctx.lineTo(phX, gridY + gridH);
+    ctx.strokeStyle = 'rgba(196,168,130,0.5)'; ctx.lineWidth = 1.5; ctx.stroke();
+
+    // Tempo indicator
+    var bpm = Math.round(75 + mouseY * 80);
+    ctx.font = '10px "DM Sans", sans-serif';
+    ctx.textAlign = 'left'; ctx.fillStyle = 'rgba(196,168,130,0.25)';
+    ctx.fillText(bpm + ' BPM', gridX, gridY + gridH + 16);
+
+    // Pitch indicator
+    ctx.textAlign = 'right';
+    ctx.fillText(Math.round(getBaseFreq()) + ' Hz', gridX + gridW, gridY + gridH + 16);
   }
 
   draw();
@@ -564,52 +648,25 @@
   audioToggle.addEventListener('click', function() {
     if (!audioActive) {
       if (!audioCtx) initAudio();
-      // Request gyro permission synchronously in the user gesture (iOS requirement)
-      if (isMobile) initGyro();
-      // Force resume and wait for it (critical for iOS)
+      if (isMobile) initGyro(); // sync in user gesture for iOS permission
       var startAudio = function() {
         masterGain.gain.cancelScheduledValues(audioCtx.currentTime);
         masterGain.gain.setValueAtTime(masterGain.gain.value || 0.001, audioCtx.currentTime);
         masterGain.gain.linearRampToValueAtTime(0.4, audioCtx.currentTime + 2);
-        audioActive = true;
-        audioToggle.classList.add('active');
-        audioHint.classList.add('hidden');
-        updateAudioParams();
-        scheduleStochastic();
-        ctx.clearRect(0, 0, w, h);
+        audioActive = true; lastStepTime = performance.now();
+        audioToggle.classList.add('active'); audioHint.classList.add('hidden');
+        updateAudioParams(); ctx.clearRect(0, 0, w, h);
       };
-      if (audioCtx.state === 'suspended') {
-        audioCtx.resume().then(startAudio);
-      } else {
-        startAudio();
-      }
+      if (audioCtx.state === 'suspended') { audioCtx.resume().then(startAudio); } else { startAudio(); }
     } else {
       masterGain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 1);
-      audioActive = false;
-      audioToggle.classList.remove('active');
-      if (stochasticTimer) clearTimeout(stochasticTimer);
-      stochasticEvents = [];
+      audioActive = false; audioToggle.classList.remove('active');
     }
   });
 
-  // iOS audio session watchdog: check every 500ms and force resume if suspended
-  setInterval(function() {
-    if (audioCtx && audioActive && audioCtx.state === 'suspended') {
-      audioCtx.resume();
-    }
-  }, 500);
-
-  // iOS audio session recovery on visibility/touch
-  document.addEventListener('visibilitychange', function() {
-    if (!document.hidden && audioCtx && audioActive && audioCtx.state === 'suspended') {
-      audioCtx.resume();
-    }
-  });
-  document.addEventListener('touchstart', function() {
-    if (audioCtx && audioActive && audioCtx.state === 'suspended') {
-      audioCtx.resume();
-    }
-  }, { passive: true });
+  // iOS watchdog
+  setInterval(function() { if (audioCtx && audioActive && audioCtx.state === 'suspended') audioCtx.resume(); }, 500);
+  document.addEventListener('visibilitychange', function() { if (!document.hidden && audioCtx && audioActive && audioCtx.state === 'suspended') audioCtx.resume(); });
 
   // Rotating words
   var words = ['Learning Experience Design','Higher Education Leadership','Digital Transformation','Curriculum Development','Sound Design','Algorithmic Composition','Interactive Media','Pedagogical Innovation','Audio Engineering','Digital Accessibility','Data-Driven Decision Making','Faculty Development','Creative Production','Intermedia Art','Competency-Based Education','Strategic Leadership','Instructional Design','Cross-Functional Collaboration','Music Production','eLearning Solutions','\u266C'];
@@ -638,7 +695,6 @@
 
   // Modal
   var modal = document.getElementById('modal'), modalContent = document.getElementById('modalContent'), modalClose = document.getElementById('modalClose');
-
   document.querySelectorAll('.work-entry-image').forEach(function(imgWrap) {
     imgWrap.style.cursor = 'pointer';
     imgWrap.addEventListener('click', function() {
@@ -648,50 +704,35 @@
       var c = entry.querySelector('.work-entry-caption').textContent;
       var imgSrc = this.querySelector('img').src;
       var html = '';
-
       if (embedData && embedData.indexOf('youtube.com') !== -1) {
-        // YouTube: show responsive embed, then title and caption below
         html += '<div class="modal-embed"><iframe src="' + embedData + '" title="' + t + '" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>';
         html += '<div class="modal-title" style="margin-top:1.5rem">' + t + '</div>';
         html += '<div class="modal-caption">' + c + '</div>';
       } else if (embedData && embedData.indexOf('sc:') === 0) {
-        // SoundCloud
         var trackId = embedData.replace('sc:', '');
         html += '<img class="modal-image" src="' + imgSrc + '" alt="' + t + '">';
-        html += '<div class="modal-title">' + t + '</div>';
-        html += '<div class="modal-caption">' + c + '</div>';
+        html += '<div class="modal-title">' + t + '</div><div class="modal-caption">' + c + '</div>';
         html += '<div style="margin-top:1rem"><iframe width="100%" height="166" scrolling="no" frameborder="no" allow="autoplay" src="https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/tracks/' + trackId + '&color=%23c4a882&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false&visual=true"></iframe></div>';
       } else {
-        // No embed: show image and text
         html += '<img class="modal-image" src="' + imgSrc + '" alt="' + t + '">';
-        html += '<div class="modal-title">' + t + '</div>';
-        html += '<div class="modal-caption">' + c + '</div>';
+        html += '<div class="modal-title">' + t + '</div><div class="modal-caption">' + c + '</div>';
       }
-
       modalContent.innerHTML = html;
       modal.style.display = 'flex'; modal.offsetHeight;
       modal.classList.add('active'); modal.classList.add('visible');
       document.body.style.overflow = 'hidden';
     });
   });
-
   function closeModal() {
     modal.classList.remove('visible');
     setTimeout(function() {
       modal.classList.remove('active'); modal.style.display = 'none'; modalContent.innerHTML = ''; document.body.style.overflow = '';
-      // iOS: reclaim audio session after YouTube iframe releases it
-      if (audioCtx && audioActive) {
-        audioCtx.resume().then(function() {
-          masterGain.gain.setValueAtTime(masterGain.gain.value, audioCtx.currentTime);
-          masterGain.gain.linearRampToValueAtTime(0.4, audioCtx.currentTime + 0.5);
-        });
-      }
+      if (audioCtx && audioActive) { audioCtx.resume().then(function() { masterGain.gain.setValueAtTime(masterGain.gain.value, audioCtx.currentTime); masterGain.gain.linearRampToValueAtTime(0.4, audioCtx.currentTime + 0.5); }); }
     }, 400);
   }
   modalClose.addEventListener('click', closeModal);
   modal.addEventListener('click', function(e) { if (e.target === modal) closeModal(); });
   document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeModal(); });
-
 })();
 </script>
 </body>
