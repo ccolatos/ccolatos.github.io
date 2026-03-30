@@ -378,7 +378,7 @@
     // the iOS audio session, but an <audio> element with .play() from a user gesture does.
     // We create a MediaStreamDestination, connect our analyser output to it,
     // and play the resulting stream through a real <audio> tag.
-    if (audioCtx.createMediaStreamDestination) {
+    if (isMobile && audioCtx.createMediaStreamDestination) {
       var msDest = audioCtx.createMediaStreamDestination();
       analyser.connect(msDest);
       var iosAudio = document.createElement('audio');
