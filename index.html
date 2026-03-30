@@ -564,6 +564,8 @@
   audioToggle.addEventListener('click', function() {
     if (!audioActive) {
       if (!audioCtx) initAudio();
+      // Request gyro permission synchronously in the user gesture (iOS requirement)
+      if (isMobile) initGyro();
       // Force resume and wait for it (critical for iOS)
       var startAudio = function() {
         masterGain.gain.cancelScheduledValues(audioCtx.currentTime);
@@ -572,7 +574,6 @@
         audioActive = true;
         audioToggle.classList.add('active');
         audioHint.classList.add('hidden');
-        if (isMobile) initGyro();
         updateAudioParams();
         scheduleStochastic();
         ctx.clearRect(0, 0, w, h);
