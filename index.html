@@ -281,6 +281,9 @@
   document.addEventListener('touchmove', function(e) {
     if (e.touches.length) { tgtX = e.touches[0].clientX / w; tgtY = e.touches[0].clientY / h; lastInputTime = performance.now(); }
   }, { passive: true });
+  document.addEventListener('touchstart', function(e) {
+    if (e.touches.length) { tgtX = e.touches[0].clientX / w; tgtY = e.touches[0].clientY / h; lastInputTime = performance.now(); }
+  }, { passive: true });
 
   // Gyroscope for mobile
   function initGyro() {
@@ -314,18 +317,7 @@
   function initAudio() {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-    // iOS audio session keepalive: a permanent 1Hz oscillator at near-zero gain
-    // connected directly to destination, bypassing the master gain chain.
-    // This prevents iOS from deciding the context is idle and suspending it.
-    // 1Hz is below human hearing, and 0.001 gain makes it imperceptible,
-    // but iOS sees continuous audio output and keeps the session alive.
-    var keepaliveOsc = audioCtx.createOscillator();
-    var keepaliveGain = audioCtx.createGain();
-    keepaliveOsc.frequency.value = 1;
-    keepaliveGain.gain.value = 0.001;
-    keepaliveOsc.connect(keepaliveGain);
-    keepaliveGain.connect(audioCtx.destination);
-    keepaliveOsc.start();
+    audioCtx.resume();
     audioCtx.resume();
 
     analyser = audioCtx.createAnalyser();
@@ -379,6 +371,20 @@
       var g = audioCtx.createGain(); g.gain.value = 0.012 / (i + 1);
       o.connect(g); g.connect(masterGain); o.start();
       shimmerOscs.push(o); shimmerGains.push(g);
+    }
+
+    // iOS: route the full audio graph through an HTML <audio> element
+    // This is the definitive iOS Safari fix: Web Audio alone doesn't fully activate
+    // the iOS audio session, but an <audio> element with .play() from a user gesture does.
+    // We create a MediaStreamDestination, connect our analyser output to it,
+    // and play the resulting stream through a real <audio> tag.
+    if (audioCtx.createMediaStreamDestination) {
+      var msDest = audioCtx.createMediaStreamDestination();
+      analyser.connect(msDest);
+      var iosAudio = document.createElement('audio');
+      iosAudio.setAttribute('playsinline', '');
+      iosAudio.srcObject = msDest.stream;
+      iosAudio.play().catch(function() {});
     }
   }
 
