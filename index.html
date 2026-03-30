@@ -1,373 +1,669 @@
----
-layout: default
----
-<div class="splash-container" id="intro">
-  <div class="splash">
-	  	  
-    <h1 class="splash-head">Chris Colatos</h1>
-	  <h3>MSc, ACT, FHEA</h3>
-    <h2>Learning Leadership | Creative Innovation</h2>
-    <div id="change_this"></div>   
-    <p>
-    </p>  
-  </div>
-</div>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Chris Colatos -- Learning Leadership | Creative Innovation">
+  <title>Chris Colatos</title>
+  <link rel="icon" href="assets/img/favicon.ico" type="image/x-icon"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    :root{--black:#0a0a0a;--dark:#111;--mid-dark:#1a1a1a;--gray-dark:#333;--gray:#666;--gray-light:#999;--off-white:#e8e6e1;--white:#f5f4f0;--accent:#c4a882;--accent-dim:rgba(196,168,130,.15);--accent-glow:rgba(196,168,130,.06);--font-display:'Cormorant Garamond',Georgia,serif;--font-body:'DM Sans',-apple-system,sans-serif;--max-width:1100px;--transition:cubic-bezier(.16,1,.3,1);--nav-height:60px}
+    *{margin:0;padding:0;box-sizing:border-box}::selection{background:var(--accent);color:var(--black)}
+    html{scroll-behavior:smooth;scroll-padding-top:var(--nav-height);font-size:16px}
+    body{background:var(--black);color:var(--off-white);font-family:var(--font-body);font-weight:300;line-height:1.8;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+    body::after{content:'';position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;opacity:.035;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");background-repeat:repeat;background-size:256px}
+    nav{position:fixed;top:0;left:0;width:100%;z-index:100;padding:1.5rem 3rem;display:flex;justify-content:space-between;align-items:center;transition:background .5s ease,padding .3s ease;height:var(--nav-height)}
+    nav.scrolled{background:rgba(10,10,10,.92);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);padding:1rem 3rem;border-bottom:1px solid rgba(255,255,255,.04)}
+    .nav-mark{font-family:var(--font-display);font-size:1.1rem;font-weight:300;letter-spacing:.15em;text-transform:uppercase;color:var(--off-white);text-decoration:none}
+    .nav-right{display:flex;align-items:center;gap:2.5rem}
+    .nav-links{display:flex;gap:2.5rem;list-style:none}
+    .nav-links a{font-size:.75rem;letter-spacing:.15em;text-transform:uppercase;color:var(--gray-light);text-decoration:none;transition:color .3s ease;position:relative}
+    .nav-links a::after{content:'';position:absolute;bottom:-4px;left:0;width:0;height:1px;background:var(--accent);transition:width .4s var(--transition)}
+    .nav-links a:hover{color:var(--white)}.nav-links a:hover::after{width:100%}
+    .audio-toggle{background:none;border:1px solid rgba(255,255,255,.12);color:var(--gray-light);cursor:pointer;padding:.4rem .75rem;font-size:.65rem;letter-spacing:.15em;text-transform:uppercase;font-family:var(--font-body);transition:all .3s ease;display:flex;align-items:center;gap:.5rem;white-space:nowrap}
+    .audio-toggle:hover{border-color:var(--accent);color:var(--accent)}
+    .audio-toggle.active{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+    .audio-indicator{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--gray);transition:background .3s ease}
+    .audio-toggle.active .audio-indicator{background:var(--accent);box-shadow:0 0 6px var(--accent);animation:pulse 1.5s ease-in-out infinite}
+    @keyframes pulse{0%,100%{opacity:.6}50%{opacity:1}}
+    .nav-toggle{display:none;background:none;border:none;cursor:pointer;padding:.5rem;z-index:101}
+    .nav-toggle span{display:block;width:24px;height:1px;background:var(--off-white);margin:6px 0;transition:all .3s ease}
+    .nav-toggle.open span:first-child{transform:rotate(45deg) translate(3px,4px)}
+    .nav-toggle.open span:last-child{transform:rotate(-45deg) translate(3px,-4px)}
+    .hero{position:relative;height:100vh;min-height:600px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+    #heroCanvas{position:absolute;top:0;left:0;width:100%;height:100%}
+    .hero-content{position:relative;z-index:2;text-align:center;padding:2rem}
+    .hero-name{font-family:var(--font-display);font-size:clamp(3rem,8vw,7rem);font-weight:300;letter-spacing:.08em;line-height:1;color:var(--white);margin-bottom:1rem;opacity:0;transform:translateY(30px);animation:fadeUp 1.2s var(--transition) .3s forwards}
+    .hero-credentials{font-family:var(--font-body);font-size:.8rem;letter-spacing:.3em;text-transform:uppercase;color:var(--gray-light);margin-bottom:2rem;opacity:0;animation:fadeUp 1.2s var(--transition) .6s forwards}
+    .hero-tagline{font-family:var(--font-display);font-size:clamp(1rem,2.5vw,1.5rem);font-weight:300;font-style:italic;color:var(--accent);letter-spacing:.05em;opacity:0;animation:fadeUp 1.2s var(--transition) .9s forwards}
+    .hero-signal{font-family:var(--font-display);font-size:1.1rem;font-weight:300;color:var(--gray);margin-top:2.5rem;height:1.8em;opacity:0;animation:fadeUp 1.2s var(--transition) 1.2s forwards}
+    .hero-signal-text{display:inline-block;transition:opacity .5s ease,transform .5s ease}
+    .hero-signal-text.out{opacity:0;transform:translateY(-8px)}
+    .hero-audio-hint{position:absolute;bottom:5rem;left:50%;transform:translateX(-50%);z-index:2;font-size:.65rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gray);opacity:0;animation:fadeUp 1.2s var(--transition) 2s forwards;cursor:pointer;transition:color .3s ease}
+    .hero-audio-hint:hover{color:var(--accent)}.hero-audio-hint.hidden{opacity:0!important;pointer-events:none;transition:opacity .5s ease}
+    .hero-scroll{position:absolute;bottom:2rem;left:50%;transform:translateX(-50%);z-index:2;opacity:0;animation:fadeUp 1.2s var(--transition) 1.8s forwards}
+    .hero-scroll-line{width:1px;height:50px;background:linear-gradient(to bottom,var(--gray),transparent);margin:0 auto;animation:scrollPulse 2.5s ease-in-out infinite}
+    @keyframes scrollPulse{0%,100%{opacity:.2;transform:scaleY(1)}50%{opacity:.6;transform:scaleY(1.15)}}
+    @keyframes fadeUp{to{opacity:1;transform:translateY(0)}}
+    section{padding:8rem 3rem;position:relative}.section-inner{max-width:var(--max-width);margin:0 auto}
+    .section-label{font-size:.7rem;letter-spacing:.3em;text-transform:uppercase;color:var(--accent);margin-bottom:3rem;display:flex;align-items:center;gap:1.5rem}
+    .section-label::before{content:'';width:40px;height:1px;background:var(--accent)}
+    .section-heading{font-family:var(--font-display);font-size:clamp(2rem,4vw,3.5rem);font-weight:300;line-height:1.2;color:var(--white);margin-bottom:2rem}
+    #bio{background:var(--dark);border-top:1px solid rgba(255,255,255,.04)}
+    .bio-grid{display:grid;grid-template-columns:1fr 1fr;gap:6rem;align-items:start}
+    .bio-text p{margin-bottom:1.5rem;color:var(--off-white);font-size:.95rem}
+    .bio-quote{margin-top:3rem;padding:2.5rem;border-left:2px solid var(--accent);background:var(--accent-glow)}
+    .bio-quote blockquote{font-family:var(--font-display);font-size:1.25rem;font-style:italic;line-height:1.7;color:var(--off-white);margin-bottom:1.2rem}
+    .bio-quote cite{font-family:var(--font-body);font-size:.75rem;font-style:normal;letter-spacing:.15em;text-transform:uppercase;color:var(--accent)}
+    #teaching{background:var(--black)}.teaching-content{max-width:780px}.accordion{margin-top:3rem}
+    .accordion-item{border-top:1px solid rgba(255,255,255,.06)}.accordion-item:last-child{border-bottom:1px solid rgba(255,255,255,.06)}
+    .accordion-trigger{display:flex;justify-content:space-between;align-items:center;width:100%;padding:1.5rem 0;background:none;border:none;cursor:pointer;font-family:var(--font-display);font-size:1.2rem;color:var(--off-white);text-align:left;transition:color .3s ease}
+    .accordion-trigger:hover{color:var(--accent)}.accordion-trigger .icon{font-size:1.5rem;font-weight:300;transition:transform .5s var(--transition);color:var(--gray)}
+    .accordion-item.open .accordion-trigger .icon{transform:rotate(45deg)}.accordion-item.open .accordion-trigger{color:var(--accent)}
+    .accordion-panel{max-height:0;overflow:hidden;transition:max-height .6s var(--transition)}
+    .accordion-panel-inner{padding:0 0 2rem;color:var(--off-white);font-size:.95rem;line-height:1.8}
+    #works{background:var(--dark);border-top:1px solid rgba(255,255,255,.04)}.works-list{margin-top:3rem}
+    .work-entry{display:grid;grid-template-columns:1fr 1fr;gap:3rem;align-items:center;padding:3rem 0;border-bottom:1px solid rgba(255,255,255,.05)}
+    .work-entry:first-child{padding-top:0}.work-entry:nth-child(even){direction:rtl}.work-entry:nth-child(even)>*{direction:ltr}
+    .work-entry-image{position:relative;overflow:hidden;aspect-ratio:4/3;background:var(--mid-dark);cursor:default}
+    .work-entry-image.has-embed{cursor:pointer}
+    .work-entry-image img{width:100%;height:100%;object-fit:cover;transition:transform 1s var(--transition),filter .5s ease;filter:grayscale(20%)}
+    .work-entry-image:hover img{transform:scale(1.04);filter:grayscale(0%)}
+    .work-entry-text{padding:1rem 0}
+    .work-entry-title{font-family:var(--font-display);font-size:clamp(1.4rem,2.5vw,2rem);font-weight:300;color:var(--white);margin-bottom:.75rem;line-height:1.2}
+    .work-entry-caption{font-size:.9rem;color:var(--gray-light);line-height:1.7;margin-bottom:1rem}
+    .work-entry-category{display:inline-block;font-size:.6rem;letter-spacing:.15em;text-transform:uppercase;color:var(--accent);margin-bottom:1rem}
+    .work-entry-links{display:flex;gap:.75rem;flex-wrap:wrap;margin-top:.5rem}
+    .work-dl-link{display:inline-flex;align-items:center;gap:.4rem;text-decoration:none;font-size:.65rem;letter-spacing:.12em;text-transform:uppercase;color:var(--off-white);padding:.5rem 1rem;border:1px solid rgba(255,255,255,.12);transition:all .3s ease}
+    .work-dl-link:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+    .work-dl-link svg{width:12px;height:12px;fill:currentColor}
+    #contact{background:var(--black);border-top:1px solid rgba(255,255,255,.04);text-align:center;padding:10rem 3rem}
+    .contact-heading{font-family:var(--font-display);font-size:clamp(2.5rem,5vw,4rem);font-weight:300;color:var(--white);margin-bottom:1rem}
+    .contact-sub{font-size:.9rem;color:var(--gray-light);margin-bottom:3rem}
+    .contact-links{display:flex;justify-content:center;gap:2rem;flex-wrap:wrap}
+    .contact-link{display:flex;align-items:center;gap:.75rem;text-decoration:none;color:var(--off-white);font-size:.8rem;letter-spacing:.12em;text-transform:uppercase;padding:1rem 2rem;border:1px solid rgba(255,255,255,.12);transition:all .4s ease}
+    .contact-link:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-dim);transform:translateY(-2px)}
+    .contact-link svg{width:18px;height:18px;fill:currentColor}
+    .doc-links{display:flex;gap:1rem;margin-top:2.5rem;flex-wrap:wrap}
+    .doc-link{display:inline-flex;align-items:center;gap:.5rem;text-decoration:none;font-size:.7rem;letter-spacing:.15em;text-transform:uppercase;color:var(--gray-light);padding:.7rem 1.25rem;border:1px solid rgba(255,255,255,.08);transition:all .3s ease}
+    .doc-link:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+    .doc-link svg{width:14px;height:14px;fill:currentColor}
+    footer{padding:3rem;text-align:center;font-size:.7rem;letter-spacing:.15em;text-transform:uppercase;color:var(--gray);border-top:1px solid rgba(255,255,255,.04)}
+    .reveal{opacity:0;transform:translateY(40px);transition:opacity .9s ease,transform .9s var(--transition)}
+    .reveal.visible{opacity:1;transform:translateY(0)}.reveal-delay-1{transition-delay:.1s}.reveal-delay-2{transition-delay:.2s}
+    .modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.94);z-index:200;justify-content:center;align-items:center;padding:2rem;cursor:pointer;opacity:0;transition:opacity .4s ease}
+    .modal-overlay.active{display:flex}.modal-overlay.visible{opacity:1}
+    .modal-content{max-width:800px;width:100%;cursor:default;transform:translateY(20px);transition:transform .5s var(--transition)}
+    .modal-overlay.visible .modal-content{transform:translateY(0)}
+    .modal-close{position:fixed;top:2rem;right:2rem;background:none;border:1px solid rgba(255,255,255,.12);width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--gray-light);font-size:1.5rem;cursor:pointer;font-weight:300;transition:all .3s ease;z-index:201}
+    .modal-close:hover{color:var(--white);border-color:var(--accent)}
+    .modal-title{font-family:var(--font-display);font-size:2rem;font-weight:300;color:var(--white);margin-bottom:.75rem}
+    .modal-caption{font-size:.9rem;color:var(--gray-light);margin-bottom:1rem;line-height:1.7}
+    .modal-embed{margin-top:1rem}.modal-embed iframe{width:100%;border:none}
+    @media(max-width:900px){.bio-grid{grid-template-columns:1fr;gap:3rem}}
+    @media(max-width:768px){
+      section{padding:5rem 1.5rem}nav{padding:1.25rem 1.5rem}nav.scrolled{padding:1rem 1.5rem}
+      .nav-links{display:none;position:fixed;top:0;left:0;width:100%;height:100vh;background:rgba(10,10,10,.98);backdrop-filter:blur(20px);flex-direction:column;justify-content:center;align-items:center;gap:2rem;z-index:100}
+      .nav-links.open{display:flex}.nav-links a{font-size:1.1rem;letter-spacing:.2em}.nav-toggle{display:block}
+      .audio-toggle{font-size:0;padding:.5rem;border:none}.audio-toggle .audio-label{display:none}.audio-indicator{width:8px;height:8px}
+      .work-entry{grid-template-columns:1fr;gap:1.5rem;padding:2.5rem 0}.work-entry:nth-child(even){direction:ltr}
+      #contact{padding:6rem 1.5rem}.contact-links{flex-direction:column;align-items:center}.hero-audio-hint{bottom:6rem}
+    }
+  </style>
+</head>
+<body>
 
-
-<div class="after-splash content-wrapper" id="statement">
-	<div class="content">
-
-	<!--  
-    <h2 class="content-head is-center">Artist Statement</h2>
-    <p>
-Works emerge from explorations to discover something new. Interactive, multisensory experiences are layered in sound and gesture, embracing mediums and methods of archetypal and experimental modalities in technical and non-technical settings. Conceptual to architectonic frameworks invoke interaction, improvisation, reflection, and transformation within an acoustic ecology. Compositions designed as contemplations of perception, imagination, and ephemerality – intended to evoke presence and personal meaning and shift with each participant’s interpretation.    </p>
-  </div>
--->
-	
-  <div class="ribbon content" id="teaching">
-    <h2 class="content-head is-center">Teaching and Learning Philosophy</h2>
-    <p>
-My teaching philosophy has developed through more than two decades of teaching experience and continuous reflection. I employ interactive strategies and teaching methodologies rooted in essential educational and knowledge-acquisition principles encompassing cognitive functioning, learning theory, instructional planning, and assessment. As a dedicated educator and academic leader, an influential educator must refine the craft of teaching with as much resolve and persistence as the craft taught. Teaching is an art that requires a vast and diverse skill set. Not only does it require a mastery of the subject, but also an ability to inspire, identify, and provide relevant context, deconstruct large frameworks, articulate complex ideas in unassuming ways, illustrate connections between insulated and modular concepts, possess a keen sensitivity to students’ progress, consistently model industry practices, devise and nimbly adapt dissemination strategies to guide learners, create opportunities for students to discover for themselves, and facilitate experiences that foster curiosity.
-    </p>
-    <p>
-I nurture intellectual diversity, the ability to think analytically, engage in critique, listen critically, identify and articulate criteria and personal value, and synthesize concepts and processes into new ideas and combinations of ideas. How a learner achieves these is likely unique to each individual. Often, learners select, interpret, and transform new information and experiences within a personal context. Simultaneous awareness of the individual and the collective group is an elemental responsibility. I have found that a genuine connection with each student is one of the most informative and supportive resources. This connection allows a teacher to identify a learner’s door into the discourse and incorporate a learner’s perspective and processes to facilitate contact with the material, spark inspiration, and reveal alternative approaches for fellow students. Each person brings an intrinsic value to the learning space; identifying what that is and utilizing that knowledge can benefit the group.
-    </p>
-    <p>
-Student engagement has proven vital in facilitating active discovery in the classroom. I endeavor to be an empathetic and encouraging advisor and mentor to my students. I work to create a space where every learner is empowered to contribute to constructing knowledge, co-own, share, and shape the responsibility and purpose of the learning environment. I encourage students to constructively challenge what they know and are taught and identify, experiment with, modify, or abandon existing philosophies to pursue meaning and value for themselves. Their contribution often leads to new trajectories along relevant paths that may have yet to be traversed as effectively or dynamically without their involvement. The class must meet the learning objectives of the course, and a skillful instructor can facilitate the benchmarks within a collaborative and shared space while strengthening abilities for autonomous and divergent cogitation.
-    </p>
-    <p>
-Fostering play, humor, and fun in the discovery process is as essential to flow as structure and trust. We can cultivate trust by demonstrating that there is a clear plan for students, that there is at least one path for them to be successful amid course criteria, that those paths are made evident, and that their teacher is someone who provides support, insight, and guidance on that path. Clarity of course structure is vital. A student’s time is better spent without deciphering expectations, jumping through hoops, or seeking obscure resources. Of course, there is value in an ability to problem-solve and unearth resources when engaged in study and research; however, providing resources in accessible and manageable packages can provide measured guidance and elucidate criteria for success. This structural simplicity allows students to apply their time to contemplate, practice, develop, and engage with the intended material.
-    </p>
-    <p>
-Important resources include plainly defined and apposite assessments and timely feedback. I continually refine formative and summative assessments to more accurately measure students’ cognitive proficiency and affective engagement with course objectives, utilizing an integrative process, one of evaluation facilitated by reflection and practical integration, and the efficacy of its application in the next iteration of a task, course, or program. Assessments are intended to be useful, provide meaningful information for the learner and the teacher, be fair, ethical, systematic, challenging, realistic, promote learning, and empower data-driven approaches to guide the teaching and learning practice. I consider consistency in feedback practices integral to assessment and reciprocal teaching and learning. Feedback includes dialog between teachers and students, self-assessment, and peer assessment to develop assessment literacy and support students' growth as autonomous learners with reflective and evaluative skills and frameworks for working and improving collaboratively. Consistently structured principles of feedback can increase coherency and help learners utilize feedback to understand better task compliance, quality, criteria, core practice knowledge, relevant tacit knowledge, and alignment with personal and professional values.
-    </p>
-    <p>
-My enthusiasm and dedication to teaching and learning continue to grow, and I hope my work benefits learners and connects them with their passion and lifelong learning. It is an honor and a commitment that I undertake with seriousness and gratitude that I am able to support learners in their academic and professional endeavors.
-    </p>
-    </p>
-  </div>
-  <div class="l-box-lrg pure-g" id="bio">
-    <div class="l-box-lrg is-center pure-u-1 pure-u-md-1-2 pure-u-lg-2-5">
-      <a href="Chris_Colatos_Curriculum_Vitae.pdf" target="_blank"></a>
+  <nav id="mainNav">
+    <a href="#" class="nav-mark">Chris Colatos</a>
+    <div class="nav-right">
+      <ul class="nav-links" id="navLinks">
+        <li><a href="#bio" onclick="closeNav()">Bio</a></li>
+        <li><a href="#teaching" onclick="closeNav()">Teaching</a></li>
+        <li><a href="#works" onclick="closeNav()">Works</a></li>
+        <li><a href="Chris_Colatos_Resume.pdf" target="_blank" onclick="closeNav()">Resume</a></li>
+        <li><a href="Chris_Colatos_Curriculum_Vitae.pdf" target="_blank" onclick="closeNav()">CV</a></li>
+        <li><a href="#contact" onclick="closeNav()">Contact</a></li>
+      </ul>
+      <button class="audio-toggle" id="audioToggle" title="Toggle generative audio"><span class="audio-indicator"></span><span class="audio-label">Signal</span></button>
+      <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation"><span></span><span></span></button>
     </div>
-    <div class="pure-u-1 pure-u-md-1-2 pure-u-lg-3-5">
-      <h2 class="content-head content-head-ribbon">Bio</h2>
-      <p>
-Creativity, technology, and education leader with extensive executive and program direction experience. Leading academic and professional teams in designing and delivering data-informed, active, learner-centered teaching and learning experiences, strategies, programs, curricula, assessments, analytics, accessibility, and digital transformation to optimize efficacy and engagement. Dedicated professional practitioner and educator with an unrelenting commitment to learners' success, efficient and effective project actualization, collaboration, and fostering high morale. Committed to digital accessibility and inclusivity.  
-      </p>
-      <p>
-A passionate advocate for exploratory approaches to visual and sound art and developing innovative technologies to enable new forms of creativity and expression. Specializing in studio practice, traditional and experimental composition, production, performance, engineering, sound design, interactivity, installation, and intermedia art. Former creative arts college Director of Education, North America Director of Learning Design, Chief Learning Officer, and Chief Learning and Development Officer. Currently, Vice President for Academic Affairs at San Francisco Film School and Chief Creative at THE STUDI/O. Graduate and post-graduate studies at The University of Edinburgh, Columbia University, Stanford University, and the University of California; currently pursuing a doctorate at the University of Illinois Urbana-Champaign. 28x Apple Certified Master Trainer, 9x DHS Certified for 508, Trusted Tester Tools, and IT Program Management for Accessible Systems & Technology, and Fellow of Advance HE – the UK Professional Standards Framework for teaching in higher education. Written on numerous creative, technological, and educational subjects. Currently, writing ‘The Book of Phonography: A Field Recordist’s Handbook,’ composing a contemporary mixed-chamber work for dancers, and completing a new electronic music set.
-      </p>
-      <p>
-For years, worked closely with one of Billboard Magazine’s “Top Ten Producers of All Time” – 57 #1 Hits, multi-GRAMMY, Emmy & multi-Platinum Producer and Artist Narada Michael Walden at Tarpan Studios. As Producer, Engineer, Songwriter, Arranger, and Performer – worked with artists and companies, including Apple, Google, Legends The Game, Robot Invader, Eagre Games, LeapFrog, PETA, Twisted Tools, Siedah Garrett, Greg Phillinganes, Scientist (dub pioneer), PSY, Playboy, GQ, Vogue, Salvatore Ferragamo, James Taylor, Carole King, Smokey Robinson, Billy Joel, Sting, Katy Perry, and Elton John.
-      </p>
-      <blockquote>
-“A man for all seasons...from Ahmad Jamal to the hippest in contemporary music, Chris knows how it's done...a whiz with the computer and the drums. Chris has the genius touch.”
-								 <div> – Narada Michael Walden</div>
-      </blockquote>
-    </div>
-  </div>
+  </nav>
 
-  <div class="ribbon content" id="contact">
-    <h2 class="content-head content-subhead is-center">Contact Me</h2>
-    <div class="is-center">
-      <div class="pure-u-sm-1-2 pure-u-lg-1-5">
-        <a href="mailto:ccolatos@gmail.com" target="_blank">
-          <h3 class="content-subhead">
-            <i class="fa fa-envelope fa-3x"></i>Email &nbsp &nbsp &nbsp &nbsp
-          </h3>
-        </a>
-      </div><div class="pure-u-sm-1 pure-u-lg-1-5">
-        <a href="https://www.linkedin.com/in/ColatosChris" target="_blank">
-          <h3 class="content-subhead">
-            <i class="fa fa-linkedin fa-3x"></i>LinkedIn &nbsp
-          </h3>
-        </a>
+  <section class="hero" id="top">
+    <canvas id="heroCanvas"></canvas>
+    <div class="hero-content">
+      <h1 class="hero-name">Chris Colatos</h1>
+      <p class="hero-credentials">MSc &middot; ACT &middot; FHEA</p>
+      <p class="hero-tagline">Learning Leadership &nbsp;|&nbsp; Creative Innovation</p>
+      <div class="hero-signal" id="heroSignal"><span class="hero-signal-text" id="heroSignalText"></span></div>
+    </div>
+    <div class="hero-audio-hint" id="audioHint" onclick="document.getElementById('audioToggle').click()">Click to activate generative audio</div>
+    <div class="hero-scroll"><div class="hero-scroll-line"></div></div>
+  </section>
+
+  <section id="bio"><div class="section-inner">
+    <div class="section-label reveal">Biography</div>
+    <div class="bio-grid">
+      <div class="bio-text">
+        <p class="reveal">Creativity, technology, and education leader with extensive executive and program direction experience. Leading academic and professional teams in designing and delivering data-informed, active, learner-centered teaching and learning experiences, strategies, programs, curricula, assessments, analytics, accessibility, and digital transformation to optimize efficacy and engagement. Dedicated professional practitioner and educator with an unrelenting commitment to learners' success, efficient and effective project actualization, collaboration, and fostering high morale. Committed to digital accessibility and inclusivity.</p>
+        <p class="reveal reveal-delay-1">A passionate advocate for exploratory approaches to visual and sound art and developing innovative technologies to enable new forms of creativity and expression. Specializing in studio practice, traditional and experimental composition, production, performance, engineering, sound design, interactivity, installation, and intermedia art. Former creative arts college Director of Education, North America Director of Learning Design, Chief Learning Officer, and Chief Learning and Development Officer. Currently, Vice President for Academic Affairs at San Francisco Film School and Chief Creative at THE STUDI/O. Graduate and post-graduate studies at The University of Edinburgh, Columbia University, Stanford University, and the University of California; currently pursuing a doctorate at the University of Illinois Urbana-Champaign. 28x Apple Certified Master Trainer, 9x DHS Certified for 508, Trusted Tester Tools, and IT Program Management for Accessible Systems &amp; Technology, and Fellow of Advance HE -- the UK Professional Standards Framework for teaching in higher education. Written on numerous creative, technological, and educational subjects. Currently, writing 'The Book of Phonography: A Field Recordist's Handbook,' composing a contemporary mixed-chamber work for dancers, and completing a new electronic music set.</p>
+        <div class="doc-links reveal reveal-delay-2">
+          <a href="Chris_Colatos_Resume.pdf" target="_blank" class="doc-link"><svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zM6 20V4h7v5h5v11H6z"/></svg>Resume</a>
+          <a href="Chris_Colatos_Curriculum_Vitae.pdf" target="_blank" class="doc-link"><svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zM6 20V4h7v5h5v11H6z"/></svg>Curriculum Vitae</a>
+          <a href="Colatos_Fellow_Higher_Education_Academy.pdf" target="_blank" class="doc-link"><svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zM6 20V4h7v5h5v11H6z"/></svg>FHEA</a>
+        </div>
+      </div>
+      <div>
+        <p class="reveal" style="color:var(--off-white);font-size:.95rem;margin-bottom:1.5rem">For years, worked closely with one of Billboard Magazine's "Top Ten Producers of All Time" -- 57 #1 Hits, multi-GRAMMY, Emmy &amp; multi-Platinum Producer and Artist Narada Michael Walden at Tarpan Studios. As Producer, Engineer, Songwriter, Arranger, and Performer -- worked with artists and companies, including Apple, Google, Legends The Game, Robot Invader, Eagre Games, LeapFrog, PETA, Twisted Tools, Siedah Garrett, Greg Phillinganes, Scientist (dub pioneer), PSY, Playboy, GQ, Vogue, Salvatore Ferragamo, James Taylor, Carole King, Smokey Robinson, Billy Joel, Sting, Katy Perry, and Elton John.</p>
+        <div class="bio-quote reveal reveal-delay-1">
+          <blockquote>"A man for all seasons...from Ahmad Jamal to the hippest in contemporary music, Chris knows how it's done...a whiz with the computer and the drums. Chris has the genius touch."</blockquote>
+          <cite>Narada Michael Walden</cite>
+        </div>
       </div>
     </div>
-  </div>
-  <div class="footer l-box is-center">
-     &copy; 2026 &nbsp; Chris Colatos  &nbsp; &nbsp; &nbsp; Learning Leadership | Creative Innovation
-  </div>
-</div>
-<script type="text/javascript">
-  (function() {
+  </div></section>
 
-    'use strict';
+  <section id="teaching"><div class="section-inner">
+    <div class="section-label reveal">Teaching &amp; Learning</div>
+    <h2 class="section-heading reveal">Philosophy</h2>
+    <div class="teaching-content"><div class="accordion reveal reveal-delay-1">
+      <div class="accordion-item"><button class="accordion-trigger" aria-expanded="false"><span>Foundations</span><span class="icon">+</span></button><div class="accordion-panel"><div class="accordion-panel-inner">My teaching philosophy has developed through more than two decades of teaching experience and continuous reflection. I employ interactive strategies and teaching methodologies rooted in essential educational and knowledge-acquisition principles encompassing cognitive functioning, learning theory, instructional planning, and assessment. As a dedicated educator and academic leader, an influential educator must refine the craft of teaching with as much resolve and persistence as the craft taught. Teaching is an art that requires a vast and diverse skill set. Not only does it require a mastery of the subject, but also an ability to inspire, identify, and provide relevant context, deconstruct large frameworks, articulate complex ideas in unassuming ways, illustrate connections between insulated and modular concepts, possess a keen sensitivity to students' progress, consistently model industry practices, devise and nimbly adapt dissemination strategies to guide learners, create opportunities for students to discover for themselves, and facilitate experiences that foster curiosity.</div></div></div>
+      <div class="accordion-item"><button class="accordion-trigger" aria-expanded="false"><span>Intellectual Diversity</span><span class="icon">+</span></button><div class="accordion-panel"><div class="accordion-panel-inner">I nurture intellectual diversity, the ability to think analytically, engage in critique, listen critically, identify and articulate criteria and personal value, and synthesize concepts and processes into new ideas and combinations of ideas. How a learner achieves these is likely unique to each individual. Often, learners select, interpret, and transform new information and experiences within a personal context. Simultaneous awareness of the individual and the collective group is an elemental responsibility. I have found that a genuine connection with each student is one of the most informative and supportive resources. This connection allows a teacher to identify a learner's door into the discourse and incorporate a learner's perspective and processes to facilitate contact with the material, spark inspiration, and reveal alternative approaches for fellow students. Each person brings an intrinsic value to the learning space; identifying what that is and utilizing that knowledge can benefit the group.</div></div></div>
+      <div class="accordion-item"><button class="accordion-trigger" aria-expanded="false"><span>Student Engagement</span><span class="icon">+</span></button><div class="accordion-panel"><div class="accordion-panel-inner">Student engagement has proven vital in facilitating active discovery in the classroom. I endeavor to be an empathetic and encouraging advisor and mentor to my students. I work to create a space where every learner is empowered to contribute to constructing knowledge, co-own, share, and shape the responsibility and purpose of the learning environment. I encourage students to constructively challenge what they know and are taught and identify, experiment with, modify, or abandon existing philosophies to pursue meaning and value for themselves. Their contribution often leads to new trajectories along relevant paths that may have yet to be traversed as effectively or dynamically without their involvement. The class must meet the learning objectives of the course, and a skillful instructor can facilitate the benchmarks within a collaborative and shared space while strengthening abilities for autonomous and divergent cogitation.</div></div></div>
+      <div class="accordion-item"><button class="accordion-trigger" aria-expanded="false"><span>Play, Trust &amp; Structure</span><span class="icon">+</span></button><div class="accordion-panel"><div class="accordion-panel-inner">Fostering play, humor, and fun in the discovery process is as essential to flow as structure and trust. We can cultivate trust by demonstrating that there is a clear plan for students, that there is at least one path for them to be successful amid course criteria, that those paths are made evident, and that their teacher is someone who provides support, insight, and guidance on that path. Clarity of course structure is vital. A student's time is better spent without deciphering expectations, jumping through hoops, or seeking obscure resources. Of course, there is value in an ability to problem-solve and unearth resources when engaged in study and research; however, providing resources in accessible and manageable packages can provide measured guidance and elucidate criteria for success. This structural simplicity allows students to apply their time to contemplate, practice, develop, and engage with the intended material.</div></div></div>
+      <div class="accordion-item"><button class="accordion-trigger" aria-expanded="false"><span>Assessment &amp; Feedback</span><span class="icon">+</span></button><div class="accordion-panel"><div class="accordion-panel-inner">Important resources include plainly defined and apposite assessments and timely feedback. I continually refine formative and summative assessments to more accurately measure students' cognitive proficiency and affective engagement with course objectives, utilizing an integrative process, one of evaluation facilitated by reflection and practical integration, and the efficacy of its application in the next iteration of a task, course, or program. Assessments are intended to be useful, provide meaningful information for the learner and the teacher, be fair, ethical, systematic, challenging, realistic, promote learning, and empower data-driven approaches to guide the teaching and learning practice. I consider consistency in feedback practices integral to assessment and reciprocal teaching and learning. Feedback includes dialog between teachers and students, self-assessment, and peer assessment to develop assessment literacy and support students' growth as autonomous learners with reflective and evaluative skills and frameworks for working and improving collaboratively. Consistently structured principles of feedback can increase coherency and help learners utilize feedback to understand better task compliance, quality, criteria, core practice knowledge, relevant tacit knowledge, and alignment with personal and professional values.</div></div></div>
+      <div class="accordion-item"><button class="accordion-trigger" aria-expanded="false"><span>Commitment</span><span class="icon">+</span></button><div class="accordion-panel"><div class="accordion-panel-inner">My enthusiasm and dedication to teaching and learning continue to grow, and I hope my work benefits learners and connects them with their passion and lifelong learning. It is an honor and a commitment that I undertake with seriousness and gratitude that I am able to support learners in their academic and professional endeavors.</div></div></div>
+    </div></div>
+  </div></section>
 
-    // define variables
-    var items = document.querySelectorAll(".timeline li");
+  <section id="works"><div class="section-inner">
+    <div class="section-label reveal">Selected Works</div>
+    <h2 class="section-heading reveal">Portfolio</h2>
+    <div class="works-list">
+      <div class="work-entry reveal"><div class="work-entry-image"><img src="media/pictures/artists.png" alt="Artists" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">Artists</div><div class="work-entry-caption">Producer, Engineer, Music Supervisor, Songwriter, Arranger, and Performer</div><span class="work-entry-category">Chris Colatos</span></div></div>
+      <div class="work-entry reveal"><div class="work-entry-image"><img src="media/pictures/companies.png" alt="Companies" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">Companies</div><div class="work-entry-caption">Producer, Engineer, Music Supervisor, Songwriter, Arranger, and Performer</div><span class="work-entry-category">Chris Colatos</span></div></div>
+      <div class="work-entry reveal"><div class="work-entry-image"><img src="media/pictures/twistedtools.png" alt="Twisted Tools" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">Twisted Tools</div><div class="work-entry-caption">Drum Programming, Sound Design, and Composition for Twisted Tools Instruments</div><span class="work-entry-category">Chris Colatos</span></div></div>
+      <div class="work-entry reveal"><div class="work-entry-image has-embed" data-embed='<iframe width="100%" height="315" src="https://www.youtube.com/embed/TKlaLX6TY88?si=3zz1_BK9mlkrkWnw" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>'><img src="media/pictures/colatos.png" alt="St0cHastAk0v1Ch" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">St0cHastAk0v1Ch</div><div class="work-entry-caption">Programmable and algorithmic auto-composing step sequencer developed in Logic Pro's MIDI Environment. Video features Mike Keneally on guitar.</div><span class="work-entry-category">Chris Colatos</span><div class="work-entry-links"><a href="colatos_logic_step_sequencer.zip" class="work-dl-link" download><svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>Download Sequencer</a></div></div></div>
+      <div class="work-entry reveal"><div class="work-entry-image"><img src="media/pictures/SalvatoreFerragamo.png" alt="Salvatore Ferragamo" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">Salvatore Ferragamo</div><div class="work-entry-caption">Composer, Lo Splendore Della Vita (&gt;1M views)</div><span class="work-entry-category">Chris Colatos</span></div></div>
+      <div class="work-entry reveal"><div class="work-entry-image"><img src="media/pictures/KatyPerry.png" alt="Katy Perry" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">Katy Perry</div><div class="work-entry-caption">Algorithmically Produced Composition for Katy Perry and Vogue Magazine (Italy)</div><span class="work-entry-category">Chris Colatos</span></div></div>
+      <div class="work-entry reveal"><div class="work-entry-image"><img src="media/pictures/Narcosis.png" alt="Narcosis" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">Narcosis</div><div class="work-entry-caption">Multiplatform/VR, Audio</div><span class="work-entry-category">Chris Colatos</span></div></div>
+      <div class="work-entry reveal"><div class="work-entry-image"><img src="media/pictures/DSC.png" alt="Dead Secret Circle" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">Dead Secret Circle</div><div class="work-entry-caption">Multiplatform/VR, Recording Engineer, Sound Designer, VO Editor, Dialog Processing / Mastering</div><span class="work-entry-category">Chris Colatos</span></div></div>
+      <div class="work-entry reveal"><div class="work-entry-image"><img src="media/pictures/canvas.png" alt="Learning Experience Design" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">Learning Experience Design</div><div class="work-entry-caption">Designed and developed creative arts higher education teaching and active learning experiences in multiple modalities for 7 North American colleges</div><span class="work-entry-category">Chris Colatos</span></div></div>
+      <div class="work-entry reveal"><div class="work-entry-image"><img src="media/pictures/cognitiveload.png" alt="Adaptive Learning Design" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">Adaptive Learning Design Implications</div><div class="work-entry-caption">Effects of Multimedia on Learning Efficacy and Cognitive Load. This research was conducted and authored by Chris Colatos as part of a collaborative study between The University of Edinburgh and Columbia University, supervised by preeminent scholars in the field, Professors Ryan S. Baker (Penn GSE) and Dragan Ga&scaron;evi&cacute; (Monash University)</div><span class="work-entry-category">Research</span></div></div>
+      <div class="work-entry reveal"><div class="work-entry-image"><img src="media/pictures/signandspeak.png" alt="Sign And Speak" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">Sign And Speak</div><div class="work-entry-caption">Interactive Audio student project &mdash; Sign And Speak is a prototype accessibility tool that converts American Sign Language into spoken word. Creators &mdash; Jeff Andrews, Michael Carter &mdash; #AlgorithmicProcessing #GestureRecognition #AssistiveTech #HCI #RealTimeProcessing #DigitalSignalProcessing #MaxMSP #CreativeCoding #InteractiveAudio #ComputationalLinguistics #SensorFusion #WearableTech #Arduino #EmbeddedSystems #HumanCenteredDesign #AccessibilityTech #TangibleInterfaces #DataMapping</div><span class="work-entry-category">Student Work</span></div></div>
+      <div class="work-entry reveal"><div class="work-entry-image"><img src="media/pictures/IA.png" alt="Interactive Audio Student Work" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">Interactive Audio Student Work</div><div class="work-entry-caption">Ex'pression College Interactive Audio BSc Program Student Work</div><span class="work-entry-category">Student Work</span><div class="work-entry-links"><a href="https://www.youtube.com/playlist?list=PLWlNASqHqsTRNxV-LfhrfwfSeB7emwE8C" target="_blank" class="work-dl-link"><svg viewBox="0 0 24 24"><path d="M10 16.5l6-4.5-6-4.5v9zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>View Student Projects</a></div></div></div>
+      <div class="work-entry reveal"><div class="work-entry-image"><img src="media/pictures/ZED.png" alt="ZED" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">ZED</div><div class="work-entry-caption">Multiplatform/VR, Recording Engineer, Sound Designer, VO Editor, Dialog Processing / Mastering</div><span class="work-entry-category">Chris Colatos</span></div></div>
+      <div class="work-entry reveal"><div class="work-entry-image"><img src="media/pictures/PETA.png" alt="PETA" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">PETA</div><div class="work-entry-caption">Composer, Save the Seals Campaign</div><span class="work-entry-category">Chris Colatos</span><div class="work-entry-links"><a href="https://www.canadasshame.com" target="_blank" class="work-dl-link"><svg viewBox="0 0 24 24"><path d="M19 19H5V5h7V3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>Learn More</a></div></div></div>
+      <div class="work-entry reveal"><div class="work-entry-image"><img src="media/pictures/PSY.png" alt="PSY" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">PSY</div><div class="work-entry-caption">Composer for PSY and Vogue Magazine (Italy) Feature</div><span class="work-entry-category">Chris Colatos</span></div></div>
+      <div class="work-entry reveal"><div class="work-entry-image has-embed" data-embed='<iframe width="100%" height="315" src="https://www.youtube.com/embed/TKlaLX6TY88?si=3zz1_BK9mlkrkWnw" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>'><img src="media/pictures/c2loops.png" alt="c2 loops" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">c2 loops</div><div class="work-entry-caption">Mini retro algorithmically produced drum-breaks loop library; circa 1999-2000</div><span class="work-entry-category">Chris Colatos</span><div class="work-entry-links"><a href="c2%20Loops.zip" class="work-dl-link" download><svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>Download 20 Loops</a></div></div></div>
+      <div class="work-entry reveal"><div class="work-entry-image has-embed" data-embed='<iframe width="100%" height="166" scrolling="no" frameborder="no" allow="autoplay" src="https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/tracks/235339410&color=%23c4a882&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false&visual=true"></iframe>'><img src="media/pictures/phaedrus.png" alt="Nightingale" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">Nightingale</div><div class="work-entry-caption">Inspired by synthesized wind chimes, Nightingale is an algorithmic sonification of Plato's Phaedrus, transforming dialogue into sound and musical traits</div><span class="work-entry-category">Chris Colatos</span></div></div>
+      <div class="work-entry reveal"><div class="work-entry-image has-embed" data-embed='<iframe width="100%" height="166" scrolling="no" frameborder="no" allow="autoplay" src="https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/tracks/1956804363&color=%23c4a882&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false&visual=true"></iframe>'><img src="media/pictures/modigliani.png" alt="Modigliani Bridge" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">Modigliani Bridge</div><div class="work-entry-caption">Bridge section showcasing algorithmically produced composition</div><span class="work-entry-category">Chris Colatos</span></div></div>
+    </div>
+  </div></section>
 
-    // check if an element is in viewport
-    // http://stackoverflow.com/questions/123999/how-to-tell-if-a-dom-element-is-visible-in-the-current-viewport
-    function isElementInViewport(el) {
-      var rect = el.getBoundingClientRect();
-      return (
-        rect.top >= 0
-        && rect.left >= 0
-        && rect.bottom <= (window.innerHeight || document.documentElement.clientHeight)
-        && rect.right <= (window.innerWidth || document.documentElement.clientWidth)
-      );
+  <section id="contact"><div class="section-inner reveal">
+    <h2 class="contact-heading">Get in Touch</h2>
+    <p class="contact-sub">Learning Leadership &nbsp;|&nbsp; Creative Innovation</p>
+    <div class="contact-links">
+      <a href="mailto:ccolatos@gmail.com" class="contact-link" target="_blank"><svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>Email</a>
+      <a href="https://www.linkedin.com/in/ColatosChris" class="contact-link" target="_blank"><svg viewBox="0 0 24 24"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.79M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z"/></svg>LinkedIn</a>
+    </div>
+  </div></section>
+
+  <footer>&copy; 2026 &nbsp; Chris Colatos &nbsp;&middot;&nbsp; Learning Leadership | Creative Innovation</footer>
+
+  <div class="modal-overlay" id="modal"><button class="modal-close" id="modalClose">&times;</button><div class="modal-content" id="modalContent"></div></div>
+
+<script>
+(function() {
+  'use strict';
+
+  // ================================================================
+  //  COUPLED AUDIOVISUAL INSTRUMENT
+  //  FM synthesis (Chowning, golden-ratio sidebands)
+  //  Spectral shimmer (Risset beating harmonics)
+  //  Stochastic percussion (Xenakis, Poisson-distributed resonant plucks)
+  //  Real-time FFT spectral visualization with phosphor persistence
+  //  Actual waveform oscilloscope with glow
+  //  Visual and sonic systems are one: you see what you hear
+  // ================================================================
+
+  var canvas = document.getElementById('heroCanvas');
+  var ctx = canvas.getContext('2d');
+  var w, h, mouseX = 0.5, mouseY = 0.5, tgtX = 0.5, tgtY = 0.5;
+  var time = 0;
+
+  // Quiet-mode particles
+  var particles = [], NUM_P = 40;
+
+  // Audio system
+  var audioCtx = null, analyser = null, masterGain = null, audioActive = false;
+  var fmCarrier, fmMod, fmModGain, fmCarrierGain;
+  var fmCarrier2, fmMod2, fmModGain2, fmCarrierGain2;
+  var subOsc, subGain;
+  var shimmerOscs = [], shimmerGains = [];
+  var noiseBuffer;
+  var freqData, timeData;
+  var stochasticEvents = []; // visual event markers
+  var stochasticTimer = null;
+
+  var PHI = (1 + Math.sqrt(5)) / 2; // golden ratio: 1.618...
+
+  function resize() {
+    w = canvas.width = window.innerWidth;
+    h = canvas.height = window.innerHeight;
+    particles = [];
+    for (var i = 0; i < NUM_P; i++) {
+      particles.push({
+        x: Math.random() * w, y: Math.random() * h,
+        vx: (Math.random() - 0.5) * 0.2, vy: (Math.random() - 0.5) * 0.2,
+        size: Math.random() * 1.2 + 0.3, alpha: Math.random() * 0.08 + 0.02
+      });
+    }
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  document.addEventListener('mousemove', function(e) { tgtX = e.clientX / w; tgtY = e.clientY / h; });
+  document.addEventListener('touchmove', function(e) {
+    if (e.touches.length) { tgtX = e.touches[0].clientX / w; tgtY = e.touches[0].clientY / h; }
+  }, { passive: true });
+
+  // ===== AUDIO INITIALIZATION =====
+  function initAudio() {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    // Analyser for coupled visualization
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 2048;
+    analyser.smoothingTimeConstant = 0.75;
+    freqData = new Uint8Array(analyser.frequencyBinCount);
+    timeData = new Uint8Array(analyser.fftSize);
+
+    // Dynamics compressor
+    var comp = audioCtx.createDynamicsCompressor();
+    comp.threshold.value = -20; comp.knee.value = 10; comp.ratio.value = 6;
+
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = 0;
+    masterGain.connect(comp);
+    comp.connect(analyser);
+    analyser.connect(audioCtx.destination);
+
+    // Shared noise buffer for stochastic events
+    var bufSz = audioCtx.sampleRate;
+    noiseBuffer = audioCtx.createBuffer(1, bufSz, audioCtx.sampleRate);
+    var nd = noiseBuffer.getChannelData(0);
+    for (var i = 0; i < bufSz; i++) nd[i] = Math.random() * 2 - 1;
+
+    // === FM VOICE 1 (Chowning: carrier:modulator = 1:phi) ===
+    fmMod = audioCtx.createOscillator();
+    fmMod.type = 'sine'; fmMod.frequency.value = 55 * PHI;
+    fmModGain = audioCtx.createGain();
+    fmModGain.gain.value = 30;
+    fmCarrier = audioCtx.createOscillator();
+    fmCarrier.type = 'sine'; fmCarrier.frequency.value = 55;
+    fmCarrierGain = audioCtx.createGain();
+    fmCarrierGain.gain.value = 0.18;
+    fmMod.connect(fmModGain);
+    fmModGain.connect(fmCarrier.frequency);
+    fmCarrier.connect(fmCarrierGain);
+    fmCarrierGain.connect(masterGain);
+    fmMod.start(); fmCarrier.start();
+
+    // === FM VOICE 2 (detuned, beating) ===
+    fmMod2 = audioCtx.createOscillator();
+    fmMod2.type = 'sine'; fmMod2.frequency.value = 55 * PHI * 1.004;
+    fmModGain2 = audioCtx.createGain();
+    fmModGain2.gain.value = 25;
+    fmCarrier2 = audioCtx.createOscillator();
+    fmCarrier2.type = 'sine'; fmCarrier2.frequency.value = 55.7;
+    fmCarrierGain2 = audioCtx.createGain();
+    fmCarrierGain2.gain.value = 0.13;
+    fmMod2.connect(fmModGain2);
+    fmModGain2.connect(fmCarrier2.frequency);
+    fmCarrier2.connect(fmCarrierGain2);
+    fmCarrierGain2.connect(masterGain);
+    fmMod2.start(); fmCarrier2.start();
+
+    // === SUB OSCILLATOR ===
+    subOsc = audioCtx.createOscillator();
+    subOsc.type = 'sine'; subOsc.frequency.value = 27.5;
+    subGain = audioCtx.createGain(); subGain.gain.value = 0.1;
+    subOsc.connect(subGain); subGain.connect(masterGain); subOsc.start();
+
+    // === SPECTRAL SHIMMER (Risset beating harmonics) ===
+    var shBase = 110;
+    var harmonics = [1, 2, 3, 4, 5, 6, 7, 8];
+    var drifts = [0, 0.17, -0.13, 0.23, -0.19, 0.29, -0.11, 0.07];
+    for (var i = 0; i < harmonics.length; i++) {
+      var o = audioCtx.createOscillator();
+      o.type = 'sine'; o.frequency.value = shBase * harmonics[i] + drifts[i];
+      var g = audioCtx.createGain();
+      g.gain.value = 0.012 / (i + 1);
+      o.connect(g); g.connect(masterGain); o.start();
+      shimmerOscs.push(o); shimmerGains.push(g);
+    }
+  }
+
+  // ===== AUDIO PARAMETER UPDATE =====
+  function updateAudioParams() {
+    if (!audioActive || !audioCtx) return;
+    var now = audioCtx.currentTime;
+
+    // Pentatonic scale in just intonation
+    var scale = [55, 61.875, 68.75, 82.5, 91.667, 110, 123.75, 137.5, 165, 183.333, 220];
+    var idx = mouseX * (scale.length - 1);
+    var lo = Math.floor(idx), hi = Math.min(lo + 1, scale.length - 1);
+    var baseFreq = scale[lo] + (scale[hi] - scale[lo]) * (idx - lo);
+
+    // Modulation index: mouseY squared for exponential feel (pure at bottom, metallic at top)
+    var modIdx = 8 + mouseY * mouseY * 500;
+
+    // FM Voice 1
+    fmCarrier.frequency.linearRampToValueAtTime(baseFreq, now + 0.12);
+    fmMod.frequency.linearRampToValueAtTime(baseFreq * PHI, now + 0.12);
+    fmModGain.gain.linearRampToValueAtTime(modIdx, now + 0.12);
+
+    // FM Voice 2
+    fmCarrier2.frequency.linearRampToValueAtTime(baseFreq * 1.003, now + 0.12);
+    fmMod2.frequency.linearRampToValueAtTime(baseFreq * PHI * 1.006, now + 0.12);
+    fmModGain2.gain.linearRampToValueAtTime(modIdx * 0.85, now + 0.12);
+
+    // Sub
+    subOsc.frequency.linearRampToValueAtTime(baseFreq * 0.5, now + 0.2);
+
+    // Shimmer follows doubled base
+    var harmonics = [1, 2, 3, 4, 5, 6, 7, 8];
+    var drifts = [0, 0.17, -0.13, 0.23, -0.19, 0.29, -0.11, 0.07];
+    for (var i = 0; i < shimmerOscs.length; i++) {
+      shimmerOscs[i].frequency.linearRampToValueAtTime(baseFreq * 2 * harmonics[i] + drifts[i], now + 0.3);
     }
 
-    function callbackFunc() {
-      for (var i = 0; i < items.length; i++) {
-        if (isElementInViewport(items[i])) {
-          items[i].classList.add("in-view");
+    requestAnimationFrame(updateAudioParams);
+  }
+
+  // ===== STOCHASTIC PERCUSSION (Xenakis: Poisson process) =====
+  function scheduleStochastic() {
+    if (!audioActive) return;
+    // Rate: sparse at left (0.2/sec), granular cloud at right (~18/sec)
+    var rate = 0.2 + mouseX * mouseX * 18;
+    // Poisson: exponentially distributed inter-event intervals
+    var interval = -Math.log(Math.random()) / rate * 1000;
+    interval = Math.max(interval, 20);
+
+    stochasticTimer = setTimeout(function() {
+      triggerPluck();
+      scheduleStochastic();
+    }, interval);
+  }
+
+  function triggerPluck() {
+    if (!audioCtx || !audioActive) return;
+    var now = audioCtx.currentTime;
+
+    // Current base frequency from mouse position
+    var scale = [55, 61.875, 68.75, 82.5, 91.667, 110, 123.75, 137.5, 165, 183.333, 220];
+    var idx = mouseX * (scale.length - 1);
+    var baseFreq = scale[Math.min(Math.floor(idx), scale.length - 1)];
+
+    // Pick from harmonic/subharmonic series
+    var ratios = [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 16];
+    var ratio = ratios[Math.floor(Math.random() * ratios.length)];
+    var freq = baseFreq * ratio;
+    while (freq > 12000) freq *= 0.5;
+    while (freq < 30) freq *= 2;
+
+    var amp = 0.02 + Math.random() * 0.14;
+    var decay = 0.05 + Math.random() * 0.45;
+    var Q = 25 + Math.random() * 100;
+
+    // Resonant noise burst (physical model approximation)
+    var src = audioCtx.createBufferSource();
+    src.buffer = noiseBuffer;
+    var offset = Math.random() * 0.8;
+
+    var bp = audioCtx.createBiquadFilter();
+    bp.type = 'bandpass'; bp.frequency.value = freq; bp.Q.value = Q;
+
+    var env = audioCtx.createGain();
+    env.gain.setValueAtTime(amp, now);
+    env.gain.exponentialRampToValueAtTime(0.0001, now + decay);
+
+    src.connect(bp); bp.connect(env); env.connect(masterGain);
+    src.start(now, offset, 0.04);
+
+    // Cleanup
+    var cleanTime = (decay + 0.2) * 1000;
+    setTimeout(function() { try { src.disconnect(); bp.disconnect(); env.disconnect(); } catch(e) {} }, cleanTime);
+
+    // Register visual event
+    var vizX = logFreqToX(freq);
+    var vizY = h * (0.2 + Math.random() * 0.55);
+    stochasticEvents.push({ x: vizX, y: vizY, birth: performance.now(), amp: amp, radius: 0 });
+  }
+
+  function logFreqToX(freq) {
+    var minF = 25, maxF = 14000;
+    return ((Math.log(freq) - Math.log(minF)) / (Math.log(maxF) - Math.log(minF))) * w;
+  }
+
+  // ===== DRAW LOOP =====
+  function draw() {
+    time += 0.005;
+    mouseX += (tgtX - mouseX) * 0.04;
+    mouseY += (tgtY - mouseY) * 0.04;
+
+    if (audioActive && analyser) {
+      drawActiveMode();
+    } else {
+      drawQuietMode();
+    }
+    requestAnimationFrame(draw);
+  }
+
+  // --- QUIET MODE: subtle particle constellation ---
+  function drawQuietMode() {
+    ctx.clearRect(0, 0, w, h);
+
+    for (var p = 0; p < particles.length; p++) {
+      var pt = particles[p];
+      pt.x += pt.vx; pt.y += pt.vy;
+      if (pt.x < 0) pt.x = w; if (pt.x > w) pt.x = 0;
+      if (pt.y < 0) pt.y = h; if (pt.y > h) pt.y = 0;
+      ctx.beginPath(); ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(196,168,130,' + pt.alpha + ')'; ctx.fill();
+    }
+    for (var i = 0; i < particles.length; i++) {
+      for (var j = i + 1; j < particles.length; j++) {
+        var dx = particles[i].x - particles[j].x, dy = particles[i].y - particles[j].y;
+        var d = Math.sqrt(dx * dx + dy * dy);
+        if (d < 100) {
+          ctx.beginPath(); ctx.strokeStyle = 'rgba(196,168,130,' + (0.02 * (1 - d / 100)) + ')';
+          ctx.lineWidth = 0.5; ctx.moveTo(particles[i].x, particles[i].y);
+          ctx.lineTo(particles[j].x, particles[j].y); ctx.stroke();
         }
       }
     }
+    // Gentle generated waveform
+    for (var l = 0; l < 3; l++) {
+      ctx.beginPath(); ctx.strokeStyle = 'rgba(196,168,130,' + (0.03 + l * 0.01) + ')'; ctx.lineWidth = 0.6;
+      var yC = h * (0.35 + l * 0.12);
+      for (var x = 0; x < w; x += 3) {
+        var nX = x / w, amp = 15 + l * 5;
+        var y = yC + Math.sin(nX * Math.PI * 2 + time + l) * amp + Math.sin(nX * Math.PI * 3.7 + time * 0.7) * amp * 0.3;
+        x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+  }
 
-    // listen for events
-    window.addEventListener("load", callbackFunc);
-    window.addEventListener("resize", callbackFunc);
-    window.addEventListener("scroll", callbackFunc);
+  // --- ACTIVE MODE: coupled audiovisual rendering ---
+  function drawActiveMode() {
+    // Phosphor persistence: don't clear, just fade
+    ctx.fillStyle = 'rgba(10, 10, 10, 0.14)';
+    ctx.fillRect(0, 0, w, h);
 
-  })();
+    analyser.getByteFrequencyData(freqData);
+    analyser.getByteTimeDomainData(timeData);
 
-  (function() {
-    var words = [
-    'Visionary Leadership',
-    'Data-Driven Decision-Making',
-    'Strategic Program Management',
-    'Strategic Program Management',
-    'Strategic Program Management',
-    'Strategic Program Management',
-    'Faculty and Stakeholder Relationship-Building',
-    'Cross-Functional Collaboration',
-    'Operational Efficiency and Execution',
-    'Expertise in Online Education and Digital Learning',
-    'Industry Engagement and External Partnerships',
-    'Strong Communication and Executive Presence',
-    'Conflict Resolution and Diplomacy',
-    'Commitment to Student Success and Retention',
-    'Budget Management and Financial Oversight',
-    'Faculty Recruitment, Development, and Mentorship',
-    'Curriculum Development and Continuous Improvement',
-    'Adaptability and Resilience in Fast-Changing Environments',
-    'Academic Rigor & Industry Relevance Alignment',
-    'Proactive Problem-Solving and Innovation',
-    'Organizational and Process Optimization',
-    'Developing Technologies to Enable New Forms of Creativity and Expression',
-    'New Media',
-    'Bioacoustics',
-    'Communication',
-    'Field Recording',
-    'Interactive Environments as Real-Time Compositional Tools',
-    'Soundscape',
-    'Learning Experience Design',
-    'Augmented Reality',
-    'Sound Design',
-    'Interactive Mixing',
-    'Acoustic Ecology',
-    'Interdisciplinary Arts Curricula Development',
-    'Adaptive Storytelling',
-    'Custom Instrument Design and Orchestration',
-    'Electronic Music',
-    'Technical and Creative Project Development',
-    'Performance Art',
-    'Research',
-    'Signal Processing',
-    'Sound Art',
-    'Experimental Composition',
-    'Interactive Design',
-    'Immersive Design',
-    'The Recording Studio as an Instrument',
-    'Game Audio',
-    'Learning Experience Design',
-    'Learning Design',	    
-    'New Interfaces for Musical Expression',
-    'Electroacoustic Music',
-    'Indeterminacy and Graphic Notation',
-    'Intermedia Installation',
-    'Audio Post-Production',
-    'Electronic Music',
-    'Acousmatic Sound',
-    'Game Audio',
-    'Adaptive Audio',
-    'Mixing',
-    'Composition for Dancers',
-    'Learner-Centered Teaching and Learning',
-    'Student Success',
-    'Active Learning',
-    'Experiments in Musical Intelligence',
-    'Sound Producing Objects',
-    'Learning Technology',
-    'Education Leadership',
-    'Academic Leadership',
-    'Creative Technology',
-    'Interdisciplinary Arts Programs Design',
-    'Human-Computer Interaction',
-    'Instructional Design',
-    'Digital Accessibility',
-    'Musique Concrète / Acousmatique',
-    'Algorithmic Composition',
-    'Learning Engineering',
-    'Communication',
-    'Natural Sound Recording',
-    'Mastering',
-    'Education Leadership',
-    'Field Recording',
-    'Sonology',
-    'Immersive Media',
-    'Recording Arts',
-    'Digital Accessibility',
-    'Phonography',
-    'Active Learning',
-    'Learning & Development',
-    'Innovation Leadership',
-    'Learning Consulting',
-    'Learning Engineering',
-    'Program Development',
-    'Organizational Development',
-    'Academic Leadership',
-    'Institutional Strategy',
-    'Learning Innovation',
-    'Program Development',
-    'Curriculum Design',
-    'Active Learning',
-    'Student Success',
-    'Learning & Development',
-    'Digital Accessibility',
-    'Higher Education Leadership',
-    'Digital Accessibility',
-    'Student Success',
-    'Arts Administration',
-    'Music',
-    'Music',
-    'Learning & Development',
-    'Learner-Centered Teaching and Learning',	    
-    'Learner-Centered Teaching and Learning',
-    'Augmented Reality',
-    'Creative Leadership',
-    'Education Leadership',
-    'Music',
-    'Sound Design',
-    'Field Recording',
-    'Interactive Media',
-    'Learning & Development',
-    'Learning Experience Design',
-    'Creative Technology',
-    'E-Learning',
-    'Technical Writing',
-    'EdTech',
-    'Strategic Leadership in Faculty Development and Onboarding',
-    'Competency-Based Education and Andragogy',
-    'Online Teaching Strategies and Technology Integration',
-    'Quality Assurance and Continuous Improvement in Instructional Practices',
-    'Data-Driven Decision-Making and Instructional Effectiveness',
-    'Professional Development Program Design and Implementation',
-    'Stakeholder Collaboration and Change Management',
-    'Communication and Engagement in Diverse Academic Environments',
-    'Instructional Design for Online Learning',
-    'Operational Management of Faculty Processes and Systems',
-    'Commitment to Belonging, Inclusion, and Accessibility in Education',
-    'Leadership Development',
-    'Educational Leadership and Development',
-    'Strategic Leadership in Education',
-    'Curriculum Development and Continuous Improvement',
-    'Competency-Based Education and Direct Assessment',
-    'Comprehensive Onboarding Processes and Continuous Improvement',
-    'Faculty Development, Training, and Retention',
-    'Faculty Support and Engagement',
-    'Pedagogical Innovation',
-    'Quality Assurance in Educational Programs',
-    'Instructional Design and Technology',
-    'Learning Experience Design and Technology Integration',
-    'eLearning and Hybrid Learning Solutions',
-    'Digital Accessibility (A11y Champion)',
-    'Learning Analytics and Data-Driven Decision Making',
-    'Music and Sound Design for Interactive Media',
-    'Creative Production in Educational Contexts',
-    'Project Management and Collaboration',
-    'Cross-Functional Project Management',
-    'Strategic Stakeholder Collaboration',
-    'Process Development and Refinement',
-    'Efficient and Effective Project Actualization',
-    'Fostering Collaboration and Building Consensus',
-    'High Morale and Team Efficiency',
-    'Education Leadership',
-    'Higher Education',
-    'Learning & Development',
-    'Competency-Based Online Learning',
-    'Learning Experience Design',
-    'Learning Experience Design',
-    'Learning Experience Design',
-    'Learning Experience Design',
-    'Executive Learning Experience Design',
-    'Executive Learning Experience Design',
-    'Executive Learning Experience Design',
-    'Learning Experience Design',
-    'Leadership Development',
-    'Executive Coaching',
-    'Program Management',
-    'Change Management',
-    'Strategic Planning',
-    'Corporate Training',
-    'Educational Consulting',
-    'Career Development Coaching',
-    'Sound Design',
-    'Audio Engineering',
-    'Executive Education',
-    'Executive Education',
-    'Executive Education',
-    'Executive Education',
-    'Chief Learning Officer',
-    'Chief Learning Officer',
-    'Communication',
-    'Communication',
-    'Higher Education Leadership',
-    'Learning & Development Leadership',
-    'Executive Development & Corporate Training',
-    'Learning Experience Design & Technology',
-    'Program Design & Development',
-    'Competency-Based Education',
-    'Experiential, eLearning, & Hybrid Learning',
-    'Cross-Functional Project Management',
-    'Communication & Presenting',
-    'Process Development, Innovation, & Refinement',
-    'Data-Driven Learning Analytics & Decision-Making',
-    'Efficient & Effective Project Actualization',
-    'Fostering Collaboration & High Morale',
-    'Creative Production / Interactive Media',
-    'Music Production & Sound Design',
-    'AI Tools for Research, Learning, & Creativity',
-    'Digital Accessibility',
-    'Executive Education',
-    'Digital Transformation',
-    'Digital Transformation',
-    'Visionary Leadership',
-    'Data-Driven Decision-Making',
-    'Strategic Program Management',
-    'Faculty and Stakeholder Relationship-Building',
-    'Cross-Functional Collaboration',
-    'Operational Efficiency and Execution',
-    'Expertise in Online Education and Digital Learning',
-    'Industry Engagement and External Partnerships',
-    'Strong Communication and Executive Presence',
-    'Conflict Resolution and Diplomacy',
-    'Commitment to Student Success and Retention',
-    'Budget Management and Financial Oversight',
-    'Faculty Recruitment, Development, and Mentorship',
-    'Curriculum Development and Continuous Improvement',
-    'Adaptability and Resilience in Fast-Changing Environments',
-    'Academic Rigor & Industry Relevance Alignment',
-    'Proactive Problem-Solving and Innovation',
-    'Organizational and Process Optimization',
-    '&#9836;',
-    ];
+    var binCount = analyser.frequencyBinCount;
+    var nyquist = audioCtx.sampleRate / 2;
 
-    var numWords = words.length;
-    var changeSpeed = 1500;
+    // --- SPECTRAL BARS (logarithmic frequency mapping) ---
+    var numBars = 160;
+    var logMin = Math.log(25), logMax = Math.log(nyquist);
+    for (var i = 0; i < numBars; i++) {
+      var logF = logMin + (i / numBars) * (logMax - logMin);
+      var freq = Math.exp(logF);
+      var bin = Math.round(freq / nyquist * binCount);
+      if (bin >= binCount) bin = binCount - 1;
+      var val = freqData[bin] / 255;
+      if (val < 0.01) continue;
 
-    var i = setInterval(function() {
-      document.getElementById('change_this').innerHTML = randomWord();
-    }, 1500);
+      var x = (i / numBars) * w;
+      var barW = w / numBars;
+      var barH = val * h * 0.55;
 
-    function randomWord(prev) {
-      var next = words[Math.floor(Math.random() * numWords)];
-      return (next === prev) ? randomWord(prev) : next;
-    };
+      // Warm spectral color: amber to white at high energy
+      var r = 196 + val * 59;
+      var g = 168 + val * 76;
+      var b = 130 + val * 110;
+      ctx.fillStyle = 'rgba(' + Math.round(r) + ',' + Math.round(g) + ',' + Math.round(b) + ',' + (val * 0.35) + ')';
+      ctx.fillRect(x, h - barH, barW - 0.5, barH);
+    }
 
-  })();
+    // --- WAVEFORM OSCILLOSCOPE with phosphor glow ---
+    var sliceW = w / timeData.length;
+    var waveY = h * 0.38;
+    var waveAmp = h * 0.22;
+
+    ctx.beginPath();
+    for (var i = 0; i < timeData.length; i++) {
+      var v = (timeData[i] - 128) / 128;
+      var y = waveY + v * waveAmp;
+      i === 0 ? ctx.moveTo(0, y) : ctx.lineTo(i * sliceW, y);
+    }
+
+    // Three-pass glow (wide dim, medium, sharp bright)
+    ctx.lineWidth = 10; ctx.strokeStyle = 'rgba(196,168,130,0.04)'; ctx.stroke();
+    ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(196,168,130,0.12)'; ctx.stroke();
+    ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(220,200,170,0.65)'; ctx.stroke();
+
+    // --- STOCHASTIC EVENT PARTICLES ---
+    var now = performance.now();
+    for (var i = stochasticEvents.length - 1; i >= 0; i--) {
+      var ev = stochasticEvents[i];
+      var age = (now - ev.birth) / 1000;
+      if (age > 2.5) { stochasticEvents.splice(i, 1); continue; }
+
+      var fade = Math.max(0, 1 - age / 2.5);
+      var r1 = age * 60;
+      var r2 = age * 35;
+
+      // Expanding ring
+      ctx.beginPath();
+      ctx.arc(ev.x, ev.y, r1, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(196,168,130,' + (fade * ev.amp * 2.5) + ')';
+      ctx.lineWidth = 0.8; ctx.stroke();
+
+      // Second ring, slower
+      ctx.beginPath();
+      ctx.arc(ev.x, ev.y, r2, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(245,244,240,' + (fade * ev.amp * 1.5) + ')';
+      ctx.lineWidth = 0.5; ctx.stroke();
+
+      // Initial flash
+      if (age < 0.1) {
+        var flashFade = 1 - age / 0.1;
+        ctx.beginPath();
+        ctx.arc(ev.x, ev.y, 4 * flashFade + 1, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,250,240,' + (flashFade * 0.9) + ')';
+        ctx.fill();
+      }
+    }
+
+    // --- SUBTLE CENTER LINE (oscilloscope reference) ---
+    ctx.beginPath();
+    ctx.moveTo(0, waveY); ctx.lineTo(w, waveY);
+    ctx.strokeStyle = 'rgba(196,168,130,0.015)'; ctx.lineWidth = 0.5; ctx.stroke();
+  }
+
+  draw();
+
+  // ===== AUDIO TOGGLE =====
+  var audioToggle = document.getElementById('audioToggle');
+  var audioHint = document.getElementById('audioHint');
+
+  audioToggle.addEventListener('click', function() {
+    if (!audioActive) {
+      if (!audioCtx) initAudio();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      // Fade in over 2 seconds
+      masterGain.gain.linearRampToValueAtTime(0.4, audioCtx.currentTime + 2);
+      audioActive = true;
+      audioToggle.classList.add('active');
+      audioHint.classList.add('hidden');
+      updateAudioParams();
+      scheduleStochastic();
+      // Clear canvas for persistence mode
+      ctx.clearRect(0, 0, w, h);
+    } else {
+      masterGain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 1);
+      audioActive = false;
+      audioToggle.classList.remove('active');
+      if (stochasticTimer) clearTimeout(stochasticTimer);
+      stochasticEvents = [];
+    }
+  });
+
+  // ===== ROTATING WORDS =====
+  var words = ['Learning Experience Design','Higher Education Leadership','Digital Transformation','Curriculum Development','Sound Design','Algorithmic Composition','Interactive Media','Pedagogical Innovation','Audio Engineering','Digital Accessibility','Data-Driven Decision Making','Faculty Development','Creative Production','Intermedia Art','Competency-Based Education','Strategic Leadership','Instructional Design','Cross-Functional Collaboration','Music Production','eLearning Solutions','\u266C'];
+  var stEl = document.getElementById('heroSignalText');
+  var wIdx = 0; stEl.textContent = words[0];
+  setInterval(function() { stEl.classList.add('out'); setTimeout(function() { wIdx = (wIdx + 1) % words.length; stEl.textContent = words[wIdx]; stEl.classList.remove('out'); }, 500); }, 3000);
+
+  // ===== NAV =====
+  var nav = document.getElementById('mainNav');
+  window.addEventListener('scroll', function() { nav.classList.toggle('scrolled', window.scrollY > 80); });
+  var navToggle = document.getElementById('navToggle'), navLinks = document.getElementById('navLinks');
+  navToggle.addEventListener('click', function() { navLinks.classList.toggle('open'); navToggle.classList.toggle('open'); });
+  window.closeNav = function() { navLinks.classList.remove('open'); navToggle.classList.remove('open'); };
+
+  // ===== ACCORDION =====
+  document.querySelectorAll('.accordion-trigger').forEach(function(tr) {
+    tr.addEventListener('click', function() {
+      var item = this.parentElement, panel = item.querySelector('.accordion-panel'), inner = panel.querySelector('.accordion-panel-inner'), isOpen = item.classList.contains('open');
+      document.querySelectorAll('.accordion-item').forEach(function(ai) { ai.classList.remove('open'); ai.querySelector('.accordion-panel').style.maxHeight = '0'; ai.querySelector('.accordion-trigger').setAttribute('aria-expanded','false'); });
+      if (!isOpen) { item.classList.add('open'); panel.style.maxHeight = inner.scrollHeight + 40 + 'px'; this.setAttribute('aria-expanded','true'); }
+    });
+  });
+
+  // ===== SCROLL REVEAL =====
+  var obs = new IntersectionObserver(function(entries) { entries.forEach(function(e) { if (e.isIntersecting) e.target.classList.add('visible'); }); }, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
+  document.querySelectorAll('.reveal').forEach(function(el) { obs.observe(el); });
+
+  // ===== MODAL =====
+  var modal = document.getElementById('modal'), modalContent = document.getElementById('modalContent'), modalClose = document.getElementById('modalClose');
+  document.querySelectorAll('.work-entry-image.has-embed').forEach(function(imgWrap) {
+    imgWrap.addEventListener('click', function() {
+      var embed = this.dataset.embed; if (!embed) return;
+      var entry = this.closest('.work-entry');
+      var t = entry.querySelector('.work-entry-title').textContent;
+      var c = entry.querySelector('.work-entry-caption').textContent;
+      modalContent.innerHTML = '<div class="modal-title">' + t + '</div><div class="modal-caption">' + c + '</div><div class="modal-embed">' + embed + '</div>';
+      modal.style.display = 'flex'; modal.offsetHeight; modal.classList.add('active'); modal.classList.add('visible'); document.body.style.overflow = 'hidden';
+    });
+  });
+  function closeModal() { modal.classList.remove('visible'); setTimeout(function() { modal.classList.remove('active'); modal.style.display='none'; modalContent.innerHTML=''; document.body.style.overflow=''; }, 400); }
+  modalClose.addEventListener('click', closeModal);
+  modal.addEventListener('click', function(e) { if (e.target === modal) closeModal(); });
+  document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeModal(); });
+
+})();
 </script>
+</body>
+</html>
