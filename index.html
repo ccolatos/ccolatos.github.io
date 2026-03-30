@@ -5,37 +5,27 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Chris Colatos -- Learning Leadership | Creative Innovation">
   <title>Chris Colatos</title>
-
-  <!-- Favicons -->
   <link rel="icon" href="assets/img/favicon.ico" type="image/x-icon"/>
   <link rel="apple-touch-icon" sizes="180x180" href="assets/img/icons/apple-icon-180x180.png">
   <link rel="icon" type="image/png" sizes="32x32" href="assets/img/icons/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="assets/img/icons/favicon-16x16.png">
   <meta name="theme-color" content="#0a0a0a">
-
-  <!-- Schema.org -->
   <meta itemprop="name" content="Chris Colatos">
   <meta itemprop="description" content="Learning Leadership | Creative Innovation">
-
-  <!-- Open Graph -->
   <meta property="og:type" content="website">
   <meta property="og:title" content="Chris Colatos">
   <meta property="og:description" content="Learning Leadership | Creative Innovation">
   <meta property="og:image" content="https://chriscolatos.com/assets/img/icons/twitter-fb.png">
   <meta property="og:url" content="https://chriscolatos.com">
-
-  <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Chris Colatos">
   <meta name="twitter:description" content="Learning Leadership | Creative Innovation">
   <meta name="twitter:image" content="https://chriscolatos.com/assets/img/icons/twitter-fb.png">
-
-  <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
   <style>
-    :root{--black:#0a0a0a;--dark:#111;--mid-dark:#1a1a1a;--gray-dark:#333;--gray:#666;--gray-light:#999;--off-white:#e8e6e1;--white:#f5f4f0;--accent:#c4a882;--accent-dim:rgba(196,168,130,.15);--accent-glow:rgba(196,168,130,.06);--font-display:'Cormorant Garamond',Georgia,serif;--font-body:'DM Sans',-apple-system,sans-serif;--max-width:1100px;--transition:cubic-bezier(.16,1,.3,1);--nav-height:60px}
+    :root{--black:#0a0a0a;--dark:#111;--mid-dark:#1a1a1a;--gray:#666;--gray-light:#999;--off-white:#e8e6e1;--white:#f5f4f0;--accent:#c4a882;--accent-dim:rgba(196,168,130,.15);--accent-glow:rgba(196,168,130,.06);--font-display:'Cormorant Garamond',Georgia,serif;--font-body:'DM Sans',-apple-system,sans-serif;--max-width:1100px;--transition:cubic-bezier(.16,1,.3,1);--nav-height:60px}
     *{margin:0;padding:0;box-sizing:border-box}::selection{background:var(--accent);color:var(--black)}
     html{scroll-behavior:smooth;scroll-padding-top:var(--nav-height);font-size:16px}
     body{background:var(--black);color:var(--off-white);font-family:var(--font-body);font-weight:300;line-height:1.8;overflow-x:hidden;-webkit-font-smoothing:antialiased}
@@ -118,16 +108,17 @@
     footer{padding:3rem;text-align:center;font-size:.7rem;letter-spacing:.15em;text-transform:uppercase;color:var(--gray);border-top:1px solid rgba(255,255,255,.04)}
     .reveal{opacity:0;transform:translateY(40px);transition:opacity .9s ease,transform .9s var(--transition)}
     .reveal.visible{opacity:1;transform:translateY(0)}.reveal-delay-1{transition-delay:.1s}.reveal-delay-2{transition-delay:.2s}
-    .modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.94);z-index:200;justify-content:center;align-items:center;padding:2rem;cursor:pointer;opacity:0;transition:opacity .4s ease}
+    .modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.94);z-index:200;justify-content:center;align-items:center;padding:2rem;cursor:pointer;opacity:0;transition:opacity .4s ease;overflow-y:auto}
     .modal-overlay.active{display:flex}.modal-overlay.visible{opacity:1}
     .modal-content{max-width:800px;width:100%;cursor:default;transform:translateY(20px);transition:transform .5s var(--transition)}
     .modal-overlay.visible .modal-content{transform:translateY(0)}
     .modal-close{position:fixed;top:2rem;right:2rem;background:none;border:1px solid rgba(255,255,255,.12);width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--gray-light);font-size:1.5rem;cursor:pointer;font-weight:300;transition:all .3s ease;z-index:201}
     .modal-close:hover{color:var(--white);border-color:var(--accent)}
-    .modal-image{width:100%;max-height:55vh;object-fit:contain;margin-bottom:2rem;opacity:.9;display:block}
+    .modal-image{width:100%;max-height:60vh;object-fit:contain;margin-bottom:2rem;display:block}
     .modal-title{font-family:var(--font-display);font-size:2rem;font-weight:300;color:var(--white);margin-bottom:.75rem}
-    .modal-caption{font-size:.9rem;color:var(--gray-light);margin-bottom:1rem;line-height:1.7}
-    .modal-embed{margin-top:1rem}.modal-embed iframe{width:100%;border:none}
+    .modal-caption{font-size:.9rem;color:var(--gray-light);margin-bottom:1.5rem;line-height:1.7}
+    .modal-embed{margin-top:0;position:relative;padding-bottom:56.25%;height:0;overflow:hidden}
+    .modal-embed iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:none}
     @media(max-width:900px){.bio-grid{grid-template-columns:1fr;gap:3rem}}
     @media(max-width:768px){
       section{padding:5rem 1.5rem}nav{padding:1.25rem 1.5rem}nav.scrolled{padding:1rem 1.5rem}
@@ -170,7 +161,7 @@
       <h1 class="hero-name">Chris Colatos</h1>
       <p class="hero-credentials">MSc &middot; ACT &middot; FHEA</p>
       <p class="hero-tagline">Learning Leadership &nbsp;|&nbsp; Creative Innovation</p>
-      <div class="hero-signal" id="heroSignal"><span class="hero-signal-text" id="heroSignalText"></span></div>
+      <div class="hero-signal"><span class="hero-signal-text" id="heroSignalText"></span></div>
     </div>
     <div class="hero-audio-hint" id="audioHint" onclick="document.getElementById('audioToggle').click()">Click to activate generative audio</div>
     <div class="hero-scroll"><div class="hero-scroll-line"></div></div>
@@ -215,24 +206,24 @@
     <div class="section-label reveal">Selected Works</div>
     <h2 class="section-heading reveal">Portfolio</h2>
     <div class="works-list">
-      <div class="work-entry reveal"><div class="work-entry-image"><img src="media/pictures/artists.png" alt="Artists" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">Artists</div><div class="work-entry-caption">Producer, Engineer, Music Supervisor, Songwriter, Arranger, and Performer</div><span class="work-entry-category">Chris Colatos</span></div></div>
-      <div class="work-entry reveal"><div class="work-entry-image"><img src="media/pictures/companies.png" alt="Companies" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">Companies</div><div class="work-entry-caption">Producer, Engineer, Music Supervisor, Songwriter, Arranger, and Performer</div><span class="work-entry-category">Chris Colatos</span></div></div>
-      <div class="work-entry reveal"><div class="work-entry-image"><img src="media/pictures/twistedtools.png" alt="Twisted Tools" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">Twisted Tools</div><div class="work-entry-caption">Drum Programming, Sound Design, and Composition for Twisted Tools Instruments</div><span class="work-entry-category">Chris Colatos</span></div></div>
-      <div class="work-entry reveal"><div class="work-entry-image has-embed" data-embed='<iframe width="100%" height="315" src="https://www.youtube.com/embed/03rRDdTHTNA" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>'><img src="media/pictures/colatos.png" alt="St0cHastAk0v1Ch" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">St0cHastAk0v1Ch</div><div class="work-entry-caption">Programmable and algorithmic auto-composing step sequencer developed in Logic Pro's MIDI Environment. Video features Mike Keneally on guitar.</div><span class="work-entry-category">Chris Colatos</span><div class="work-entry-links"><a href="colatos_logic_step_sequencer.zip" class="work-dl-link" download><svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>Download Sequencer</a></div></div></div>
-      <div class="work-entry reveal"><div class="work-entry-image"><img src="media/pictures/SalvatoreFerragamo.png" alt="Salvatore Ferragamo" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">Salvatore Ferragamo</div><div class="work-entry-caption">Composer, Lo Splendore Della Vita (&gt;1M views)</div><span class="work-entry-category">Chris Colatos</span></div></div>
-      <div class="work-entry reveal"><div class="work-entry-image"><img src="media/pictures/KatyPerry.png" alt="Katy Perry" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">Katy Perry</div><div class="work-entry-caption">Algorithmically Produced Composition for Katy Perry and Vogue Magazine (Italy)</div><span class="work-entry-category">Chris Colatos</span></div></div>
-      <div class="work-entry reveal"><div class="work-entry-image"><img src="media/pictures/Narcosis.png" alt="Narcosis" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">Narcosis</div><div class="work-entry-caption">Multiplatform/VR, Audio</div><span class="work-entry-category">Chris Colatos</span></div></div>
-      <div class="work-entry reveal"><div class="work-entry-image"><img src="media/pictures/DSC.png" alt="Dead Secret Circle" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">Dead Secret Circle</div><div class="work-entry-caption">Multiplatform/VR, Recording Engineer, Sound Designer, VO Editor, Dialog Processing / Mastering</div><span class="work-entry-category">Chris Colatos</span></div></div>
-      <div class="work-entry reveal"><div class="work-entry-image"><img src="media/pictures/canvas.png" alt="Learning Experience Design" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">Learning Experience Design</div><div class="work-entry-caption">Designed and developed creative arts higher education teaching and active learning experiences in multiple modalities for 7 North American colleges</div><span class="work-entry-category">Chris Colatos</span></div></div>
-      <div class="work-entry reveal"><div class="work-entry-image"><img src="media/pictures/cognitiveload.png" alt="Adaptive Learning Design" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">Adaptive Learning Design Implications</div><div class="work-entry-caption">Effects of Multimedia on Learning Efficacy and Cognitive Load. This research was conducted and authored by Chris Colatos as part of a collaborative study between The University of Edinburgh and Columbia University, supervised by preeminent scholars in the field, Professors Ryan S. Baker (Penn GSE) and Dragan Ga&scaron;evi&cacute; (Monash University)</div><span class="work-entry-category">Research</span></div></div>
-      <div class="work-entry reveal"><div class="work-entry-image"><img src="media/pictures/signandspeak.png" alt="Sign And Speak" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">Sign And Speak</div><div class="work-entry-caption">Interactive Audio student project &mdash; Sign And Speak is a prototype accessibility tool that converts American Sign Language into spoken word. Creators &mdash; Jeff Andrews, Michael Carter &mdash; #AlgorithmicProcessing #GestureRecognition #AssistiveTech #HCI #RealTimeProcessing #DigitalSignalProcessing #MaxMSP #CreativeCoding #InteractiveAudio #ComputationalLinguistics #SensorFusion #WearableTech #Arduino #EmbeddedSystems #HumanCenteredDesign #AccessibilityTech #TangibleInterfaces #DataMapping</div><span class="work-entry-category">Student Work</span></div></div>
-      <div class="work-entry reveal"><div class="work-entry-image"><img src="media/pictures/IA.png" alt="Interactive Audio Student Work" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">Interactive Audio Student Work</div><div class="work-entry-caption">Ex'pression College Interactive Audio BSc Program Student Work</div><span class="work-entry-category">Student Work</span><div class="work-entry-links"><a href="https://www.youtube.com/playlist?list=PLWlNASqHqsTRNxV-LfhrfwfSeB7emwE8C" target="_blank" class="work-dl-link"><svg viewBox="0 0 24 24"><path d="M10 16.5l6-4.5-6-4.5v9zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>View Student Projects</a></div></div></div>
-      <div class="work-entry reveal"><div class="work-entry-image"><img src="media/pictures/ZED.png" alt="ZED" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">ZED</div><div class="work-entry-caption">Multiplatform/VR, Recording Engineer, Sound Designer, VO Editor, Dialog Processing / Mastering</div><span class="work-entry-category">Chris Colatos</span></div></div>
-      <div class="work-entry reveal"><div class="work-entry-image"><img src="media/pictures/PETA.png" alt="PETA" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">PETA</div><div class="work-entry-caption">Composer, Save the Seals Campaign</div><span class="work-entry-category">Chris Colatos</span><div class="work-entry-links"><a href="https://www.canadasshame.com" target="_blank" class="work-dl-link"><svg viewBox="0 0 24 24"><path d="M19 19H5V5h7V3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>Learn More</a></div></div></div>
-      <div class="work-entry reveal"><div class="work-entry-image"><img src="media/pictures/PSY.png" alt="PSY" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">PSY</div><div class="work-entry-caption">Composer for PSY and Vogue Magazine (Italy) Feature</div><span class="work-entry-category">Chris Colatos</span></div></div>
-      <div class="work-entry reveal"><div class="work-entry-image has-embed" data-embed='<iframe width="100%" height="315" src="https://www.youtube.com/embed/TKlaLX6TY88?si=3zz1_BK9mlkrkWnw" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>'><img src="media/pictures/c2loops.png" alt="c2 loops" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">c2 loops</div><div class="work-entry-caption">Mini retro algorithmically produced drum-breaks loop library; circa 1999-2000</div><span class="work-entry-category">Chris Colatos</span><div class="work-entry-links"><a href="c2%20Loops.zip" class="work-dl-link" download><svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>Download 20 Loops</a></div></div></div>
-      <div class="work-entry reveal"><div class="work-entry-image has-embed" data-embed='<iframe width="100%" height="166" scrolling="no" frameborder="no" allow="autoplay" src="https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/tracks/235339410&color=%23c4a882&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false&visual=true"></iframe>'><img src="media/pictures/phaedrus.png" alt="Nightingale" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">Nightingale</div><div class="work-entry-caption">Inspired by synthesized wind chimes, Nightingale is an algorithmic sonification of Plato's Phaedrus, transforming dialogue into sound and musical traits</div><span class="work-entry-category">Chris Colatos</span></div></div>
-      <div class="work-entry reveal"><div class="work-entry-image has-embed" data-embed='<iframe width="100%" height="166" scrolling="no" frameborder="no" allow="autoplay" src="https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/tracks/1956804363&color=%23c4a882&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false&visual=true"></iframe>'><img src="media/pictures/modigliani.png" alt="Modigliani Bridge" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">Modigliani Bridge</div><div class="work-entry-caption">Bridge section showcasing algorithmically produced composition</div><span class="work-entry-category">Chris Colatos</span></div></div>
+      <div class="work-entry reveal"><div class="work-entry-image" data-embed=""><img src="media/pictures/artists.png" alt="Artists" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">Artists</div><div class="work-entry-caption">Producer, Engineer, Music Supervisor, Songwriter, Arranger, and Performer</div><span class="work-entry-category">Chris Colatos</span></div></div>
+      <div class="work-entry reveal"><div class="work-entry-image" data-embed=""><img src="media/pictures/companies.png" alt="Companies" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">Companies</div><div class="work-entry-caption">Producer, Engineer, Music Supervisor, Songwriter, Arranger, and Performer</div><span class="work-entry-category">Chris Colatos</span></div></div>
+      <div class="work-entry reveal"><div class="work-entry-image" data-embed="https://www.youtube.com/embed/CeXzzuANd04"><img src="media/pictures/twistedtools.png" alt="Twisted Tools" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">Twisted Tools</div><div class="work-entry-caption">Drum Programming, Sound Design, and Composition for Twisted Tools Instruments</div><span class="work-entry-category">Chris Colatos</span></div></div>
+      <div class="work-entry reveal"><div class="work-entry-image" data-embed="https://www.youtube.com/embed/03rRDdTHTNA"><img src="media/pictures/colatos.png" alt="St0cHastAk0v1Ch" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">St0cHastAk0v1Ch</div><div class="work-entry-caption">Programmable and algorithmic auto-composing step sequencer developed in Logic Pro's MIDI Environment. Video features Mike Keneally on guitar.</div><span class="work-entry-category">Chris Colatos</span><div class="work-entry-links"><a href="colatos_logic_step_sequencer.zip" class="work-dl-link" download><svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>Download Sequencer</a></div></div></div>
+      <div class="work-entry reveal"><div class="work-entry-image" data-embed=""><img src="media/pictures/SalvatoreFerragamo.png" alt="Salvatore Ferragamo" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">Salvatore Ferragamo</div><div class="work-entry-caption">Composer, Lo Splendore Della Vita (&gt;1M views)</div><span class="work-entry-category">Chris Colatos</span></div></div>
+      <div class="work-entry reveal"><div class="work-entry-image" data-embed="https://www.youtube.com/embed/iiSp31f3Sw0"><img src="media/pictures/KatyPerry.png" alt="Katy Perry" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">Katy Perry</div><div class="work-entry-caption">Algorithmically Produced Composition for Katy Perry and Vogue Magazine (Italy)</div><span class="work-entry-category">Chris Colatos</span></div></div>
+      <div class="work-entry reveal"><div class="work-entry-image" data-embed=""><img src="media/pictures/Narcosis.png" alt="Narcosis" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">Narcosis</div><div class="work-entry-caption">Multiplatform/VR, Audio</div><span class="work-entry-category">Chris Colatos</span></div></div>
+      <div class="work-entry reveal"><div class="work-entry-image" data-embed="https://www.youtube.com/embed/o84jhkMv3EQ"><img src="media/pictures/DSC.png" alt="Dead Secret Circle" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">Dead Secret Circle</div><div class="work-entry-caption">Multiplatform/VR, Recording Engineer, Sound Designer, VO Editor, Dialog Processing / Mastering</div><span class="work-entry-category">Chris Colatos</span></div></div>
+      <div class="work-entry reveal"><div class="work-entry-image" data-embed="https://www.youtube.com/embed/NeAygKJKSI8"><img src="media/pictures/canvas.png" alt="Learning Experience Design" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">Learning Experience Design</div><div class="work-entry-caption">Designed and developed creative arts higher education teaching and active learning experiences in multiple modalities for 7 North American colleges</div><span class="work-entry-category">Chris Colatos</span></div></div>
+      <div class="work-entry reveal"><div class="work-entry-image" data-embed="https://www.youtube.com/embed/sPlRW9tUY48"><img src="media/pictures/cognitiveload.png" alt="Adaptive Learning Design" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">Adaptive Learning Design Implications</div><div class="work-entry-caption">Effects of Multimedia on Learning Efficacy and Cognitive Load. This research was conducted and authored by Chris Colatos as part of a collaborative study between The University of Edinburgh and Columbia University, supervised by preeminent scholars in the field, Professors Ryan S. Baker (Penn GSE) and Dragan Ga&scaron;evi&cacute; (Monash University)</div><span class="work-entry-category">Research</span></div></div>
+      <div class="work-entry reveal"><div class="work-entry-image" data-embed="https://www.youtube.com/embed/nImL_gp5A10"><img src="media/pictures/signandspeak.png" alt="Sign And Speak" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">Sign And Speak</div><div class="work-entry-caption">Interactive Audio student project &mdash; Sign And Speak is a prototype accessibility tool that converts American Sign Language into spoken word. Creators &mdash; Jeff Andrews, Michael Carter &mdash; #AlgorithmicProcessing #GestureRecognition #AssistiveTech #HCI #RealTimeProcessing #DigitalSignalProcessing #MaxMSP #CreativeCoding #InteractiveAudio #ComputationalLinguistics #SensorFusion #WearableTech #Arduino #EmbeddedSystems #HumanCenteredDesign #AccessibilityTech #TangibleInterfaces #DataMapping</div><span class="work-entry-category">Student Work</span></div></div>
+      <div class="work-entry reveal"><div class="work-entry-image" data-embed=""><img src="media/pictures/IA.png" alt="Interactive Audio Student Work" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">Interactive Audio Student Work</div><div class="work-entry-caption">Ex'pression College Interactive Audio BSc Program Student Work</div><span class="work-entry-category">Student Work</span><div class="work-entry-links"><a href="https://www.youtube.com/playlist?list=PLWlNASqHqsTRNxV-LfhrfwfSeB7emwE8C" target="_blank" class="work-dl-link"><svg viewBox="0 0 24 24"><path d="M10 16.5l6-4.5-6-4.5v9zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>View Student Projects</a></div></div></div>
+      <div class="work-entry reveal"><div class="work-entry-image" data-embed="https://www.youtube.com/embed/e7adYsbcPgE"><img src="media/pictures/ZED.png" alt="ZED" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">ZED</div><div class="work-entry-caption">Multiplatform/VR, Recording Engineer, Sound Designer, VO Editor, Dialog Processing / Mastering</div><span class="work-entry-category">Chris Colatos</span></div></div>
+      <div class="work-entry reveal"><div class="work-entry-image" data-embed=""><img src="media/pictures/PETA.png" alt="PETA" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">PETA</div><div class="work-entry-caption">Composer, Save the Seals Campaign</div><span class="work-entry-category">Chris Colatos</span><div class="work-entry-links"><a href="https://www.canadasshame.com" target="_blank" class="work-dl-link"><svg viewBox="0 0 24 24"><path d="M19 19H5V5h7V3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>Learn More</a></div></div></div>
+      <div class="work-entry reveal"><div class="work-entry-image" data-embed=""><img src="media/pictures/PSY.png" alt="PSY" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">PSY</div><div class="work-entry-caption">Composer for PSY and Vogue Magazine (Italy) Feature</div><span class="work-entry-category">Chris Colatos</span></div></div>
+      <div class="work-entry reveal"><div class="work-entry-image" data-embed="https://www.youtube.com/embed/TKlaLX6TY88"><img src="media/pictures/c2loops.png" alt="c2 loops" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">c2 loops</div><div class="work-entry-caption">Mini retro algorithmically produced drum-breaks loop library; circa 1999-2000</div><span class="work-entry-category">Chris Colatos</span><div class="work-entry-links"><a href="c2%20Loops.zip" class="work-dl-link" download><svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>Download 20 Loops</a></div></div></div>
+      <div class="work-entry reveal"><div class="work-entry-image" data-embed="sc:235339410"><img src="media/pictures/phaedrus.png" alt="Nightingale" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">Nightingale</div><div class="work-entry-caption">Inspired by synthesized wind chimes, Nightingale is an algorithmic sonification of Plato's Phaedrus, transforming dialogue into sound and musical traits</div><span class="work-entry-category">Chris Colatos</span></div></div>
+      <div class="work-entry reveal"><div class="work-entry-image" data-embed="sc:1956804363"><img src="media/pictures/modigliani.png" alt="Modigliani Bridge" loading="lazy"></div><div class="work-entry-text"><div class="work-entry-title">Modigliani Bridge</div><div class="work-entry-caption">Bridge section showcasing algorithmically produced composition</div><span class="work-entry-category">Chris Colatos</span></div></div>
     </div>
   </div></section>
 
@@ -240,7 +231,7 @@
     <h2 class="contact-heading">Get in Touch</h2>
     <p class="contact-sub">Learning Leadership &nbsp;|&nbsp; Creative Innovation</p>
     <div class="contact-links">
-      <a href="/cdn-cgi/l/email-protection#a9cacac6c5c8ddc6dae9cec4c8c0c587cac6c4" class="contact-link" target="_blank"><svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>Email</a>
+      <a href="mailto:ccolatos@gmail.com" class="contact-link" target="_blank"><svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>Email</a>
       <a href="https://www.linkedin.com/in/ColatosChris" class="contact-link" target="_blank"><svg viewBox="0 0 24 24"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.79M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z"/></svg>LinkedIn</a>
     </div>
   </div></section>
@@ -249,19 +240,9 @@
 
   <div class="modal-overlay" id="modal"><button class="modal-close" id="modalClose">&times;</button><div class="modal-content" id="modalContent"></div></div>
 
-<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+<script>
 (function() {
   'use strict';
-
-  // ================================================================
-  //  COUPLED AUDIOVISUAL INSTRUMENT
-  //  FM synthesis (Chowning, golden-ratio sidebands)
-  //  Spectral shimmer (Risset beating harmonics)
-  //  Stochastic percussion (Xenakis, Poisson-distributed resonant plucks)
-  //  Real-time FFT spectral visualization with phosphor persistence
-  //  Actual waveform oscilloscope with glow
-  //  Visual and sonic systems are one: you see what you hear
-  // ================================================================
 
   var canvas = document.getElementById('heroCanvas');
   var ctx = canvas.getContext('2d');
@@ -270,48 +251,40 @@
   var isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
   var hasGyro = false;
   var autoLFOPhase = Math.random() * Math.PI * 2;
-  var lastInputTime = performance.now(); // autonomous drift starting phase
-
-  // Quiet-mode particles
+  var lastInputTime = performance.now();
   var particles = [], NUM_P = 40;
-
-  // Audio system
   var audioCtx = null, analyser = null, masterGain = null, audioActive = false;
   var fmCarrier, fmMod, fmModGain, fmCarrierGain;
   var fmCarrier2, fmMod2, fmModGain2, fmCarrierGain2;
   var subOsc, subGain;
   var shimmerOscs = [], shimmerGains = [];
-  var noiseBuffer;
-  var freqData, timeData;
-  var stochasticEvents = []; // visual event markers
-  var stochasticTimer = null;
-
-  var PHI = (1 + Math.sqrt(5)) / 2; // golden ratio: 1.618...
+  var noiseBuffer, freqData, timeData;
+  var stochasticEvents = [], stochasticTimer = null;
+  var PHI = (1 + Math.sqrt(5)) / 2;
+  var scrollDepth = 0;
 
   function resize() {
     w = canvas.width = window.innerWidth;
     h = canvas.height = window.innerHeight;
     particles = [];
     for (var i = 0; i < NUM_P; i++) {
-      particles.push({
-        x: Math.random() * w, y: Math.random() * h,
-        vx: (Math.random() - 0.5) * 0.2, vy: (Math.random() - 0.5) * 0.2,
-        size: Math.random() * 1.2 + 0.3, alpha: Math.random() * 0.08 + 0.02
-      });
+      particles.push({ x: Math.random() * w, y: Math.random() * h, vx: (Math.random() - 0.5) * 0.2, vy: (Math.random() - 0.5) * 0.2, size: Math.random() * 1.2 + 0.3, alpha: Math.random() * 0.08 + 0.02 });
     }
   }
   resize();
   window.addEventListener('resize', resize);
-
+  window.addEventListener('scroll', function() {
+    var docH = document.documentElement.scrollHeight - window.innerHeight;
+    scrollDepth = docH > 0 ? Math.min(window.scrollY / docH, 1) : 0;
+  });
   document.addEventListener('mousemove', function(e) { tgtX = e.clientX / w; tgtY = e.clientY / h; lastInputTime = performance.now(); });
   document.addEventListener('touchmove', function(e) {
     if (e.touches.length) { tgtX = e.touches[0].clientX / w; tgtY = e.touches[0].clientY / h; lastInputTime = performance.now(); }
   }, { passive: true });
 
-  // Gyroscope input for mobile (phone becomes a handheld instrument)
+  // Gyroscope for mobile
   function initGyro() {
     if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-      // iOS 13+ requires permission
       DeviceOrientationEvent.requestPermission().then(function(state) {
         if (state === 'granted') { bindGyro(); hasGyro = true; }
       }).catch(function() {});
@@ -319,39 +292,41 @@
       bindGyro(); hasGyro = true;
     }
   }
-
   function bindGyro() {
     window.addEventListener('deviceorientation', function(e) {
       if (e.gamma === null || e.beta === null) return;
-      // gamma: -90 to 90 (left/right tilt) -> map to 0-1 for pitch
       tgtX = Math.max(0, Math.min(1, (e.gamma + 45) / 90));
-      // beta: 0 to 90 (forward/back tilt) -> map to 0-1 for timbre
       tgtY = Math.max(0, Math.min(1, (e.beta - 20) / 60));
       lastInputTime = performance.now();
     }, { passive: true });
   }
 
-  // Autonomous drift LFO: slow generative movement even without active input
-  // Uses multiple incommensurate sine waves for non-repeating organic motion
+  // Autonomous drift: very slow, only after 30 seconds of no input
   function getAutoDrift() {
     var t = performance.now() / 1000;
-    var driftX = 0.5 + Math.sin(t * 0.07 + autoLFOPhase) * 0.15 + Math.sin(t * 0.031) * 0.1;
-    var driftY = 0.5 + Math.sin(t * 0.053 + autoLFOPhase * 1.3) * 0.12 + Math.sin(t * 0.023) * 0.08;
-    return { x: Math.max(0, Math.min(1, driftX)), y: Math.max(0, Math.min(1, driftY)) };
+    return {
+      x: Math.max(0, Math.min(1, 0.5 + Math.sin(t * 0.03 + autoLFOPhase) * 0.12 + Math.sin(t * 0.017) * 0.08)),
+      y: Math.max(0, Math.min(1, 0.5 + Math.sin(t * 0.023 + autoLFOPhase * 1.3) * 0.1 + Math.sin(t * 0.013) * 0.06))
+    };
   }
 
-  // ===== AUDIO INITIALIZATION =====
+  // ===== AUDIO =====
   function initAudio() {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-    // Analyser for coupled visualization
+    // iOS unlock: play a silent buffer to activate audio output
+    var silentBuf = audioCtx.createBuffer(1, 1, audioCtx.sampleRate);
+    var silentSrc = audioCtx.createBufferSource();
+    silentSrc.buffer = silentBuf;
+    silentSrc.connect(audioCtx.destination);
+    silentSrc.start(0);
+
     analyser = audioCtx.createAnalyser();
     analyser.fftSize = 2048;
     analyser.smoothingTimeConstant = 0.75;
     freqData = new Uint8Array(analyser.frequencyBinCount);
     timeData = new Uint8Array(analyser.fftSize);
 
-    // Dynamics compressor
     var comp = audioCtx.createDynamicsCompressor();
     comp.threshold.value = -20; comp.knee.value = 10; comp.ratio.value = 6;
 
@@ -361,117 +336,72 @@
     comp.connect(analyser);
     analyser.connect(audioCtx.destination);
 
-    // Shared noise buffer for stochastic events
     var bufSz = audioCtx.sampleRate;
     noiseBuffer = audioCtx.createBuffer(1, bufSz, audioCtx.sampleRate);
     var nd = noiseBuffer.getChannelData(0);
     for (var i = 0; i < bufSz; i++) nd[i] = Math.random() * 2 - 1;
 
-    // === FM VOICE 1 (Chowning: carrier:modulator = 1:phi) ===
-    fmMod = audioCtx.createOscillator();
-    fmMod.type = 'sine'; fmMod.frequency.value = 55 * PHI;
-    fmModGain = audioCtx.createGain();
-    fmModGain.gain.value = 30;
-    fmCarrier = audioCtx.createOscillator();
-    fmCarrier.type = 'sine'; fmCarrier.frequency.value = 55;
-    fmCarrierGain = audioCtx.createGain();
-    fmCarrierGain.gain.value = 0.18;
-    fmMod.connect(fmModGain);
-    fmModGain.connect(fmCarrier.frequency);
-    fmCarrier.connect(fmCarrierGain);
-    fmCarrierGain.connect(masterGain);
+    // FM Voice 1 (Chowning: 1:phi ratio)
+    fmMod = audioCtx.createOscillator(); fmMod.type = 'sine'; fmMod.frequency.value = 55 * PHI;
+    fmModGain = audioCtx.createGain(); fmModGain.gain.value = 30;
+    fmCarrier = audioCtx.createOscillator(); fmCarrier.type = 'sine'; fmCarrier.frequency.value = 55;
+    fmCarrierGain = audioCtx.createGain(); fmCarrierGain.gain.value = 0.18;
+    fmMod.connect(fmModGain); fmModGain.connect(fmCarrier.frequency);
+    fmCarrier.connect(fmCarrierGain); fmCarrierGain.connect(masterGain);
     fmMod.start(); fmCarrier.start();
 
-    // === FM VOICE 2 (detuned, beating) ===
-    fmMod2 = audioCtx.createOscillator();
-    fmMod2.type = 'sine'; fmMod2.frequency.value = 55 * PHI * 1.004;
-    fmModGain2 = audioCtx.createGain();
-    fmModGain2.gain.value = 25;
-    fmCarrier2 = audioCtx.createOscillator();
-    fmCarrier2.type = 'sine'; fmCarrier2.frequency.value = 55.7;
-    fmCarrierGain2 = audioCtx.createGain();
-    fmCarrierGain2.gain.value = 0.13;
-    fmMod2.connect(fmModGain2);
-    fmModGain2.connect(fmCarrier2.frequency);
-    fmCarrier2.connect(fmCarrierGain2);
-    fmCarrierGain2.connect(masterGain);
+    // FM Voice 2 (detuned, beating)
+    fmMod2 = audioCtx.createOscillator(); fmMod2.type = 'sine'; fmMod2.frequency.value = 55 * PHI * 1.004;
+    fmModGain2 = audioCtx.createGain(); fmModGain2.gain.value = 25;
+    fmCarrier2 = audioCtx.createOscillator(); fmCarrier2.type = 'sine'; fmCarrier2.frequency.value = 55.7;
+    fmCarrierGain2 = audioCtx.createGain(); fmCarrierGain2.gain.value = 0.13;
+    fmMod2.connect(fmModGain2); fmModGain2.connect(fmCarrier2.frequency);
+    fmCarrier2.connect(fmCarrierGain2); fmCarrierGain2.connect(masterGain);
     fmMod2.start(); fmCarrier2.start();
 
-    // === SUB OSCILLATOR ===
-    subOsc = audioCtx.createOscillator();
-    subOsc.type = 'sine'; subOsc.frequency.value = 27.5;
+    // Sub
+    subOsc = audioCtx.createOscillator(); subOsc.type = 'sine'; subOsc.frequency.value = 27.5;
     subGain = audioCtx.createGain(); subGain.gain.value = 0.1;
     subOsc.connect(subGain); subGain.connect(masterGain); subOsc.start();
 
-    // === SPECTRAL SHIMMER (Risset beating harmonics) ===
-    var shBase = 110;
+    // Risset shimmer
     var harmonics = [1, 2, 3, 4, 5, 6, 7, 8];
     var drifts = [0, 0.17, -0.13, 0.23, -0.19, 0.29, -0.11, 0.07];
     for (var i = 0; i < harmonics.length; i++) {
-      var o = audioCtx.createOscillator();
-      o.type = 'sine'; o.frequency.value = shBase * harmonics[i] + drifts[i];
-      var g = audioCtx.createGain();
-      g.gain.value = 0.012 / (i + 1);
+      var o = audioCtx.createOscillator(); o.type = 'sine'; o.frequency.value = 110 * harmonics[i] + drifts[i];
+      var g = audioCtx.createGain(); g.gain.value = 0.012 / (i + 1);
       o.connect(g); g.connect(masterGain); o.start();
       shimmerOscs.push(o); shimmerGains.push(g);
     }
   }
 
-  // Scroll position for audio evolution (0 = top, 1 = bottom of page)
-  var scrollDepth = 0;
-  window.addEventListener('scroll', function() {
-    var docH = document.documentElement.scrollHeight - window.innerHeight;
-    scrollDepth = docH > 0 ? Math.min(window.scrollY / docH, 1) : 0;
-  });
-
-  // ===== AUDIO PARAMETER UPDATE =====
   function updateAudioParams() {
     if (!audioActive || !audioCtx) return;
     var now = audioCtx.currentTime;
-
-    // Scroll-coupled evolution zones:
-    // 0.0-0.15 Hero:     full FM playground, bright
-    // 0.15-0.4 Bio:      sub drops octave, shimmer rises, warmer
-    // 0.4-0.65 Teaching: FM thins, shimmer dominant, contemplative
-    // 0.65-0.9 Works:    stochastic density increases, percussive texture
-    // 0.9-1.0 Contact:   fade to held drone, sparse
-
     var sd = scrollDepth;
-
-    // Scroll shifts the fundamental register: hero is mid, deeper as you scroll
-    var scrollOctaveShift = 1.0 - sd * 0.3; // drops ~30% by bottom
-
-    // Pentatonic scale in just intonation
+    var scrollOctaveShift = 1.0 - sd * 0.3;
     var scale = [55, 61.875, 68.75, 82.5, 91.667, 110, 123.75, 137.5, 165, 183.333, 220];
     var idx = mouseX * (scale.length - 1);
     var lo = Math.floor(idx), hi = Math.min(lo + 1, scale.length - 1);
     var baseFreq = (scale[lo] + (scale[hi] - scale[lo]) * (idx - lo)) * scrollOctaveShift;
-
-    // Modulation index: mouseY squared, but scroll reduces max metallic range in lower sections
     var modCeiling = 500 * (1 - sd * 0.6);
     var modIdx = 8 + mouseY * mouseY * modCeiling;
 
-    // FM Voice 1
     fmCarrier.frequency.linearRampToValueAtTime(baseFreq, now + 0.12);
     fmMod.frequency.linearRampToValueAtTime(baseFreq * PHI, now + 0.12);
     fmModGain.gain.linearRampToValueAtTime(modIdx, now + 0.12);
-    // FM volume: full at top, thins in teaching zone, returns slightly for works
     var fmVol = sd < 0.4 ? 0.18 : sd < 0.65 ? 0.18 - (sd - 0.4) * 0.4 : sd < 0.9 ? 0.08 + (sd - 0.65) * 0.16 : 0.12 - (sd - 0.9) * 0.8;
     fmVol = Math.max(fmVol, 0.02);
     fmCarrierGain.gain.linearRampToValueAtTime(fmVol, now + 0.3);
 
-    // FM Voice 2
     fmCarrier2.frequency.linearRampToValueAtTime(baseFreq * 1.003, now + 0.12);
     fmMod2.frequency.linearRampToValueAtTime(baseFreq * PHI * 1.006, now + 0.12);
     fmModGain2.gain.linearRampToValueAtTime(modIdx * 0.85, now + 0.12);
     fmCarrierGain2.gain.linearRampToValueAtTime(fmVol * 0.7, now + 0.3);
 
-    // Sub: deepens with scroll
     subOsc.frequency.linearRampToValueAtTime(baseFreq * 0.5, now + 0.2);
-    var subVol = 0.1 + sd * 0.08;
-    subGain.gain.linearRampToValueAtTime(subVol, now + 0.3);
+    subGain.gain.linearRampToValueAtTime(0.1 + sd * 0.08, now + 0.3);
 
-    // Shimmer: quiet at hero, rises through bio/teaching, dominant in teaching zone
     var shimmerMult = sd < 0.15 ? 0.5 + sd * 3 : sd < 0.65 ? 1.0 + (sd - 0.15) * 1.5 : 1.8 - (sd - 0.65) * 2;
     shimmerMult = Math.max(shimmerMult, 0.3);
     var harmonics = [1, 2, 3, 4, 5, 6, 7, 8];
@@ -481,239 +411,139 @@
       shimmerGains[i].gain.linearRampToValueAtTime((0.012 / (i + 1)) * shimmerMult, now + 0.3);
     }
 
-    // Master volume: full through most of site, gentle fade at contact
     var masterVol = sd > 0.9 ? 0.4 * (1 - (sd - 0.9) * 6) : 0.4;
-    masterVol = Math.max(masterVol, 0.05);
-    masterGain.gain.linearRampToValueAtTime(masterVol, now + 0.5);
+    masterGain.gain.linearRampToValueAtTime(Math.max(masterVol, 0.05), now + 0.5);
 
     requestAnimationFrame(updateAudioParams);
   }
 
-  // ===== STOCHASTIC PERCUSSION (Xenakis: Poisson process) =====
+  // Stochastic percussion (Xenakis Poisson process)
   function scheduleStochastic() {
     if (!audioActive) return;
-    // Base rate from mouseX, boosted in Works zone (0.65-0.9 scroll depth)
     var scrollBoost = scrollDepth > 0.65 && scrollDepth < 0.9 ? 1 + (scrollDepth - 0.65) * 4 : 1;
-    // Sparse at contact zone
     var scrollDampen = scrollDepth > 0.9 ? Math.max(0.1, 1 - (scrollDepth - 0.9) * 8) : 1;
-    var rate = (0.2 + mouseX * mouseX * 18) * scrollBoost * scrollDampen;
-    // Poisson: exponentially distributed inter-event intervals
-    var interval = -Math.log(Math.random()) / rate * 1000;
-    interval = Math.max(interval, 20);
-
-    stochasticTimer = setTimeout(function() {
-      triggerPluck();
-      scheduleStochastic();
-    }, interval);
+    var rate = (0.3 + mouseX * mouseX * 14) * scrollBoost * scrollDampen;
+    var interval = Math.max(20, -Math.log(Math.random()) / rate * 1000);
+    stochasticTimer = setTimeout(function() { triggerPluck(); scheduleStochastic(); }, interval);
   }
 
   function triggerPluck() {
     if (!audioCtx || !audioActive) return;
     var now = audioCtx.currentTime;
-
-    // Current base frequency from mouse position
     var scale = [55, 61.875, 68.75, 82.5, 91.667, 110, 123.75, 137.5, 165, 183.333, 220];
     var idx = mouseX * (scale.length - 1);
     var baseFreq = scale[Math.min(Math.floor(idx), scale.length - 1)];
-
-    // Pick from harmonic/subharmonic series
     var ratios = [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 16];
-    var ratio = ratios[Math.floor(Math.random() * ratios.length)];
-    var freq = baseFreq * ratio;
+    var freq = baseFreq * ratios[Math.floor(Math.random() * ratios.length)];
     while (freq > 12000) freq *= 0.5;
     while (freq < 30) freq *= 2;
 
-    var amp = 0.02 + Math.random() * 0.14;
-    var decay = 0.05 + Math.random() * 0.45;
-    var Q = 25 + Math.random() * 100;
+    var amp = 0.06 + Math.random() * 0.2;
+    var decay = 0.04 + Math.random() * 0.35;
+    var Q = 30 + Math.random() * 120;
 
-    // Resonant noise burst (physical model approximation)
-    var src = audioCtx.createBufferSource();
-    src.buffer = noiseBuffer;
-    var offset = Math.random() * 0.8;
-
-    var bp = audioCtx.createBiquadFilter();
-    bp.type = 'bandpass'; bp.frequency.value = freq; bp.Q.value = Q;
-
+    var src = audioCtx.createBufferSource(); src.buffer = noiseBuffer;
+    var bp = audioCtx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = freq; bp.Q.value = Q;
     var env = audioCtx.createGain();
     env.gain.setValueAtTime(amp, now);
     env.gain.exponentialRampToValueAtTime(0.0001, now + decay);
-
     src.connect(bp); bp.connect(env); env.connect(masterGain);
-    src.start(now, offset, 0.04);
+    src.start(now, Math.random() * 0.8, 0.05);
+    setTimeout(function() { try { src.disconnect(); bp.disconnect(); env.disconnect(); } catch(e) {} }, (decay + 0.3) * 1000);
 
-    // Cleanup
-    var cleanTime = (decay + 0.2) * 1000;
-    setTimeout(function() { try { src.disconnect(); bp.disconnect(); env.disconnect(); } catch(e) {} }, cleanTime);
-
-    // Register visual event
-    var vizX = logFreqToX(freq);
-    var vizY = h * (0.2 + Math.random() * 0.55);
-    stochasticEvents.push({ x: vizX, y: vizY, birth: performance.now(), amp: amp, radius: 0 });
+    stochasticEvents.push({ x: logFreqToX(freq), y: h * (0.2 + Math.random() * 0.55), birth: performance.now(), amp: amp });
   }
 
   function logFreqToX(freq) {
-    var minF = 25, maxF = 14000;
-    return ((Math.log(freq) - Math.log(minF)) / (Math.log(maxF) - Math.log(minF))) * w;
+    return ((Math.log(freq) - Math.log(25)) / (Math.log(14000) - Math.log(25))) * w;
   }
 
-  // ===== DRAW LOOP =====
+  // ===== DRAW =====
   function draw() {
     time += 0.005;
     mouseX += (tgtX - mouseX) * 0.04;
     mouseY += (tgtY - mouseY) * 0.04;
 
-    // Blend autonomous drift when audio is active
-    // On mobile without active touch/gyro, drift dominates
-    // With active input, user dominates and drift adds subtle variation
+    // Autonomous drift: only after 30 seconds idle, blends gently
     if (audioActive) {
-      var drift = getAutoDrift();
       var inputAge = performance.now() - lastInputTime;
-      // Fade to drift after 3 seconds of no input
-      var driftWeight = Math.min(1, inputAge / 3000);
-      var userWeight = 1 - driftWeight * 0.7; // drift never fully takes over, max 70%
-      mouseX = mouseX * userWeight + drift.x * (1 - userWeight);
-      mouseY = mouseY * userWeight + drift.y * (1 - userWeight);
+      if (inputAge > 30000) {
+        var drift = getAutoDrift();
+        var driftWeight = Math.min(1, (inputAge - 30000) / 10000) * 0.5;
+        mouseX = mouseX * (1 - driftWeight) + drift.x * driftWeight;
+        mouseY = mouseY * (1 - driftWeight) + drift.y * driftWeight;
+      }
     }
 
-    if (audioActive && analyser) {
-      drawActiveMode();
-    } else {
-      drawQuietMode();
-    }
+    if (audioActive && analyser) { drawActiveMode(); } else { drawQuietMode(); }
     requestAnimationFrame(draw);
   }
 
-  // --- QUIET MODE: subtle particle constellation ---
   function drawQuietMode() {
     ctx.clearRect(0, 0, w, h);
-
     for (var p = 0; p < particles.length; p++) {
-      var pt = particles[p];
-      pt.x += pt.vx; pt.y += pt.vy;
-      if (pt.x < 0) pt.x = w; if (pt.x > w) pt.x = 0;
-      if (pt.y < 0) pt.y = h; if (pt.y > h) pt.y = 0;
+      var pt = particles[p]; pt.x += pt.vx; pt.y += pt.vy;
+      if (pt.x < 0) pt.x = w; if (pt.x > w) pt.x = 0; if (pt.y < 0) pt.y = h; if (pt.y > h) pt.y = 0;
       ctx.beginPath(); ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2);
       ctx.fillStyle = 'rgba(196,168,130,' + pt.alpha + ')'; ctx.fill();
     }
     for (var i = 0; i < particles.length; i++) {
       for (var j = i + 1; j < particles.length; j++) {
-        var dx = particles[i].x - particles[j].x, dy = particles[i].y - particles[j].y;
-        var d = Math.sqrt(dx * dx + dy * dy);
-        if (d < 100) {
-          ctx.beginPath(); ctx.strokeStyle = 'rgba(196,168,130,' + (0.02 * (1 - d / 100)) + ')';
-          ctx.lineWidth = 0.5; ctx.moveTo(particles[i].x, particles[i].y);
-          ctx.lineTo(particles[j].x, particles[j].y); ctx.stroke();
-        }
+        var dx = particles[i].x - particles[j].x, dy = particles[i].y - particles[j].y, d = Math.sqrt(dx * dx + dy * dy);
+        if (d < 100) { ctx.beginPath(); ctx.strokeStyle = 'rgba(196,168,130,' + (0.02 * (1 - d / 100)) + ')'; ctx.lineWidth = 0.5; ctx.moveTo(particles[i].x, particles[i].y); ctx.lineTo(particles[j].x, particles[j].y); ctx.stroke(); }
       }
     }
-    // Gentle generated waveform
     for (var l = 0; l < 3; l++) {
       ctx.beginPath(); ctx.strokeStyle = 'rgba(196,168,130,' + (0.03 + l * 0.01) + ')'; ctx.lineWidth = 0.6;
       var yC = h * (0.35 + l * 0.12);
-      for (var x = 0; x < w; x += 3) {
-        var nX = x / w, amp = 15 + l * 5;
-        var y = yC + Math.sin(nX * Math.PI * 2 + time + l) * amp + Math.sin(nX * Math.PI * 3.7 + time * 0.7) * amp * 0.3;
-        x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-      }
+      for (var x = 0; x < w; x += 3) { var nX = x / w, amp = 15 + l * 5; var y = yC + Math.sin(nX * Math.PI * 2 + time + l) * amp + Math.sin(nX * Math.PI * 3.7 + time * 0.7) * amp * 0.3; x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); }
       ctx.stroke();
     }
   }
 
-  // --- ACTIVE MODE: coupled audiovisual rendering ---
   function drawActiveMode() {
-    // Phosphor persistence: don't clear, just fade
     ctx.fillStyle = 'rgba(10, 10, 10, 0.14)';
     ctx.fillRect(0, 0, w, h);
-
     analyser.getByteFrequencyData(freqData);
     analyser.getByteTimeDomainData(timeData);
+    var binCount = analyser.frequencyBinCount, nyquist = audioCtx.sampleRate / 2;
 
-    var binCount = analyser.frequencyBinCount;
-    var nyquist = audioCtx.sampleRate / 2;
-
-    // --- SPECTRAL BARS (logarithmic frequency mapping) ---
-    var numBars = 160;
-    var logMin = Math.log(25), logMax = Math.log(nyquist);
+    // Spectral bars
+    var numBars = 160, logMin = Math.log(25), logMax = Math.log(nyquist);
     for (var i = 0; i < numBars; i++) {
-      var logF = logMin + (i / numBars) * (logMax - logMin);
-      var freq = Math.exp(logF);
-      var bin = Math.round(freq / nyquist * binCount);
-      if (bin >= binCount) bin = binCount - 1;
-      var val = freqData[bin] / 255;
-      if (val < 0.01) continue;
-
-      var x = (i / numBars) * w;
-      var barW = w / numBars;
-      var barH = val * h * 0.55;
-
-      // Warm spectral color: amber to white at high energy
-      var r = 196 + val * 59;
-      var g = 168 + val * 76;
-      var b = 130 + val * 110;
-      ctx.fillStyle = 'rgba(' + Math.round(r) + ',' + Math.round(g) + ',' + Math.round(b) + ',' + (val * 0.35) + ')';
+      var freq = Math.exp(logMin + (i / numBars) * (logMax - logMin));
+      var bin = Math.round(freq / nyquist * binCount); if (bin >= binCount) bin = binCount - 1;
+      var val = freqData[bin] / 255; if (val < 0.01) continue;
+      var x = (i / numBars) * w, barW = w / numBars, barH = val * h * 0.55;
+      ctx.fillStyle = 'rgba(' + Math.round(196 + val * 59) + ',' + Math.round(168 + val * 76) + ',' + Math.round(130 + val * 110) + ',' + (val * 0.35) + ')';
       ctx.fillRect(x, h - barH, barW - 0.5, barH);
     }
 
-    // --- WAVEFORM OSCILLOSCOPE with phosphor glow ---
-    var sliceW = w / timeData.length;
-    var waveY = h * 0.38;
-    var waveAmp = h * 0.22;
-
+    // Waveform oscilloscope
+    var sliceW = w / timeData.length, waveY = h * 0.38, waveAmp = h * 0.22;
     ctx.beginPath();
-    for (var i = 0; i < timeData.length; i++) {
-      var v = (timeData[i] - 128) / 128;
-      var y = waveY + v * waveAmp;
-      i === 0 ? ctx.moveTo(0, y) : ctx.lineTo(i * sliceW, y);
-    }
-
-    // Three-pass glow (wide dim, medium, sharp bright)
+    for (var i = 0; i < timeData.length; i++) { var y = waveY + ((timeData[i] - 128) / 128) * waveAmp; i === 0 ? ctx.moveTo(0, y) : ctx.lineTo(i * sliceW, y); }
     ctx.lineWidth = 10; ctx.strokeStyle = 'rgba(196,168,130,0.04)'; ctx.stroke();
     ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(196,168,130,0.12)'; ctx.stroke();
     ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(220,200,170,0.65)'; ctx.stroke();
 
-    // --- STOCHASTIC EVENT PARTICLES ---
+    // Stochastic event particles
     var now = performance.now();
     for (var i = stochasticEvents.length - 1; i >= 0; i--) {
-      var ev = stochasticEvents[i];
-      var age = (now - ev.birth) / 1000;
+      var ev = stochasticEvents[i], age = (now - ev.birth) / 1000;
       if (age > 2.5) { stochasticEvents.splice(i, 1); continue; }
-
       var fade = Math.max(0, 1 - age / 2.5);
-      var r1 = age * 60;
-      var r2 = age * 35;
-
-      // Expanding ring
-      ctx.beginPath();
-      ctx.arc(ev.x, ev.y, r1, 0, Math.PI * 2);
-      ctx.strokeStyle = 'rgba(196,168,130,' + (fade * ev.amp * 2.5) + ')';
-      ctx.lineWidth = 0.8; ctx.stroke();
-
-      // Second ring, slower
-      ctx.beginPath();
-      ctx.arc(ev.x, ev.y, r2, 0, Math.PI * 2);
-      ctx.strokeStyle = 'rgba(245,244,240,' + (fade * ev.amp * 1.5) + ')';
-      ctx.lineWidth = 0.5; ctx.stroke();
-
-      // Initial flash
-      if (age < 0.1) {
-        var flashFade = 1 - age / 0.1;
-        ctx.beginPath();
-        ctx.arc(ev.x, ev.y, 4 * flashFade + 1, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(255,250,240,' + (flashFade * 0.9) + ')';
-        ctx.fill();
-      }
+      ctx.beginPath(); ctx.arc(ev.x, ev.y, age * 60, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(196,168,130,' + (fade * ev.amp * 2.5) + ')'; ctx.lineWidth = 0.8; ctx.stroke();
+      ctx.beginPath(); ctx.arc(ev.x, ev.y, age * 35, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(245,244,240,' + (fade * ev.amp * 1.5) + ')'; ctx.lineWidth = 0.5; ctx.stroke();
+      if (age < 0.1) { var ff = 1 - age / 0.1; ctx.beginPath(); ctx.arc(ev.x, ev.y, 4 * ff + 1, 0, Math.PI * 2); ctx.fillStyle = 'rgba(255,250,240,' + (ff * 0.9) + ')'; ctx.fill(); }
     }
-
-    // --- SUBTLE CENTER LINE (oscilloscope reference) ---
-    ctx.beginPath();
-    ctx.moveTo(0, waveY); ctx.lineTo(w, waveY);
-    ctx.strokeStyle = 'rgba(196,168,130,0.015)'; ctx.lineWidth = 0.5; ctx.stroke();
   }
 
   draw();
 
-  // ===== AUDIO TOGGLE =====
+  // Audio toggle
   var audioToggle = document.getElementById('audioToggle');
   var audioHint = document.getElementById('audioHint');
   if (isMobile) audioHint.textContent = 'Tap to activate \u00b7 tilt phone to play';
@@ -722,7 +552,6 @@
     if (!audioActive) {
       if (!audioCtx) initAudio();
       if (audioCtx.state === 'suspended') audioCtx.resume();
-      // Fade in over 2 seconds
       masterGain.gain.linearRampToValueAtTime(0.4, audioCtx.currentTime + 2);
       audioActive = true;
       audioToggle.classList.add('active');
@@ -730,7 +559,6 @@
       if (isMobile) initGyro();
       updateAudioParams();
       scheduleStochastic();
-      // Clear canvas for persistence mode
       ctx.clearRect(0, 0, w, h);
     } else {
       masterGain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 1);
@@ -741,20 +569,19 @@
     }
   });
 
-  // ===== ROTATING WORDS =====
+  // Rotating words
   var words = ['Learning Experience Design','Higher Education Leadership','Digital Transformation','Curriculum Development','Sound Design','Algorithmic Composition','Interactive Media','Pedagogical Innovation','Audio Engineering','Digital Accessibility','Data-Driven Decision Making','Faculty Development','Creative Production','Intermedia Art','Competency-Based Education','Strategic Leadership','Instructional Design','Cross-Functional Collaboration','Music Production','eLearning Solutions','\u266C'];
-  var stEl = document.getElementById('heroSignalText');
-  var wIdx = 0; stEl.textContent = words[0];
+  var stEl = document.getElementById('heroSignalText'), wIdx = 0; stEl.textContent = words[0];
   setInterval(function() { stEl.classList.add('out'); setTimeout(function() { wIdx = (wIdx + 1) % words.length; stEl.textContent = words[wIdx]; stEl.classList.remove('out'); }, 500); }, 3000);
 
-  // ===== NAV =====
+  // Nav
   var nav = document.getElementById('mainNav');
   window.addEventListener('scroll', function() { nav.classList.toggle('scrolled', window.scrollY > 80); });
   var navToggle = document.getElementById('navToggle'), navLinks = document.getElementById('navLinks');
   navToggle.addEventListener('click', function() { navLinks.classList.toggle('open'); navToggle.classList.toggle('open'); });
   window.closeNav = function() { navLinks.classList.remove('open'); navToggle.classList.remove('open'); };
 
-  // ===== ACCORDION =====
+  // Accordion
   document.querySelectorAll('.accordion-trigger').forEach(function(tr) {
     tr.addEventListener('click', function() {
       var item = this.parentElement, panel = item.querySelector('.accordion-panel'), inner = panel.querySelector('.accordion-panel-inner'), isOpen = item.classList.contains('open');
@@ -763,29 +590,53 @@
     });
   });
 
-  // ===== SCROLL REVEAL =====
+  // Scroll reveal
   var obs = new IntersectionObserver(function(entries) { entries.forEach(function(e) { if (e.isIntersecting) e.target.classList.add('visible'); }); }, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
   document.querySelectorAll('.reveal').forEach(function(el) { obs.observe(el); });
 
-  // ===== MODAL =====
+  // Modal
   var modal = document.getElementById('modal'), modalContent = document.getElementById('modalContent'), modalClose = document.getElementById('modalClose');
+
   document.querySelectorAll('.work-entry-image').forEach(function(imgWrap) {
     imgWrap.style.cursor = 'pointer';
     imgWrap.addEventListener('click', function() {
-      var embed = this.dataset.embed || '';
+      var embedData = this.dataset.embed || '';
       var entry = this.closest('.work-entry');
       var t = entry.querySelector('.work-entry-title').textContent;
       var c = entry.querySelector('.work-entry-caption').textContent;
       var imgSrc = this.querySelector('img').src;
-      var html = '<img class="modal-image" src="' + imgSrc + '" alt="' + t + '">';
-      html += '<div class="modal-title">' + t + '</div>';
-      html += '<div class="modal-caption">' + c + '</div>';
-      if (embed) html += '<div class="modal-embed">' + embed + '</div>';
+      var html = '';
+
+      if (embedData && embedData.indexOf('youtube.com') !== -1) {
+        // YouTube: show responsive embed, then title and caption below
+        html += '<div class="modal-embed"><iframe src="' + embedData + '" title="' + t + '" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>';
+        html += '<div class="modal-title" style="margin-top:1.5rem">' + t + '</div>';
+        html += '<div class="modal-caption">' + c + '</div>';
+      } else if (embedData && embedData.indexOf('sc:') === 0) {
+        // SoundCloud
+        var trackId = embedData.replace('sc:', '');
+        html += '<img class="modal-image" src="' + imgSrc + '" alt="' + t + '">';
+        html += '<div class="modal-title">' + t + '</div>';
+        html += '<div class="modal-caption">' + c + '</div>';
+        html += '<div style="margin-top:1rem"><iframe width="100%" height="166" scrolling="no" frameborder="no" allow="autoplay" src="https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/tracks/' + trackId + '&color=%23c4a882&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false&visual=true"></iframe></div>';
+      } else {
+        // No embed: show image and text
+        html += '<img class="modal-image" src="' + imgSrc + '" alt="' + t + '">';
+        html += '<div class="modal-title">' + t + '</div>';
+        html += '<div class="modal-caption">' + c + '</div>';
+      }
+
       modalContent.innerHTML = html;
-      modal.style.display = 'flex'; modal.offsetHeight; modal.classList.add('active'); modal.classList.add('visible'); document.body.style.overflow = 'hidden';
+      modal.style.display = 'flex'; modal.offsetHeight;
+      modal.classList.add('active'); modal.classList.add('visible');
+      document.body.style.overflow = 'hidden';
     });
   });
-  function closeModal() { modal.classList.remove('visible'); setTimeout(function() { modal.classList.remove('active'); modal.style.display='none'; modalContent.innerHTML=''; document.body.style.overflow=''; }, 400); }
+
+  function closeModal() {
+    modal.classList.remove('visible');
+    setTimeout(function() { modal.classList.remove('active'); modal.style.display = 'none'; modalContent.innerHTML = ''; document.body.style.overflow = ''; }, 400);
+  }
   modalClose.addEventListener('click', closeModal);
   modal.addEventListener('click', function(e) { if (e.target === modal) closeModal(); });
   document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeModal(); });
