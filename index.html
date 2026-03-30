@@ -787,4 +787,10 @@
   });
   function closeModal() { modal.classList.remove('visible'); setTimeout(function() { modal.classList.remove('active'); modal.style.display='none'; modalContent.innerHTML=''; document.body.style.overflow=''; }, 400); }
   modalClose.addEventListener('click', closeModal);
-  modal.addEventListener('click', function(e) { if (e.target === moda
+  modal.addEventListener('click', function(e) { if (e.target === modal) closeModal(); });
+  document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeModal(); });
+
+})();
+</script>
+</body>
+</html>
