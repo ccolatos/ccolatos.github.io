@@ -314,12 +314,18 @@
   function initAudio() {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-    // iOS unlock: play a silent buffer to activate audio output
-    var silentBuf = audioCtx.createBuffer(1, 1, audioCtx.sampleRate);
-    var silentSrc = audioCtx.createBufferSource();
-    silentSrc.buffer = silentBuf;
-    silentSrc.connect(audioCtx.destination);
-    silentSrc.start(0);
+    // iOS unlock: use a real HTML audio element to claim the audio session
+    // Safari trusts HTMLAudioElement.play() from a user gesture more than Web Audio alone
+    var silentAudio = document.createElement('audio');
+    silentAudio.setAttribute('playsinline', '');
+    silentAudio.setAttribute('webkit-playsinline', '');
+    // Tiny valid MP3 (silence, 0.05s)
+    silentAudio.src = 'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7//////////////////////////////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAAAAAAAAAAAAYYoRwMHAAAAAAD/+1DEAAAGAANIAAAABJCA0gAAAAANIAAAAEBpf/+IQAAAADSA0gAAAAAN//tQxBkAAADSAAAAAAAAANIAAAAA';
+    silentAudio.volume = 0.01;
+    var playPromise = silentAudio.play();
+    if (playPromise) playPromise.catch(function() {});
+    // Also resume AudioContext explicitly
+    audioCtx.resume();
 
     analyser = audioCtx.createAnalyser();
     analyser.fftSize = 2048;
@@ -551,15 +557,23 @@
   audioToggle.addEventListener('click', function() {
     if (!audioActive) {
       if (!audioCtx) initAudio();
-      if (audioCtx.state === 'suspended') audioCtx.resume();
-      masterGain.gain.linearRampToValueAtTime(0.4, audioCtx.currentTime + 2);
-      audioActive = true;
-      audioToggle.classList.add('active');
-      audioHint.classList.add('hidden');
-      if (isMobile) initGyro();
-      updateAudioParams();
-      scheduleStochastic();
-      ctx.clearRect(0, 0, w, h);
+      // Force resume and wait for it (critical for iOS)
+      var startAudio = function() {
+        masterGain.gain.setValueAtTime(0, audioCtx.currentTime);
+        masterGain.gain.linearRampToValueAtTime(0.4, audioCtx.currentTime + 2);
+        audioActive = true;
+        audioToggle.classList.add('active');
+        audioHint.classList.add('hidden');
+        if (isMobile) initGyro();
+        updateAudioParams();
+        scheduleStochastic();
+        ctx.clearRect(0, 0, w, h);
+      };
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume().then(startAudio);
+      } else {
+        startAudio();
+      }
     } else {
       masterGain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 1);
       audioActive = false;
@@ -569,7 +583,14 @@
     }
   });
 
-  // iOS audio session recovery: resume AudioContext when page regains focus or on any touch
+  // iOS audio session watchdog: check every 500ms and force resume if suspended
+  setInterval(function() {
+    if (audioCtx && audioActive && audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+  }, 500);
+
+  // iOS audio session recovery on visibility/touch
   document.addEventListener('visibilitychange', function() {
     if (!document.hidden && audioCtx && audioActive && audioCtx.state === 'suspended') {
       audioCtx.resume();
