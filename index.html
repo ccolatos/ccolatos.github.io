@@ -488,37 +488,37 @@
 
   function drawQuietMode() {
     ctx.clearRect(0, 0, w, h);
-    // Animated drifting sine waveforms
+    // Mouse-responsive waveforms: mouseX controls frequency, mouseY controls amplitude
     var numLines = 7;
     for (var l = 0; l < numLines; l++) {
       var offset = l * 0.5;
-      var alpha = 0.03 + (l === 3 ? 0.06 : l * 0.015);
+      var alpha = 0.04 + (l === 3 ? 0.08 : l * 0.02);
       var yCenter = h * (0.2 + l * 0.09);
-      var lineWidth = l === 3 ? 1.2 : 0.7;
+      var lineWidth = l === 3 ? 1.5 : 0.8;
       ctx.beginPath();
       ctx.strokeStyle = 'rgba(196,168,130,' + alpha + ')';
       ctx.lineWidth = lineWidth;
       for (var x = 0; x < w; x += 2) {
         var nX = x / w;
-        var freq1 = 1.5 + Math.sin(time * 0.2) * 0.5;
-        var freq2 = 2.2 + Math.cos(time * 0.15) * 0.4;
-        var freq3 = 0.7 + Math.sin(time * 0.3) * 0.3;
-        var amp = 20 + l * 8;
+        var freq1 = 1.5 + mouseX * 3;
+        var freq2 = 2.2 + mouseY * 2.5;
+        var freq3 = 0.7 + (1 - mouseX) * 1.5;
+        var amp = 25 + mouseY * 50 + l * 8;
         var env = 1 - Math.pow(Math.abs(nX - 0.5) * 2, 2) * 0.5;
         var y = yCenter
-          + Math.sin(nX * Math.PI * freq1 + time * 0.4 + offset) * amp * 0.5 * env
-          + Math.sin(nX * Math.PI * freq2 * 2.3 + time * 0.55 + offset) * amp * 0.25 * env
-          + Math.sin(nX * Math.PI * freq3 * 3.7 + time * 0.3 + offset) * amp * 0.15
-          + Math.sin(nX * Math.PI * 0.3 + time * 0.15) * amp * 0.3;
+          + Math.sin(nX * Math.PI * freq1 + time + offset) * amp * 0.5 * env
+          + Math.sin(nX * Math.PI * freq2 * 2.3 + time * 1.4 + offset) * amp * 0.25 * env
+          + Math.sin(nX * Math.PI * freq3 * 3.7 + time * 0.7 + offset) * amp * 0.15
+          + Math.sin(nX * Math.PI * 0.3 + time * 0.3) * amp * 0.3;
         x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
       }
       ctx.stroke();
     }
-    // Slow vertical scan line
-    var sX = ((time * 0.04) % 1) * w;
+    // Vertical scan line
+    var sX = ((time * 0.08) % 1) * w;
     var sg = ctx.createLinearGradient(sX - 150, 0, sX + 150, 0);
     sg.addColorStop(0, 'rgba(196,168,130,0)');
-    sg.addColorStop(0.5, 'rgba(196,168,130,0.015)');
+    sg.addColorStop(0.5, 'rgba(196,168,130,0.02)');
     sg.addColorStop(1, 'rgba(196,168,130,0)');
     ctx.fillStyle = sg; ctx.fillRect(sX - 150, 0, 300, h);
   }
@@ -620,10 +620,12 @@
     }
   }, { passive: true });
 
-  // Rotating words
-  var words = ['AI Strategy for Higher Education','AI Tools for Research, Learning, & Creativity','AI-Augmented Pedagogy','Academic Leadership','Academic Rigor & Industry Relevance Alignment','Acousmatic Sound','Acoustic Ecology','Active Learning','Adaptability and Resilience in Fast-Changing Environments','Adaptive Audio','Adaptive Storytelling','Algorithmic Composition','Arts Administration','Audio Engineering','Audio Post-Production','Augmented Reality','Bioacoustics','Budget Management and Financial Oversight','Career Development Coaching','Change Management','Chief Learning Officer','Cognitive Architecture and AI Systems','Commitment to Belonging, Inclusion, and Accessibility in Education','Commitment to Student Success and Retention','Communication','Communication & Presenting','Communication and Engagement in Diverse Academic Environments','Competency-Based Education','Competency-Based Education and Andragogy','Competency-Based Education and Direct Assessment','Competency-Based Online Learning','Composition for Dancers','Comprehensive Onboarding Processes and Continuous Improvement','Conflict Resolution and Diplomacy','Corporate Training','Creative Leadership','Creative Production / Interactive Media','Creative Production in Educational Contexts','Creative Technology','Cross-Functional Collaboration','Cross-Functional Project Management','Curriculum Design','Curriculum Development and Continuous Improvement','Custom Instrument Design and Orchestration','Data-Driven Decision-Making','Data-Driven Decision-Making and Instructional Effectiveness','Data-Driven Learning Analytics & Decision-Making','Developing Technologies to Enable New Forms of Creativity and Expression','Digital Accessibility','Digital Accessibility (A11y Champion)','Digital Transformation','E-Learning','EdTech','Education Leadership','Educational Consulting','Educational Leadership and Development','Efficient & Effective Project Actualization','Efficient and Effective Project Actualization','Electroacoustic Music','Electronic Music','Executive Coaching','Executive Development & Corporate Training','Executive Education','Executive Learning Experience Design','Experiential, eLearning, & Hybrid Learning','Experimental Composition','Experiments in Musical Intelligence','Expertise in Online Education and Digital Learning','Faculty Development, Training, and Retention','Faculty Recruitment, Development, and Mentorship','Faculty Support and Engagement','Faculty and Stakeholder Relationship-Building','Field Recording','Fostering Collaboration & High Morale','Fostering Collaboration and Building Consensus','Game Audio','Generative AI for Creative Practice','High Morale and Team Efficiency','Higher Education','Higher Education Leadership','Human-AI Collaborative Composition','Human-Computer Interaction','Immersive Design','Immersive Media','Indeterminacy and Graphic Notation','Industry Engagement and External Partnerships','Innovation Leadership','Institutional Strategy','Instructional Design','Instructional Design and Technology','Instructional Design for Online Learning','Interactive Design','Interactive Environments as Real-Time Compositional Tools','Interactive Media','Interactive Mixing','Interdisciplinary Arts Curricula Development','Interdisciplinary Arts Programs Design','Intermedia Installation','Leadership Development','Learner-Centered Teaching and Learning','Learning & Development','Learning & Development Leadership','Learning Analytics and Data-Driven Decision Making','Learning Consulting','Learning Design','Learning Engineering','Learning Experience Design','Learning Experience Design & Technology','Learning Experience Design and Technology Integration','Learning Innovation','Learning Technology','Machine Learning Literacy in Creative Arts Education','Mastering','Mixing','Music','Music Production & Sound Design','Music and Sound Design for Interactive Media','Musique Concrète / Acousmatique','Natural Sound Recording','New Interfaces for Musical Expression','New Media','Online Teaching Strategies and Technology Integration','Operational Efficiency and Execution','Operational Management of Faculty Processes and Systems','Organizational Development','Organizational and Process Optimization','Pedagogical Innovation','Performance Art','Phonography','Proactive Problem-Solving and Innovation','Process Development and Refinement','Process Development, Innovation, & Refinement','Professional Development Program Design and Implementation','Program Design & Development','Program Development','Program Management','Project Management and Collaboration','Quality Assurance and Continuous Improvement in Instructional Practices','Quality Assurance in Educational Programs','Recording Arts','Research','Signal Processing','Sonology','Sound Art','Sound Design','Sound Producing Objects','Soundscape','Stakeholder Collaboration and Change Management','Strategic Leadership in Education','Strategic Leadership in Faculty Development and Onboarding','Strategic Planning','Strategic Program Management','Strategic Stakeholder Collaboration','Strong Communication and Executive Presence','Student Success','Technical Writing','Technical and Creative Project Development','The Recording Studio as an Instrument','Visionary Leadership','eLearning and Hybrid Learning Solutions','\u266C'];
-  var stEl = document.getElementById('heroSignalText'), wIdx = 0; stEl.textContent = words[0];
-  setInterval(function() { stEl.classList.add('out'); setTimeout(function() { wIdx = (wIdx + 1) % words.length; stEl.textContent = words[wIdx]; stEl.classList.remove('out'); }, 500); }, 3000);
+  // Rotating words (random)
+  var words = ['Algorithmic Composition','Human-AI Collaborative Composition','Generative AI for Creative Practice','Adaptive Audio','Immersive Media','Sound Art','Game Audio','Music Production & Sound Design','Higher Education Leadership','Institutional Strategy','Strategic Planning','Innovation Leadership','Digital Transformation','AI Strategy for Higher Education','Executive Education','Learning & Development Leadership','Leadership Development','Data-Driven Learning Analytics & Decision-Making','Student Success','Digital Accessibility','Change Management','Cross-Functional Collaboration','Budget Management and Financial Oversight'];
+  var stEl = document.getElementById('heroSignalText');
+  function randomWord(prev) { var next = words[Math.floor(Math.random() * words.length)]; return next === prev ? randomWord(prev) : next; }
+  var currentWord = randomWord(''); stEl.textContent = currentWord;
+  setInterval(function() { stEl.classList.add('out'); setTimeout(function() { currentWord = randomWord(currentWord); stEl.textContent = currentWord; stEl.classList.remove('out'); }, 500); }, 2500);
 
   // Nav
   var nav = document.getElementById('mainNav');
