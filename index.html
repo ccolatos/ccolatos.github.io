@@ -989,6 +989,8 @@
     function startMusic() {
       if (musicInterval) return;
       musicStep = 0;
+      BPM = 140 + (level - 1) * 8;
+      stepDur = 60 / BPM / 2;
       musicInterval = setInterval(function() {
         if (!gameAudioCtx || gameState !== 'playing') return;
         var bi = musicStep % bassPat.length;
@@ -1177,7 +1179,7 @@
       gameCtx.textAlign = 'center';
       gameCtx.font = (cellSize * 0.5) + 'px "DM Sans", sans-serif';
       gameCtx.fillStyle = 'rgba(196,168,130,0.3)';
-      gameCtx.fillText('SIGNAL CHASE', w/2, offsetY - cellSize * 1.1);
+      gameCtx.fillText('SIGNAL CHASE' + (level > 1 ? '  \u00b7  LEVEL ' + level : ''), w/2, offsetY - cellSize * 1.1);
 
       if (gameState === 'gameover') {
         gameCtx.fillStyle = 'rgba(10,10,10,0.85)';
@@ -1230,24 +1232,24 @@
             score += 10;
             dots--;
             playDotSound();
-            if (dots === 0) { gameState = 'won'; playWinSound(); drawGame(); animFrame = requestAnimationFrame(gameLoop); return; }
+            if (dots === 0) { gameState = 'won'; stopMusic(); playWinSound(); drawGame(); animFrame = requestAnimationFrame(gameLoop); return; }
           }
           else if (maze[playerY][playerX] === 2) {
             maze[playerY][playerX] = 3;
             score += 50;
             dots--;
-            frightenedTimer = 300;
+            frightenedTimer = Math.max(180, 420 - (level - 1) * 40);
             for (var fi = 0; fi < ghosts.length; fi++) {
               if (!ghosts[fi].eaten) ghosts[fi].frightened = true;
             }
             playPowerSound();
-            if (dots === 0) { gameState = 'won'; playWinSound(); drawGame(); animFrame = requestAnimationFrame(gameLoop); return; }
+            if (dots === 0) { gameState = 'won'; stopMusic(); playWinSound(); drawGame(); animFrame = requestAnimationFrame(gameLoop); return; }
           }
         }
       }
 
       // Ghost movement (every 4th frame, faster when eaten)
-      if (tickCount % 14 === 0) {
+      if (tickCount % Math.max(9, 15 - level) === 0) {
         // Mode switching
         modeTimer++;
         var inChase = (modeTimer > 120 && modeTimer < 300) || (modeTimer > 420 && modeTimer < 600) || modeTimer > 720;
