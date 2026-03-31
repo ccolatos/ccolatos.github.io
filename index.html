@@ -887,9 +887,27 @@
     }
 
     // === SOUND ===
+    var gameIosAudio = null;
     function initGameAudio() {
       gameAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
       gameAudioCtx.resume();
+      // iOS: route through HTML audio element to activate audio session
+      if (isMobile && gameAudioCtx.createMediaStreamDestination) {
+        var gameMsDest = gameAudioCtx.createMediaStreamDestination();
+        // Persistent silent keepalive connected to MSD
+        var keepalive = gameAudioCtx.createOscillator();
+        var keepGain = gameAudioCtx.createGain();
+        keepalive.frequency.value = 1;
+        keepGain.gain.value = 0.001;
+        keepalive.connect(keepGain);
+        keepGain.connect(gameAudioCtx.destination);
+        keepGain.connect(gameMsDest);
+        keepalive.start();
+        gameIosAudio = document.createElement('audio');
+        gameIosAudio.setAttribute('playsinline', '');
+        gameIosAudio.srcObject = gameMsDest.stream;
+        gameIosAudio.play().catch(function() {});
+      }
     }
 
     function playTone(freq, dur, type, vol) {
@@ -1336,6 +1354,7 @@
     }
 
     function handleSwipeStart(e) {
+      e.preventDefault();
       if (gameState === 'gameover' || gameState === 'won') {
         if (gameState === 'won') level++;
         initGame();
@@ -1361,7 +1380,7 @@
     // === OVERLAY SETUP ===
     var overlay = document.createElement('div');
     overlay.id = 'signalChaseOverlay';
-    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:10000;background:#0a0a0a;';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:10000;background:#0a0a0a;touch-action:none;overflow:hidden;';
 
     gameCanvas = document.createElement('canvas');
     gameCanvas.style.cssText = 'width:100%;height:100%;display:block;';
@@ -1391,7 +1410,9 @@
       document.removeEventListener('keydown', handleGameKey);
       overlay.removeEventListener('touchstart', handleSwipeStart);
       overlay.removeEventListener('touchend', handleSwipeEnd);
+      overlay.removeEventListener('touchmove', blockTouch);
       window.removeEventListener('resize', resizeGameCanvas);
+      if (gameIosAudio) { gameIosAudio.pause(); gameIosAudio.srcObject = null; gameIosAudio = null; }
       if (gameAudioCtx) { gameAudioCtx.close().catch(function(){}); gameAudioCtx = null; }
       document.body.removeChild(overlay);
       document.body.style.overflow = '';
@@ -1399,8 +1420,10 @@
 
     // Bind input
     document.addEventListener('keydown', handleGameKey);
-    overlay.addEventListener('touchstart', handleSwipeStart, {passive: true});
-    overlay.addEventListener('touchend', handleSwipeEnd, {passive: true});
+    function blockTouch(e) { e.preventDefault(); }
+    overlay.addEventListener('touchstart', handleSwipeStart, {passive: false});
+    overlay.addEventListener('touchend', handleSwipeEnd, {passive: false});
+    overlay.addEventListener('touchmove', blockTouch, {passive: false});
 
     // Start
     initGameAudio();
