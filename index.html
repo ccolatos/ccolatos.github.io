@@ -932,6 +932,84 @@
       }
       setTimeout(function(){ playTone(1047, 0.6, 'sine', 0.08); }, 650);
     }
+
+    // === CHIPTUNE MUSIC ===
+    var musicInterval = null;
+    var musicStep = 0;
+    // Pentatonic minor bass + melody in the key of A minor
+    var bassPat = [110,110,131,131,147,147,131,131, 110,110,131,131,165,165,147,147];
+    var melodyPat = [440,0,523,0,440,330,0,392, 523,0,440,0,330,392,0,330,
+                     440,0,523,0,659,523,0,440, 392,0,330,0,392,440,0,0];
+    var hihatPat = [1,0,1,0,1,0,1,0, 1,0,1,0,1,0,1,0];
+    var kickPat =  [1,0,0,0,1,0,0,0, 1,0,0,0,1,0,0,1];
+    var BPM = 140;
+    var stepDur = 60 / BPM / 2; // 16th notes
+
+    function playNote(freq, dur, type, vol, ctx) {
+      if (!ctx || freq === 0) return;
+      var o = ctx.createOscillator();
+      var g = ctx.createGain();
+      o.type = type;
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(vol, ctx.currentTime);
+      g.gain.linearRampToValueAtTime(vol * 0.6, ctx.currentTime + dur * 0.3);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur * 0.95);
+      o.connect(g); g.connect(ctx.destination);
+      o.start(); o.stop(ctx.currentTime + dur);
+    }
+
+    function playNoise(dur, vol, ctx) {
+      if (!ctx) return;
+      var bufSz = ctx.sampleRate * dur;
+      var buf = ctx.createBuffer(1, bufSz, ctx.sampleRate);
+      var d = buf.getChannelData(0);
+      for (var i = 0; i < bufSz; i++) d[i] = Math.random() * 2 - 1;
+      var src = ctx.createBufferSource();
+      src.buffer = buf;
+      var hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 8000;
+      var g = ctx.createGain();
+      g.gain.setValueAtTime(vol, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur * 0.8);
+      src.connect(hp); hp.connect(g); g.connect(ctx.destination);
+      src.start(); src.stop(ctx.currentTime + dur);
+    }
+
+    function playKick(ctx) {
+      if (!ctx) return;
+      var o = ctx.createOscillator();
+      var g = ctx.createGain();
+      o.frequency.setValueAtTime(150, ctx.currentTime);
+      o.frequency.exponentialRampToValueAtTime(30, ctx.currentTime + 0.08);
+      g.gain.setValueAtTime(0.12, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+      o.connect(g); g.connect(ctx.destination);
+      o.start(); o.stop(ctx.currentTime + 0.15);
+    }
+
+    function startMusic() {
+      if (musicInterval) return;
+      musicStep = 0;
+      musicInterval = setInterval(function() {
+        if (!gameAudioCtx || gameState !== 'playing') return;
+        var bi = musicStep % bassPat.length;
+        var mi = musicStep % melodyPat.length;
+        var hi = musicStep % hihatPat.length;
+        var ki = musicStep % kickPat.length;
+        // Bass (triangle wave, warm)
+        playNote(bassPat[bi], stepDur * 0.9, 'triangle', 0.06, gameAudioCtx);
+        // Melody (square wave, chiptune)
+        if (melodyPat[mi] > 0) playNote(melodyPat[mi], stepDur * 0.7, 'square', 0.025, gameAudioCtx);
+        // Hi-hat
+        if (hihatPat[hi]) playNoise(0.03, 0.015, gameAudioCtx);
+        // Kick
+        if (kickPat[ki]) playKick(gameAudioCtx);
+        musicStep++;
+      }, stepDur * 1000);
+    }
+
+    function stopMusic() {
+      if (musicInterval) { clearInterval(musicInterval); musicInterval = null; }
+    }
     // === RENDERING ===
     function drawGame() {
       var w = gameCanvas.width, h = gameCanvas.height;
@@ -1138,7 +1216,7 @@
       tickCount++;
 
       // Player movement (every 3rd frame for smooth speed)
-      if (tickCount % 5 === 0) {
+      if (tickCount % 12 === 0) {
         // Try next direction first
         if (canMove(playerX, playerY, playerNextDir, false)) {
           playerDir = playerNextDir;
@@ -1169,7 +1247,7 @@
       }
 
       // Ghost movement (every 4th frame, faster when eaten)
-      if (tickCount % 7 === 0) {
+      if (tickCount % 14 === 0) {
         // Mode switching
         modeTimer++;
         var inChase = (modeTimer > 120 && modeTimer < 300) || (modeTimer > 420 && modeTimer < 600) || modeTimer > 720;
@@ -1182,7 +1260,7 @@
       }
 
       // Eaten ghosts move faster
-      if (tickCount % 4 === 0) {
+      if (tickCount % 8 === 0) {
         for (var gi = 0; gi < ghosts.length; gi++) {
           if (ghosts[gi].eaten) moveGhost(ghosts[gi], gi);
         }
@@ -1213,6 +1291,7 @@
             playDeathSound();
             if (lives <= 0) {
               gameState = 'gameover';
+              stopMusic();
             } else {
               // Reset positions
               playerX = 9; playerY = 15; playerDir = 3;
@@ -1241,6 +1320,7 @@
         if (e.key === 'Enter' || e.key === ' ') {
           if (gameState === 'won') level++;
           initGame();
+          startMusic();
           return;
         }
         if (e.key === 'Escape') { closeGame(); return; }
@@ -1257,6 +1337,7 @@
       if (gameState === 'gameover' || gameState === 'won') {
         if (gameState === 'won') level++;
         initGame();
+        startMusic();
         return;
       }
       var t = e.touches[0];
@@ -1303,6 +1384,7 @@
     window.addEventListener('resize', resizeGameCanvas);
 
     function closeGame() {
+      stopMusic();
       cancelAnimationFrame(animFrame);
       document.removeEventListener('keydown', handleGameKey);
       overlay.removeEventListener('touchstart', handleSwipeStart);
@@ -1322,6 +1404,7 @@
     initGameAudio();
     initGame();
     playStartSound();
+    setTimeout(startMusic, 500);
     animFrame = requestAnimationFrame(gameLoop);
   }
   // ===== END SIGNAL CHASE =====
