@@ -862,13 +862,20 @@
       if (ghost.eaten && ghost.x === ghost.homeX && ghost.y === ghost.homeY) {
         ghost.eaten = false; ghost.frightened = false; ghost.dir = 0;
       }
-      var target = getGhostTarget(ghost, idx);
+      // Ghost house exit: if inside the house, path to exit first
+      var inHouse = (ghost.y >= 8 && ghost.y <= 10 && ghost.x >= 7 && ghost.x <= 11 && !ghost.eaten);
+      var target;
+      if (inHouse) {
+        target = {x:9, y:7}; // exit point above gate
+      } else {
+        target = getGhostTarget(ghost, idx);
+      }
       var dirs = [0,1,2,3];
       var opposite = (ghost.dir + 2) % 4;
       var bestDir = ghost.dir, bestDist = 999999;
 
       for (var d = 0; d < 4; d++) {
-        if (dirs[d] === opposite && !ghost.eaten) continue; // no reversing (unless eaten)
+        if (dirs[d] === opposite && !ghost.eaten && !inHouse) continue; // allow reversing in house
         if (!canMove(ghost.x, ghost.y, dirs[d], true)) continue;
         var nx = ghost.x, ny = ghost.y;
         if (dirs[d]===0) ny--; else if (dirs[d]===1) nx++; else if (dirs[d]===2) ny++; else nx--;
@@ -917,6 +924,13 @@
       for (var i = 0; i < notes.length; i++) {
         (function(j){ setTimeout(function(){ playTone(notes[j], 0.2, 'sine', 0.06); }, j*120); })(i);
       }
+    }
+    function playWinSound() {
+      var notes = [392,494,523,587,659,784];
+      for (var i = 0; i < notes.length; i++) {
+        (function(j){ setTimeout(function(){ playTone(notes[j], 0.35, 'sine', 0.07); }, j*100); })(i);
+      }
+      setTimeout(function(){ playTone(1047, 0.6, 'sine', 0.08); }, 650);
     }
     // === RENDERING ===
     function drawGame() {
@@ -1124,7 +1138,7 @@
       tickCount++;
 
       // Player movement (every 3rd frame for smooth speed)
-      if (tickCount % 3 === 0) {
+      if (tickCount % 5 === 0) {
         // Try next direction first
         if (canMove(playerX, playerY, playerNextDir, false)) {
           playerDir = playerNextDir;
@@ -1138,7 +1152,7 @@
             score += 10;
             dots--;
             playDotSound();
-            if (dots === 0) { gameState = 'won'; return; }
+            if (dots === 0) { gameState = 'won'; playWinSound(); drawGame(); animFrame = requestAnimationFrame(gameLoop); return; }
           }
           else if (maze[playerY][playerX] === 2) {
             maze[playerY][playerX] = 3;
@@ -1149,13 +1163,13 @@
               if (!ghosts[fi].eaten) ghosts[fi].frightened = true;
             }
             playPowerSound();
-            if (dots === 0) { gameState = 'won'; return; }
+            if (dots === 0) { gameState = 'won'; playWinSound(); drawGame(); animFrame = requestAnimationFrame(gameLoop); return; }
           }
         }
       }
 
       // Ghost movement (every 4th frame, faster when eaten)
-      if (tickCount % 4 === 0) {
+      if (tickCount % 7 === 0) {
         // Mode switching
         modeTimer++;
         var inChase = (modeTimer > 120 && modeTimer < 300) || (modeTimer > 420 && modeTimer < 600) || modeTimer > 720;
@@ -1168,7 +1182,7 @@
       }
 
       // Eaten ghosts move faster
-      if (tickCount % 2 === 0) {
+      if (tickCount % 4 === 0) {
         for (var gi = 0; gi < ghosts.length; gi++) {
           if (ghosts[gi].eaten) moveGhost(ghosts[gi], gi);
         }
