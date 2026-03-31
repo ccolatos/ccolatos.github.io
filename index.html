@@ -1391,6 +1391,7 @@
     closeBtn.textContent = '\u00d7';
     closeBtn.style.cssText = 'position:fixed;top:1.5rem;right:1.5rem;z-index:10001;background:none;border:1px solid rgba(196,168,130,0.3);color:#c4a882;width:44px;height:44px;font-size:1.5rem;cursor:pointer;display:flex;align-items:center;justify-content:center;';
     closeBtn.onclick = closeGame;
+    closeBtn.addEventListener('touchend', function(e) { e.stopPropagation(); closeGame(); }, {passive: false});
     overlay.appendChild(closeBtn);
 
     document.body.appendChild(overlay);
