@@ -766,7 +766,7 @@
     var GHOST_COLORS = ['#ff4444','#ffb8ff','#00ffff','#ffb852'];
     var GHOST_NAMES = ['BLINKY','PINKY','INKY','CLYDE'];
 
-    function initGame() {
+    function initGame(keepProgress) {
       // Deep copy maze
       maze = [];
       dots = 0;
@@ -778,9 +778,7 @@
         }
       }
       totalDots = dots;
-      score = 0;
-      lives = 3;
-      level = 1;
+      if (!keepProgress) { score = 0; lives = 3; level = 1; }
       gameState = 'playing';
       mouthAngle = 0;
       mouthOpen = true;
@@ -1197,7 +1195,7 @@
       gameCtx.textAlign = 'center';
       gameCtx.font = (cellSize * 0.5) + 'px "DM Sans", sans-serif';
       gameCtx.fillStyle = 'rgba(196,168,130,0.3)';
-      gameCtx.fillText('SIGNAL CHASE' + (level > 1 ? '  \u00b7  LEVEL ' + level : ''), w/2, offsetY - cellSize * 1.1);
+      gameCtx.fillText('SIGNAL CHASE  \u00b7  LEVEL ' + level, w/2, offsetY - cellSize * 1.1);
 
       if (gameState === 'gameover') {
         gameCtx.fillStyle = 'rgba(10,10,10,0.85)';
@@ -1338,8 +1336,9 @@
     function handleGameKey(e) {
       if (gameState === 'gameover' || gameState === 'won') {
         if (e.key === 'Enter' || e.key === ' ') {
-          if (gameState === 'won') level++;
-          initGame();
+          var advancing = gameState === 'won';
+          if (advancing) level++;
+          initGame(advancing);
           startMusic();
           return;
         }
@@ -1356,8 +1355,9 @@
     function handleSwipeStart(e) {
       e.preventDefault();
       if (gameState === 'gameover' || gameState === 'won') {
-        if (gameState === 'won') level++;
-        initGame();
+        var advancing = gameState === 'won';
+        if (advancing) level++;
+        initGame(advancing);
         startMusic();
         return;
       }
