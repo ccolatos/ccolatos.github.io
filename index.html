@@ -42,8 +42,8 @@
     .audio-toggle:hover{border-color:var(--accent);color:var(--accent)}
     .audio-toggle.active{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
     .audio-indicator{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--gray);transition:background .3s ease}
-    .audio-toggle.active .audio-indicator{background:var(--accent);box-shadow:0 0 6px var(--accent);animation:pulse 1.5s ease-in-out infinite}
-    @keyframes pulse{0%,100%{opacity:.6}50%{opacity:1}}
+    .audio-toggle.active .audio-indicator{background:var(--accent);box-shadow:0 0 6px var(--accent);animation:signalPulse 1.2s ease-in-out infinite}
+    @keyframes signalPulse{0%,100%{opacity:.4;box-shadow:0 0 4px var(--accent);transform:scale(1)}50%{opacity:1;box-shadow:0 0 16px var(--accent),0 0 30px rgba(196,168,130,.25);transform:scale(1.3)}}
     .nav-toggle{display:none;background:none;border:none;cursor:pointer;padding:.5rem;z-index:101}
     .nav-toggle span{display:block;width:24px;height:1px;background:var(--off-white);margin:6px 0;transition:all .3s ease}
     .nav-toggle.open span:first-child{transform:rotate(45deg) translate(3px,4px)}
@@ -125,7 +125,7 @@
       section{padding:5rem 1.5rem}nav{padding:1.25rem 1.5rem}nav.scrolled{padding:1rem 1.5rem}
       .nav-links{display:none;position:fixed;top:0;left:0;width:100%;height:100vh;background:rgba(10,10,10,.98);backdrop-filter:blur(20px);flex-direction:column;justify-content:center;align-items:center;gap:2rem;z-index:100}
       .nav-links.open{display:flex}.nav-links a{font-size:1.1rem;letter-spacing:.2em}.nav-toggle{display:block}
-      .audio-toggle{font-size:0;padding:.5rem;border:none}.audio-toggle .audio-label{display:none}.audio-indicator{width:8px;height:8px}
+      .audio-toggle{font-size:0;padding:.5rem;border:none}.audio-toggle .audio-label{display:none}.audio-indicator{width:12px;height:12px}
       .work-entry{grid-template-columns:1fr;gap:1.5rem;padding:2.5rem 0}.work-entry:nth-child(even){direction:ltr}
       #contact{padding:6rem 1.5rem}.contact-links{flex-direction:column;align-items:center}.hero-audio-hint{bottom:6rem}
       .mobile-break{display:block}
@@ -484,23 +484,7 @@
       }
     }
 
-    if (audioActive && analyser) {
-      drawActiveMode();
-      // Audio-reactive indicator: pulse with real amplitude
-      // timeData already populated by drawActiveMode
-      var rms = 0;
-      for (var si = 0; si < timeData.length; si++) { var s = (timeData[si] - 128) / 128; rms += s * s; }
-      rms = Math.sqrt(rms / timeData.length);
-      var level = Math.min(1, rms * 4);
-      var glowSize = 4 + level * 12;
-      var op = 0.5 + level * 0.5;
-      audioIndicator.style.animation = 'none';
-      audioIndicator.style.opacity = op;
-      audioIndicator.style.boxShadow = '0 0 ' + glowSize + 'px rgba(196,168,130,' + (0.4 + level * 0.6) + ')';
-    } else {
-      drawQuietMode();
-      if (!audioActive && audioIndicator) { audioIndicator.style.animation = ''; audioIndicator.style.opacity = ''; audioIndicator.style.boxShadow = ''; }
-    }
+    if (audioActive && analyser) { drawActiveMode(); } else { drawQuietMode(); }
     requestAnimationFrame(draw);
   }
 
@@ -585,7 +569,6 @@
 
   // Audio toggle
   var audioToggle = document.getElementById('audioToggle');
-  var audioIndicator = audioToggle.querySelector('.audio-indicator');
   var audioHint = document.getElementById('audioHint');
   if (isMobile) audioHint.textContent = 'Tap to activate \u00b7 tilt phone to play';
 
