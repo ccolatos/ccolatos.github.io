@@ -484,7 +484,23 @@
       }
     }
 
-    if (audioActive && analyser) { drawActiveMode(); } else { drawQuietMode(); }
+    if (audioActive && analyser) {
+      drawActiveMode();
+      // Audio-reactive indicator: pulse with real amplitude
+      // timeData already populated by drawActiveMode
+      var rms = 0;
+      for (var si = 0; si < timeData.length; si++) { var s = (timeData[si] - 128) / 128; rms += s * s; }
+      rms = Math.sqrt(rms / timeData.length);
+      var level = Math.min(1, rms * 4);
+      var glowSize = 4 + level * 12;
+      var op = 0.5 + level * 0.5;
+      audioIndicator.style.animation = 'none';
+      audioIndicator.style.opacity = op;
+      audioIndicator.style.boxShadow = '0 0 ' + glowSize + 'px rgba(196,168,130,' + (0.4 + level * 0.6) + ')';
+    } else {
+      drawQuietMode();
+      if (!audioActive && audioIndicator) { audioIndicator.style.animation = ''; audioIndicator.style.opacity = ''; audioIndicator.style.boxShadow = ''; }
+    }
     requestAnimationFrame(draw);
   }
 
@@ -569,6 +585,7 @@
 
   // Audio toggle
   var audioToggle = document.getElementById('audioToggle');
+  var audioIndicator = audioToggle.querySelector('.audio-indicator');
   var audioHint = document.getElementById('audioHint');
   if (isMobile) audioHint.textContent = 'Tap to activate \u00b7 tilt phone to play';
 
