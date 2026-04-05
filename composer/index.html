@@ -40,6 +40,7 @@
 
 var cv = document.getElementById('c'), cx = cv.getContext('2d'), w, h;
 var ac, mst, cmp, vGrp, tremLFO, tremDepth;
+var distNode, distWet, distDry; // waveshaper distortion
 var isP = false, st = 0, dur = 0;
 var mx = 0.5, my = 0.4, tx = 0.5, ty = 0.4;
 var mob = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
@@ -86,38 +87,43 @@ function createVoice(freq, idx) {
 }
 
 // ================================================================
-// GENERATIVE SCORE: different realization every listen.
-// Biased toward intensity. Silence is earned.
+// GENERATIVE SCORE: Penderecki-inspired.
+// Chaos earns consonance. Violence earns beauty. Silence is earned.
+// dist = distortion wet amount (0-1)
 // ================================================================
 var SCORE_BASE = [
   // I. Unison: tense stillness
-  {d:10,  c:55, s:0,   dyn:0.35,trem:0,    reassR:0,  glide:0.5, l:'i'},
-  // II. Fan-out: slow then accelerating divergence
-  {d:45,  c:58, s:60,  dyn:0.65,trem:0,    reassR:0,  glide:0.8, l:'ii'},
-  // III. Roiling cluster: tremolo violence, tight pitch space
-  {d:18,  c:56, s:12,  dyn:0.85,trem:0.35, reassR:0,  glide:1.5, l:'iii'},
-  // IV. Extreme divergence: maximum spread, chromatic chaos
-  {d:25,  c:48, s:80,  dyn:0.9, trem:0.15, reassR:0,  glide:1.2, l:'iv'},
-  // V. Convergence: intense, driving toward a point
-  {d:20,  c:44, s:3,   dyn:0.8, trem:0,    reassR:0,  glide:0.4, l:'v'},
-  // -- Silence (earned after convergence)
-  {d:8,   c:48, s:1,   dyn:0.02,trem:0,    reassR:0,  glide:0.1, l:''},
-  // VI. Fragmentation: rapid short gestures, restless
-  {d:18,  c:60, s:50,  dyn:0.75,trem:0,    reassR:1.5,glide:4.0, l:'vi'},
-  // VII. Ascent: voices climbing, high register, fast
-  {d:25,  c:70, s:60,  dyn:0.9, trem:0.2,  reassR:4,  glide:2.0, l:'vii'},
-  // VIII. Maximum expansion: widest, loudest, most chaotic
-  {d:22,  c:55, s:85,  dyn:1.0, trem:0.25, reassR:2,  glide:3.0, l:'viii'},
-  // IX. CLIMAX: everything at maximum
-  {d:30,  c:58, s:85,  dyn:1.0, trem:0.3,  reassR:1.5,glide:3.5, l:'ix'},
-  // X. Compression: rapid collapse, still intense
-  {d:10,  c:52, s:4,   dyn:0.85,trem:0.15, reassR:0,  glide:2.5, l:'x'},
-  // -- Silence (earned after compression)
-  {d:7,   c:54, s:1,   dyn:0.02,trem:0,    reassR:0,  glide:0.1, l:''},
-  // XI. Final convergence: slow, buzzing, fff
-  {d:25,  c:56, s:2,   dyn:0.75,trem:0,    reassR:0,  glide:0.2, l:'xi'},
-  // XII. Release: dissolving
-  {d:12,  c:56, s:0.5, dyn:0.04,trem:0,    reassR:0,  glide:0.12,l:'xii'}
+  {d:10,  c:55, s:0,   dyn:0.35,trem:0,    reassR:0,  glide:0.5, dist:0,   l:'i'},
+  // II. Fan-out: voices diverge
+  {d:40,  c:58, s:60,  dyn:0.65,trem:0,    reassR:0,  glide:0.8, dist:0,   l:'ii'},
+  // III. Roiling cluster: tremolo, agitated
+  {d:15,  c:56, s:12,  dyn:0.85,trem:0.35, reassR:0,  glide:1.5, dist:0.1, l:'iii'},
+  // IV. DARK GROWL: low register, distorted, extreme spread
+  {d:20,  c:40, s:80,  dyn:0.95,trem:0.15, reassR:3,  glide:1.5, dist:0.6, l:'iv'},
+  // V. Convergence: intense, driving toward center
+  {d:18,  c:44, s:3,   dyn:0.8, trem:0,    reassR:0,  glide:0.4, dist:0.3, l:'v'},
+  // VI. SPECTRAL HARMONY: overtone series rings (relief after violence)
+  {d:20,  c:43, s:22,  dyn:0.5, trem:0,    reassR:0,  glide:0.3, dist:0,   l:'vi'},
+  // -- Silence (earned after beauty)
+  {d:7,   c:48, s:1,   dyn:0.02,trem:0,    reassR:0,  glide:0.1, dist:0,   l:''},
+  // VII. Fragmentation: rapid gestures, restless
+  {d:16,  c:60, s:50,  dyn:0.75,trem:0,    reassR:1.5,glide:4.0, dist:0.15,l:'vii'},
+  // VIII. Ascent: voices climbing, high register
+  {d:22,  c:70, s:60,  dyn:0.9, trem:0.2,  reassR:4,  glide:2.0, dist:0.1, l:'viii'},
+  // IX. Maximum expansion: widest, loudest, chromatic chaos
+  {d:20,  c:55, s:85,  dyn:1.0, trem:0.25, reassR:2,  glide:3.0, dist:0.4, l:'ix'},
+  // X. CLIMAX: everything at maximum, heavy distortion
+  {d:25,  c:50, s:85,  dyn:1.0, trem:0.3,  reassR:1.5,glide:3.5, dist:0.7, l:'x'},
+  // XI. Compression: rapid collapse
+  {d:8,   c:52, s:4,   dyn:0.85,trem:0.15, reassR:0,  glide:2.5, dist:0.2, l:'xi'},
+  // XII. SPECTRAL RESOLUTION: Polymorphia moment (beauty from violence)
+  {d:18,  c:48, s:18,  dyn:0.55,trem:0,    reassR:0,  glide:0.2, dist:0,   l:'xii'},
+  // -- Silence (earned after resolution)
+  {d:6,   c:54, s:1,   dyn:0.02,trem:0,    reassR:0,  glide:0.1, dist:0,   l:''},
+  // XIII. Final convergence: buzzing fff
+  {d:22,  c:56, s:2,   dyn:0.75,trem:0,    reassR:0,  glide:0.2, dist:0,   l:'xiii'},
+  // XIV. Release: dissolving
+  {d:12,  c:56, s:0.5, dyn:0.04,trem:0,    reassR:0,  glide:0.12,dist:0,   l:'xiv'}
 ];
 // Randomize: biased toward intensity (can go 10% lower, 40% higher)
 var SCORE = [];
@@ -132,6 +138,7 @@ var SCORE = [];
       trem: b.trem * (0.8 + Math.random() * 0.5),
       reassR: b.reassR > 0 ? b.reassR * (0.6 + Math.random() * 0.5) : 0,
       glide: b.glide * (0.85 + Math.random() * 0.5),
+      dist: clamp(b.dist * (0.8 + Math.random() * 0.4), 0, 1),
       dynV: 0, dynF: 99, l: b.l || ''
     });
   }
@@ -177,13 +184,26 @@ function initA() {
   cmp.threshold.value = -15; cmp.knee.value = 6; cmp.ratio.value = 6;
   cmp.attack.value = 0.003; cmp.release.value = 0.1;
   vGrp = ac.createGain(); vGrp.gain.value = 1;
+  // Distortion: parallel wet/dry with waveshaper
+  distNode = ac.createWaveShaper();
+  var curve = new Float32Array(1024);
+  for (var k = 0; k < 1024; k++) {
+    var x = (k / 512) - 1;
+    curve[k] = (Math.PI + 4) * x / (Math.PI + 4 * Math.abs(x)); // soft saturation
+  }
+  distNode.curve = curve; distNode.oversample = '2x';
+  distWet = ac.createGain(); distWet.gain.value = 0;
+  distDry = ac.createGain(); distDry.gain.value = 1;
+  vGrp.connect(distDry); vGrp.connect(distNode);
+  distNode.connect(distWet);
+  distDry.connect(cmp); distWet.connect(cmp);
   // Tremolo LFO (entirely in audio graph)
   tremLFO = ac.createOscillator(); tremLFO.type = 'sine'; tremLFO.frequency.value = 9;
   tremDepth = ac.createGain(); tremDepth.gain.value = 0;
   tremLFO.connect(tremDepth); tremDepth.connect(vGrp.gain); tremLFO.start();
   mst = ac.createGain(); mst.gain.setValueAtTime(0, ac.currentTime);
   mst.gain.linearRampToValueAtTime(0.6, ac.currentTime + 3);
-  vGrp.connect(cmp); cmp.connect(mst); mst.connect(ac.destination);
+  cmp.connect(mst); mst.connect(ac.destination);
   if (mob && ac.createMediaStreamDestination) {
     var ms = ac.createMediaStreamDestination(); mst.connect(ms);
     var ia = document.createElement('audio'); ia.setAttribute('playsinline', '');
@@ -231,7 +251,14 @@ function mainLoop() {
       tremDepth.gain.cancelScheduledValues(now);
       tremDepth.gain.setTargetAtTime(sec.trem, now, 0.5);
       vGrp.gain.cancelScheduledValues(now);
-      vGrp.gain.setTargetAtTime(sec.dyn, now, 1.0); // 1 second transition
+      vGrp.gain.setTargetAtTime(sec.dyn, now, 1.0);
+      // Distortion wet/dry crossfade
+      if (distWet && distDry) {
+        distWet.gain.cancelScheduledValues(now);
+        distDry.gain.cancelScheduledValues(now);
+        distWet.gain.setTargetAtTime(sec.dist || 0, now, 0.5);
+        distDry.gain.setTargetAtTime(1 - (sec.dist || 0) * 0.5, now, 0.5);
+      }
     }
 
     if (el >= dur) { endP(); return; }
