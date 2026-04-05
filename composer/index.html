@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Composer | Chris Colatos</title>
+  <link rel="icon" href="../assets/img/favicon.ico" type="image/x-icon"/>
+  <meta name="theme-color" content="#0a0a0a">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;1,300&family=DM+Sans:wght@300&display=swap" rel="stylesheet">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{background:#0a0a0a;color:#e8e6e1;font-family:'DM Sans',sans-serif;font-weight:300;overflow:hidden;height:100vh;cursor:crosshair;-webkit-font-smoothing:antialiased}
+    body::after{content:'';position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;opacity:.03;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");background-repeat:repeat;background-size:256px}
+    canvas{position:fixed;top:0;left:0;width:100%;height:100%}
+    .ui{position:fixed;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:10;pointer-events:none}
+    .b,.b2{font-family:'Cormorant Garamond',serif;font-size:clamp(2rem,5vw,3.5rem);font-weight:300;font-style:italic;color:#c4a882;background:none;border:none;cursor:pointer;pointer-events:auto;letter-spacing:.08em;opacity:0;transition:opacity 2s}.b.v,.b2.v{opacity:1}.b:hover,.b2:hover{transform:scale(1.03)}
+    .b2.active{color:#c4a882}
+    .sep{font-family:'Cormorant Garamond',serif;font-size:.7rem;color:#444;letter-spacing:.3em;text-transform:uppercase;margin:1.2rem 0;opacity:0;transition:opacity 2s}.sep.v{opacity:1}
+    .d{font-size:.55rem;letter-spacing:.1em;color:rgba(196,168,130,.15);position:fixed;z-index:10}.d.bl{bottom:2rem;left:2rem}.d.br{bottom:2rem;right:2rem}
+    .hp{font-family:'DM Sans',sans-serif;font-size:.55rem;letter-spacing:.15em;text-transform:uppercase;color:#444;margin-top:1.5rem;opacity:0;transition:opacity 2s}.hp.v{opacity:1}
+    .bk{font-size:.6rem;letter-spacing:.15em;text-transform:uppercase;color:#666;text-decoration:none;position:fixed;top:2rem;left:2rem;z-index:10;pointer-events:auto}.bk:hover{color:#c4a882}
+  </style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<a href="/" class="bk">&larr; Chris Colatos</a>
+<div class="ui">
+<button class="b" id="bt">Spectral</button>
+<div class="sep" id="sp"></div>
+<button class="b2" id="bm">Stillness</button>
+<div class="hp" id="hp">headphones recommended</div></div>
+<div class="d bl" id="ph"></div><div class="d br" id="tm"></div>
+<script>
+(function(){
+'use strict';
+// ================================================================
+// 24 bowed string voices. Nothing else.
+// All texture, violence, and beauty from the voices themselves.
+// ================================================================
+
+var cv = document.getElementById('c'), cx = cv.getContext('2d'), w, h;
+var ac, mst, cmp, vGrp, tremLFO, tremDepth;
+var isP = false, st = 0, dur = 0;
+var mx = 0.5, my = 0.4, tx = 0.5, ty = 0.4;
+var mob = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+var NV = 24, voices = [];
+var cd = { int: 0.5 };
+var fc = 0, lastReassign = 0, lastDynShift = 0, curSec = -1;
+var droneOsc, droneG;
+var smoothInt = 0.3; // smoothed intensity: prevents abrupt transitions
+var soloVoice = -1, soloUntil = 0; // solo voice emergence
+
+function rz() { w = cv.width = innerWidth; h = cv.height = innerHeight; }
+rz(); addEventListener('resize', rz);
+document.addEventListener('mousemove', function(e) { tx = e.clientX / w; ty = e.clientY / h; });
+document.addEventListener('touchmove', function(e) {
+  if (e.touches.length) { tx = e.touches[0].clientX / w; ty = e.touches[0].clientY / h; }
+}, { passive: true });
+document.addEventListener('touchstart', function(e) {
+  if (e.touches.length) { tx = e.touches[0].clientX / w; ty = e.touches[0].clientY / h; }
+}, { passive: true });
+
+function mtof(m) { return 440 * Math.pow(2, (m - 69) / 12); }
+function ftom(f) { return f > 0 ? 69 + 12 * Math.log2(f / 440) : 30; }
+function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
+function gauss() {
+  var u = 0, v = 0;
+  while (!u) u = Math.random(); while (!v) v = Math.random();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+
+// === VOICE: sawtooth + vibrato + resonant lowpass ===
+function createVoice(freq, idx) {
+  var osc = ac.createOscillator(); osc.type = 'sawtooth'; osc.frequency.value = freq;
+  var vib = ac.createOscillator(); vib.frequency.value = 3.8 + idx * 0.15;
+  var vibG = ac.createGain(); vibG.gain.value = freq * 0.003;
+  vib.connect(vibG); vibG.connect(osc.frequency);
+  var flt = ac.createBiquadFilter(); flt.type = 'lowpass';
+  flt.frequency.value = 2500; flt.Q.value = 0.7 + idx * 0.04;
+  var g = ac.createGain(); g.gain.value = 0;
+  osc.connect(flt); flt.connect(g); g.connect(vGrp);
+  osc.start(); vib.start();
+  return { osc: osc, vib: vib, vibG: vibG, flt: flt, g: g,
+    freq: freq, tgt: freq, rate: 0.4 + idx * 0.07,
+    fltOff: 0.25 + (idx / NV) * 0.55, soloFade: 0 };
+}
+
+// ================================================================
+// GENERATIVE SCORE: different realization every listen.
+// Base structure provides architectural logic; parameters randomized.
+// Rule: silence only follows convergence (silence is earned, not arbitrary)
+// ================================================================
+var SCORE_BASE = [
+  {d:12,  c:55, s:0,   dyn:0.3, trem:0,    reassR:0,  glide:0.5, l:'i'},
+  {d:50,  c:58, s:55,  dyn:0.6, trem:0,    reassR:0,  glide:0.6, l:'ii'},
+  {d:22,  c:56, s:10,  dyn:0.7, trem:0.25, reassR:0,  glide:1.0, l:'iii'},
+  {d:30,  c:50, s:65,  dyn:0.8, trem:0.1,  reassR:0,  glide:0.8, l:'iv'},
+  {d:25,  c:46, s:4,   dyn:0.75,trem:0,    reassR:0,  glide:0.3, l:'v'},
+  {d:10,  c:50, s:2,   dyn:0.02,trem:0,    reassR:0,  glide:0.1, l:''},
+  {d:22,  c:58, s:40,  dyn:0.65,trem:0,    reassR:2.5,glide:2.5, l:'vi'},
+  {d:30,  c:65, s:55,  dyn:0.8, trem:0.15, reassR:6,  glide:1.2, l:'vii'},
+  {d:25,  c:55, s:70,  dyn:0.95,trem:0.2,  reassR:3,  glide:2.0, l:'viii'},
+  {d:30,  c:58, s:70,  dyn:1.0, trem:0.15, reassR:4,  glide:1.5, l:'ix'},
+  {d:12,  c:54, s:5,   dyn:0.7, trem:0.1,  reassR:0,  glide:1.5, l:'x'},
+  {d:9,   c:55, s:1,   dyn:0.02,trem:0,    reassR:0,  glide:0.1, l:''},
+  {d:30,  c:56, s:2,   dyn:0.7, trem:0,    reassR:0,  glide:0.2, l:'xi'},
+  {d:15,  c:56, s:0.5, dyn:0.04,trem:0,    reassR:0,  glide:0.15,l:'xii'}
+];
+// Randomize parameters for this realization
+var SCORE = [];
+(function() {
+  for (var i = 0; i < SCORE_BASE.length; i++) {
+    var b = SCORE_BASE[i];
+    SCORE.push({
+      d: Math.round(b.d * (0.75 + Math.random() * 0.5)),
+      c: b.c + Math.round(gauss() * 1.5),
+      s: Math.max(0, b.s * (0.8 + Math.random() * 0.4)),
+      dyn: clamp(b.dyn * (0.85 + Math.random() * 0.3), 0.02, 1.0),
+      trem: b.trem * (0.7 + Math.random() * 0.6),
+      reassR: b.reassR > 0 ? b.reassR * (0.7 + Math.random() * 0.6) : 0,
+      glide: b.glide * (0.7 + Math.random() * 0.6),
+      dynV: 0, dynF: 99, l: b.l || ''
+    });
+  }
+})();
+var sT = [];
+(function() { var t = 0; for (var i = 0; i < SCORE.length; i++) { sT.push(t); t += SCORE[i].d; } dur = t; })();
+
+function assignTgts(sec) {
+  // Spectral logic: derive pitches from overtone series (Grisey/Murail)
+  // Fundamental = two octaves below center pitch
+  var fund = mtof(sec.c - 24);
+  var spread = sec.s * (0.6 + my * 0.6);
+  // Spread determines how many partials are available
+  // spread 0 = all on partial 4 (center), spread 70 = partials 1-18
+  var maxPartial = clamp(1 + spread * 0.24, 1, 18);
+
+  for (var i = 0; i < NV; i++) {
+    // Distribute voices across the available partial range
+    var partialFloat = 1 + (i / NV) * (maxPartial - 1);
+    // Snap to integer partial for spectral coherence, with slight drift
+    var partial = Math.round(partialFloat);
+    if (partial < 1) partial = 1;
+    var freq = fund * partial;
+    // Organic detuning: wider when spread is wide
+    freq *= 1 + gauss() * (0.002 + spread * 0.00015);
+
+    voices[i].tgt = clamp(freq, 16, 14000);
+    voices[i].rate = (0.3 + Math.random() * 1.5) * sec.glide;
+    voices[i].vibG.gain.value = clamp(voices[i].tgt * 0.003, 0, 20);
+  }
+}
+
+// === AUDIO INIT ===
+function initA() {
+  ac = new (window.AudioContext || window.webkitAudioContext)(); ac.resume();
+  cmp = ac.createDynamicsCompressor();
+  cmp.threshold.value = -15; cmp.knee.value = 6; cmp.ratio.value = 6;
+  cmp.attack.value = 0.003; cmp.release.value = 0.1;
+  vGrp = ac.createGain(); vGrp.gain.value = 1;
+  // Tremolo LFO (entirely in audio graph)
+  tremLFO = ac.createOscillator(); tremLFO.type = 'sine'; tremLFO.frequency.value = 9;
+  tremDepth = ac.createGain(); tremDepth.gain.value = 0;
+  tremLFO.connect(tremDepth); tremDepth.connect(vGrp.gain); tremLFO.start();
+  mst = ac.createGain(); mst.gain.setValueAtTime(0, ac.currentTime);
+  mst.gain.linearRampToValueAtTime(0.6, ac.currentTime + 3);
+  vGrp.connect(cmp); cmp.connect(mst); mst.connect(ac.destination);
+  if (mob && ac.createMediaStreamDestination) {
+    var ms = ac.createMediaStreamDestination(); mst.connect(ms);
+    var ia = document.createElement('audio'); ia.setAttribute('playsinline', '');
+    ia.srcObject = ms.stream; ia.play().catch(function() {});
+  }
+  var uf = mtof(55);
+  for (var i = 0; i < NV; i++) voices.push(createVoice(uf, i));
+  var now = ac.currentTime;
+  for (var i = 0; i < NV; i++) {
+    voices[i].g.gain.setValueAtTime(0, now);
+    voices[i].g.gain.linearRampToValueAtTime(0.022, now + 0.5 + i * 0.05);
+  }
+  // Sustained drone: single low sine anchoring the harmonic field (Young/Radigue)
+  droneOsc = ac.createOscillator(); droneOsc.type = 'sine';
+  droneOsc.frequency.value = mtof(31); // low G
+  droneG = ac.createGain(); droneG.gain.value = 0;
+  droneG.gain.setValueAtTime(0, now);
+  droneG.gain.linearRampToValueAtTime(0.03, now + 4);
+  droneOsc.connect(droneG); droneG.connect(cmp);
+  droneOsc.start();
+  st = ac.currentTime; curSec = -1;
+}
+
+// === MAIN LOOP ===
+function mainLoop() {
+  if (!isP) return;
+  try {
+    mx += (tx - mx) * 0.03; my += (ty - my) * 0.03;
+    var el = ac.currentTime - st, now = ac.currentTime;
+    fc++;
+    if (ac.state === 'suspended') ac.resume();
+
+    var si = 0;
+    for (var i = SCORE.length - 1; i >= 0; i--) { if (el >= sT[i]) { si = i; break; } }
+    var sec = SCORE[si];
+    cd.int = sec.dyn;
+    // Smooth intensity: slower coefficient for gradual transitions (~3s fade)
+    smoothInt += (cd.int - smoothInt) * 0.008;
+
+    // Section change
+    if (si !== curSec) {
+      curSec = si;
+      assignTgts(sec);
+      lastReassign = el; lastDynShift = el;
+      tremDepth.gain.cancelScheduledValues(now);
+      tremDepth.gain.setTargetAtTime(sec.trem, now, 0.5);
+      vGrp.gain.cancelScheduledValues(now);
+      vGrp.gain.setTargetAtTime(sec.dyn, now, 2.0); // 2 second transition
+    }
+
+    if (el >= dur) { endP(); return; }
+
+    var bright = 1200 + mx * mx * 5000 * (0.3 + smoothInt * 0.7);
+
+    // === VOICE UPDATES: batch of 8 ===
+    var bs = (fc % 3) * 8, be = Math.min(bs + 8, NV);
+    for (var i = bs; i < be; i++) {
+      var v = voices[i];
+      v.freq += (v.tgt - v.freq) * 0.006 * v.rate;
+      v.freq = clamp(v.freq, 16, 14000);
+      v.osc.frequency.value = v.freq;
+      if (fc % 12 === 0) {
+        var fltMod = Math.sin(now * 0.08 + i * 0.9) * 0.4
+                   + Math.sin(now * 0.03 + i * 2.1) * 0.3;
+        v.flt.frequency.value = bright * v.fltOff * (0.6 + fltMod);
+        v.flt.Q.value = 0.5 + Math.sin(now * 0.04 + i * 1.1) * 1.5
+                            + Math.sin(now * 0.017 + i * 0.7) * 1.0;
+      }
+      // Smooth solo fade: ramp in over ~2s, out over ~2.5s
+      if (i === soloVoice) {
+        v.soloFade = Math.min(1, v.soloFade + 0.008);
+      } else {
+        v.soloFade = Math.max(0, v.soloFade - 0.006);
+      }
+      // Per-voice dynamics
+      var baseVol = 0.016 + smoothInt * 0.016;
+      var breathe = 0.65 + Math.sin(now * 0.35 + i * 0.5) * 0.18
+                         + Math.sin(now * 0.11 + i * 1.7) * 0.17;
+      var promVal = Math.sin(now * 0.07 + i * 2.3);
+      var prominence = promVal > 0.88 ? 1.8 : promVal > 0.78 ? 1.3 : 1.0;
+      // Solo boost: gentle, faded in/out smoothly
+      var soloBoost = 1 + v.soloFade * 0.8;
+      // Crossfade between normal and Feldman gain (eliminates click)
+      var normalGain = baseVol * breathe * prominence * soloBoost;
+      var isWhisper = Math.sin(now * 0.06 + i * 2.3) > 0.75;
+      var feldmanGain = isWhisper ? 0.005 * breathe : 0.0003;
+      var feldmanMix = clamp(1 - smoothInt / 0.08, 0, 1);
+      v.g.gain.value = normalGain * (1 - feldmanMix) + feldmanGain * feldmanMix;
+    }
+
+    // === SOLO VOICE EMERGENCE ===
+    if (soloVoice < 0 && smoothInt > 0.3 && Math.random() < 0.0006) {
+      soloVoice = Math.floor(Math.random() * NV);
+      soloUntil = now + 8 + Math.random() * 12;
+      var soloPitch = sec.c + (Math.random() > 0.5 ? 16 + Math.random() * 10 : -6 - Math.random() * 6);
+      voices[soloVoice].tgt = mtof(clamp(soloPitch, 30, 96));
+      voices[soloVoice].rate = 0.3;
+    }
+    if (soloVoice >= 0 && now >= soloUntil) {
+      soloVoice = -1; // soloFade will decay naturally over ~2.5s
+    }
+
+    // Drone using smoothed intensity
+    if (droneOsc) {
+      var droneTgt = mtof(sec.c - 24);
+      droneOsc.frequency.value += (droneTgt - droneOsc.frequency.value) * 0.001;
+      droneG.gain.value = smoothInt < 0.05 ? 0.01 : 0.03 + smoothInt * 0.025;
+    }
+
+    // === PERIODIC REASSIGNMENT (fragmentation) ===
+    if (sec.reassR > 0 && el - lastReassign >= sec.reassR) {
+      lastReassign = el;
+      assignTgts(sec);
+    }
+
+    // === DYNAMIC VOLATILITY (subito fff/pp shifts) ===
+    if (sec.dynV > 0 && el - lastDynShift >= sec.dynF * (0.7 + Math.random() * 0.6)) {
+      lastDynShift = el;
+      var newDyn = sec.dyn * (1 + (Math.random() * 2 - 1) * sec.dynV);
+      newDyn = clamp(newDyn, 0.08, 2.0);
+      // Fast attack for subito effect
+      vGrp.gain.cancelScheduledValues(now);
+      vGrp.gain.setTargetAtTime(newDyn, now, 0.08 + Math.random() * 0.3);
+    }
+
+    // Master
+    mst.gain.value = clamp(0.15 + smoothInt * 0.5, 0.05, 0.85);
+
+    // UI
+    var m = Math.floor(el / 60), s = Math.floor(el % 60);
+    document.getElementById('tm').textContent = (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+    document.getElementById('ph').textContent = sec.l || '';
+
+  } catch (err) {
+    if (typeof console !== 'undefined') console.error('Engine:', err);
+  }
+  requestAnimationFrame(mainLoop);
+}
+
+function endP() {
+  isP = false;
+  try {
+    var now = ac.currentTime;
+    vGrp.gain.cancelScheduledValues(now);
+    vGrp.gain.setTargetAtTime(0, now, 1.5);
+    tremDepth.gain.cancelScheduledValues(now);
+    tremDepth.gain.setTargetAtTime(0, now, 0.5);
+    mst.gain.setValueAtTime(mst.gain.value, now);
+    mst.gain.linearRampToValueAtTime(0, now + 6);
+    if (droneG) { droneG.gain.setValueAtTime(droneG.gain.value, now);
+      droneG.gain.linearRampToValueAtTime(0, now + 5); }
+  } catch (e) {}
+  document.getElementById('ph').textContent = '';
+  setTimeout(function() {
+    var b = document.getElementById('bt');
+    b.textContent = 'Spectral'; b.classList.add('v'); b.style.pointerEvents = 'auto';
+    document.getElementById('bm').classList.add('v');
+    document.getElementById('sp').classList.add('v');
+    document.getElementById('hp').classList.add('v');
+  }, 7000);
+}
+
+// === VISUALIZATION ===
+function draw() {
+  cx.fillStyle = 'rgba(10,10,10,0.06)'; cx.fillRect(0, 0, w, h);
+  if (!isP || !voices.length) { requestAnimationFrame(draw); return; }
+  var gv = clamp(vGrp.gain.value, 0, 2);
+  var margin = 40;
+  var xS = margin, xE = w - margin;
+  var yTop = margin, yBot = h - margin;
+
+  // Clip to prevent artifacts outside the drawing area
+  cx.save();
+  cx.beginPath();
+  cx.rect(xS - 10, yTop - 10, xE - xS + 20, yBot - yTop + 20);
+  cx.clip();
+
+  for (var i = 0; i < NV; i++) {
+    var v = voices[i];
+    var midi = ftom(v.freq);
+    var yRaw = yBot - ((midi - 24) / (102 - 24)) * (yBot - yTop);
+    var y = clamp(yRaw, yTop, yBot);
+    var vol = clamp(v.g.gain.value * gv, 0, 1);
+    var dotX = xS + (i / NV) * (xE - xS);
+
+    // Pitch line (the accordion)
+    if (vol > 0.003) {
+      cx.beginPath(); cx.moveTo(xS, y); cx.lineTo(xE, y);
+      cx.strokeStyle = 'rgba(196,168,130,' + (vol * 1.8) + ')';
+      cx.lineWidth = 0.5; cx.stroke();
+    }
+
+    if (vol > 0.002) {
+      // Outer amber glow (large, soft)
+      cx.beginPath(); cx.arc(dotX, y, 8 + vol * 60, 0, Math.PI * 2);
+      cx.fillStyle = 'rgba(196,168,130,' + (vol * 0.15) + ')'; cx.fill();
+      // Middle warm glow
+      cx.beginPath(); cx.arc(dotX, y, 3 + vol * 30, 0, Math.PI * 2);
+      cx.fillStyle = 'rgba(210,185,145,' + (vol * 0.35) + ')'; cx.fill();
+      // Inner bright core
+      cx.beginPath(); cx.arc(dotX, y, 1 + vol * 12, 0, Math.PI * 2);
+      cx.fillStyle = 'rgba(240,225,200,' + (Math.min(0.7, vol * 5)) + ')'; cx.fill();
+    }
+  }
+
+  cx.restore();
+  requestAnimationFrame(draw);
+}
+
+// === UI ===
+var bt = document.getElementById('bt');
+setTimeout(function() { bt.classList.add('v'); }, 800);
+setTimeout(function() { document.getElementById('sp').classList.add('v'); }, 1200);
+setTimeout(function() { bm.classList.add('v'); }, 1500);
+setTimeout(function() { document.getElementById('hp').classList.add('v'); }, 2000);
+
+bt.addEventListener('click', function() {
+  if (isP) return;
+  if (!ac) { initA(); } else {
+    for (var i = 0; i < voices.length; i++) {
+      try { voices[i].osc.stop(); voices[i].vib.stop(); } catch (e) {}
+    }
+    voices = []; curSec = -1; fc = 0; soloVoice = -1; smoothInt = 0.3;
+    lastReassign = 0; lastDynShift = 0;
+    vGrp.gain.cancelScheduledValues(ac.currentTime); vGrp.gain.value = 1;
+    tremDepth.gain.cancelScheduledValues(ac.currentTime); tremDepth.gain.value = 0;
+    var uf = mtof(55);
+    for (var i = 0; i < NV; i++) voices.push(createVoice(uf, i));
+    var now = ac.currentTime;
+    for (var i = 0; i < NV; i++) {
+      voices[i].g.gain.setValueAtTime(0, now);
+      voices[i].g.gain.linearRampToValueAtTime(0.022, now + 0.5 + i * 0.05);
+    }
+    st = ac.currentTime;
+    mst.gain.setValueAtTime(0, now); mst.gain.linearRampToValueAtTime(0.6, now + 3);
+    droneOsc.frequency.value = mtof(31);
+    droneG.gain.setValueAtTime(0, now); droneG.gain.linearRampToValueAtTime(0.03, now + 4);
+  }
+  isP = true; bt.classList.remove('v'); bt.style.pointerEvents = 'none';
+  bm.classList.remove('v'); document.getElementById('sp').classList.remove('v');
+  document.getElementById('hp').classList.remove('v');
+  cx.clearRect(0, 0, w, h);
+  requestAnimationFrame(mainLoop);
+});
+
+if (mob) {
+  document.addEventListener('touchstart', function() {
+    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+      DeviceOrientationEvent.requestPermission().then(function(s) {
+        if (s === 'granted') addEventListener('deviceorientation', function(e) {
+          if (e.gamma !== null) tx = Math.max(0, Math.min(1, (e.gamma + 45) / 90));
+          if (e.beta !== null) ty = Math.max(0, Math.min(1, (e.beta - 20) / 60));
+        }, { passive: true });
+      }).catch(function() {});
+    }
+  }, { once: true, passive: true });
+}
+
+draw();
+
+// ================================================================
+// MEDITATION ENGINE
+// Science-grounded: drone + binaural theta beats + pink noise
+// Tier 1: slow continuous sound, low complexity, high continuity
+// Tier 2: binaural beats in theta range (6 Hz)
+// ================================================================
+var medAc, medMst, medActive = false, medSt = 0;
+var medNodes = [];
+
+var bm = document.getElementById('bm');
+setTimeout(function() { bm.classList.add('v'); }, 1500);
+
+bm.addEventListener('click', function() {
+  if (medActive) { stopMed(); return; }
+  if (isP) return; // don't overlap with composition
+  startMed();
+});
+
+function startMed() {
+  medAc = medAc || new (window.AudioContext || window.webkitAudioContext)();
+  medAc.resume();
+  medActive = true; medNodes = [];
+  bm.textContent = 'Release'; bm.classList.add('active');
+  bt.classList.remove('v'); document.getElementById('sp').classList.remove('v');
+  document.getElementById('hp').classList.remove('v');
+  cx.clearRect(0, 0, w, h);
+
+  medMst = medAc.createGain(); medMst.gain.setValueAtTime(0, medAc.currentTime);
+  medMst.gain.linearRampToValueAtTime(0.65, medAc.currentTime + 10);
+  medMst.connect(medAc.destination);
+
+  if (mob && medAc.createMediaStreamDestination) {
+    var ms = medAc.createMediaStreamDestination(); medMst.connect(ms);
+    var ia = document.createElement('audio'); ia.setAttribute('playsinline', '');
+    ia.srcObject = ms.stream; ia.play().catch(function() {});
+  }
+
+  // ================================================================
+  // SCIENCE-ONLY DESIGN
+  // Everything below 200Hz. Nothing for the mind to track.
+  // Tier 1: drone + breath entrainment + pink noise
+  // Tier 2: binaural theta (built into the drone itself)
+  // ================================================================
+
+  var OM = 136.1;
+
+  // === 1. OM DRONE: mono, singable, center of everything (Tier 1 #2) ===
+  // Clear single pitch you can chant along with.
+  // Chanting/humming = Tier 1 #1 (strongest evidence: vagus nerve, breath)
+  var drone = medAc.createOscillator(); drone.type = 'sine'; drone.frequency.value = OM;
+  var drG = medAc.createGain(); drG.gain.value = 0.45;
+  // Micro-drift: ±0.3Hz over ~50 seconds (alive, not robotic)
+  var drift = medAc.createOscillator(); drift.type = 'sine'; drift.frequency.value = 0.02;
+  var driftG = medAc.createGain(); driftG.gain.value = 0.3;
+  drift.connect(driftG); driftG.connect(drone.frequency);
+  drone.connect(drG); drG.connect(medMst);
+  drone.start(); drift.start();
+  medNodes.push(drone, drift);
+
+  // === 2. BINAURAL THETA (Tier 2, separate background layer) ===
+  // Quiet enough to not interfere with singing, present enough to entrain.
+  // Carrier at OM frequency so it blends rather than adding brightness.
+  var binL = medAc.createOscillator(); binL.type = 'sine'; binL.frequency.value = OM;
+  var binR = medAc.createOscillator(); binR.type = 'sine'; binR.frequency.value = OM + 6;
+  var bpL = medAc.createStereoPanner(); bpL.pan.value = -1;
+  var bpR = medAc.createStereoPanner(); bpR.pan.value = 1;
+  var bgL = medAc.createGain(); bgL.gain.value = 0.10;
+  var bgR = medAc.createGain(); bgR.gain.value = 0.10;
+  binL.connect(bgL); bgL.connect(bpL); bpL.connect(medMst);
+  binR.connect(bgR); bgR.connect(bpR); bpR.connect(medMst);
+  binL.start(); binR.start();
+  medNodes.push(binL, binR);
+
+  // === 3. SUB-HARMONIC (68 Hz, physical warmth) ===
+  var sub = medAc.createOscillator(); sub.type = 'sine'; sub.frequency.value = OM / 2;
+  var subG = medAc.createGain(); subG.gain.value = 0.25;
+  sub.connect(subG); subG.connect(medMst);
+  sub.start(); medNodes.push(sub);
+
+  // === 4. DEEP SUB (34 Hz, felt not heard) ===
+  var deep = medAc.createOscillator(); deep.type = 'sine'; deep.frequency.value = OM / 4;
+  var deepG = medAc.createGain(); deepG.gain.value = 0.08;
+  deep.connect(deepG); deepG.connect(medMst);
+  deep.start(); medNodes.push(deep);
+
+  // === 4. WARM PINK NOISE (Tier 1: natural soundscape) ===
+  // LP at 350Hz: no high frequencies, sounds like distant ocean
+  var pnBuf = medAc.createBuffer(1, medAc.sampleRate * 4, medAc.sampleRate);
+  var pnData = pnBuf.getChannelData(0);
+  var b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0;
+  for (var j = 0; j < pnData.length; j++) {
+    var wh = Math.random() * 2 - 1;
+    b0=0.99886*b0+wh*0.0555179;b1=0.99332*b1+wh*0.0750759;
+    b2=0.96900*b2+wh*0.1538520;b3=0.86650*b3+wh*0.3104856;
+    b4=0.55000*b4+wh*0.5329522;b5=-0.7616*b5-wh*0.0168980;
+    pnData[j]=(b0+b1+b2+b3+b4+b5+b6+wh*0.5362)*0.11;b6=wh*0.115926;
+  }
+  var pn = medAc.createBufferSource(); pn.buffer = pnBuf; pn.loop = true;
+  var pnFlt = medAc.createBiquadFilter(); pnFlt.type = 'lowpass';
+  pnFlt.frequency.value = 350;
+  var pnG = medAc.createGain(); pnG.gain.value = 0.10;
+  pn.connect(pnFlt); pnFlt.connect(pnG); pnG.connect(medMst);
+  pn.start(); medNodes.push(pn);
+
+  // === 5. BREATH ENTRAINMENT (Tier 1 #1: strongest evidence) ===
+  // 0.1Hz = 6 breaths/min (resonant breathing rate)
+  // Depth 0.12: physically felt volume swell guiding respiration
+  var breathLFO = medAc.createOscillator(); breathLFO.type = 'sine';
+  breathLFO.frequency.value = 0.1;
+  var breathG = medAc.createGain(); breathG.gain.value = 0.12;
+  breathLFO.connect(breathG); breathG.connect(medMst.gain);
+  breathLFO.start(); medNodes.push(breathLFO);
+
+  medSt = medAc.currentTime;
+  requestAnimationFrame(medDraw);
+}
+
+function stopMed() {
+  medActive = false;
+  bm.textContent = 'Stillness'; bm.classList.remove('active');
+  bt.classList.add('v'); document.getElementById('sp').classList.add('v');
+  document.getElementById('hp').classList.add('v');
+  document.getElementById('tm').textContent = '';
+  if (medMst) {
+    var now = medAc.currentTime;
+    medMst.gain.cancelScheduledValues(now);
+    medMst.gain.setValueAtTime(medMst.gain.value, now);
+    medMst.gain.linearRampToValueAtTime(0, now + 8);
+  }
+  setTimeout(function() {
+    for (var i = 0; i < medNodes.length; i++) {
+      try { medNodes[i].stop(); } catch (e) {}
+    }
+    medNodes = [];
+    cx.clearRect(0, 0, w, h);
+  }, 9000);
+}
+
+function medDraw() {
+  if (!medActive) return;
+  cx.fillStyle = 'rgba(10,10,10,0.03)'; cx.fillRect(0, 0, w, h);
+  var now = medAc ? medAc.currentTime : 0;
+  var el = now - medSt;
+  // Elapsed time display
+  var m = Math.floor(el / 60), s = Math.floor(el % 60);
+  document.getElementById('tm').textContent = (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+  // Breathing rings synced to 6 breaths/min
+  var breath = Math.sin(now * 0.1 * Math.PI * 2) * 0.5 + 0.5;
+  var cx0 = w / 2, cy0 = h / 2;
+  for (var r = 0; r < 6; r++) {
+    var radius = 20 + r * 45 + breath * 35;
+    var alpha = 0.025 + breath * 0.035 - r * 0.004;
+    cx.beginPath(); cx.arc(cx0, cy0, radius, 0, Math.PI * 2);
+    cx.strokeStyle = 'rgba(196,168,130,' + Math.max(0.005, alpha) + ')';
+    cx.lineWidth = 0.8; cx.stroke();
+  }
+  cx.beginPath(); cx.arc(cx0, cy0, 6 + breath * 12, 0, Math.PI * 2);
+  cx.fillStyle = 'rgba(210,185,145,' + (0.04 + breath * 0.07) + ')';
+  cx.fill();
+  requestAnimationFrame(medDraw);
+}
+})();
+</script>
+</body>
+</html>
