@@ -70,73 +70,68 @@ function gauss() {
   return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
 }
 
-// === VOICE: sawtooth + vibrato + resonant lowpass ===
+// === VOICE: organ/harmonium-like sustained tone ===
 function createVoice(freq, idx) {
   var osc = ac.createOscillator(); osc.type = 'sawtooth'; osc.frequency.value = freq;
-  var vib = ac.createOscillator(); vib.frequency.value = 3.8 + idx * 0.15;
-  var vibG = ac.createGain(); vibG.gain.value = freq * 0.003;
+  // Slow, gentle drift (organ wow/flutter, not violin vibrato)
+  var vib = ac.createOscillator(); vib.frequency.value = 0.3 + idx * 0.05;
+  var vibG = ac.createGain(); vibG.gain.value = freq * 0.0015;
   vib.connect(vibG); vibG.connect(osc.frequency);
+  // Warm lowpass: organ tones, not bright synth
   var flt = ac.createBiquadFilter(); flt.type = 'lowpass';
-  flt.frequency.value = 2500; flt.Q.value = 0.7 + idx * 0.04;
+  flt.frequency.value = 1200; flt.Q.value = 0.8 + idx * 0.03;
   var g = ac.createGain(); g.gain.value = 0;
   osc.connect(flt); flt.connect(g); g.connect(vGrp);
   osc.start(); vib.start();
   return { osc: osc, vib: vib, vibG: vibG, flt: flt, g: g,
-    freq: freq, tgt: freq, rate: 0.4 + idx * 0.07,
-    fltOff: 0.25 + (idx / NV) * 0.55, soloFade: 0 };
+    freq: freq, tgt: freq, rate: 0.2 + idx * 0.03,
+    fltOff: 0.3 + (idx / NV) * 0.4, soloFade: 0 };
 }
 
 // ================================================================
-// GENERATIVE SCORE: Mourning
-// Violence is grief. Harmony is remembrance. Silence is the void.
-// G → G#: you return, but you are changed.
-// dist = distortion wet amount (0-1)
+// HALF LIGHT OF DAWN (after Abul Mogard)
+// Pitch field: G, Bb, C, D, Eb, F
+// Form: emergence > stabilization > expansion > plateau > recession > ending
+// Single crescendo-decrescendo. No transients. No meter. Mournful dawn.
 // ================================================================
+
+// Pitch pool: all available MIDI notes from the Mogard field across octaves
+var POOL_FULL = [31,34,36,38,39,41, 43,46,48,50,51,53, 55,58,60,62,63,65, 67,70,72,74,75,77];
+//               G1 Bb1 C2 D2 Eb2 F2  G2 Bb2 C3 D3 Eb3 F3  G3 Bb3 C4 D4 Eb4 F4  G4 Bb4 C5 D5 Eb5 F5
+
+// Pool subsets for different sections
+var POOL_OPEN = [43,46,51, 55,58,63]; // G2,Bb2,Eb3, G3,Bb3,Eb4 (opening: G,Bb,Eb emphasis)
+var POOL_STAB = [39,43,46,48,51,53, 55,58,63]; // add F2,C3,F3
+var POOL_LATE = [43,45,46,50, 55,57,58,62, 67]; // G,A,Bb,D emphasis for ending
+
 var SCORE_BASE = [
-  // I. WHOLENESS: the world before loss. Warm unison G. Linger here.
-  {d:18,  c:55, s:0,   dyn:0.4, trem:0,    reassR:0,  glide:0.3, dist:0,   l:''},
-  // II. THE FRACTURE: voices begin to separate. Slow, then accelerating.
-  {d:45,  c:58, s:55,  dyn:0.6, trem:0,    reassR:0,  glide:0.7, dist:0,   l:''},
-  // III. FIRST GRIEF: dark, low, raw. The impact of loss.
-  {d:20,  c:40, s:75,  dyn:0.95,trem:0.2,  reassR:3,  glide:1.5, dist:0.5, l:''},
-  // IV. FIRST REMEMBRANCE: a memory of beauty. Pure spectral harmony.
-  {d:28,  c:43, s:24,  dyn:0.65,trem:0,    reassR:0,  glide:1.0, dist:0,   l:''},
-  // -- The void
-  {d:8,   c:48, s:1,   dyn:0.02,trem:0,    reassR:0,  glide:0.1, dist:0,   l:''},
-  // V. SECOND GRIEF: worse than the first. Grief doesn't diminish.
-  {d:18,  c:50, s:85,  dyn:1.0, trem:0.3,  reassR:1.5,glide:3.5, dist:0.7, l:''},
-  // VI. SECOND REMEMBRANCE: fragile, higher. The memory is fading.
-  {d:22,  c:60, s:20,  dyn:0.55,trem:0,    reassR:0,  glide:0.8, dist:0,   l:''},
-  // VII. FRAGMENTATION: grief breaks into restless pieces
-  {d:15,  c:62, s:50,  dyn:0.75,trem:0,    reassR:1.5,glide:4.0, dist:0.2, l:''},
-  // VIII. THE OVERWHELM: everything at once. Grief, memory, anger.
-  {d:25,  c:52, s:85,  dyn:1.0, trem:0.25, reassR:2,  glide:3.0, dist:0.65,l:''},
-  // IX. EXHAUSTION: grief has spent itself
-  {d:12,  c:54, s:8,   dyn:0.5, trem:0.1,  reassR:0,  glide:1.0, dist:0.1, l:''},
-  // -- The void
-  {d:7,   c:54, s:1,   dyn:0.02,trem:0,    reassR:0,  glide:0.1, dist:0,   l:''},
-  // X. FINAL REMEMBRANCE: the longest. Acceptance. Spectral beauty.
-  {d:35,  c:48, s:26,  dyn:0.65,trem:0,    reassR:0,  glide:0.6, dist:0,   l:''},
-  // XI. THE ALTERED RETURN: convergence on G#. You are changed.
-  {d:25,  c:56, s:2,   dyn:0.6, trem:0,    reassR:0,  glide:0.15,dist:0,   l:''},
-  // XII. RELEASE: dissolving into what remains
-  {d:15,  c:56, s:0.3, dyn:0.04,trem:0,    reassR:0,  glide:0.1, dist:0,   l:''}
+  // 0:00-0:30 EMERGENCE: near silence, faint low drone + haze
+  {d:30, pool:'open', dyn:0.08, flt:600,  glide:0.15, l:''},
+  // 0:30-1:30 STABILIZATION: harmonic body audible, dark, blurred
+  {d:60, pool:'stab', dyn:0.25, flt:900,  glide:0.2,  l:''},
+  // 1:30-3:00 EXPANSION: denser, warmer, more partials, immersive
+  {d:90, pool:'full', dyn:0.5,  flt:1400, glide:0.25, l:''},
+  // 3:00-5:30 PLATEAU: fullest, most massive, architectural
+  {d:150,pool:'full', dyn:0.75, flt:1800, glide:0.2,  l:''},
+  // 5:30-6:05 RECESSION: density withdraws
+  {d:35, pool:'stab', dyn:0.35, flt:1000, glide:0.15, l:''},
+  // 6:05-6:47 ENDING: exposed, fragile, G/A/Bb/D area
+  {d:42, pool:'late', dyn:0.1,  flt:700,  glide:0.1,  l:''}
 ];
-// Randomize: biased toward intensity (can go 10% lower, 40% higher)
+
 var SCORE = [];
 (function() {
   for (var i = 0; i < SCORE_BASE.length; i++) {
     var b = SCORE_BASE[i];
     SCORE.push({
-      d: Math.round(b.d * (0.8 + Math.random() * 0.4)),
-      c: b.c + Math.round(gauss() * 2),
-      s: Math.max(0, b.s * (0.9 + Math.random() * 0.4)),
-      dyn: clamp(b.dyn * (0.9 + Math.random() * 0.3), 0.02, 1.0),
-      trem: b.trem * (0.8 + Math.random() * 0.5),
-      reassR: b.reassR > 0 ? b.reassR * (0.6 + Math.random() * 0.5) : 0,
-      glide: b.glide * (0.85 + Math.random() * 0.5),
-      dist: clamp(b.dist * (0.8 + Math.random() * 0.4), 0, 1),
-      dynV: 0, dynF: 99, l: b.l || ''
+      d: Math.round(b.d * (0.9 + Math.random() * 0.2)),
+      dyn: clamp(b.dyn * (0.9 + Math.random() * 0.2), 0.02, 0.85),
+      flt: b.flt * (0.9 + Math.random() * 0.2),
+      glide: b.glide * (0.85 + Math.random() * 0.3),
+      pool: b.pool,
+      trem: 0, reassR: 0, dist: 0,
+      dynV: 0, dynF: 99, l: b.l || '',
+      c: 55, s: 0 // unused but keep for compatibility
     });
   }
 })();
@@ -144,33 +139,27 @@ var sT = [];
 (function() { var t = 0; for (var i = 0; i < SCORE.length; i++) { sT.push(t); t += SCORE[i].d; } dur = t; })();
 
 function assignTgts(sec) {
-  // Spectral logic with chromatic friction:
-  // Base = overtone series, but high-spread sections inject chromatic escapees
-  var fund = mtof(sec.c - 24);
-  var spread = sec.s * (0.6 + my * 0.6);
-  var maxPartial = clamp(1 + spread * 0.22, 1, 20);
-  // Friction: proportion of voices that break from the overtone series
-  var frictionChance = clamp(spread / 120, 0, 0.4);
+  // Select pitch pool based on section
+  var pool;
+  switch (sec.pool) {
+    case 'open': pool = POOL_OPEN; break;
+    case 'stab': pool = POOL_STAB; break;
+    case 'late': pool = POOL_LATE; break;
+    default: pool = POOL_FULL;
+  }
 
   for (var i = 0; i < NV; i++) {
-    var freq;
-    if (Math.random() < frictionChance) {
-      // Chromatic escapee: random MIDI pitch within the spread range
-      var midi = sec.c + (Math.random() * 2 - 1) * spread * 0.5;
-      freq = mtof(clamp(midi, 24, 102));
-    } else {
-      // Spectral voice: overtone series
-      var partialFloat = 1 + (i / NV) * (maxPartial - 1);
-      var partial = Math.round(partialFloat);
-      if (partial < 1) partial = 1;
-      freq = fund * partial;
-    }
-    // Organic detuning
-    freq *= 1 + gauss() * (0.003 + spread * 0.0002);
+    // Distribute voices across the pool with slight randomization
+    var poolIdx = Math.floor((i / NV) * pool.length);
+    poolIdx = clamp(poolIdx + Math.floor(Math.random() * 2 - 0.5), 0, pool.length - 1);
+    var midi = pool[poolIdx];
+    var freq = mtof(midi);
+    // Ensemble detune: slight organic detuning (organ-like)
+    freq *= 1 + gauss() * 0.002;
 
-    voices[i].tgt = clamp(freq, 16, 14000);
-    voices[i].rate = (0.3 + Math.random() * 2.0) * sec.glide;
-    voices[i].vibG.gain.value = clamp(voices[i].tgt * 0.003, 0, 20);
+    voices[i].tgt = freq;
+    voices[i].rate = (0.1 + Math.random() * 0.3) * sec.glide;
+    voices[i].vibG.gain.value = clamp(freq * 0.0015, 0, 5);
   }
 }
 
@@ -181,46 +170,69 @@ function initA() {
   cmp.threshold.value = -15; cmp.knee.value = 6; cmp.ratio.value = 6;
   cmp.attack.value = 0.003; cmp.release.value = 0.1;
   vGrp = ac.createGain(); vGrp.gain.value = 1;
-  // Distortion: parallel wet/dry with waveshaper
-  distNode = ac.createWaveShaper();
-  var curve = new Float32Array(1024);
-  for (var k = 0; k < 1024; k++) {
-    var x = (k / 512) - 1;
-    curve[k] = (Math.PI + 4) * x / (Math.PI + 4 * Math.abs(x)); // soft saturation
+  // Reverb: integral to the sound, not decorative (8 second decay)
+  var revLen = ac.sampleRate * 8;
+  var revBuf = ac.createBuffer(2, revLen, ac.sampleRate);
+  for (var ch = 0; ch < 2; ch++) {
+    var rd = revBuf.getChannelData(ch);
+    for (var ri = 0; ri < revLen; ri++) {
+      // Exponential decay with high-frequency rolloff
+      var env = Math.pow(1 - ri / revLen, 1.5);
+      rd[ri] = (Math.random() * 2 - 1) * env * 0.5;
+    }
   }
-  distNode.curve = curve; distNode.oversample = '2x';
-  distWet = ac.createGain(); distWet.gain.value = 0;
-  distDry = ac.createGain(); distDry.gain.value = 1;
-  vGrp.connect(distDry); vGrp.connect(distNode);
-  distNode.connect(distWet);
-  distDry.connect(cmp); distWet.connect(cmp);
-  // Tremolo LFO (entirely in audio graph)
+  var rev = ac.createConvolver(); rev.buffer = revBuf;
+  var revSend = ac.createGain(); revSend.gain.value = 0.35;
+  var revFlt = ac.createBiquadFilter(); revFlt.type = 'lowpass';
+  revFlt.frequency.value = 2000; revFlt.Q.value = 0.5;
+  // Dry path + reverb path
+  vGrp.connect(cmp);
+  vGrp.connect(revSend); revSend.connect(rev); rev.connect(revFlt); revFlt.connect(cmp);
+  // No tremolo LFO for this piece (continuous sustain)
   tremLFO = ac.createOscillator(); tremLFO.type = 'sine'; tremLFO.frequency.value = 9;
   tremDepth = ac.createGain(); tremDepth.gain.value = 0;
   tremLFO.connect(tremDepth); tremDepth.connect(vGrp.gain); tremLFO.start();
   mst = ac.createGain(); mst.gain.setValueAtTime(0, ac.currentTime);
-  mst.gain.linearRampToValueAtTime(0.6, ac.currentTime + 3);
+  mst.gain.linearRampToValueAtTime(0.7, ac.currentTime + 8); // slow 8-second fade in
   cmp.connect(mst); mst.connect(ac.destination);
   if (mob && ac.createMediaStreamDestination) {
     var ms = ac.createMediaStreamDestination(); mst.connect(ms);
     var ia = document.createElement('audio'); ia.setAttribute('playsinline', '');
     ia.srcObject = ms.stream; ia.play().catch(function() {});
   }
+  // Voices start on G3 (will be assigned to pool pitches)
   var uf = mtof(55);
   for (var i = 0; i < NV; i++) voices.push(createVoice(uf, i));
   var now = ac.currentTime;
   for (var i = 0; i < NV; i++) {
     voices[i].g.gain.setValueAtTime(0, now);
-    voices[i].g.gain.linearRampToValueAtTime(0.022, now + 0.5 + i * 0.05);
+    voices[i].g.gain.linearRampToValueAtTime(0.018, now + 2 + i * 0.1);
   }
-  // Sustained drone: single low sine anchoring the harmonic field (Young/Radigue)
+  // Low G drone: weight-bearing organ air
   droneOsc = ac.createOscillator(); droneOsc.type = 'sine';
-  droneOsc.frequency.value = mtof(31); // low G
+  droneOsc.frequency.value = mtof(31); // G1
   droneG = ac.createGain(); droneG.gain.value = 0;
   droneG.gain.setValueAtTime(0, now);
-  droneG.gain.linearRampToValueAtTime(0.03, now + 4);
+  droneG.gain.linearRampToValueAtTime(0.04, now + 8);
   droneOsc.connect(droneG); droneG.connect(cmp);
   droneOsc.start();
+  // Broadband noise/air layer: gives the piece breath, age, distance
+  var noiseBuf = ac.createBuffer(1, ac.sampleRate * 4, ac.sampleRate);
+  var nd = noiseBuf.getChannelData(0);
+  var nb0=0,nb1=0,nb2=0,nb3=0,nb4=0,nb5=0,nb6=0;
+  for (var j = 0; j < nd.length; j++) {
+    var wh = Math.random() * 2 - 1;
+    nb0=0.99886*nb0+wh*0.0555179;nb1=0.99332*nb1+wh*0.0750759;
+    nb2=0.96900*nb2+wh*0.1538520;nb3=0.86650*nb3+wh*0.3104856;
+    nb4=0.55000*nb4+wh*0.5329522;nb5=-0.7616*nb5-wh*0.0168980;
+    nd[j]=(nb0+nb1+nb2+nb3+nb4+nb5+nb6+wh*0.5362)*0.11;nb6=wh*0.115926;
+  }
+  var nSrc = ac.createBufferSource(); nSrc.buffer = noiseBuf; nSrc.loop = true;
+  var nFlt = ac.createBiquadFilter(); nFlt.type = 'lowpass';
+  nFlt.frequency.value = 400; // band-limited: felt more than heard
+  var nG = ac.createGain(); nG.gain.value = 0.05;
+  nSrc.connect(nFlt); nFlt.connect(nG); nG.connect(cmp);
+  nSrc.start();
   st = ac.currentTime; curSec = -1;
 }
 
@@ -237,101 +249,56 @@ function mainLoop() {
     for (var i = SCORE.length - 1; i >= 0; i--) { if (el >= sT[i]) { si = i; break; } }
     var sec = SCORE[si];
     cd.int = sec.dyn;
-    // Smooth intensity: slower coefficient for gradual transitions (~3s fade)
-    smoothInt += (cd.int - smoothInt) * 0.012;
+    // Glacial smoothing: ~8 second transitions between zones
+    smoothInt += (cd.int - smoothInt) * 0.004;
 
     // Section change
     if (si !== curSec) {
       curSec = si;
       assignTgts(sec);
-      lastReassign = el; lastDynShift = el;
+      lastReassign = el;
+      // No tremolo for this piece
       tremDepth.gain.cancelScheduledValues(now);
-      tremDepth.gain.setTargetAtTime(sec.trem, now, 0.5);
+      tremDepth.gain.setTargetAtTime(0, now, 0.5);
+      // Very slow dynamic transition (4 seconds)
       vGrp.gain.cancelScheduledValues(now);
-      vGrp.gain.setTargetAtTime(sec.dyn, now, 1.0);
-      // Distortion wet/dry crossfade
-      if (distWet && distDry) {
-        distWet.gain.cancelScheduledValues(now);
-        distDry.gain.cancelScheduledValues(now);
-        distWet.gain.setTargetAtTime(sec.dist || 0, now, 0.5);
-        distDry.gain.setTargetAtTime(1 - (sec.dist || 0) * 0.5, now, 0.5);
-      }
+      vGrp.gain.setTargetAtTime(sec.dyn, now, 4.0);
     }
 
     if (el >= dur) { endP(); return; }
 
-    var bright = 1200 + mx * mx * 5000 * (0.3 + smoothInt * 0.7);
+    // Filter target from score (organ warmth, slow bloom)
+    var baseFlt = sec.flt || 1200;
 
     // === VOICE UPDATES: batch of 8 ===
     var bs = (fc % 3) * 8, be = Math.min(bs + 8, NV);
     for (var i = bs; i < be; i++) {
       var v = voices[i];
-      v.freq += (v.tgt - v.freq) * 0.006 * v.rate;
+      // Very slow glissando (organ drift, not violin portamento)
+      v.freq += (v.tgt - v.freq) * 0.003 * v.rate;
       v.freq = clamp(v.freq, 16, 14000);
       v.osc.frequency.value = v.freq;
-      if (fc % 12 === 0) {
-        var fltMod = Math.sin(now * 0.08 + i * 0.9) * 0.4
-                   + Math.sin(now * 0.03 + i * 2.1) * 0.3;
-        v.flt.frequency.value = bright * v.fltOff * (0.6 + fltMod);
-        v.flt.Q.value = 0.5 + Math.sin(now * 0.04 + i * 1.1) * 1.5
-                            + Math.sin(now * 0.017 + i * 0.7) * 1.0;
+      // Slow filter evolution: independent per-voice cutoff drift
+      if (fc % 18 === 0) {
+        var fltDrift = Math.sin(now * 0.02 + i * 0.7) * 0.2
+                     + Math.sin(now * 0.008 + i * 1.9) * 0.15;
+        v.flt.frequency.value = baseFlt * v.fltOff * (0.8 + fltDrift);
+        // Gentle Q drift (organ reed character)
+        v.flt.Q.value = 0.8 + Math.sin(now * 0.015 + i * 1.1) * 0.5;
       }
-      // Smooth solo fade: ramp in over ~1.5s, out over ~2s
-      if (i === soloVoice) {
-        v.soloFade = Math.min(1, v.soloFade + 0.011);
-      } else {
-        v.soloFade = Math.max(0, v.soloFade - 0.008);
-      }
-      // Per-voice dynamics
-      var baseVol = 0.016 + smoothInt * 0.016;
-      var breathe = 0.65 + Math.sin(now * 0.35 + i * 0.5) * 0.18
-                         + Math.sin(now * 0.11 + i * 1.7) * 0.17;
-      var promVal = Math.sin(now * 0.07 + i * 2.3);
-      var prominence = promVal > 0.85 ? 2.2 : promVal > 0.75 ? 1.5 : 1.0;
-      // Solo boost: prominent, faded smoothly
-      var soloBoost = 1 + v.soloFade * 1.2;
-      // Crossfade between normal and Feldman gain (eliminates click)
-      var normalGain = baseVol * breathe * prominence * soloBoost;
-      var isWhisper = Math.sin(now * 0.06 + i * 2.3) > 0.75;
-      var feldmanGain = isWhisper ? 0.005 * breathe : 0.0003;
-      var feldmanMix = clamp(1 - smoothInt / 0.08, 0, 1);
-      v.g.gain.value = normalGain * (1 - feldmanMix) + feldmanGain * feldmanMix;
+      // Per-voice dynamics: very slow independent swells (20-60 second phrases)
+      var baseVol = 0.014 + smoothInt * 0.018;
+      var breathe = 0.6 + Math.sin(now * 0.08 + i * 0.5) * 0.2
+                        + Math.sin(now * 0.03 + i * 1.7) * 0.2;
+      v.g.gain.value = baseVol * breathe;
     }
 
-    // === SOLO VOICE EMERGENCE ===
-    if (soloVoice < 0 && smoothInt > 0.25 && Math.random() < 0.001) {
-      soloVoice = Math.floor(Math.random() * NV);
-      soloUntil = now + 5 + Math.random() * 10;
-      var soloPitch = sec.c + (Math.random() > 0.5 ? 20 + Math.random() * 16 : -10 - Math.random() * 10);
-      voices[soloVoice].tgt = mtof(clamp(soloPitch, 24, 102));
-      voices[soloVoice].rate = 0.5 + Math.random() * 1.5;
-    }
-    if (soloVoice >= 0 && now >= soloUntil) {
-      soloVoice = -1; // soloFade will decay naturally over ~2.5s
-    }
-
-    // Drone using smoothed intensity
+    // Drone: steady G1, volume follows smoothed intensity
     if (droneOsc) {
-      var droneTgt = mtof(sec.c - 24);
-      droneOsc.frequency.value += (droneTgt - droneOsc.frequency.value) * 0.001;
-      droneG.gain.value = smoothInt < 0.05 ? 0.01 : 0.03 + smoothInt * 0.025;
+      droneG.gain.value = 0.02 + smoothInt * 0.04;
     }
 
-    // === PERIODIC REASSIGNMENT (fragmentation) ===
-    if (sec.reassR > 0 && el - lastReassign >= sec.reassR) {
-      lastReassign = el;
-      assignTgts(sec);
-    }
-
-    // === DYNAMIC VOLATILITY (subito fff/pp shifts) ===
-    if (sec.dynV > 0 && el - lastDynShift >= sec.dynF * (0.7 + Math.random() * 0.6)) {
-      lastDynShift = el;
-      var newDyn = sec.dyn * (1 + (Math.random() * 2 - 1) * sec.dynV);
-      newDyn = clamp(newDyn, 0.08, 2.0);
-      // Fast attack for subito effect
-      vGrp.gain.cancelScheduledValues(now);
-      vGrp.gain.setTargetAtTime(newDyn, now, 0.08 + Math.random() * 0.3);
-    }
+    // No reassignment, no solo, no volatility for Mogard
 
     // Master
     mst.gain.value = clamp(0.15 + smoothInt * 0.5, 0.05, 0.85);
