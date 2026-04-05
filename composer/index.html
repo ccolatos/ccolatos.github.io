@@ -87,38 +87,51 @@ function createVoice(freq, idx) {
 
 // ================================================================
 // GENERATIVE SCORE: different realization every listen.
-// Base structure provides architectural logic; parameters randomized.
-// Rule: silence only follows convergence (silence is earned, not arbitrary)
+// Biased toward intensity. Silence is earned.
 // ================================================================
 var SCORE_BASE = [
-  {d:12,  c:55, s:0,   dyn:0.3, trem:0,    reassR:0,  glide:0.5, l:'i'},
-  {d:50,  c:58, s:55,  dyn:0.6, trem:0,    reassR:0,  glide:0.6, l:'ii'},
-  {d:22,  c:56, s:10,  dyn:0.7, trem:0.25, reassR:0,  glide:1.0, l:'iii'},
-  {d:30,  c:50, s:65,  dyn:0.8, trem:0.1,  reassR:0,  glide:0.8, l:'iv'},
-  {d:25,  c:46, s:4,   dyn:0.75,trem:0,    reassR:0,  glide:0.3, l:'v'},
-  {d:10,  c:50, s:2,   dyn:0.02,trem:0,    reassR:0,  glide:0.1, l:''},
-  {d:22,  c:58, s:40,  dyn:0.65,trem:0,    reassR:2.5,glide:2.5, l:'vi'},
-  {d:30,  c:65, s:55,  dyn:0.8, trem:0.15, reassR:6,  glide:1.2, l:'vii'},
-  {d:25,  c:55, s:70,  dyn:0.95,trem:0.2,  reassR:3,  glide:2.0, l:'viii'},
-  {d:30,  c:58, s:70,  dyn:1.0, trem:0.15, reassR:4,  glide:1.5, l:'ix'},
-  {d:12,  c:54, s:5,   dyn:0.7, trem:0.1,  reassR:0,  glide:1.5, l:'x'},
-  {d:9,   c:55, s:1,   dyn:0.02,trem:0,    reassR:0,  glide:0.1, l:''},
-  {d:30,  c:56, s:2,   dyn:0.7, trem:0,    reassR:0,  glide:0.2, l:'xi'},
-  {d:15,  c:56, s:0.5, dyn:0.04,trem:0,    reassR:0,  glide:0.15,l:'xii'}
+  // I. Unison: tense stillness
+  {d:10,  c:55, s:0,   dyn:0.35,trem:0,    reassR:0,  glide:0.5, l:'i'},
+  // II. Fan-out: slow then accelerating divergence
+  {d:45,  c:58, s:60,  dyn:0.65,trem:0,    reassR:0,  glide:0.8, l:'ii'},
+  // III. Roiling cluster: tremolo violence, tight pitch space
+  {d:18,  c:56, s:12,  dyn:0.85,trem:0.35, reassR:0,  glide:1.5, l:'iii'},
+  // IV. Extreme divergence: maximum spread, chromatic chaos
+  {d:25,  c:48, s:80,  dyn:0.9, trem:0.15, reassR:0,  glide:1.2, l:'iv'},
+  // V. Convergence: intense, driving toward a point
+  {d:20,  c:44, s:3,   dyn:0.8, trem:0,    reassR:0,  glide:0.4, l:'v'},
+  // -- Silence (earned after convergence)
+  {d:8,   c:48, s:1,   dyn:0.02,trem:0,    reassR:0,  glide:0.1, l:''},
+  // VI. Fragmentation: rapid short gestures, restless
+  {d:18,  c:60, s:50,  dyn:0.75,trem:0,    reassR:1.5,glide:4.0, l:'vi'},
+  // VII. Ascent: voices climbing, high register, fast
+  {d:25,  c:70, s:60,  dyn:0.9, trem:0.2,  reassR:4,  glide:2.0, l:'vii'},
+  // VIII. Maximum expansion: widest, loudest, most chaotic
+  {d:22,  c:55, s:85,  dyn:1.0, trem:0.25, reassR:2,  glide:3.0, l:'viii'},
+  // IX. CLIMAX: everything at maximum
+  {d:30,  c:58, s:85,  dyn:1.0, trem:0.3,  reassR:1.5,glide:3.5, l:'ix'},
+  // X. Compression: rapid collapse, still intense
+  {d:10,  c:52, s:4,   dyn:0.85,trem:0.15, reassR:0,  glide:2.5, l:'x'},
+  // -- Silence (earned after compression)
+  {d:7,   c:54, s:1,   dyn:0.02,trem:0,    reassR:0,  glide:0.1, l:''},
+  // XI. Final convergence: slow, buzzing, fff
+  {d:25,  c:56, s:2,   dyn:0.75,trem:0,    reassR:0,  glide:0.2, l:'xi'},
+  // XII. Release: dissolving
+  {d:12,  c:56, s:0.5, dyn:0.04,trem:0,    reassR:0,  glide:0.12,l:'xii'}
 ];
-// Randomize parameters for this realization
+// Randomize: biased toward intensity (can go 10% lower, 40% higher)
 var SCORE = [];
 (function() {
   for (var i = 0; i < SCORE_BASE.length; i++) {
     var b = SCORE_BASE[i];
     SCORE.push({
-      d: Math.round(b.d * (0.75 + Math.random() * 0.5)),
-      c: b.c + Math.round(gauss() * 1.5),
-      s: Math.max(0, b.s * (0.8 + Math.random() * 0.4)),
-      dyn: clamp(b.dyn * (0.85 + Math.random() * 0.3), 0.02, 1.0),
-      trem: b.trem * (0.7 + Math.random() * 0.6),
-      reassR: b.reassR > 0 ? b.reassR * (0.7 + Math.random() * 0.6) : 0,
-      glide: b.glide * (0.7 + Math.random() * 0.6),
+      d: Math.round(b.d * (0.8 + Math.random() * 0.4)),
+      c: b.c + Math.round(gauss() * 2),
+      s: Math.max(0, b.s * (0.9 + Math.random() * 0.4)),
+      dyn: clamp(b.dyn * (0.9 + Math.random() * 0.3), 0.02, 1.0),
+      trem: b.trem * (0.8 + Math.random() * 0.5),
+      reassR: b.reassR > 0 ? b.reassR * (0.6 + Math.random() * 0.5) : 0,
+      glide: b.glide * (0.85 + Math.random() * 0.5),
       dynV: 0, dynF: 99, l: b.l || ''
     });
   }
@@ -127,26 +140,32 @@ var sT = [];
 (function() { var t = 0; for (var i = 0; i < SCORE.length; i++) { sT.push(t); t += SCORE[i].d; } dur = t; })();
 
 function assignTgts(sec) {
-  // Spectral logic: derive pitches from overtone series (Grisey/Murail)
-  // Fundamental = two octaves below center pitch
+  // Spectral logic with chromatic friction:
+  // Base = overtone series, but high-spread sections inject chromatic escapees
   var fund = mtof(sec.c - 24);
   var spread = sec.s * (0.6 + my * 0.6);
-  // Spread determines how many partials are available
-  // spread 0 = all on partial 4 (center), spread 70 = partials 1-18
-  var maxPartial = clamp(1 + spread * 0.24, 1, 18);
+  var maxPartial = clamp(1 + spread * 0.22, 1, 20);
+  // Friction: proportion of voices that break from the overtone series
+  var frictionChance = clamp(spread / 120, 0, 0.4);
 
   for (var i = 0; i < NV; i++) {
-    // Distribute voices across the available partial range
-    var partialFloat = 1 + (i / NV) * (maxPartial - 1);
-    // Snap to integer partial for spectral coherence, with slight drift
-    var partial = Math.round(partialFloat);
-    if (partial < 1) partial = 1;
-    var freq = fund * partial;
-    // Organic detuning: wider when spread is wide
-    freq *= 1 + gauss() * (0.002 + spread * 0.00015);
+    var freq;
+    if (Math.random() < frictionChance) {
+      // Chromatic escapee: random MIDI pitch within the spread range
+      var midi = sec.c + (Math.random() * 2 - 1) * spread * 0.5;
+      freq = mtof(clamp(midi, 24, 102));
+    } else {
+      // Spectral voice: overtone series
+      var partialFloat = 1 + (i / NV) * (maxPartial - 1);
+      var partial = Math.round(partialFloat);
+      if (partial < 1) partial = 1;
+      freq = fund * partial;
+    }
+    // Organic detuning
+    freq *= 1 + gauss() * (0.003 + spread * 0.0002);
 
     voices[i].tgt = clamp(freq, 16, 14000);
-    voices[i].rate = (0.3 + Math.random() * 1.5) * sec.glide;
+    voices[i].rate = (0.3 + Math.random() * 2.0) * sec.glide;
     voices[i].vibG.gain.value = clamp(voices[i].tgt * 0.003, 0, 20);
   }
 }
@@ -202,7 +221,7 @@ function mainLoop() {
     var sec = SCORE[si];
     cd.int = sec.dyn;
     // Smooth intensity: slower coefficient for gradual transitions (~3s fade)
-    smoothInt += (cd.int - smoothInt) * 0.008;
+    smoothInt += (cd.int - smoothInt) * 0.012;
 
     // Section change
     if (si !== curSec) {
@@ -212,7 +231,7 @@ function mainLoop() {
       tremDepth.gain.cancelScheduledValues(now);
       tremDepth.gain.setTargetAtTime(sec.trem, now, 0.5);
       vGrp.gain.cancelScheduledValues(now);
-      vGrp.gain.setTargetAtTime(sec.dyn, now, 2.0); // 2 second transition
+      vGrp.gain.setTargetAtTime(sec.dyn, now, 1.0); // 1 second transition
     }
 
     if (el >= dur) { endP(); return; }
@@ -233,20 +252,20 @@ function mainLoop() {
         v.flt.Q.value = 0.5 + Math.sin(now * 0.04 + i * 1.1) * 1.5
                             + Math.sin(now * 0.017 + i * 0.7) * 1.0;
       }
-      // Smooth solo fade: ramp in over ~2s, out over ~2.5s
+      // Smooth solo fade: ramp in over ~1.5s, out over ~2s
       if (i === soloVoice) {
-        v.soloFade = Math.min(1, v.soloFade + 0.008);
+        v.soloFade = Math.min(1, v.soloFade + 0.011);
       } else {
-        v.soloFade = Math.max(0, v.soloFade - 0.006);
+        v.soloFade = Math.max(0, v.soloFade - 0.008);
       }
       // Per-voice dynamics
       var baseVol = 0.016 + smoothInt * 0.016;
       var breathe = 0.65 + Math.sin(now * 0.35 + i * 0.5) * 0.18
                          + Math.sin(now * 0.11 + i * 1.7) * 0.17;
       var promVal = Math.sin(now * 0.07 + i * 2.3);
-      var prominence = promVal > 0.88 ? 1.8 : promVal > 0.78 ? 1.3 : 1.0;
-      // Solo boost: gentle, faded in/out smoothly
-      var soloBoost = 1 + v.soloFade * 0.8;
+      var prominence = promVal > 0.85 ? 2.2 : promVal > 0.75 ? 1.5 : 1.0;
+      // Solo boost: prominent, faded smoothly
+      var soloBoost = 1 + v.soloFade * 1.2;
       // Crossfade between normal and Feldman gain (eliminates click)
       var normalGain = baseVol * breathe * prominence * soloBoost;
       var isWhisper = Math.sin(now * 0.06 + i * 2.3) > 0.75;
@@ -256,12 +275,12 @@ function mainLoop() {
     }
 
     // === SOLO VOICE EMERGENCE ===
-    if (soloVoice < 0 && smoothInt > 0.3 && Math.random() < 0.0006) {
+    if (soloVoice < 0 && smoothInt > 0.25 && Math.random() < 0.001) {
       soloVoice = Math.floor(Math.random() * NV);
-      soloUntil = now + 8 + Math.random() * 12;
-      var soloPitch = sec.c + (Math.random() > 0.5 ? 16 + Math.random() * 10 : -6 - Math.random() * 6);
-      voices[soloVoice].tgt = mtof(clamp(soloPitch, 30, 96));
-      voices[soloVoice].rate = 0.3;
+      soloUntil = now + 5 + Math.random() * 10;
+      var soloPitch = sec.c + (Math.random() > 0.5 ? 20 + Math.random() * 16 : -10 - Math.random() * 10);
+      voices[soloVoice].tgt = mtof(clamp(soloPitch, 24, 102));
+      voices[soloVoice].rate = 0.5 + Math.random() * 1.5;
     }
     if (soloVoice >= 0 && now >= soloUntil) {
       soloVoice = -1; // soloFade will decay naturally over ~2.5s
