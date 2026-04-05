@@ -379,7 +379,7 @@ var bt = document.getElementById('bt');
 setTimeout(function() { bt.classList.add('v'); }, 800);
 setTimeout(function() { document.getElementById('sp').classList.add('v'); }, 1200);
 setTimeout(function() { bm.classList.add('v'); }, 1500);
-setTimeout(function() { document.getElementById('hp').classList.add('v'); }, 2000);
+var hpTimer = setTimeout(function() { document.getElementById('hp').classList.add('v'); }, 2000);
 
 bt.addEventListener('click', function() {
   if (isP) return;
@@ -405,7 +405,7 @@ bt.addEventListener('click', function() {
   }
   isP = true; bt.classList.remove('v'); bt.style.pointerEvents = 'none';
   bm.classList.remove('v'); document.getElementById('sp').classList.remove('v');
-  document.getElementById('hp').classList.remove('v');
+  document.getElementById('hp').classList.remove('v'); clearTimeout(hpTimer);
   cx.clearRect(0, 0, w, h);
   requestAnimationFrame(mainLoop);
 });
@@ -439,17 +439,22 @@ setTimeout(function() { bm.classList.add('v'); }, 1500);
 
 bm.addEventListener('click', function() {
   if (medActive) { stopMed(); return; }
-  if (isP) return; // don't overlap with composition
+  if (isP) return;
   startMed();
+});
+
+// Tap anywhere to exit meditation
+cv.addEventListener('click', function() {
+  if (medActive) stopMed();
 });
 
 function startMed() {
   medAc = medAc || new (window.AudioContext || window.webkitAudioContext)();
   medAc.resume();
   medActive = true; medNodes = [];
-  bm.classList.add('active');
+  bm.classList.remove('v');
   bt.classList.remove('v'); document.getElementById('sp').classList.remove('v');
-  document.getElementById('hp').classList.remove('v');
+  document.getElementById('hp').classList.remove('v'); clearTimeout(hpTimer);
   cx.clearRect(0, 0, w, h);
 
   medMst = medAc.createGain(); medMst.gain.setValueAtTime(0, medAc.currentTime);
@@ -544,7 +549,7 @@ function startMed() {
 
 function stopMed() {
   medActive = false;
-  bm.classList.remove('active');
+  bm.classList.remove('active'); bm.classList.add('v');
   bt.classList.add('v'); document.getElementById('sp').classList.add('v');
   document.getElementById('hp').classList.add('v');
   document.getElementById('tm').textContent = '';
