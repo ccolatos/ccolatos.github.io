@@ -23,7 +23,7 @@
 </head>
 <body>
 <canvas id="c"></canvas>
-<a href="/" class="bk">&larr; Chris Colatos</a>
+<a href="/#works" class="bk">&larr; Works</a>
 <div class="ui">
 <button class="b" id="bt">Spectral</button>
 <div class="sep" id="sp"></div>
@@ -447,7 +447,7 @@ function startMed() {
   medAc = medAc || new (window.AudioContext || window.webkitAudioContext)();
   medAc.resume();
   medActive = true; medNodes = [];
-  bm.textContent = 'Release'; bm.classList.add('active');
+  bm.classList.add('active');
   bt.classList.remove('v'); document.getElementById('sp').classList.remove('v');
   document.getElementById('hp').classList.remove('v');
   cx.clearRect(0, 0, w, h);
@@ -544,7 +544,7 @@ function startMed() {
 
 function stopMed() {
   medActive = false;
-  bm.textContent = 'Stillness'; bm.classList.remove('active');
+  bm.classList.remove('active');
   bt.classList.add('v'); document.getElementById('sp').classList.add('v');
   document.getElementById('hp').classList.add('v');
   document.getElementById('tm').textContent = '';
