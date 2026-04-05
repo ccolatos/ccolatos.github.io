@@ -318,30 +318,27 @@ function endP() {
       droneG.gain.linearRampToValueAtTime(0, now + 5); }
   } catch (e) {}
   document.getElementById('ph').textContent = '';
-  setTimeout(function() {
-    var b = document.getElementById('bt');
-    b.textContent = 'Spectral'; b.classList.add('v'); b.style.pointerEvents = 'auto';
-    document.getElementById('bm').classList.add('v');
-    document.getElementById('sp').classList.add('v');
-    document.getElementById('hp').classList.add('v');
-  }, 7000);
+  setTimeout(function() { showUI(); }, 7000);
 }
 
-// === VISUALIZATION ===
+// === VISUALIZATION: phosphorescent spectral field ===
 function draw() {
-  cx.fillStyle = 'rgba(10,10,10,0.06)'; cx.fillRect(0, 0, w, h);
+  // Slow fade = persistent trails (light painting effect)
+  cx.fillStyle = 'rgba(10,10,10,0.018)'; cx.fillRect(0, 0, w, h);
   if (!isP || !voices.length) { requestAnimationFrame(draw); return; }
   var gv = clamp(vGrp.gain.value, 0, 2);
   var margin = 40;
   var xS = margin, xE = w - margin;
   var yTop = margin, yBot = h - margin;
+  var now = ac ? ac.currentTime : 0;
 
-  // Clip to prevent artifacts outside the drawing area
   cx.save();
   cx.beginPath();
-  cx.rect(xS - 10, yTop - 10, xE - xS + 20, yBot - yTop + 20);
+  cx.rect(xS - 20, yTop - 20, xE - xS + 40, yBot - yTop + 40);
   cx.clip();
 
+  // Collect voice positions for constellation
+  var pts = [];
   for (var i = 0; i < NV; i++) {
     var v = voices[i];
     var midi = ftom(v.freq);
@@ -349,25 +346,45 @@ function draw() {
     var y = clamp(yRaw, yTop, yBot);
     var vol = clamp(v.g.gain.value * gv, 0, 1);
     var dotX = xS + (i / NV) * (xE - xS);
+    pts.push({ x: dotX, y: y, vol: vol, solo: v.soloFade });
+  }
 
-    // Pitch line (the accordion)
-    if (vol > 0.003) {
-      cx.beginPath(); cx.moveTo(xS, y); cx.lineTo(xE, y);
-      cx.strokeStyle = 'rgba(196,168,130,' + (vol * 1.8) + ')';
-      cx.lineWidth = 0.5; cx.stroke();
+  // Constellation web: connect harmonically adjacent voices
+  for (var i = 0; i < pts.length - 1; i++) {
+    var a = pts[i], b = pts[i + 1];
+    var minVol = Math.min(a.vol, b.vol);
+    if (minVol > 0.004) {
+      cx.beginPath(); cx.moveTo(a.x, a.y); cx.lineTo(b.x, b.y);
+      cx.strokeStyle = 'rgba(196,168,130,' + (minVol * 0.4) + ')';
+      cx.lineWidth = 0.3 + minVol * 2;
+      cx.stroke();
     }
+  }
 
-    if (vol > 0.002) {
-      // Outer amber glow (large, soft)
-      cx.beginPath(); cx.arc(dotX, y, 8 + vol * 60, 0, Math.PI * 2);
-      cx.fillStyle = 'rgba(196,168,130,' + (vol * 0.15) + ')'; cx.fill();
-      // Middle warm glow
-      cx.beginPath(); cx.arc(dotX, y, 3 + vol * 30, 0, Math.PI * 2);
-      cx.fillStyle = 'rgba(210,185,145,' + (vol * 0.35) + ')'; cx.fill();
-      // Inner bright core
-      cx.beginPath(); cx.arc(dotX, y, 1 + vol * 12, 0, Math.PI * 2);
-      cx.fillStyle = 'rgba(240,225,200,' + (Math.min(0.7, vol * 5)) + ')'; cx.fill();
-    }
+  // Voice particles with layered glow
+  for (var i = 0; i < pts.length; i++) {
+    var p = pts[i];
+    if (p.vol < 0.002) continue;
+
+    // Solo voices glow wider and warmer
+    var soloMul = 1 + p.solo * 1.5;
+    var r = p.vol * soloMul;
+
+    // Layer 1: wide atmospheric haze
+    cx.beginPath(); cx.arc(p.x, p.y, 12 + r * 80, 0, Math.PI * 2);
+    cx.fillStyle = 'rgba(180,155,115,' + (r * 0.06) + ')'; cx.fill();
+
+    // Layer 2: mid glow
+    cx.beginPath(); cx.arc(p.x, p.y, 5 + r * 40, 0, Math.PI * 2);
+    cx.fillStyle = 'rgba(196,168,130,' + (r * 0.2) + ')'; cx.fill();
+
+    // Layer 3: warm core
+    cx.beginPath(); cx.arc(p.x, p.y, 2 + r * 18, 0, Math.PI * 2);
+    cx.fillStyle = 'rgba(220,200,170,' + (r * 0.5) + ')'; cx.fill();
+
+    // Layer 4: hot center
+    cx.beginPath(); cx.arc(p.x, p.y, 0.5 + r * 6, 0, Math.PI * 2);
+    cx.fillStyle = 'rgba(255,245,230,' + (Math.min(0.8, r * 3)) + ')'; cx.fill();
   }
 
   cx.restore();
@@ -376,10 +393,25 @@ function draw() {
 
 // === UI ===
 var bt = document.getElementById('bt');
-setTimeout(function() { bt.classList.add('v'); }, 800);
-setTimeout(function() { document.getElementById('sp').classList.add('v'); }, 1200);
-setTimeout(function() { bm.classList.add('v'); }, 1500);
-var hpTimer = setTimeout(function() { document.getElementById('hp').classList.add('v'); }, 2000);
+var bm = document.getElementById('bm');
+var _timers = [];
+_timers.push(setTimeout(function() { bt.classList.add('v'); }, 800));
+_timers.push(setTimeout(function() { document.getElementById('sp').classList.add('v'); }, 1200));
+_timers.push(setTimeout(function() { bm.classList.add('v'); }, 1500));
+_timers.push(setTimeout(function() { document.getElementById('hp').classList.add('v'); }, 2000));
+function showUI() {
+  bt.textContent = 'Spectral'; bt.classList.add('v'); bt.style.pointerEvents = 'auto';
+  bm.classList.add('v');
+  document.getElementById('sp').classList.add('v');
+  document.getElementById('hp').classList.add('v');
+}
+function clearAllTimers() {
+  for (var t = 0; t < _timers.length; t++) clearTimeout(_timers[t]);
+  _timers = [];
+  bt.classList.remove('v'); bm.classList.remove('v');
+  document.getElementById('sp').classList.remove('v');
+  document.getElementById('hp').classList.remove('v');
+}
 
 bt.addEventListener('click', function() {
   if (isP) return;
@@ -403,9 +435,8 @@ bt.addEventListener('click', function() {
     droneOsc.frequency.value = mtof(31);
     droneG.gain.setValueAtTime(0, now); droneG.gain.linearRampToValueAtTime(0.03, now + 4);
   }
-  isP = true; bt.classList.remove('v'); bt.style.pointerEvents = 'none';
-  bm.classList.remove('v'); document.getElementById('sp').classList.remove('v');
-  document.getElementById('hp').classList.remove('v'); clearTimeout(hpTimer);
+  isP = true; bt.style.pointerEvents = 'none';
+  clearAllTimers();
   cx.clearRect(0, 0, w, h);
   requestAnimationFrame(mainLoop);
 });
@@ -434,9 +465,6 @@ draw();
 var medAc, medMst, medActive = false, medSt = 0;
 var medNodes = [];
 
-var bm = document.getElementById('bm');
-setTimeout(function() { bm.classList.add('v'); }, 1500);
-
 bm.addEventListener('click', function() {
   if (medActive) { stopMed(); return; }
   if (isP) return;
@@ -452,9 +480,7 @@ function startMed() {
   medAc = medAc || new (window.AudioContext || window.webkitAudioContext)();
   medAc.resume();
   medActive = true; medNodes = [];
-  bm.classList.remove('v');
-  bt.classList.remove('v'); document.getElementById('sp').classList.remove('v');
-  document.getElementById('hp').classList.remove('v'); clearTimeout(hpTimer);
+  clearAllTimers();
   cx.clearRect(0, 0, w, h);
 
   medMst = medAc.createGain(); medMst.gain.setValueAtTime(0, medAc.currentTime);
@@ -549,9 +575,7 @@ function startMed() {
 
 function stopMed() {
   medActive = false;
-  bm.classList.remove('active'); bm.classList.add('v');
-  bt.classList.add('v'); document.getElementById('sp').classList.add('v');
-  document.getElementById('hp').classList.add('v');
+  showUI();
   document.getElementById('tm').textContent = '';
   if (medMst) {
     var now = medAc.currentTime;
@@ -570,25 +594,48 @@ function stopMed() {
 
 function medDraw() {
   if (!medActive) return;
-  cx.fillStyle = 'rgba(10,10,10,0.03)'; cx.fillRect(0, 0, w, h);
+  cx.fillStyle = 'rgba(10,10,10,0.025)'; cx.fillRect(0, 0, w, h);
   var now = medAc ? medAc.currentTime : 0;
   var el = now - medSt;
-  // Elapsed time display
   var m = Math.floor(el / 60), s = Math.floor(el % 60);
   document.getElementById('tm').textContent = (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
-  // Breathing rings synced to 6 breaths/min
+
   var breath = Math.sin(now * 0.1 * Math.PI * 2) * 0.5 + 0.5;
   var cx0 = w / 2, cy0 = h / 2;
-  for (var r = 0; r < 6; r++) {
-    var radius = 20 + r * 45 + breath * 35;
-    var alpha = 0.025 + breath * 0.035 - r * 0.004;
-    cx.beginPath(); cx.arc(cx0, cy0, radius, 0, Math.PI * 2);
-    cx.strokeStyle = 'rgba(196,168,130,' + Math.max(0.005, alpha) + ')';
-    cx.lineWidth = 0.8; cx.stroke();
+  var maxR = Math.min(w, h) * 0.4;
+
+  // Organic breathing mandala: 10 rings with individual wobble
+  for (var r = 0; r < 10; r++) {
+    var baseR = 15 + (r / 9) * maxR;
+    var rBreath = baseR + breath * (maxR * 0.12);
+    var alpha = 0.015 + breath * 0.025 - r * 0.002;
+    alpha = Math.max(0.003, alpha);
+
+    cx.beginPath();
+    // Organic wobble: each ring has unique sine distortion
+    for (var a = 0; a <= 360; a += 2) {
+      var rad = a * Math.PI / 180;
+      var wobble = Math.sin(rad * 3 + now * 0.05 + r * 0.8) * 3
+                 + Math.sin(rad * 5 + now * 0.03 + r * 1.3) * 2;
+      var rr = rBreath + wobble;
+      var px = cx0 + Math.cos(rad) * rr;
+      var py = cy0 + Math.sin(rad) * rr;
+      if (a === 0) cx.moveTo(px, py); else cx.lineTo(px, py);
+    }
+    cx.closePath();
+    cx.strokeStyle = 'rgba(196,168,130,' + alpha + ')';
+    cx.lineWidth = 0.6; cx.stroke();
   }
-  cx.beginPath(); cx.arc(cx0, cy0, 6 + breath * 12, 0, Math.PI * 2);
-  cx.fillStyle = 'rgba(210,185,145,' + (0.04 + breath * 0.07) + ')';
-  cx.fill();
+
+  // Diffuse center glow
+  var glowR = 30 + breath * 50;
+  var grad = cx.createRadialGradient(cx0, cy0, 0, cx0, cy0, glowR);
+  grad.addColorStop(0, 'rgba(210,185,145,' + (0.06 + breath * 0.06) + ')');
+  grad.addColorStop(0.5, 'rgba(196,168,130,' + (0.02 + breath * 0.03) + ')');
+  grad.addColorStop(1, 'rgba(180,155,115,0)');
+  cx.beginPath(); cx.arc(cx0, cy0, glowR, 0, Math.PI * 2);
+  cx.fillStyle = grad; cx.fill();
+
   requestAnimationFrame(medDraw);
 }
 })();
