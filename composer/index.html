@@ -1,654 +1,483 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Composer | Chris Colatos</title>
-  <link rel="icon" href="../assets/img/favicon.ico" type="image/x-icon"/>
-  <meta name="theme-color" content="#0a0a0a">
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;1,300&family=DM+Sans:wght@300&display=swap" rel="stylesheet">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Half Light of Dawn – WebAudio Reconstruction</title>
   <style>
-    *{margin:0;padding:0;box-sizing:border-box}
-    body{background:#0a0a0a;color:#e8e6e1;font-family:'DM Sans',sans-serif;font-weight:300;overflow:hidden;height:100vh;cursor:crosshair;-webkit-font-smoothing:antialiased}
-    body::after{content:'';position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;opacity:.03;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");background-repeat:repeat;background-size:256px}
-    canvas{position:fixed;top:0;left:0;width:100%;height:100%}
-    .ui{position:fixed;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:10;pointer-events:none;gap:1.5rem}
-    .b,.b2{font-family:'Cormorant Garamond',serif;font-size:clamp(2rem,5vw,3.5rem);font-weight:300;font-style:italic;color:#c4a882;background:none;border:1px solid rgba(196,168,130,.25);cursor:pointer;pointer-events:auto;letter-spacing:.08em;opacity:0;transition:opacity 2s,border-color .4s;padding:1.2rem 3rem;display:block;width:clamp(280px,50vw,420px);text-align:center}.b.v,.b2.v{opacity:1}.b:hover,.b2:hover{border-color:rgba(196,168,130,.6);transform:scale(1.02)}
-    .b2.active{color:#c4a882;border-color:rgba(196,168,130,.5)}
-    .sep{display:none}
-    .d{font-size:.55rem;letter-spacing:.1em;color:rgba(196,168,130,.15);position:fixed;z-index:10}.d.bl{bottom:2rem;left:2rem}.d.br{bottom:2rem;right:2rem}
-    .hp{font-family:'DM Sans',sans-serif;font-size:.55rem;letter-spacing:.15em;text-transform:uppercase;color:#444;margin-top:1.5rem;opacity:0;transition:opacity 2s}.hp.v{opacity:1}
-    .bk{font-size:.6rem;letter-spacing:.15em;text-transform:uppercase;color:#666;text-decoration:none;position:fixed;top:2rem;left:2rem;z-index:10;pointer-events:auto}.bk:hover{color:#c4a882}
+    :root {
+      --bg: #0b0b0b;
+      --fg: #e7e2d8;
+      --muted: #9d927f;
+      --line: rgba(231, 226, 216, 0.14);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: 0.02em;
+    }
+    .wrap {
+      width: min(760px, calc(100vw - 32px));
+      border: 1px solid var(--line);
+      padding: 28px;
+      background: rgba(255,255,255,0.01);
+    }
+    h1 {
+      margin: 0 0 10px;
+      font-size: 20px;
+      font-weight: 500;
+    }
+    p {
+      margin: 0 0 14px;
+      color: var(--muted);
+      line-height: 1.55;
+      font-size: 14px;
+    }
+    .row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin: 18px 0 16px;
+    }
+    button {
+      appearance: none;
+      border: 1px solid var(--line);
+      background: transparent;
+      color: var(--fg);
+      padding: 12px 18px;
+      font: inherit;
+      cursor: pointer;
+    }
+    button:hover { background: rgba(255,255,255,0.03); }
+    .readout {
+      font-variant-numeric: tabular-nums;
+      color: var(--fg);
+      min-width: 72px;
+    }
+    .meta {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(180px, 1fr));
+      gap: 8px 16px;
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--line);
+      font-size: 13px;
+      color: var(--muted);
+    }
+    code {
+      color: var(--fg);
+      background: rgba(255,255,255,0.03);
+      padding: 2px 5px;
+    }
   </style>
 </head>
 <body>
-<canvas id="c"></canvas>
-<a href="/#works" class="bk">&larr; Works</a>
-<div class="ui">
-<button class="b" id="bt">Spectral</button>
-<div class="sep" id="sp"></div>
-<button class="b2" id="bm">Stillness</button>
-<div class="hp" id="hp">headphones recommended</div></div>
-<div class="d bl" id="ph"></div><div class="d br" id="tm"></div>
-<script>
-(function(){
-'use strict';
-// ================================================================
-// 24 bowed string voices. Nothing else.
-// All texture, violence, and beauty from the voices themselves.
-// ================================================================
+  <div class="wrap">
+    <h1>Half Light of Dawn – deterministic WebAudio reconstruction</h1>
+    <p>
+      This is the closest browser-native reconstruction I can justify from the audio analysis alone.
+      It is deterministic, section-accurate in large form, and tuned to the observed pitch-center field
+      <code>G Bb Eb F C D</code> with the late shift toward <code>G D A Bb</code>.
+    </p>
+    <p>
+      It is not sample-identical to the commercial recording. A perfect match would require the original source chain,
+      exact layers, and exact processing. This version avoids randomization and is designed to be the most faithful
+      additive/noise/reverb WebAudio match I can responsibly produce from one stereo file.
+    </p>
 
-var cv = document.getElementById('c'), cx = cv.getContext('2d'), w, h;
-var ac, mst, cmp, vGrp, tremLFO, tremDepth;
-var distNode, distWet, distDry; // waveshaper distortion
-var isP = false, st = 0, dur = 0;
-var mx = 0.5, my = 0.4, tx = 0.5, ty = 0.4;
-var mob = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-var NV = 24, voices = [];
-var cd = { int: 0.5 };
-var fc = 0, lastReassign = 0, lastDynShift = 0, curSec = -1;
-var droneOsc, droneG;
-var smoothInt = 0.3; // smoothed intensity: prevents abrupt transitions
-var soloVoice = -1, soloUntil = 0; // solo voice emergence
+    <div class="row">
+      <button id="playBtn">Play reconstruction</button>
+      <button id="stopBtn">Stop</button>
+      <div class="readout" id="time">00:00</div>
+    </div>
 
-function rz() { w = cv.width = innerWidth; h = cv.height = innerHeight; }
-rz(); addEventListener('resize', rz);
-document.addEventListener('mousemove', function(e) { tx = e.clientX / w; ty = e.clientY / h; });
-document.addEventListener('touchmove', function(e) {
-  if (e.touches.length) { tx = e.touches[0].clientX / w; ty = e.touches[0].clientY / h; }
-}, { passive: true });
-document.addEventListener('touchstart', function(e) {
-  if (e.touches.length) { tx = e.touches[0].clientX / w; ty = e.touches[0].clientY / h; }
-}, { passive: true });
+    <div class="meta">
+      <div><strong>Duration:</strong> 6:47</div>
+      <div><strong>Mode of operation:</strong> deterministic</div>
+      <div><strong>Main pitch field:</strong> G, Bb, Eb, F, C, D</div>
+      <div><strong>Late ending emphasis:</strong> G, D, A, Bb</div>
+      <div><strong>Texture:</strong> organ-harmonium drone, filtered air, long reverb</div>
+      <div><strong>Form:</strong> emergence → stabilization → expansion → plateau → recession → ending</div>
+    </div>
+  </div>
 
-function mtof(m) { return 440 * Math.pow(2, (m - 69) / 12); }
-function ftom(f) { return f > 0 ? 69 + 12 * Math.log2(f / 440) : 30; }
-function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
-function gauss() {
-  var u = 0, v = 0;
-  while (!u) u = Math.random(); while (!v) v = Math.random();
-  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
-}
+  <script>
+    (() => {
+      "use strict";
 
-// === VOICE: organ/harmonium-like sustained tone ===
-function createVoice(freq, idx) {
-  var osc = ac.createOscillator(); osc.type = 'sawtooth'; osc.frequency.value = freq;
-  // Slow, gentle drift (organ wow/flutter, not violin vibrato)
-  var vib = ac.createOscillator(); vib.frequency.value = 0.3 + idx * 0.05;
-  var vibG = ac.createGain(); vibG.gain.value = freq * 0.0015;
-  vib.connect(vibG); vibG.connect(osc.frequency);
-  // Warm lowpass: organ tones, not bright synth
-  var flt = ac.createBiquadFilter(); flt.type = 'lowpass';
-  flt.frequency.value = 1200; flt.Q.value = 0.8 + idx * 0.03;
-  var g = ac.createGain(); g.gain.value = 0;
-  osc.connect(flt); flt.connect(g); g.connect(vGrp);
-  osc.start(); vib.start();
-  return { osc: osc, vib: vib, vibG: vibG, flt: flt, g: g,
-    freq: freq, tgt: freq, rate: 0.2 + idx * 0.03,
-    fltOff: 0.3 + (idx / NV) * 0.4, soloFade: 0 };
-}
+      const playBtn = document.getElementById("playBtn");
+      const stopBtn = document.getElementById("stopBtn");
+      const timeEl = document.getElementById("time");
 
-// ================================================================
-// HALF LIGHT OF DAWN (after Abul Mogard)
-// Pitch field: G, Bb, C, D, Eb, F
-// Form: emergence > stabilization > expansion > plateau > recession > ending
-// Single crescendo-decrescendo. No transients. No meter. Mournful dawn.
-// ================================================================
+      let ac = null;
+      let master = null;
+      let nodes = [];
+      let raf = 0;
+      let startedAt = 0;
+      let stopped = true;
 
-// Pitch pool: all available MIDI notes from the Mogard field across octaves
-var POOL_FULL = [31,34,36,38,39,41, 43,46,48,50,51,53, 55,58,60,62,63,65, 67,70,72,74,75,77];
-//               G1 Bb1 C2 D2 Eb2 F2  G2 Bb2 C3 D3 Eb3 F3  G3 Bb3 C4 D4 Eb4 F4  G4 Bb4 C5 D5 Eb5 F5
+      const TOTAL_DURATION = 407.43;
 
-// Pool subsets for different sections
-var POOL_OPEN = [43,46,51, 55,58,63]; // G2,Bb2,Eb3, G3,Bb3,Eb4 (opening: G,Bb,Eb emphasis)
-var POOL_STAB = [39,43,46,48,51,53, 55,58,63]; // add F2,C3,F3
-var POOL_LATE = [43,45,46,50, 55,57,58,62, 67]; // G,A,Bb,D emphasis for ending
+      const SECTIONS = [
+        { name: "emergence",    start: 0.00,   end: 30.00,  amp: 0.10, lp: 650,  noise: 0.016, voices: 10,
+          notes: [43, 46, 51, 55, 58, 63] },
+        { name: "stabilization",start: 30.00,  end: 90.00,  amp: 0.21, lp: 900,  noise: 0.026, voices: 16,
+          notes: [43, 46, 51, 53, 55, 58, 60, 63, 65] },
+        { name: "expansion",    start: 90.00,  end: 180.00, amp: 0.34, lp: 1250, noise: 0.034, voices: 22,
+          notes: [31,34,39,43,46,48,51,53,55,58,60,62,63,65,67,70] },
+        { name: "plateau",      start: 180.00, end: 330.00, amp: 0.47, lp: 1550, noise: 0.040, voices: 28,
+          notes: [31,34,39,43,46,48,50,51,53,55,58,60,62,63,65,67,70,72] },
+        { name: "recession",    start: 330.00, end: 365.00, amp: 0.24, lp: 950,  noise: 0.024, voices: 15,
+          notes: [39,43,46,48,51,55,58,60,62,63] },
+        { name: "ending",       start: 365.00, end: 407.43, amp: 0.11, lp: 700,  noise: 0.014, voices: 9,
+          notes: [43,45,46,50,55,57,58,62,67] }
+      ];
 
-var SCORE_BASE = [
-  // 0:00-0:30 EMERGENCE: near silence, faint low drone + haze
-  {d:30, pool:'open', dyn:0.08, flt:600,  glide:0.15, l:''},
-  // 0:30-1:30 STABILIZATION: harmonic body audible, dark, blurred
-  {d:60, pool:'stab', dyn:0.25, flt:900,  glide:0.2,  l:''},
-  // 1:30-3:00 EXPANSION: denser, warmer, more partials, immersive
-  {d:90, pool:'full', dyn:0.5,  flt:1400, glide:0.25, l:''},
-  // 3:00-5:30 PLATEAU: fullest, most massive, architectural
-  {d:150,pool:'full', dyn:0.75, flt:1800, glide:0.2,  l:''},
-  // 5:30-6:05 RECESSION: density withdraws
-  {d:35, pool:'stab', dyn:0.35, flt:1000, glide:0.15, l:''},
-  // 6:05-6:47 ENDING: exposed, fragile, G/A/Bb/D area
-  {d:42, pool:'late', dyn:0.1,  flt:700,  glide:0.1,  l:''}
-];
-
-var SCORE = [];
-(function() {
-  for (var i = 0; i < SCORE_BASE.length; i++) {
-    var b = SCORE_BASE[i];
-    SCORE.push({
-      d: Math.round(b.d * (0.9 + Math.random() * 0.2)),
-      dyn: clamp(b.dyn * (0.9 + Math.random() * 0.2), 0.02, 0.85),
-      flt: b.flt * (0.9 + Math.random() * 0.2),
-      glide: b.glide * (0.85 + Math.random() * 0.3),
-      pool: b.pool,
-      trem: 0, reassR: 0, dist: 0,
-      dynV: 0, dynF: 99, l: b.l || '',
-      c: 55, s: 0 // unused but keep for compatibility
-    });
-  }
-})();
-var sT = [];
-(function() { var t = 0; for (var i = 0; i < SCORE.length; i++) { sT.push(t); t += SCORE[i].d; } dur = t; })();
-
-function assignTgts(sec) {
-  // Select pitch pool based on section
-  var pool;
-  switch (sec.pool) {
-    case 'open': pool = POOL_OPEN; break;
-    case 'stab': pool = POOL_STAB; break;
-    case 'late': pool = POOL_LATE; break;
-    default: pool = POOL_FULL;
-  }
-
-  for (var i = 0; i < NV; i++) {
-    // Distribute voices across the pool with slight randomization
-    var poolIdx = Math.floor((i / NV) * pool.length);
-    poolIdx = clamp(poolIdx + Math.floor(Math.random() * 2 - 0.5), 0, pool.length - 1);
-    var midi = pool[poolIdx];
-    var freq = mtof(midi);
-    // Ensemble detune: slight organic detuning (organ-like)
-    freq *= 1 + gauss() * 0.002;
-
-    voices[i].tgt = freq;
-    voices[i].rate = (0.1 + Math.random() * 0.3) * sec.glide;
-    voices[i].vibG.gain.value = clamp(freq * 0.0015, 0, 5);
-  }
-}
-
-// === AUDIO INIT ===
-function initA() {
-  ac = new (window.AudioContext || window.webkitAudioContext)(); ac.resume();
-  cmp = ac.createDynamicsCompressor();
-  cmp.threshold.value = -15; cmp.knee.value = 6; cmp.ratio.value = 6;
-  cmp.attack.value = 0.003; cmp.release.value = 0.1;
-  vGrp = ac.createGain(); vGrp.gain.value = 1;
-  // Reverb: integral to the sound, not decorative (8 second decay)
-  var revLen = ac.sampleRate * 8;
-  var revBuf = ac.createBuffer(2, revLen, ac.sampleRate);
-  for (var ch = 0; ch < 2; ch++) {
-    var rd = revBuf.getChannelData(ch);
-    for (var ri = 0; ri < revLen; ri++) {
-      // Exponential decay with high-frequency rolloff
-      var env = Math.pow(1 - ri / revLen, 1.5);
-      rd[ri] = (Math.random() * 2 - 1) * env * 0.5;
-    }
-  }
-  var rev = ac.createConvolver(); rev.buffer = revBuf;
-  var revSend = ac.createGain(); revSend.gain.value = 0.35;
-  var revFlt = ac.createBiquadFilter(); revFlt.type = 'lowpass';
-  revFlt.frequency.value = 2000; revFlt.Q.value = 0.5;
-  // Dry path + reverb path
-  vGrp.connect(cmp);
-  vGrp.connect(revSend); revSend.connect(rev); rev.connect(revFlt); revFlt.connect(cmp);
-  // No tremolo LFO for this piece (continuous sustain)
-  tremLFO = ac.createOscillator(); tremLFO.type = 'sine'; tremLFO.frequency.value = 9;
-  tremDepth = ac.createGain(); tremDepth.gain.value = 0;
-  tremLFO.connect(tremDepth); tremDepth.connect(vGrp.gain); tremLFO.start();
-  mst = ac.createGain(); mst.gain.setValueAtTime(0, ac.currentTime);
-  mst.gain.linearRampToValueAtTime(0.7, ac.currentTime + 8); // slow 8-second fade in
-  cmp.connect(mst); mst.connect(ac.destination);
-  if (mob && ac.createMediaStreamDestination) {
-    var ms = ac.createMediaStreamDestination(); mst.connect(ms);
-    var ia = document.createElement('audio'); ia.setAttribute('playsinline', '');
-    ia.srcObject = ms.stream; ia.play().catch(function() {});
-  }
-  // Voices start on G3 (will be assigned to pool pitches)
-  var uf = mtof(55);
-  for (var i = 0; i < NV; i++) voices.push(createVoice(uf, i));
-  var now = ac.currentTime;
-  for (var i = 0; i < NV; i++) {
-    voices[i].g.gain.setValueAtTime(0, now);
-    voices[i].g.gain.linearRampToValueAtTime(0.018, now + 2 + i * 0.1);
-  }
-  // Low G drone: weight-bearing organ air
-  droneOsc = ac.createOscillator(); droneOsc.type = 'sine';
-  droneOsc.frequency.value = mtof(31); // G1
-  droneG = ac.createGain(); droneG.gain.value = 0;
-  droneG.gain.setValueAtTime(0, now);
-  droneG.gain.linearRampToValueAtTime(0.04, now + 8);
-  droneOsc.connect(droneG); droneG.connect(cmp);
-  droneOsc.start();
-  // Broadband noise/air layer: gives the piece breath, age, distance
-  var noiseBuf = ac.createBuffer(1, ac.sampleRate * 4, ac.sampleRate);
-  var nd = noiseBuf.getChannelData(0);
-  var nb0=0,nb1=0,nb2=0,nb3=0,nb4=0,nb5=0,nb6=0;
-  for (var j = 0; j < nd.length; j++) {
-    var wh = Math.random() * 2 - 1;
-    nb0=0.99886*nb0+wh*0.0555179;nb1=0.99332*nb1+wh*0.0750759;
-    nb2=0.96900*nb2+wh*0.1538520;nb3=0.86650*nb3+wh*0.3104856;
-    nb4=0.55000*nb4+wh*0.5329522;nb5=-0.7616*nb5-wh*0.0168980;
-    nd[j]=(nb0+nb1+nb2+nb3+nb4+nb5+nb6+wh*0.5362)*0.11;nb6=wh*0.115926;
-  }
-  var nSrc = ac.createBufferSource(); nSrc.buffer = noiseBuf; nSrc.loop = true;
-  var nFlt = ac.createBiquadFilter(); nFlt.type = 'lowpass';
-  nFlt.frequency.value = 400; // band-limited: felt more than heard
-  var nG = ac.createGain(); nG.gain.value = 0.05;
-  nSrc.connect(nFlt); nFlt.connect(nG); nG.connect(cmp);
-  nSrc.start();
-  st = ac.currentTime; curSec = -1;
-}
-
-// === MAIN LOOP ===
-function mainLoop() {
-  if (!isP) return;
-  try {
-    mx += (tx - mx) * 0.03; my += (ty - my) * 0.03;
-    var el = ac.currentTime - st, now = ac.currentTime;
-    fc++;
-    if (ac.state === 'suspended') ac.resume();
-
-    var si = 0;
-    for (var i = SCORE.length - 1; i >= 0; i--) { if (el >= sT[i]) { si = i; break; } }
-    var sec = SCORE[si];
-    cd.int = sec.dyn;
-    // Glacial smoothing: ~8 second transitions between zones
-    smoothInt += (cd.int - smoothInt) * 0.004;
-
-    // Section change
-    if (si !== curSec) {
-      curSec = si;
-      assignTgts(sec);
-      lastReassign = el;
-      // No tremolo for this piece
-      tremDepth.gain.cancelScheduledValues(now);
-      tremDepth.gain.setTargetAtTime(0, now, 0.5);
-      // Very slow dynamic transition (4 seconds)
-      vGrp.gain.cancelScheduledValues(now);
-      vGrp.gain.setTargetAtTime(sec.dyn, now, 4.0);
-    }
-
-    if (el >= dur) { endP(); return; }
-
-    // Filter target from score (organ warmth, slow bloom)
-    var baseFlt = sec.flt || 1200;
-
-    // === VOICE UPDATES: batch of 8 ===
-    var bs = (fc % 3) * 8, be = Math.min(bs + 8, NV);
-    for (var i = bs; i < be; i++) {
-      var v = voices[i];
-      // Very slow glissando (organ drift, not violin portamento)
-      v.freq += (v.tgt - v.freq) * 0.003 * v.rate;
-      v.freq = clamp(v.freq, 16, 14000);
-      v.osc.frequency.value = v.freq;
-      // Slow filter evolution: independent per-voice cutoff drift
-      if (fc % 18 === 0) {
-        var fltDrift = Math.sin(now * 0.02 + i * 0.7) * 0.2
-                     + Math.sin(now * 0.008 + i * 1.9) * 0.15;
-        v.flt.frequency.value = baseFlt * v.fltOff * (0.8 + fltDrift);
-        // Gentle Q drift (organ reed character)
-        v.flt.Q.value = 0.8 + Math.sin(now * 0.015 + i * 1.1) * 0.5;
+      function midiToHz(m) {
+        return 440 * Math.pow(2, (m - 69) / 12);
       }
-      // Per-voice dynamics: very slow independent swells (20-60 second phrases)
-      var baseVol = 0.014 + smoothInt * 0.018;
-      var breathe = 0.6 + Math.sin(now * 0.08 + i * 0.5) * 0.2
-                        + Math.sin(now * 0.03 + i * 1.7) * 0.2;
-      v.g.gain.value = baseVol * breathe;
-    }
 
-    // Drone: steady G1, volume follows smoothed intensity
-    if (droneOsc) {
-      droneG.gain.value = 0.02 + smoothInt * 0.04;
-    }
+      function lerp(a, b, t) {
+        return a + (b - a) * t;
+      }
 
-    // No reassignment, no solo, no volatility for Mogard
+      function clamp(x, lo, hi) {
+        return Math.max(lo, Math.min(hi, x));
+      }
 
-    // Master
-    mst.gain.value = clamp(0.15 + smoothInt * 0.5, 0.05, 0.85);
+      function smoothstep(a, b, x) {
+        const t = clamp((x - a) / (b - a), 0, 1);
+        return t * t * (3 - 2 * t);
+      }
 
-    // UI
-    var m = Math.floor(el / 60), s = Math.floor(el % 60);
-    document.getElementById('tm').textContent = (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
-    document.getElementById('ph').textContent = sec.l || '';
+      function mulberry32(seed) {
+        return function() {
+          let t = seed += 0x6D2B79F5;
+          t = Math.imul(t ^ t >>> 15, t | 1);
+          t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+          return ((t ^ t >>> 14) >>> 0) / 4294967296;
+        };
+      }
 
-  } catch (err) {
-    if (typeof console !== 'undefined') console.error('Engine:', err);
-  }
-  requestAnimationFrame(mainLoop);
-}
+      function createDeterministicIR(ctx, seconds = 9, seed = 1337) {
+        const rand = mulberry32(seed);
+        const length = Math.floor(ctx.sampleRate * seconds);
+        const ir = ctx.createBuffer(2, length, ctx.sampleRate);
+        for (let ch = 0; ch < 2; ch++) {
+          const d = ir.getChannelData(ch);
+          let last = 0;
+          for (let i = 0; i < length; i++) {
+            const t = i / length;
+            const env = Math.pow(1 - t, 2.2);
+            const white = rand() * 2 - 1;
+            last = 0.985 * last + 0.09 * white;
+            d[i] = last * env * (ch === 0 ? 1 : 0.96);
+          }
+        }
+        return ir;
+      }
 
-function endP() {
-  isP = false;
-  try {
-    var now = ac.currentTime;
-    vGrp.gain.cancelScheduledValues(now);
-    vGrp.gain.setTargetAtTime(0, now, 1.5);
-    tremDepth.gain.cancelScheduledValues(now);
-    tremDepth.gain.setTargetAtTime(0, now, 0.5);
-    mst.gain.setValueAtTime(mst.gain.value, now);
-    mst.gain.linearRampToValueAtTime(0, now + 6);
-    if (droneG) { droneG.gain.setValueAtTime(droneG.gain.value, now);
-      droneG.gain.linearRampToValueAtTime(0, now + 5); }
-  } catch (e) {}
-  document.getElementById('ph').textContent = '';
-  setTimeout(function() { showUI(); }, 7000);
-}
+      function createBrownNoiseBuffer(ctx, seconds = 4, seed = 2026) {
+        const rand = mulberry32(seed);
+        const length = Math.floor(ctx.sampleRate * seconds);
+        const buf = ctx.createBuffer(1, length, ctx.sampleRate);
+        const d = buf.getChannelData(0);
+        let last = 0;
+        for (let i = 0; i < length; i++) {
+          const white = rand() * 2 - 1;
+          last = (last + 0.02 * white) / 1.02;
+          d[i] = last * 3.5;
+        }
+        return buf;
+      }
 
-// === VISUALIZATION: phosphorescent spectral field ===
-function draw() {
-  // Slow fade = persistent trails (light painting effect)
-  cx.fillStyle = 'rgba(10,10,10,0.018)'; cx.fillRect(0, 0, w, h);
-  if (!isP || !voices.length) { requestAnimationFrame(draw); return; }
-  var gv = clamp(vGrp.gain.value, 0, 2);
-  var margin = 40;
-  var xS = margin, xE = w - margin;
-  var yTop = margin, yBot = h - margin;
-  var now = ac ? ac.currentTime : 0;
+      function sectionAt(t) {
+        for (const s of SECTIONS) {
+          if (t >= s.start && t < s.end) return s;
+        }
+        return SECTIONS[SECTIONS.length - 1];
+      }
 
-  cx.save();
-  cx.beginPath();
-  cx.rect(xS - 20, yTop - 20, xE - xS + 40, yBot - yTop + 40);
-  cx.clip();
+      function sectionWeight(section, t, fade = 18) {
+        const inW = smoothstep(section.start, section.start + fade, t);
+        const outW = 1 - smoothstep(section.end - fade, section.end, t);
+        return inW * outW;
+      }
 
-  // Collect voice positions for constellation
-  var pts = [];
-  for (var i = 0; i < NV; i++) {
-    var v = voices[i];
-    var midi = ftom(v.freq);
-    var yRaw = yBot - ((midi - 24) / (102 - 24)) * (yBot - yTop);
-    var y = clamp(yRaw, yTop, yBot);
-    var vol = clamp(v.g.gain.value * gv, 0, 1);
-    var dotX = xS + (i / NV) * (xE - xS);
-    pts.push({ x: dotX, y: y, vol: vol, solo: v.soloFade });
-  }
+      function makeVoice(ctx, index, midi, output, wetSend) {
+        const base = midiToHz(midi);
+        const detuneCents = [-6.1,-3.3,-1.7,0,1.4,3.1,5.2][index % 7];
+        const fine = Math.pow(2, detuneCents / 1200);
+        const f = base * fine;
 
-  // Constellation web: connect harmonically adjacent voices
-  for (var i = 0; i < pts.length - 1; i++) {
-    var a = pts[i], b = pts[i + 1];
-    var minVol = Math.min(a.vol, b.vol);
-    if (minVol > 0.004) {
-      cx.beginPath(); cx.moveTo(a.x, a.y); cx.lineTo(b.x, b.y);
-      cx.strokeStyle = 'rgba(196,168,130,' + (minVol * 0.4) + ')';
-      cx.lineWidth = 0.3 + minVol * 2;
-      cx.stroke();
-    }
-  }
+        const osc1 = ctx.createOscillator();
+        osc1.type = "sawtooth";
+        osc1.frequency.value = f;
 
-  // Voice particles with layered glow
-  for (var i = 0; i < pts.length; i++) {
-    var p = pts[i];
-    if (p.vol < 0.002) continue;
+        const osc2 = ctx.createOscillator();
+        osc2.type = "triangle";
+        osc2.frequency.value = f * (index % 3 === 0 ? 0.5 : 1.0);
 
-    // Solo voices glow wider and warmer
-    var soloMul = 1 + p.solo * 1.5;
-    var r = p.vol * soloMul;
+        const voiceLP = ctx.createBiquadFilter();
+        voiceLP.type = "lowpass";
+        voiceLP.frequency.value = 900;
+        voiceLP.Q.value = 0.55 + (index % 5) * 0.08;
 
-    // Layer 1: wide atmospheric haze
-    cx.beginPath(); cx.arc(p.x, p.y, 12 + r * 80, 0, Math.PI * 2);
-    cx.fillStyle = 'rgba(180,155,115,' + (r * 0.06) + ')'; cx.fill();
+        const voiceHP = ctx.createBiquadFilter();
+        voiceHP.type = "highpass";
+        voiceHP.frequency.value = 26;
+        voiceHP.Q.value = 0.4;
 
-    // Layer 2: mid glow
-    cx.beginPath(); cx.arc(p.x, p.y, 5 + r * 40, 0, Math.PI * 2);
-    cx.fillStyle = 'rgba(196,168,130,' + (r * 0.2) + ')'; cx.fill();
+        const amp = ctx.createGain();
+        amp.gain.value = 0;
 
-    // Layer 3: warm core
-    cx.beginPath(); cx.arc(p.x, p.y, 2 + r * 18, 0, Math.PI * 2);
-    cx.fillStyle = 'rgba(220,200,170,' + (r * 0.5) + ')'; cx.fill();
+        const pan = ctx.createStereoPanner();
+        pan.pan.value = lerp(-0.28, 0.28, index / 27);
 
-    // Layer 4: hot center
-    cx.beginPath(); cx.arc(p.x, p.y, 0.5 + r * 6, 0, Math.PI * 2);
-    cx.fillStyle = 'rgba(255,245,230,' + (Math.min(0.8, r * 3)) + ')'; cx.fill();
-  }
+        const wob1 = ctx.createOscillator();
+        wob1.type = "sine";
+        wob1.frequency.value = 0.0035 + index * 0.00037;
+        const wob1Amt = ctx.createGain();
+        wob1Amt.gain.value = f * 0.0009;
 
-  cx.restore();
-  requestAnimationFrame(draw);
-}
+        const wob2 = ctx.createOscillator();
+        wob2.type = "sine";
+        wob2.frequency.value = 0.011 + index * 0.00019;
+        const wob2Amt = ctx.createGain();
+        wob2Amt.gain.value = f * 0.00035;
 
-// === UI ===
-var bt = document.getElementById('bt');
-var bm = document.getElementById('bm');
-var _timers = [];
-_timers.push(setTimeout(function() { bt.classList.add('v'); }, 800));
-_timers.push(setTimeout(function() { document.getElementById('sp').classList.add('v'); }, 1200));
-_timers.push(setTimeout(function() { bm.classList.add('v'); }, 1500));
-_timers.push(setTimeout(function() { document.getElementById('hp').classList.add('v'); }, 2000));
-function showUI() {
-  bt.textContent = 'Spectral'; bt.classList.add('v'); bt.style.pointerEvents = 'auto';
-  bm.classList.add('v');
-  document.getElementById('sp').classList.add('v');
-  document.getElementById('hp').classList.add('v');
-}
-function clearAllTimers() {
-  for (var t = 0; t < _timers.length; t++) clearTimeout(_timers[t]);
-  _timers = [];
-  bt.classList.remove('v'); bm.classList.remove('v');
-  document.getElementById('sp').classList.remove('v');
-  document.getElementById('hp').classList.remove('v');
-}
+        const breath = ctx.createOscillator();
+        breath.type = "sine";
+        breath.frequency.value = 0.018 + (index % 9) * 0.0014;
+        const breathAmt = ctx.createGain();
+        breathAmt.gain.value = 0.0025 + (index % 6) * 0.0004;
 
-bt.addEventListener('click', function() {
-  if (isP) return;
-  if (!ac) { initA(); } else {
-    for (var i = 0; i < voices.length; i++) {
-      try { voices[i].osc.stop(); voices[i].vib.stop(); } catch (e) {}
-    }
-    voices = []; curSec = -1; fc = 0; soloVoice = -1; smoothInt = 0.3;
-    lastReassign = 0; lastDynShift = 0;
-    vGrp.gain.cancelScheduledValues(ac.currentTime); vGrp.gain.value = 1;
-    tremDepth.gain.cancelScheduledValues(ac.currentTime); tremDepth.gain.value = 0;
-    var uf = mtof(55);
-    for (var i = 0; i < NV; i++) voices.push(createVoice(uf, i));
-    var now = ac.currentTime;
-    for (var i = 0; i < NV; i++) {
-      voices[i].g.gain.setValueAtTime(0, now);
-      voices[i].g.gain.linearRampToValueAtTime(0.022, now + 0.5 + i * 0.05);
-    }
-    st = ac.currentTime;
-    mst.gain.setValueAtTime(0, now); mst.gain.linearRampToValueAtTime(0.6, now + 3);
-    droneOsc.frequency.value = mtof(31);
-    droneG.gain.setValueAtTime(0, now); droneG.gain.linearRampToValueAtTime(0.03, now + 4);
-  }
-  isP = true; bt.style.pointerEvents = 'none';
-  clearAllTimers();
-  cx.clearRect(0, 0, w, h);
-  requestAnimationFrame(mainLoop);
-});
+        wob1.connect(wob1Amt).connect(osc1.frequency);
+        wob1.connect(wob1Amt).connect(osc2.frequency);
+        wob2.connect(wob2Amt).connect(osc1.frequency);
+        wob2.connect(wob2Amt).connect(osc2.frequency);
+        breath.connect(breathAmt).connect(amp.gain);
 
-if (mob) {
-  document.addEventListener('touchstart', function() {
-    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-      DeviceOrientationEvent.requestPermission().then(function(s) {
-        if (s === 'granted') addEventListener('deviceorientation', function(e) {
-          if (e.gamma !== null) tx = Math.max(0, Math.min(1, (e.gamma + 45) / 90));
-          if (e.beta !== null) ty = Math.max(0, Math.min(1, (e.beta - 20) / 60));
-        }, { passive: true });
-      }).catch(function() {});
-    }
-  }, { once: true, passive: true });
-}
+        osc1.connect(voiceLP);
+        osc2.connect(voiceLP);
+        voiceLP.connect(voiceHP);
+        voiceHP.connect(amp);
+        amp.connect(pan);
+        pan.connect(output);
+        pan.connect(wetSend);
 
-draw();
+        const now = ctx.currentTime;
+        osc1.start(now);
+        osc2.start(now);
+        wob1.start(now);
+        wob2.start(now);
+        breath.start(now);
 
-// ================================================================
-// MEDITATION ENGINE
-// Science-grounded: drone + binaural theta beats + pink noise
-// Tier 1: slow continuous sound, low complexity, high continuity
-// Tier 2: binaural beats in theta range (6 Hz)
-// ================================================================
-var medAc, medMst, medActive = false, medSt = 0;
-var medNodes = [];
+        return { osc1, osc2, voiceLP, voiceHP, amp, pan, wob1, wob2, breath, midi, base };
+      }
 
-bm.addEventListener('click', function() {
-  if (medActive) { stopMed(); return; }
-  if (isP) return;
-  startMed();
-});
+      function scheduleSectionAutomation(ctx, voices, globalLP, noiseGain, droneGain) {
+        const now = ctx.currentTime;
 
-// Tap anywhere to exit meditation
-cv.addEventListener('click', function() {
-  if (medActive) stopMed();
-});
+        for (const s of SECTIONS) {
+          const t = now + s.start;
+          const fade = 16;
 
-function startMed() {
-  medAc = medAc || new (window.AudioContext || window.webkitAudioContext)();
-  medAc.resume();
-  medActive = true; medNodes = [];
-  clearAllTimers();
-  cx.clearRect(0, 0, w, h);
+          globalLP.frequency.setValueAtTime(globalLP.frequency.value, t);
+          globalLP.frequency.linearRampToValueAtTime(s.lp, t + fade);
 
-  medMst = medAc.createGain(); medMst.gain.setValueAtTime(0, medAc.currentTime);
-  medMst.gain.linearRampToValueAtTime(0.65, medAc.currentTime + 10);
-  medMst.connect(medAc.destination);
+          noiseGain.gain.setValueAtTime(noiseGain.gain.value, t);
+          noiseGain.gain.linearRampToValueAtTime(s.noise, t + fade);
 
-  if (mob && medAc.createMediaStreamDestination) {
-    var ms = medAc.createMediaStreamDestination(); medMst.connect(ms);
-    var ia = document.createElement('audio'); ia.setAttribute('playsinline', '');
-    ia.srcObject = ms.stream; ia.play().catch(function() {});
-  }
+          droneGain.gain.setValueAtTime(droneGain.gain.value, t);
+          droneGain.gain.linearRampToValueAtTime(0.015 + s.amp * 0.045, t + fade);
 
-  // ================================================================
-  // SCIENCE-ONLY DESIGN
-  // Everything below 200Hz. Nothing for the mind to track.
-  // Tier 1: drone + breath entrainment + pink noise
-  // Tier 2: binaural theta (built into the drone itself)
-  // ================================================================
+          voices.forEach((v, i) => {
+            const noteIndex = i % s.notes.length;
+            const targetHz = midiToHz(s.notes[noteIndex]);
+            const lane = i / Math.max(1, voices.length - 1);
+            const active = i < s.voices ? 1 : 0;
+            const baseAmp = active ? (0.004 + s.amp * (0.012 + lane * 0.006)) : 0.00001;
+            const cutoff = s.lp * (0.48 + lane * 0.72);
 
-  var OM = 136.1;
+            v.osc1.frequency.setTargetAtTime(targetHz, t, 11 + (i % 6) * 1.3);
+            v.osc2.frequency.setTargetAtTime(targetHz * (i % 3 === 0 ? 0.5 : 1.0), t, 11 + (i % 5) * 1.1);
+            v.voiceLP.frequency.setTargetAtTime(cutoff, t, 9 + (i % 7) * 1.2);
+            v.amp.gain.setTargetAtTime(baseAmp, t, 8 + (i % 8) * 1.7);
+          });
+        }
 
-  // === 1. OM DRONE: mono, singable, center of everything (Tier 1 #2) ===
-  // Clear single pitch you can chant along with.
-  // Chanting/humming = Tier 1 #1 (strongest evidence: vagus nerve, breath)
-  var drone = medAc.createOscillator(); drone.type = 'sine'; drone.frequency.value = OM;
-  var drG = medAc.createGain(); drG.gain.value = 0.45;
-  // Micro-drift: ±0.3Hz over ~50 seconds (alive, not robotic)
-  var drift = medAc.createOscillator(); drift.type = 'sine'; drift.frequency.value = 0.02;
-  var driftG = medAc.createGain(); driftG.gain.value = 0.3;
-  drift.connect(driftG); driftG.connect(drone.frequency);
-  drone.connect(drG); drG.connect(medMst);
-  drone.start(); drift.start();
-  medNodes.push(drone, drift);
+        const end = now + TOTAL_DURATION;
+        globalLP.frequency.setTargetAtTime(540, end - 18, 8);
+        noiseGain.gain.setTargetAtTime(0.008, end - 18, 8);
+        droneGain.gain.setTargetAtTime(0.004, end - 16, 7);
+        voices.forEach((v, i) => {
+          v.amp.gain.setTargetAtTime(0.00001, end - 14, 6 + (i % 6) * 0.5);
+        });
+      }
 
-  // === 2. BINAURAL THETA (Tier 2, separate background layer) ===
-  // Quiet enough to not interfere with singing, present enough to entrain.
-  // Carrier at OM frequency so it blends rather than adding brightness.
-  var binL = medAc.createOscillator(); binL.type = 'sine'; binL.frequency.value = OM;
-  var binR = medAc.createOscillator(); binR.type = 'sine'; binR.frequency.value = OM + 6;
-  var bpL = medAc.createStereoPanner(); bpL.pan.value = -1;
-  var bpR = medAc.createStereoPanner(); bpR.pan.value = 1;
-  var bgL = medAc.createGain(); bgL.gain.value = 0.10;
-  var bgR = medAc.createGain(); bgR.gain.value = 0.10;
-  binL.connect(bgL); bgL.connect(bpL); bpL.connect(medMst);
-  binR.connect(bgR); bgR.connect(bpR); bpR.connect(medMst);
-  binL.start(); binR.start();
-  medNodes.push(binL, binR);
+      async function play() {
+        if (!stopped) return;
+        stopped = false;
+        playBtn.disabled = true;
 
-  // === 3. SUB-HARMONIC (68 Hz, physical warmth) ===
-  var sub = medAc.createOscillator(); sub.type = 'sine'; sub.frequency.value = OM / 2;
-  var subG = medAc.createGain(); subG.gain.value = 0.25;
-  sub.connect(subG); subG.connect(medMst);
-  sub.start(); medNodes.push(sub);
+        ac = new (window.AudioContext || window.webkitAudioContext)();
+        await ac.resume();
 
-  // === 4. DEEP SUB (34 Hz, felt not heard) ===
-  var deep = medAc.createOscillator(); deep.type = 'sine'; deep.frequency.value = OM / 4;
-  var deepG = medAc.createGain(); deepG.gain.value = 0.08;
-  deep.connect(deepG); deepG.connect(medMst);
-  deep.start(); medNodes.push(deep);
+        const now = ac.currentTime;
+        startedAt = now;
+        nodes = [];
 
-  // === 4. WARM PINK NOISE (Tier 1: natural soundscape) ===
-  // LP at 350Hz: no high frequencies, sounds like distant ocean
-  var pnBuf = medAc.createBuffer(1, medAc.sampleRate * 4, medAc.sampleRate);
-  var pnData = pnBuf.getChannelData(0);
-  var b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0;
-  for (var j = 0; j < pnData.length; j++) {
-    var wh = Math.random() * 2 - 1;
-    b0=0.99886*b0+wh*0.0555179;b1=0.99332*b1+wh*0.0750759;
-    b2=0.96900*b2+wh*0.1538520;b3=0.86650*b3+wh*0.3104856;
-    b4=0.55000*b4+wh*0.5329522;b5=-0.7616*b5-wh*0.0168980;
-    pnData[j]=(b0+b1+b2+b3+b4+b5+b6+wh*0.5362)*0.11;b6=wh*0.115926;
-  }
-  var pn = medAc.createBufferSource(); pn.buffer = pnBuf; pn.loop = true;
-  var pnFlt = medAc.createBiquadFilter(); pnFlt.type = 'lowpass';
-  pnFlt.frequency.value = 350;
-  var pnG = medAc.createGain(); pnG.gain.value = 0.10;
-  pn.connect(pnFlt); pnFlt.connect(pnG); pnG.connect(medMst);
-  pn.start(); medNodes.push(pn);
+        master = ac.createGain();
+        master.gain.value = 0;
 
-  // === 5. BREATH ENTRAINMENT (Tier 1 #1: strongest evidence) ===
-  // 0.1Hz = 6 breaths/min (resonant breathing rate)
-  // Depth 0.12: physically felt volume swell guiding respiration
-  var breathLFO = medAc.createOscillator(); breathLFO.type = 'sine';
-  breathLFO.frequency.value = 0.1;
-  var breathG = medAc.createGain(); breathG.gain.value = 0.12;
-  breathLFO.connect(breathG); breathG.connect(medMst.gain);
-  breathLFO.start(); medNodes.push(breathLFO);
+        const globalLP = ac.createBiquadFilter();
+        globalLP.type = "lowpass";
+        globalLP.frequency.value = 650;
+        globalLP.Q.value = 0.35;
 
-  medSt = medAc.currentTime;
-  requestAnimationFrame(medDraw);
-}
+        const busComp = ac.createDynamicsCompressor();
+        busComp.threshold.value = -22;
+        busComp.knee.value = 10;
+        busComp.ratio.value = 2.2;
+        busComp.attack.value = 0.04;
+        busComp.release.value = 0.22;
 
-function stopMed() {
-  medActive = false;
-  showUI();
-  document.getElementById('tm').textContent = '';
-  if (medMst) {
-    var now = medAc.currentTime;
-    medMst.gain.cancelScheduledValues(now);
-    medMst.gain.setValueAtTime(medMst.gain.value, now);
-    medMst.gain.linearRampToValueAtTime(0, now + 8);
-  }
-  setTimeout(function() {
-    for (var i = 0; i < medNodes.length; i++) {
-      try { medNodes[i].stop(); } catch (e) {}
-    }
-    medNodes = [];
-    cx.clearRect(0, 0, w, h);
-  }, 9000);
-}
+        const wetSend = ac.createGain();
+        wetSend.gain.value = 0.46;
 
-function medDraw() {
-  if (!medActive) return;
-  cx.fillStyle = 'rgba(10,10,10,0.025)'; cx.fillRect(0, 0, w, h);
-  var now = medAc ? medAc.currentTime : 0;
-  var el = now - medSt;
-  var m = Math.floor(el / 60), s = Math.floor(el % 60);
-  document.getElementById('tm').textContent = (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+        const convolver = ac.createConvolver();
+        convolver.buffer = createDeterministicIR(ac, 9, 1337);
 
-  var breath = Math.sin(now * 0.1 * Math.PI * 2) * 0.5 + 0.5;
-  var cx0 = w / 2, cy0 = h / 2;
-  var maxR = Math.min(w, h) * 0.4;
+        const wetLP = ac.createBiquadFilter();
+        wetLP.type = "lowpass";
+        wetLP.frequency.value = 1850;
+        wetLP.Q.value = 0.45;
 
-  // Organic breathing mandala: 10 rings with individual wobble
-  for (var r = 0; r < 10; r++) {
-    var baseR = 15 + (r / 9) * maxR;
-    var rBreath = baseR + breath * (maxR * 0.12);
-    var alpha = 0.015 + breath * 0.025 - r * 0.002;
-    alpha = Math.max(0.003, alpha);
+        const wetHP = ac.createBiquadFilter();
+        wetHP.type = "highpass";
+        wetHP.frequency.value = 120;
+        wetHP.Q.value = 0.35;
 
-    cx.beginPath();
-    // Organic wobble: each ring has unique sine distortion
-    for (var a = 0; a <= 360; a += 2) {
-      var rad = a * Math.PI / 180;
-      var wobble = Math.sin(rad * 3 + now * 0.05 + r * 0.8) * 3
-                 + Math.sin(rad * 5 + now * 0.03 + r * 1.3) * 2;
-      var rr = rBreath + wobble;
-      var px = cx0 + Math.cos(rad) * rr;
-      var py = cy0 + Math.sin(rad) * rr;
-      if (a === 0) cx.moveTo(px, py); else cx.lineTo(px, py);
-    }
-    cx.closePath();
-    cx.strokeStyle = 'rgba(196,168,130,' + alpha + ')';
-    cx.lineWidth = 0.6; cx.stroke();
-  }
+        const stereoWidth = ac.createStereoPanner();
+        stereoWidth.pan.value = 0;
 
-  // Diffuse center glow
-  var glowR = 30 + breath * 50;
-  var grad = cx.createRadialGradient(cx0, cy0, 0, cx0, cy0, glowR);
-  grad.addColorStop(0, 'rgba(210,185,145,' + (0.06 + breath * 0.06) + ')');
-  grad.addColorStop(0.5, 'rgba(196,168,130,' + (0.02 + breath * 0.03) + ')');
-  grad.addColorStop(1, 'rgba(180,155,115,0)');
-  cx.beginPath(); cx.arc(cx0, cy0, glowR, 0, Math.PI * 2);
-  cx.fillStyle = grad; cx.fill();
+        globalLP.connect(busComp);
+        wetSend.connect(convolver).connect(wetLP).connect(wetHP).connect(busComp);
+        busComp.connect(master).connect(ac.destination);
 
-  requestAnimationFrame(medDraw);
-}
-})();
-</script>
+        const voices = [];
+        const initialNotes = SECTIONS[0].notes;
+        for (let i = 0; i < 28; i++) {
+          const midi = initialNotes[i % initialNotes.length];
+          const v = makeVoice(ac, i, midi, globalLP, wetSend);
+          voices.push(v);
+          nodes.push(v);
+        }
+
+        const drone = ac.createOscillator();
+        drone.type = "sine";
+        drone.frequency.value = midiToHz(31);
+        const droneLP = ac.createBiquadFilter();
+        droneLP.type = "lowpass";
+        droneLP.frequency.value = 180;
+        const droneGain = ac.createGain();
+        droneGain.gain.value = 0.008;
+        drone.connect(droneLP).connect(droneGain).connect(globalLP);
+        drone.connect(droneLP).connect(droneGain).connect(wetSend);
+        drone.start(now);
+        nodes.push(drone, droneGain, droneLP);
+
+        const noiseSrc = ac.createBufferSource();
+        noiseSrc.buffer = createBrownNoiseBuffer(ac, 4, 2026);
+        noiseSrc.loop = true;
+        const noiseLP = ac.createBiquadFilter();
+        noiseLP.type = "lowpass";
+        noiseLP.frequency.value = 480;
+        const noiseHP = ac.createBiquadFilter();
+        noiseHP.type = "highpass";
+        noiseHP.frequency.value = 90;
+        const noiseGain = ac.createGain();
+        noiseGain.gain.value = 0.012;
+        noiseSrc.connect(noiseLP).connect(noiseHP).connect(noiseGain).connect(globalLP);
+        noiseSrc.connect(noiseLP).connect(noiseHP).connect(noiseGain).connect(wetSend);
+        noiseSrc.start(now);
+        nodes.push(noiseSrc, noiseLP, noiseHP, noiseGain);
+
+        const masterBreath = ac.createOscillator();
+        masterBreath.type = "sine";
+        masterBreath.frequency.value = 0.021;
+        const masterBreathGain = ac.createGain();
+        masterBreathGain.gain.value = 0.02;
+        masterBreath.connect(masterBreathGain).connect(master.gain);
+        masterBreath.start(now);
+        nodes.push(masterBreath, masterBreathGain);
+
+        master.gain.setValueAtTime(0.0001, now);
+        master.gain.linearRampToValueAtTime(0.7, now + 22);
+        master.gain.setValueAtTime(0.7, now + 330);
+        master.gain.linearRampToValueAtTime(0.36, now + 365);
+        master.gain.linearRampToValueAtTime(0.0001, now + TOTAL_DURATION + 8);
+
+        scheduleSectionAutomation(ac, voices, globalLP, noiseGain, droneGain);
+
+        tick();
+      }
+
+      function tick() {
+        if (!ac || stopped) return;
+        const elapsed = ac.currentTime - startedAt;
+        const clamped = Math.max(0, Math.min(TOTAL_DURATION, elapsed));
+        const m = Math.floor(clamped / 60);
+        const s = Math.floor(clamped % 60);
+        timeEl.textContent = `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+        if (elapsed >= TOTAL_DURATION + 8) {
+          stop();
+          return;
+        }
+        raf = requestAnimationFrame(tick);
+      }
+
+      function stop() {
+        if (stopped) return;
+        stopped = true;
+        cancelAnimationFrame(raf);
+        timeEl.textContent = "00:00";
+        playBtn.disabled = false;
+
+        if (ac) {
+          const now = ac.currentTime;
+          try {
+            if (master) {
+              master.gain.cancelScheduledValues(now);
+              master.gain.setValueAtTime(master.gain.value, now);
+              master.gain.linearRampToValueAtTime(0.0001, now + 2.5);
+            }
+            setTimeout(async () => {
+              try { await ac.close(); } catch (_) {}
+              ac = null;
+              master = null;
+              nodes = [];
+            }, 2600);
+          } catch (_) {
+            try { ac.close(); } catch (_) {}
+            ac = null;
+            master = null;
+            nodes = [];
+          }
+        }
+      }
+
+      playBtn.addEventListener("click", play);
+      stopBtn.addEventListener("click", stop);
+    })();
+  </script>
 </body>
 </html>
