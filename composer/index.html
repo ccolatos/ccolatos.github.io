@@ -370,7 +370,7 @@
               : type === "air"
               ? section.upper
               : type === "lead"
-              ? section.upper * 1.6
+              ? section.upper * 1.2
               : section.amp * 0.08;
 
             amp.gain.setTargetAtTime(Math.max(0.00001, sectionAmp * gainScale), absoluteTime, riseTime);
