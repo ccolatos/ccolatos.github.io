@@ -286,7 +286,7 @@
         const lowpass = ctx.createBiquadFilter();
         lowpass.type = "lowpass";
         // lead slightly darker here
-        lowpass.frequency.value = type === "bass" ? 520 : type === "air" ? 2500 : type === "lead" ? 1600 : 1400;
+        lowpass.frequency.value = type === "bass" ? 520 : type === "air" ? 2500 : type === "lead" ? 1400 : 1400;
         lowpass.Q.value = type === "lead" ? 0.55 : 0.4;
 
         const highpass = ctx.createBiquadFilter();
