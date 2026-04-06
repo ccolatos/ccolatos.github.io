@@ -772,19 +772,13 @@
         }, 2100);
       }
 
-      window.addEventListener("pointerdown", async () => {
-        if (!playing) {
-          await play();
-        }
-      });
+window.addEventListener("pointerdown", async () => {
+  if (!playing) {
+    await play();
+  } else {
+    await stop();
+  }
 
-      window.addEventListener("keydown", async (e) => {
-        if (e.code === "Space") {
-          e.preventDefault();
-          if (playing) await stop();
-          else await play();
-        }
-      });
     })();
   </script>
 </body>
