@@ -165,11 +165,19 @@
         { start: 365.00, end: 407.43, label: "G–A–Bb–D ending",  bass: [31, 43],      body: [43, 45, 46, 50, 55, 57, 58], top: [62, 67, 70] }
       ];
 
-      // FFT-tracked guide curves extracted from the uploaded audio.
-      // lowerCurve = slower inner guide motion in the warm mid band
-      // upperCurve = upper luminous drift that clarifies the rise-and-fall shape
-      const FFT_LOWER_CURVE = [[0,57.5],[8,58],[16,57],[24,57],[32,57],[40,57],[48,56.5],[56,55],[64,55],[72,57],[80,57],[88,55],[96,55],[104,55],[112,55],[120,55],[128,55],[136,57],[144,57],[152,55],[160,55],[168,57],[176,57],[184,55],[192,55],[200,57],[208,57],[216,55],[224,55],[232,55],[240,55],[248,55],[256,55],[264,55],[272,55],[280,55],[288,55],[296,55],[304,55],[312,55],[320,57],[328,57],[336,57],[344,58],[352,58],[360,57],[368,55],[376,55],[384,55],[392,55],[400,55]];
-      const FFT_UPPER_CURVE = [[0,74],[8,70],[16,70],[24,70],[32,70],[40,75.5],[48,74],[56,75.5],[64,77],[72,77],[80,76],[88,67],[96,67],[104,67],[112,67],[120,67],[128,67],[136,69],[144,69],[152,67],[160,67],[168,69],[176,69],[184,67],[192,67],[200,69],[208,69],[216,67],[224,67],[232,69],[240,69],[248,67],[256,67],[264,67],[272,70],[280,67],[288,69],[296,67],[304,67],[312,67],[320,69],[328,69],[336,67],[344,67],[352,67],[360,67],[368,74],[376,74],[384,74],[392,74],[400,74]];
+      // Explicit lead-line contour distilled from repeated listening.
+      // This is not a song-like melody with attacks; it is a slow upper-voice guide that clarifies the rise-and-fall progression.
+      const LEAD_PLAN = [
+        { start: 0.00,   end: 34.00,  notes: [67, 70, 67],                  amp: 0.015, filter: 1650 },
+        { start: 34.00,  end: 76.00,  notes: [67, 70, 74, 70],              amp: 0.020, filter: 1780 },
+        { start: 76.00,  end: 122.00, notes: [70, 72, 74, 72],              amp: 0.024, filter: 1880 },
+        { start: 122.00, end: 168.00, notes: [69, 72, 77, 72],              amp: 0.027, filter: 1980 },
+        { start: 168.00, end: 220.00, notes: [67, 70, 74, 79, 74],          amp: 0.031, filter: 2120 },
+        { start: 220.00, end: 274.00, notes: [67, 70, 75, 79, 75],          amp: 0.034, filter: 2240 },
+        { start: 274.00, end: 330.00, notes: [70, 74, 77, 82, 77, 74],      amp: 0.038, filter: 2360 },
+        { start: 330.00, end: 365.00, notes: [67, 70, 74, 70],              amp: 0.023, filter: 1820 },
+        { start: 365.00, end: 407.43, notes: [67, 69, 70, 74, 70, 67],      amp: 0.018, filter: 1700 }
+      ];
 
       function midiToHz(m) {
         return 440 * Math.pow(2, (m - 69) / 12);
@@ -235,26 +243,12 @@
         return HARMONIC_PLAN[HARMONIC_PLAN.length - 1];
       }
 
-      function curveMidiAt(curve, timeSec) {
-        if (timeSec <= curve[0][0]) return curve[0][1];
-        for (let i = 0; i < curve.length - 1; i++) {
-          const a = curve[i];
-          const b = curve[i + 1];
-          if (timeSec >= a[0] && timeSec <= b[0]) {
-            const span = b[0] - a[0] || 1;
-            const t = (timeSec - a[0]) / span;
-            return a[1] + (b[1] - a[1]) * t;
-          }
-        }
-        return curve[curve.length - 1][1];
-      }
-
       function makeVoice(ctx, type, freq, panValue, gainScale) {
         const oscA = ctx.createOscillator();
         const oscB = ctx.createOscillator();
         const oscSub = ctx.createOscillator();
-        oscA.type = type === "air" ? "triangle" : type === "lead" ? "sine" : "sawtooth";
-        oscB.type = type === "lead" ? "sine" : "triangle";
+        oscA.type = type === "air" ? "triangle" : "sawtooth";
+        oscB.type = "triangle";
         oscSub.type = "sine";
         oscA.frequency.value = freq;
         oscB.frequency.value = freq * (type === "bass" ? 1.002 : 0.999);
@@ -264,7 +258,7 @@
         detuneLFO.type = "sine";
         detuneLFO.frequency.value = type === "bass" ? 0.0046 : 0.006 + Math.abs(panValue) * 0.002;
         const detuneDepth = ctx.createGain();
-        detuneDepth.gain.value = type === "bass" ? 2.5 : type === "lead" ? 2.2 : 4.5;
+        detuneDepth.gain.value = type === "bass" ? 2.5 : 4.5;
         detuneLFO.connect(detuneDepth);
         detuneDepth.connect(oscA.detune);
 
@@ -272,54 +266,43 @@
         detuneLFO2.type = "sine";
         detuneLFO2.frequency.value = 0.012 + Math.abs(panValue) * 0.003;
         const detuneDepth2 = ctx.createGain();
-        detuneDepth2.gain.value = type === "bass" ? 1.2 : type === "lead" ? 1.4 : 2.6;
+        detuneDepth2.gain.value = type === "bass" ? 1.2 : 2.6;
         detuneLFO2.connect(detuneDepth2);
         detuneDepth2.connect(oscB.detune);
 
         const formant = ctx.createBiquadFilter();
         formant.type = "bandpass";
-        formant.frequency.value = type === "bass" ? 220 : type === "air" ? 1400 : type === "lead" ? 980 : 690;
-        formant.Q.value = type === "bass" ? 0.8 : type === "air" ? 0.55 : type === "lead" ? 0.82 : 0.9;
+        formant.frequency.value = type === "bass" ? 220 : type === "air" ? 1400 : type === "lead" ? 1180 : 690;
+        formant.Q.value = type === "bass" ? 0.8 : type === "air" ? 0.55 : type === "lead" ? 1.35 : 0.9;
 
         const lowpass = ctx.createBiquadFilter();
         lowpass.type = "lowpass";
-        lowpass.frequency.value = type === "bass" ? 520 : type === "air" ? 2500 : type === "lead" ? 1800 : 1400;
-        lowpass.Q.value = type === "lead" ? 0.32 : 0.4;
+        lowpass.frequency.value = type === "bass" ? 520 : type === "air" ? 2500 : type === "lead" ? 3200 : 1400;
+        lowpass.Q.value = type === "lead" ? 0.55 : 0.4;
 
         const highpass = ctx.createBiquadFilter();
         highpass.type = "highpass";
-        highpass.frequency.value = type === "bass" ? 22 : type === "air" ? 300 : type === "lead" ? 120 : 80;
+        highpass.frequency.value = type === "bass" ? 22 : type === "air" ? 300 : type === "lead" ? 420 : 80;
         highpass.Q.value = 0.4;
 
         const amp = ctx.createGain();
         amp.gain.value = 0.00001;
 
-        const softDrive = ctx.createWaveShaper();
-        const curve = new Float32Array(2048);
-        for (let i = 0; i < curve.length; i++) {
-          const x = (i / (curve.length - 1)) * 2 - 1;
-          const drive = type === "lead" ? 1.75 : 1.35;
-          curve[i] = Math.tanh(x * drive) / Math.tanh(drive);
-        }
-        softDrive.curve = curve;
-        softDrive.oversample = "4x";
-
         const pan = ctx.createStereoPanner();
         pan.pan.value = panValue;
 
         const wet = ctx.createGain();
-        wet.gain.value = type === "bass" ? 0.16 : type === "air" ? 0.52 : type === "lead" ? 0.38 : 0.34;
+        wet.gain.value = type === "bass" ? 0.16 : type === "air" ? 0.52 : type === "lead" ? 0.18 : 0.34;
 
         const shimmer = ctx.createGain();
-        shimmer.gain.value = type === "air" ? 0.14 : type === "lead" ? 0.02 : 0.05;
+        shimmer.gain.value = type === "air" ? 0.14 : type === "lead" ? 0.04 : 0.05;
 
         oscA.connect(formant);
         oscB.connect(formant);
         oscSub.connect(formant);
         formant.connect(lowpass);
         lowpass.connect(highpass);
-        highpass.connect(softDrive);
-        softDrive.connect(amp);
+        highpass.connect(amp);
         amp.connect(pan);
         pan.connect(buses.dry);
         pan.connect(wet);
@@ -338,7 +321,7 @@
         });
 
         return {
-          type, oscA, oscB, oscSub, formant, lowpass, highpass, softDrive, amp, pan,
+          type, oscA, oscB, oscSub, formant, lowpass, highpass, amp, pan,
           gainScale,
           setTarget(midi, section, absoluteTime, riseTime = 8) {
             const hz = midiToHz(midi);
@@ -353,11 +336,11 @@
               : type === "air"
               ? baseFilter * 1.55
               : type === "lead"
-              ? baseFilter * 1.55
+              ? baseFilter * 1.95
               : baseFilter * 0.92;
             lowpass.frequency.setTargetAtTime(bodyFilter, absoluteTime, 11);
             formant.frequency.setTargetAtTime(
-              type === "bass" ? hz * 2.05 : type === "air" ? hz * 3.4 : type === "lead" ? hz * 1.7 : hz * 2.6,
+              type === "bass" ? hz * 2.05 : type === "air" ? hz * 3.4 : type === "lead" ? hz * 2.1 : hz * 2.6,
               absoluteTime,
               9
             );
@@ -367,7 +350,7 @@
               : type === "air"
               ? section.upper
               : type === "lead"
-              ? section.upper * 1.22
+              ? section.upper * 1.6
               : section.amp * 0.08;
             amp.gain.setTargetAtTime(Math.max(0.00001, sectionAmp * gainScale), absoluteTime, riseTime);
           },
@@ -524,31 +507,31 @@
           });
 
           // Explicit lead contour: clearer than the ambient air voices and drier so the progression reads.
-                    // FFT-derived drift curves replace the old discretized lead plan.
-          // The lead is now a warm, nearly attackless guide layer whose pitch is continuously interpolated from tracked data.
+          const leadState = LEAD_PLAN.find(s => h.start >= s.start && h.start < s.end) || LEAD_PLAN[LEAD_PLAN.length - 1];
+          const leadSpan = leadState.end - leadState.start;
           leadVoices.forEach((v, i) => {
-            const isUpper = i === 1;
-            const curve = isUpper ? FFT_UPPER_CURVE : FFT_LOWER_CURVE;
-            const octaveOffset = isUpper ? 12 : 0;
-            const startMidi = curveMidiAt(curve, h.start) + octaveOffset;
-            const endMidi = curveMidiAt(curve, h.end - 0.01) + octaveOffset;
-
-            v.setTarget(startMidi, section, t + 2.5 + i * 0.35, 12.0);
-            v.lowpass.frequency.setTargetAtTime((isUpper ? section.filter * 1.08 : section.filter * 0.92), t + 2.0, 11.0);
-            v.amp.gain.setTargetAtTime((isUpper ? section.upper * 0.82 : section.upper * 0.68) * v.gainScale, t + 2.0, 10.0);
-
-            const segStep = 4;
-            for (let local = h.start; local <= h.end + 0.001; local += segStep) {
-              const relTime = t + (local - h.start);
-              const midi = curveMidiAt(curve, local) + octaveOffset;
-              v.oscA.frequency.setTargetAtTime(midiToHz(midi), relTime, 10.5);
-              v.oscB.frequency.setTargetAtTime(midiToHz(midi) * (isUpper ? 1.00025 : 1.00018), relTime, 10.0);
-              v.formant.frequency.setTargetAtTime(midiToHz(midi) * (isUpper ? 1.34 : 1.18), relTime, 8.8);
-            }
-
-            v.oscA.frequency.setTargetAtTime(midiToHz(endMidi), t + (h.end - h.start), 10.0);
-            v.oscB.frequency.setTargetAtTime(midiToHz(endMidi) * (isUpper ? 1.00025 : 1.00018), t + (h.end - h.start), 9.5);
+            const octave = i === 0 ? 1 : 2;
+            const notes = leadState.notes;
+            const noteDur = leadSpan / notes.length;
+            const initial = notes[0] + (octave - 1) * 12;
+            v.setTarget(initial, section, t + 1.5 + i * 0.2, 6.5);
+            v.lowpass.frequency.setTargetAtTime(leadState.filter, t + 1.2, 6.5);
+            v.amp.gain.setTargetAtTime(leadState.amp * v.gainScale, t + 1.2, 5.5);
+            notes.forEach((note, idx) => {
+              const noteTime = t + idx * noteDur;
+              const targetMidi = note + (octave - 1) * 12;
+              v.oscA.frequency.setTargetAtTime(midiToHz(targetMidi), noteTime, Math.max(3.6, noteDur * 0.18));
+              v.oscB.frequency.setTargetAtTime(midiToHz(targetMidi) * 1.0016, noteTime, Math.max(3.1, noteDur * 0.16));
+              v.formant.frequency.setTargetAtTime(midiToHz(targetMidi) * 2.05, noteTime, Math.max(2.8, noteDur * 0.14));
+            });
           });
+
+          const span = h.end - h.start;
+          const mid1 = t + span * 0.28;
+          const mid2 = t + span * 0.62;
+          const target1 = midiToHz(h.top[0]);
+          const target2 = midiToHz(h.top[Math.min(1, h.top.length - 1)]);
+          const target3 = midiToHz(h.top[h.top.length - 1]);
 
           airVoices.forEach((v, i) => {
             const octave = i > 3 ? 2 : 1;
@@ -563,9 +546,9 @@
           const absolute = now + t;
           const section = sectionAt(t);
           voices.forEach((v, i) => {
-            const bump = v.type === "lead" ? 1.06 : v.type === "air" ? 1.15 : v.type === "bass" ? 1.08 : 1.12;
-            const back = v.type === "lead" ? 0.95 : v.type === "air" ? 0.96 : 1.0;
-            const current = (v.type === "bass" ? section.bass : v.type === "air" ? section.upper : v.type === "lead" ? section.upper * 1.22 : section.amp * 0.08) * v.gainScale;
+            const bump = v.type === "lead" ? 1.22 : v.type === "air" ? 1.15 : v.type === "bass" ? 1.08 : 1.12;
+            const back = v.type === "lead" ? 0.92 : v.type === "air" ? 0.96 : 1.0;
+            const current = (v.type === "bass" ? section.bass : v.type === "air" ? section.upper : v.type === "lead" ? section.upper * 1.6 : section.amp * 0.08) * v.gainScale;
             v.amp.gain.setTargetAtTime(current * bump, absolute + i * 0.03, 3.8);
             v.amp.gain.setTargetAtTime(current * back, absolute + 7 + i * 0.03, 6.4);
           });
