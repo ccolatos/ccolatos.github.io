@@ -247,8 +247,8 @@
         const oscA = ctx.createOscillator();
         const oscB = ctx.createOscillator();
         const oscSub = ctx.createOscillator();
-        oscA.type = type === "air" ? "triangle" : "sawtooth";
-        oscB.type = "triangle";
+        oscA.type = type === "air" ? "triangle" : type === "lead" ? "triangle" : "sawtooth";
+        oscB.type = type === "lead" ? "sine" : "triangle";
         oscSub.type = "sine";
         oscA.frequency.value = freq;
         oscB.frequency.value = freq * (type === "bass" ? 1.002 : 0.999);
@@ -258,7 +258,7 @@
         detuneLFO.type = "sine";
         detuneLFO.frequency.value = type === "bass" ? 0.0046 : 0.006 + Math.abs(panValue) * 0.002;
         const detuneDepth = ctx.createGain();
-        detuneDepth.gain.value = type === "bass" ? 2.5 : 4.5;
+        detuneDepth.gain.value = type === "bass" ? 2.5 : type === "lead" ? 7.5 : 4.5;
         detuneLFO.connect(detuneDepth);
         detuneDepth.connect(oscA.detune);
 
@@ -266,43 +266,54 @@
         detuneLFO2.type = "sine";
         detuneLFO2.frequency.value = 0.012 + Math.abs(panValue) * 0.003;
         const detuneDepth2 = ctx.createGain();
-        detuneDepth2.gain.value = type === "bass" ? 1.2 : 2.6;
+        detuneDepth2.gain.value = type === "bass" ? 1.2 : type === "lead" ? 4.1 : 2.6;
         detuneLFO2.connect(detuneDepth2);
         detuneDepth2.connect(oscB.detune);
 
         const formant = ctx.createBiquadFilter();
         formant.type = "bandpass";
-        formant.frequency.value = type === "bass" ? 220 : type === "air" ? 1400 : type === "lead" ? 1180 : 690;
-        formant.Q.value = type === "bass" ? 0.8 : type === "air" ? 0.55 : type === "lead" ? 1.35 : 0.9;
+        formant.frequency.value = type === "bass" ? 220 : type === "air" ? 1400 : type === "lead" ? 980 : 690;
+        formant.Q.value = type === "bass" ? 0.8 : type === "air" ? 0.55 : type === "lead" ? 0.82 : 0.9;
 
         const lowpass = ctx.createBiquadFilter();
         lowpass.type = "lowpass";
-        lowpass.frequency.value = type === "bass" ? 520 : type === "air" ? 2500 : type === "lead" ? 3200 : 1400;
-        lowpass.Q.value = type === "lead" ? 0.55 : 0.4;
+        lowpass.frequency.value = type === "bass" ? 520 : type === "air" ? 2500 : type === "lead" ? 2400 : 1400;
+        lowpass.Q.value = type === "lead" ? 0.32 : 0.4;
 
         const highpass = ctx.createBiquadFilter();
         highpass.type = "highpass";
-        highpass.frequency.value = type === "bass" ? 22 : type === "air" ? 300 : type === "lead" ? 420 : 80;
+        highpass.frequency.value = type === "bass" ? 22 : type === "air" ? 300 : type === "lead" ? 250 : 80;
         highpass.Q.value = 0.4;
 
         const amp = ctx.createGain();
         amp.gain.value = 0.00001;
 
+        const softDrive = ctx.createWaveShaper();
+        const curve = new Float32Array(2048);
+        for (let i = 0; i < curve.length; i++) {
+          const x = (i / (curve.length - 1)) * 2 - 1;
+          const drive = type === "lead" ? 1.75 : 1.35;
+          curve[i] = Math.tanh(x * drive) / Math.tanh(drive);
+        }
+        softDrive.curve = curve;
+        softDrive.oversample = "4x";
+
         const pan = ctx.createStereoPanner();
         pan.pan.value = panValue;
 
         const wet = ctx.createGain();
-        wet.gain.value = type === "bass" ? 0.16 : type === "air" ? 0.52 : type === "lead" ? 0.18 : 0.34;
+        wet.gain.value = type === "bass" ? 0.16 : type === "air" ? 0.52 : type === "lead" ? 0.26 : 0.34;
 
         const shimmer = ctx.createGain();
-        shimmer.gain.value = type === "air" ? 0.14 : type === "lead" ? 0.04 : 0.05;
+        shimmer.gain.value = type === "air" ? 0.14 : type === "lead" ? 0.02 : 0.05;
 
         oscA.connect(formant);
         oscB.connect(formant);
         oscSub.connect(formant);
         formant.connect(lowpass);
         lowpass.connect(highpass);
-        highpass.connect(amp);
+        highpass.connect(softDrive);
+        softDrive.connect(amp);
         amp.connect(pan);
         pan.connect(buses.dry);
         pan.connect(wet);
@@ -321,7 +332,7 @@
         });
 
         return {
-          type, oscA, oscB, oscSub, formant, lowpass, highpass, amp, pan,
+          type, oscA, oscB, oscSub, formant, lowpass, highpass, softDrive, amp, pan,
           gainScale,
           setTarget(midi, section, absoluteTime, riseTime = 8) {
             const hz = midiToHz(midi);
@@ -336,11 +347,11 @@
               : type === "air"
               ? baseFilter * 1.55
               : type === "lead"
-              ? baseFilter * 1.95
+              ? baseFilter * 1.55
               : baseFilter * 0.92;
             lowpass.frequency.setTargetAtTime(bodyFilter, absoluteTime, 11);
             formant.frequency.setTargetAtTime(
-              type === "bass" ? hz * 2.05 : type === "air" ? hz * 3.4 : type === "lead" ? hz * 2.1 : hz * 2.6,
+              type === "bass" ? hz * 2.05 : type === "air" ? hz * 3.4 : type === "lead" ? hz * 1.7 : hz * 2.6,
               absoluteTime,
               9
             );
@@ -350,7 +361,7 @@
               : type === "air"
               ? section.upper
               : type === "lead"
-              ? section.upper * 1.6
+              ? section.upper * 1.22
               : section.amp * 0.08;
             amp.gain.setTargetAtTime(Math.max(0.00001, sectionAmp * gainScale), absoluteTime, riseTime);
           },
@@ -514,15 +525,16 @@
             const notes = leadState.notes;
             const noteDur = leadSpan / notes.length;
             const initial = notes[0] + (octave - 1) * 12;
-            v.setTarget(initial, section, t + 1.5 + i * 0.2, 6.5);
-            v.lowpass.frequency.setTargetAtTime(leadState.filter, t + 1.2, 6.5);
-            v.amp.gain.setTargetAtTime(leadState.amp * v.gainScale, t + 1.2, 5.5);
+            v.setTarget(initial, section, t + 1.5 + i * 0.2, 7.2);
+            v.lowpass.frequency.setTargetAtTime(leadState.filter, t + 1.2, 7.2);
+            v.amp.gain.setTargetAtTime(leadState.amp * v.gainScale, t + 1.2, 6.8);
             notes.forEach((note, idx) => {
               const noteTime = t + idx * noteDur;
               const targetMidi = note + (octave - 1) * 12;
-              v.oscA.frequency.setTargetAtTime(midiToHz(targetMidi), noteTime, Math.max(3.6, noteDur * 0.18));
-              v.oscB.frequency.setTargetAtTime(midiToHz(targetMidi) * 1.0016, noteTime, Math.max(3.1, noteDur * 0.16));
-              v.formant.frequency.setTargetAtTime(midiToHz(targetMidi) * 2.05, noteTime, Math.max(2.8, noteDur * 0.14));
+              const glide = Math.max(4.8, noteDur * 0.26);
+              v.oscA.frequency.setTargetAtTime(midiToHz(targetMidi), noteTime, glide);
+              v.oscB.frequency.setTargetAtTime(midiToHz(targetMidi) * 1.0009, noteTime, glide * 0.92);
+              v.formant.frequency.setTargetAtTime(midiToHz(targetMidi) * 1.72, noteTime, Math.max(4.2, noteDur * 0.22));
             });
           });
 
@@ -546,9 +558,9 @@
           const absolute = now + t;
           const section = sectionAt(t);
           voices.forEach((v, i) => {
-            const bump = v.type === "lead" ? 1.22 : v.type === "air" ? 1.15 : v.type === "bass" ? 1.08 : 1.12;
-            const back = v.type === "lead" ? 0.92 : v.type === "air" ? 0.96 : 1.0;
-            const current = (v.type === "bass" ? section.bass : v.type === "air" ? section.upper : v.type === "lead" ? section.upper * 1.6 : section.amp * 0.08) * v.gainScale;
+            const bump = v.type === "lead" ? 1.14 : v.type === "air" ? 1.15 : v.type === "bass" ? 1.08 : 1.12;
+            const back = v.type === "lead" ? 0.95 : v.type === "air" ? 0.96 : 1.0;
+            const current = (v.type === "bass" ? section.bass : v.type === "air" ? section.upper : v.type === "lead" ? section.upper * 1.22 : section.amp * 0.08) * v.gainScale;
             v.amp.gain.setTargetAtTime(current * bump, absolute + i * 0.03, 3.8);
             v.amp.gain.setTargetAtTime(current * back, absolute + 7 + i * 0.03, 6.4);
           });
