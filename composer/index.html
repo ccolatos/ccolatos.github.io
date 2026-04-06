@@ -165,6 +165,20 @@
         { start: 365.00, end: 407.43, label: "G–A–Bb–D ending",  bass: [31, 43],      body: [43, 45, 46, 50, 55, 57, 58], top: [62, 67, 70] }
       ];
 
+      // Explicit lead-line contour distilled from repeated listening.
+      // This is not a song-like melody with attacks; it is a slow upper-voice guide that clarifies the rise-and-fall progression.
+      const LEAD_PLAN = [
+        { start: 0.00,   end: 34.00,  notes: [67, 70, 67],                  amp: 0.015, filter: 1650 },
+        { start: 34.00,  end: 76.00,  notes: [67, 70, 74, 70],              amp: 0.020, filter: 1780 },
+        { start: 76.00,  end: 122.00, notes: [70, 72, 74, 72],              amp: 0.024, filter: 1880 },
+        { start: 122.00, end: 168.00, notes: [69, 72, 77, 72],              amp: 0.027, filter: 1980 },
+        { start: 168.00, end: 220.00, notes: [67, 70, 74, 79, 74],          amp: 0.031, filter: 2120 },
+        { start: 220.00, end: 274.00, notes: [67, 70, 75, 79, 75],          amp: 0.034, filter: 2240 },
+        { start: 274.00, end: 330.00, notes: [70, 74, 77, 82, 77, 74],      amp: 0.038, filter: 2360 },
+        { start: 330.00, end: 365.00, notes: [67, 70, 74, 70],              amp: 0.023, filter: 1820 },
+        { start: 365.00, end: 407.43, notes: [67, 69, 70, 74, 70, 67],      amp: 0.018, filter: 1700 }
+      ];
+
       function midiToHz(m) {
         return 440 * Math.pow(2, (m - 69) / 12);
       }
@@ -258,17 +272,17 @@
 
         const formant = ctx.createBiquadFilter();
         formant.type = "bandpass";
-        formant.frequency.value = type === "bass" ? 220 : type === "air" ? 1400 : 690;
-        formant.Q.value = type === "bass" ? 0.8 : type === "air" ? 0.55 : 0.9;
+        formant.frequency.value = type === "bass" ? 220 : type === "air" ? 1400 : type === "lead" ? 1180 : 690;
+        formant.Q.value = type === "bass" ? 0.8 : type === "air" ? 0.55 : type === "lead" ? 1.35 : 0.9;
 
         const lowpass = ctx.createBiquadFilter();
         lowpass.type = "lowpass";
-        lowpass.frequency.value = type === "bass" ? 520 : type === "air" ? 2500 : 1400;
-        lowpass.Q.value = 0.4;
+        lowpass.frequency.value = type === "bass" ? 520 : type === "air" ? 2500 : type === "lead" ? 3200 : 1400;
+        lowpass.Q.value = type === "lead" ? 0.55 : 0.4;
 
         const highpass = ctx.createBiquadFilter();
         highpass.type = "highpass";
-        highpass.frequency.value = type === "bass" ? 22 : type === "air" ? 300 : 80;
+        highpass.frequency.value = type === "bass" ? 22 : type === "air" ? 300 : type === "lead" ? 420 : 80;
         highpass.Q.value = 0.4;
 
         const amp = ctx.createGain();
@@ -278,10 +292,10 @@
         pan.pan.value = panValue;
 
         const wet = ctx.createGain();
-        wet.gain.value = type === "bass" ? 0.16 : type === "air" ? 0.52 : 0.34;
+        wet.gain.value = type === "bass" ? 0.16 : type === "air" ? 0.52 : type === "lead" ? 0.18 : 0.34;
 
         const shimmer = ctx.createGain();
-        shimmer.gain.value = type === "air" ? 0.14 : 0.05;
+        shimmer.gain.value = type === "air" ? 0.14 : type === "lead" ? 0.04 : 0.05;
 
         oscA.connect(formant);
         oscB.connect(formant);
@@ -321,10 +335,12 @@
               ? baseFilter * 0.48
               : type === "air"
               ? baseFilter * 1.55
+              : type === "lead"
+              ? baseFilter * 1.95
               : baseFilter * 0.92;
             lowpass.frequency.setTargetAtTime(bodyFilter, absoluteTime, 11);
             formant.frequency.setTargetAtTime(
-              type === "bass" ? hz * 2.05 : type === "air" ? hz * 3.4 : hz * 2.6,
+              type === "bass" ? hz * 2.05 : type === "air" ? hz * 3.4 : type === "lead" ? hz * 2.1 : hz * 2.6,
               absoluteTime,
               9
             );
@@ -333,6 +349,8 @@
               ? section.bass
               : type === "air"
               ? section.upper
+              : type === "lead"
+              ? section.upper * 1.6
               : section.amp * 0.08;
             amp.gain.setTargetAtTime(Math.max(0.00001, sectionAmp * gainScale), absoluteTime, riseTime);
           },
@@ -409,10 +427,12 @@
         const bassPans = [-0.10, 0.10, -0.03, 0.03];
         const bodyPans = [-0.36, -0.25, -0.15, -0.07, 0.07, 0.15, 0.25, 0.36];
         const airPans = [-0.44, -0.28, -0.12, 0.12, 0.28, 0.44];
+        const leadPans = [-0.05, 0.05];
 
         bassPans.forEach((p, i) => voices.push(makeVoice(ac, "bass", midiToHz(31 + i), p, 0.82 - i * 0.08)));
         bodyPans.forEach((p, i) => voices.push(makeVoice(ac, "body", midiToHz(43 + (i % 3) * 3), p, 0.68 + (i % 4) * 0.08)));
         airPans.forEach((p, i) => voices.push(makeVoice(ac, "air", midiToHz(67 + i), p, 0.50 + (i % 3) * 0.07)));
+        leadPans.forEach((p, i) => voices.push(makeVoice(ac, "lead", midiToHz(67 + i * 3), p, 1.0 - i * 0.08)));
       }
 
       function scheduleNoise() {
@@ -466,6 +486,7 @@
           const bassVoices = voices.filter(v => v.type === "bass");
           const bodyVoices = voices.filter(v => v.type === "body");
           const airVoices = voices.filter(v => v.type === "air");
+          const leadVoices = voices.filter(v => v.type === "lead");
 
           bassVoices.forEach((v, i) => {
             const note = h.bass[i % h.bass.length];
@@ -485,7 +506,26 @@
             v.setTarget(midi, section, t, 10 + i * 0.5);
           });
 
-          // Top-voice emphasis inside each harmonic region. This is the key fix for the earlier "just a drone" problem.
+          // Explicit lead contour: clearer than the ambient air voices and drier so the progression reads.
+          const leadState = LEAD_PLAN.find(s => h.start >= s.start && h.start < s.end) || LEAD_PLAN[LEAD_PLAN.length - 1];
+          const leadSpan = leadState.end - leadState.start;
+          leadVoices.forEach((v, i) => {
+            const octave = i === 0 ? 1 : 2;
+            const notes = leadState.notes;
+            const noteDur = leadSpan / notes.length;
+            const initial = notes[0] + (octave - 1) * 12;
+            v.setTarget(initial, section, t + 1.5 + i * 0.2, 6.5);
+            v.lowpass.frequency.setTargetAtTime(leadState.filter, t + 1.2, 6.5);
+            v.amp.gain.setTargetAtTime(leadState.amp * v.gainScale, t + 1.2, 5.5);
+            notes.forEach((note, idx) => {
+              const noteTime = t + idx * noteDur;
+              const targetMidi = note + (octave - 1) * 12;
+              v.oscA.frequency.setTargetAtTime(midiToHz(targetMidi), noteTime, Math.max(3.6, noteDur * 0.18));
+              v.oscB.frequency.setTargetAtTime(midiToHz(targetMidi) * 1.0016, noteTime, Math.max(3.1, noteDur * 0.16));
+              v.formant.frequency.setTargetAtTime(midiToHz(targetMidi) * 2.05, noteTime, Math.max(2.8, noteDur * 0.14));
+            });
+          });
+
           const span = h.end - h.start;
           const mid1 = t + span * 0.28;
           const mid2 = t + span * 0.62;
@@ -494,7 +534,7 @@
           const target3 = midiToHz(h.top[h.top.length - 1]);
 
           airVoices.forEach((v, i) => {
-            const octave = i > 2 ? 2 : 1;
+            const octave = i > 3 ? 2 : 1;
             v.oscA.frequency.setTargetAtTime(target1 * octave, t + 2 + i * 0.15, 10);
             v.oscA.frequency.setTargetAtTime(target2 * octave, mid1 + i * 0.18, 9);
             v.oscA.frequency.setTargetAtTime(target3 * octave, mid2 + i * 0.18, 9);
@@ -506,9 +546,9 @@
           const absolute = now + t;
           const section = sectionAt(t);
           voices.forEach((v, i) => {
-            const bump = v.type === "air" ? 1.15 : v.type === "bass" ? 1.08 : 1.12;
-            const back = v.type === "air" ? 0.96 : 1.0;
-            const current = (v.type === "bass" ? section.bass : v.type === "air" ? section.upper : section.amp * 0.08) * v.gainScale;
+            const bump = v.type === "lead" ? 1.22 : v.type === "air" ? 1.15 : v.type === "bass" ? 1.08 : 1.12;
+            const back = v.type === "lead" ? 0.92 : v.type === "air" ? 0.96 : 1.0;
+            const current = (v.type === "bass" ? section.bass : v.type === "air" ? section.upper : v.type === "lead" ? section.upper * 1.6 : section.amp * 0.08) * v.gainScale;
             v.amp.gain.setTargetAtTime(current * bump, absolute + i * 0.03, 3.8);
             v.amp.gain.setTargetAtTime(current * back, absolute + 7 + i * 0.03, 6.4);
           });
