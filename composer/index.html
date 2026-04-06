@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Half Light of Dawn</title>
+  <title>Half Light of Dawn – faithful WebAudio reconstruction</title>
   <style>
     :root {
       --bg: #0a0a0a;
@@ -28,25 +28,93 @@
       padding: 28px;
       background: rgba(255,255,255,0.01);
     }
-    h1 { margin: 0 0 10px; font-size: 20px; font-weight: 500; }
-    p { margin: 0 0 14px; color: var(--muted); line-height: 1.55; font-size: 14px; }
-    .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 18px 0 16px; }
-    button { appearance: none; border: 1px solid var(--line); background: transparent; color: var(--fg); padding: 12px 18px; font: inherit; cursor: pointer; }
+    h1 {
+      margin: 0 0 10px;
+      font-size: 20px;
+      font-weight: 500;
+    }
+    p {
+      margin: 0 0 14px;
+      color: var(--muted);
+      line-height: 1.55;
+      font-size: 14px;
+    }
+    .row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin: 18px 0 16px;
+    }
+    button {
+      appearance: none;
+      border: 1px solid var(--line);
+      background: transparent;
+      color: var(--fg);
+      padding: 12px 18px;
+      font: inherit;
+      cursor: pointer;
+    }
     button:hover { background: rgba(255,255,255,0.03); }
-    .readout { font-variant-numeric: tabular-nums; color: var(--fg); min-width: 72px; }
-    canvas { width: 100%; height: 180px; display: block; margin-top: 16px; border: 1px solid var(--line); background: #090909; }
+    .readout {
+      font-variant-numeric: tabular-nums;
+      color: var(--fg);
+      min-width: 72px;
+    }
+    .meta {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(260px, 1fr));
+      gap: 8px 16px;
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--line);
+      font-size: 13px;
+      color: var(--muted);
+    }
+    code {
+      color: var(--fg);
+      background: rgba(255,255,255,0.03);
+      padding: 2px 5px;
+    }
+    canvas {
+      width: 100%;
+      height: 180px;
+      display: block;
+      margin-top: 16px;
+      border: 1px solid var(--line);
+      background: #090909;
+    }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>Half Light of Dawn</h1>
-    <p>Browser reconstruction. Deterministic, section-accurate, tuned to the harmonic field G Bb Eb F C D with late G A Bb D emphasis.</p>
+    <h1>Half Light of Dawn – faithful WebAudio reconstruction</h1>
+    <p>
+      This is a deterministic browser reconstruction based on close analysis of the uploaded audio, not literal playback of the original file.
+      It is built to address the earlier problem: the piece is not treated as one continuous drone, but as a sequence of very slow harmonic states,
+      registral redistributions, and density changes.
+    </p>
+    <p>
+      The engine uses a layered organ-harmonium timbre, explicit harmonic regions, macro-dynamic automation, filtered air, a long dark reverb,
+      and slow top-voice emphasis so the progression reads more clearly while remaining faithful to the source’s suspended ambient language.
+    </p>
+
     <div class="row">
-      <button id="playBtn">Play</button>
+      <button id="playBtn">Play reconstruction</button>
       <button id="stopBtn">Stop</button>
       <div class="readout" id="time">00:00</div>
     </div>
+
     <canvas id="scope" width="900" height="180"></canvas>
+
+    <div class="meta">
+      <div><strong>Total duration:</strong> 6:47.43</div>
+      <div><strong>Core pitch field:</strong> G, Bb, C, D, Eb, F, with late A emphasis</div>
+      <div><strong>Main reading:</strong> G minor / Eb major relative field, non-functional and suspended</div>
+      <div><strong>Structure:</strong> emergence → stabilization → expansion → plateau → recession → ending</div>
+      <div><strong>Timbre:</strong> reed-organ / harmonium / tape-softened synth hybrid</div>
+      <div><strong>Dynamics:</strong> single long crescendo-decrescendo with local swells</div>
+    </div>
   </div>
 
   <script>
@@ -60,45 +128,56 @@
       const canvas = document.getElementById("scope");
       const cx = canvas.getContext("2d");
 
-      let ac = null, master = null, analyser = null;
-      let playing = false, startedAt = 0, raf = 0;
-      let runtimeStops = [], noiseNodes = [], voices = [], buses = {};
+      let ac = null;
+      let master = null;
+      let analyser = null;
+      let playing = false;
+      let startedAt = 0;
+      let raf = 0;
+      let runtimeStops = [];
+      let noiseNodes = [];
+      let voices = [];
+      let buses = {};
 
-      // SECTION_PLAN: upper values boosted 2.5-3x so lead voice guides progression
       const SECTION_PLAN = [
-        { start: 0.00,   end: 34.00,  amp: 0.10, filter: 760,  noise: 0.012, bass: 0.028, upper: 0.025 },
-        { start: 34.00,  end: 76.00,  amp: 0.17, filter: 920,  noise: 0.018, bass: 0.032, upper: 0.042 },
-        { start: 76.00,  end: 122.00, amp: 0.22, filter: 1020, noise: 0.020, bass: 0.036, upper: 0.055 },
-        { start: 122.00, end: 168.00, amp: 0.27, filter: 1160, noise: 0.023, bass: 0.040, upper: 0.068 },
-        { start: 168.00, end: 220.00, amp: 0.33, filter: 1320, noise: 0.026, bass: 0.046, upper: 0.082 },
-        { start: 220.00, end: 274.00, amp: 0.39, filter: 1460, noise: 0.030, bass: 0.049, upper: 0.095 },
-        { start: 274.00, end: 330.00, amp: 0.44, filter: 1540, noise: 0.034, bass: 0.050, upper: 0.110 },
-        { start: 330.00, end: 365.00, amp: 0.23, filter: 1080, noise: 0.022, bass: 0.032, upper: 0.045 },
-        { start: 365.00, end: 407.43, amp: 0.11, filter: 780,  noise: 0.014, bass: 0.020, upper: 0.028 }
+        { start: 0.00,   end: 34.00,  amp: 0.10, filter: 760,  noise: 0.012, bass: 0.028, upper: 0.010 },
+        { start: 34.00,  end: 76.00,  amp: 0.17, filter: 920,  noise: 0.018, bass: 0.032, upper: 0.016 },
+        { start: 76.00,  end: 122.00, amp: 0.22, filter: 1020, noise: 0.020, bass: 0.036, upper: 0.020 },
+        { start: 122.00, end: 168.00, amp: 0.27, filter: 1160, noise: 0.023, bass: 0.040, upper: 0.025 },
+        { start: 168.00, end: 220.00, amp: 0.33, filter: 1320, noise: 0.026, bass: 0.046, upper: 0.031 },
+        { start: 220.00, end: 274.00, amp: 0.39, filter: 1460, noise: 0.030, bass: 0.049, upper: 0.038 },
+        { start: 274.00, end: 330.00, amp: 0.44, filter: 1540, noise: 0.034, bass: 0.050, upper: 0.043 },
+        { start: 330.00, end: 365.00, amp: 0.23, filter: 1080, noise: 0.022, bass: 0.032, upper: 0.018 },
+        { start: 365.00, end: 407.43, amp: 0.11, filter: 780,  noise: 0.014, bass: 0.020, upper: 0.011 }
       ];
 
+      // Harmonic reading distilled from the uploaded file.
+      // The piece does not cadence like a song, but it does move through clear harmonic regions.
       const HARMONIC_PLAN = [
-        { start: 0.00,   end: 34.00,  label: "Gm/Eb opening",   bass: [31, 43],      body: [43, 46, 51, 55, 58, 63],     top: [67, 70] },
+        { start: 0.00,   end: 34.00,  label: "Gm/Eb opening",    bass: [31, 43],      body: [43, 46, 51, 55, 58, 63],     top: [67, 70] },
         { start: 34.00,  end: 76.00,  label: "Eb over G",        bass: [39, 43],      body: [39, 43, 46, 51, 55, 58, 63], top: [67, 70, 74] },
         { start: 76.00,  end: 122.00, label: "Bb suspended",     bass: [34, 46],      body: [46, 48, 53, 58, 60, 65],     top: [70, 72, 74] },
         { start: 122.00, end: 168.00, label: "F/C support",      bass: [29, 41, 48],  body: [41, 48, 53, 55, 60, 65],     top: [69, 72, 77] },
-        { start: 168.00, end: 220.00, label: "G minor breadth",  bass: [31, 43],      body: [43, 46, 50, 53, 55, 58, 62], top: [67, 70, 74] },
+        { start: 168.00, end: 220.00, label: "G minor breadth",   bass: [31, 43],      body: [43, 46, 50, 53, 55, 58, 62], top: [67, 70, 74] },
         { start: 220.00, end: 274.00, label: "Eb coloration",    bass: [39, 43],      body: [39, 43, 46, 51, 55, 58, 63], top: [67, 70, 75] },
         { start: 274.00, end: 330.00, label: "Bb / D / F area",  bass: [34, 46],      body: [46, 50, 53, 58, 60, 62, 67], top: [70, 74, 77] },
         { start: 330.00, end: 365.00, label: "recession to G",   bass: [31, 43],      body: [43, 46, 50, 55, 58, 62],     top: [67, 70] },
-        { start: 365.00, end: 407.43, label: "G-A-Bb-D ending",  bass: [31, 43],      body: [43, 45, 46, 50, 55, 57, 58], top: [62, 67, 70] }
+        { start: 365.00, end: 407.43, label: "G–A–Bb–D ending",  bass: [31, 43],      body: [43, 45, 46, 50, 55, 57, 58], top: [62, 67, 70] }
       ];
 
-      function midiToHz(m) { return 440 * Math.pow(2, (m - 69) / 12); }
-      function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+      function midiToHz(m) {
+        return 440 * Math.pow(2, (m - 69) / 12);
+      }
 
-      function sectionAt(t) {
-        for (const s of SECTION_PLAN) { if (t >= s.start && t < s.end) return s; }
-        return SECTION_PLAN[SECTION_PLAN.length - 1];
+      function clamp(v, lo, hi) {
+        return Math.max(lo, Math.min(hi, v));
       }
 
       function createIR(ctx, seconds = 10, seed = 1337) {
-        function rng() { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; }
+        function rng() {
+          seed = (seed * 1664525 + 1013904223) >>> 0;
+          return seed / 4294967296;
+        }
         const length = Math.floor(ctx.sampleRate * seconds);
         const ir = ctx.createBuffer(2, length, ctx.sampleRate);
         for (let ch = 0; ch < 2; ch++) {
@@ -116,24 +195,45 @@
       }
 
       function createNoiseBuffer(ctx, seconds = 4, type = "brown", seed = 2026) {
-        function rng() { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; }
+        function rng() {
+          seed = (seed * 1664525 + 1013904223) >>> 0;
+          return seed / 4294967296;
+        }
         const length = Math.floor(ctx.sampleRate * seconds);
         const buf = ctx.createBuffer(1, length, ctx.sampleRate);
         const d = buf.getChannelData(0);
         let last = 0;
         for (let i = 0; i < length; i++) {
           const white = rng() * 2 - 1;
-          if (type === "brown") { last = (last + 0.02 * white) / 1.02; d[i] = last * 3.2; }
-          else { d[i] = white * 0.5; }
+          if (type === "brown") {
+            last = (last + 0.02 * white) / 1.02;
+            d[i] = last * 3.2;
+          } else {
+            d[i] = white * 0.5;
+          }
         }
         return buf;
+      }
+
+      function sectionAt(t) {
+        for (const s of SECTION_PLAN) {
+          if (t >= s.start && t < s.end) return s;
+        }
+        return SECTION_PLAN[SECTION_PLAN.length - 1];
+      }
+
+      function harmonicAt(t) {
+        for (const h of HARMONIC_PLAN) {
+          if (t >= h.start && t < h.end) return h;
+        }
+        return HARMONIC_PLAN[HARMONIC_PLAN.length - 1];
       }
 
       function makeVoice(ctx, type, freq, panValue, gainScale) {
         const oscA = ctx.createOscillator();
         const oscB = ctx.createOscillator();
         const oscSub = ctx.createOscillator();
-        oscA.type = type === "air" ? "sawtooth" : "sawtooth";
+        oscA.type = type === "air" ? "triangle" : "sawtooth";
         oscB.type = "triangle";
         oscSub.type = "sine";
         oscA.frequency.value = freq;
@@ -145,30 +245,30 @@
         detuneLFO.frequency.value = type === "bass" ? 0.0046 : 0.006 + Math.abs(panValue) * 0.002;
         const detuneDepth = ctx.createGain();
         detuneDepth.gain.value = type === "bass" ? 2.5 : 4.5;
-        detuneLFO.connect(detuneDepth); detuneDepth.connect(oscA.detune);
+        detuneLFO.connect(detuneDepth);
+        detuneDepth.connect(oscA.detune);
 
         const detuneLFO2 = ctx.createOscillator();
         detuneLFO2.type = "sine";
         detuneLFO2.frequency.value = 0.012 + Math.abs(panValue) * 0.003;
         const detuneDepth2 = ctx.createGain();
         detuneDepth2.gain.value = type === "bass" ? 1.2 : 2.6;
-        detuneLFO2.connect(detuneDepth2); detuneDepth2.connect(oscB.detune);
+        detuneLFO2.connect(detuneDepth2);
+        detuneDepth2.connect(oscB.detune);
 
         const formant = ctx.createBiquadFilter();
         formant.type = "bandpass";
-        // Air voices: stronger midrange presence to cut through
-        formant.frequency.value = type === "bass" ? 220 : type === "air" ? 900 : 690;
-        formant.Q.value = type === "bass" ? 0.8 : type === "air" ? 1.2 : 0.9;
+        formant.frequency.value = type === "bass" ? 220 : type === "air" ? 1400 : 690;
+        formant.Q.value = type === "bass" ? 0.8 : type === "air" ? 0.55 : 0.9;
 
         const lowpass = ctx.createBiquadFilter();
         lowpass.type = "lowpass";
-        // Air voices: wider filter so lead harmonics are heard
-        lowpass.frequency.value = type === "bass" ? 520 : type === "air" ? 3200 : 1400;
-        lowpass.Q.value = type === "air" ? 0.6 : 0.4;
+        lowpass.frequency.value = type === "bass" ? 520 : type === "air" ? 2500 : 1400;
+        lowpass.Q.value = 0.4;
 
         const highpass = ctx.createBiquadFilter();
         highpass.type = "highpass";
-        highpass.frequency.value = type === "bass" ? 22 : type === "air" ? 200 : 80;
+        highpass.frequency.value = type === "bass" ? 22 : type === "air" ? 300 : 80;
         highpass.Q.value = 0.4;
 
         const amp = ctx.createGain();
@@ -181,49 +281,59 @@
         wet.gain.value = type === "bass" ? 0.16 : type === "air" ? 0.52 : 0.34;
 
         const shimmer = ctx.createGain();
-        shimmer.gain.value = type === "air" ? 0.18 : 0.05;
+        shimmer.gain.value = type === "air" ? 0.14 : 0.05;
 
-        // Breathing: air voices breathe more slowly and deeply
-        const breath = ctx.createOscillator();
-        breath.type = "sine";
-        breath.frequency.value = type === "air" ? 0.012 : 0.018 + Math.abs(panValue) * 0.004;
-        const breathAmt = ctx.createGain();
-        breathAmt.gain.value = type === "air" ? 0.008 : 0.0025;
-
-        breath.connect(breathAmt).connect(amp.gain);
-
-        oscA.connect(formant); oscB.connect(formant); oscSub.connect(formant);
-        formant.connect(lowpass); lowpass.connect(highpass); highpass.connect(amp);
+        oscA.connect(formant);
+        oscB.connect(formant);
+        oscSub.connect(formant);
+        formant.connect(lowpass);
+        lowpass.connect(highpass);
+        highpass.connect(amp);
         amp.connect(pan);
         pan.connect(buses.dry);
-        pan.connect(wet); wet.connect(buses.reverbIn);
-        pan.connect(shimmer); shimmer.connect(buses.shimmerIn);
+        pan.connect(wet);
+        wet.connect(buses.reverbIn);
+        pan.connect(shimmer);
+        shimmer.connect(buses.shimmerIn);
 
-        oscA.start(); oscB.start(); oscSub.start();
-        detuneLFO.start(); detuneLFO2.start(); breath.start();
+        oscA.start();
+        oscB.start();
+        oscSub.start();
+        detuneLFO.start();
+        detuneLFO2.start();
 
         runtimeStops.push(() => {
-          try { oscA.stop(); oscB.stop(); oscSub.stop(); detuneLFO.stop(); detuneLFO2.stop(); breath.stop(); } catch (_) {}
+          try { oscA.stop(); oscB.stop(); oscSub.stop(); detuneLFO.stop(); detuneLFO2.stop(); } catch (_) {}
         });
 
         return {
-          type, oscA, oscB, oscSub, formant, lowpass, highpass, amp, pan, gainScale,
+          type, oscA, oscB, oscSub, formant, lowpass, highpass, amp, pan,
+          gainScale,
           setTarget(midi, section, absoluteTime, riseTime = 8) {
             const hz = midiToHz(midi);
-            const tau = type === "bass" ? 7.5 : type === "air" ? 6.5 : 8.5;
+            const tau = type === "bass" ? 7.5 : type === "air" ? 9.5 : 8.5;
             oscA.frequency.setTargetAtTime(hz, absoluteTime, tau);
             oscB.frequency.setTargetAtTime(hz * (type === "body" ? 1.0014 : 0.9988), absoluteTime, tau * 0.94);
             oscSub.frequency.setTargetAtTime(type === "bass" ? hz * 0.5 : hz, absoluteTime, tau * 0.88);
 
             const baseFilter = section.filter;
-            const bodyFilter = type === "bass" ? baseFilter * 0.48 : type === "air" ? baseFilter * 1.8 : baseFilter * 0.92;
+            const bodyFilter = type === "bass"
+              ? baseFilter * 0.48
+              : type === "air"
+              ? baseFilter * 1.55
+              : baseFilter * 0.92;
             lowpass.frequency.setTargetAtTime(bodyFilter, absoluteTime, 11);
             formant.frequency.setTargetAtTime(
-              type === "bass" ? hz * 2.05 : type === "air" ? hz * 2.2 : hz * 2.6,
-              absoluteTime, 9
+              type === "bass" ? hz * 2.05 : type === "air" ? hz * 3.4 : hz * 2.6,
+              absoluteTime,
+              9
             );
 
-            const sectionAmp = type === "bass" ? section.bass : type === "air" ? section.upper : section.amp * 0.08;
+            const sectionAmp = type === "bass"
+              ? section.bass
+              : type === "air"
+              ? section.upper
+              : section.amp * 0.08;
             amp.gain.setTargetAtTime(Math.max(0.00001, sectionAmp * gainScale), absoluteTime, riseTime);
           },
           fadeOut(absoluteTime, tau = 5) {
@@ -236,80 +346,117 @@
         if (ac) return;
         ac = new (window.AudioContext || window.webkitAudioContext)();
 
-        master = ac.createGain(); master.gain.value = 0.0001;
-        analyser = ac.createAnalyser(); analyser.fftSize = 4096; analyser.smoothingTimeConstant = 0.84;
+        master = ac.createGain();
+        master.gain.value = 0.0001;
+        analyser = ac.createAnalyser();
+        analyser.fftSize = 4096;
+        analyser.smoothingTimeConstant = 0.84;
 
-        buses.dry = ac.createGain(); buses.dry.gain.value = 1;
-        buses.reverbIn = ac.createGain(); buses.reverbIn.gain.value = 1;
-        buses.shimmerIn = ac.createGain(); buses.shimmerIn.gain.value = 1;
+        buses.dry = ac.createGain();
+        buses.dry.gain.value = 1;
+        buses.reverbIn = ac.createGain();
+        buses.reverbIn.gain.value = 1;
+        buses.shimmerIn = ac.createGain();
+        buses.shimmerIn.gain.value = 1;
 
         const convolver = ac.createConvolver();
         convolver.buffer = createIR(ac, 10, 1337);
-        const reverbLP = ac.createBiquadFilter(); reverbLP.type = "lowpass"; reverbLP.frequency.value = 2200;
-        const reverbHP = ac.createBiquadFilter(); reverbHP.type = "highpass"; reverbHP.frequency.value = 110;
+        const reverbLP = ac.createBiquadFilter();
+        reverbLP.type = "lowpass";
+        reverbLP.frequency.value = 2200;
+        const reverbHP = ac.createBiquadFilter();
+        reverbHP.type = "highpass";
+        reverbHP.frequency.value = 110;
 
-        const shimmerDelay = ac.createDelay(2.5); shimmerDelay.delayTime.value = 0.38;
-        const shimmerFeedback = ac.createGain(); shimmerFeedback.gain.value = 0.18;
-        const shimmerLP = ac.createBiquadFilter(); shimmerLP.type = "lowpass"; shimmerLP.frequency.value = 2800;
-        const shimmerGain = ac.createGain(); shimmerGain.gain.value = 0.12;
+        const shimmerDelay = ac.createDelay(2.5);
+        shimmerDelay.delayTime.value = 0.38;
+        const shimmerFeedback = ac.createGain();
+        shimmerFeedback.gain.value = 0.18;
+        const shimmerLP = ac.createBiquadFilter();
+        shimmerLP.type = "lowpass";
+        shimmerLP.frequency.value = 2800;
+        const shimmerGain = ac.createGain();
+        shimmerGain.gain.value = 0.12;
 
         const comp = ac.createDynamicsCompressor();
-        comp.threshold.value = -20; comp.knee.value = 10; comp.ratio.value = 2.1;
-        comp.attack.value = 0.03; comp.release.value = 0.22;
+        comp.threshold.value = -20;
+        comp.knee.value = 10;
+        comp.ratio.value = 2.1;
+        comp.attack.value = 0.03;
+        comp.release.value = 0.22;
 
         buses.dry.connect(comp);
         buses.reverbIn.connect(convolver).connect(reverbLP).connect(reverbHP).connect(comp);
         buses.shimmerIn.connect(shimmerDelay).connect(shimmerLP).connect(shimmerGain).connect(comp);
         shimmerGain.connect(shimmerFeedback).connect(shimmerDelay);
-        comp.connect(analyser); analyser.connect(master); master.connect(ac.destination);
+
+        comp.connect(analyser);
+        analyser.connect(master);
+        master.connect(ac.destination);
 
         runtimeStops.push(() => {
-          try { buses.dry.disconnect(); buses.reverbIn.disconnect(); buses.shimmerIn.disconnect(); } catch (_) {}
+          try {
+            buses.dry.disconnect();
+            buses.reverbIn.disconnect();
+            buses.shimmerIn.disconnect();
+          } catch (_) {}
         });
       }
 
       function buildVoices() {
         voices = [];
+
         const bassPans = [-0.10, 0.10, -0.03, 0.03];
         const bodyPans = [-0.36, -0.25, -0.15, -0.07, 0.07, 0.15, 0.25, 0.36];
-        // Lead air voices: slightly wider pan, higher gain scale
-        const airPans = [-0.38, -0.22, -0.08, 0.08, 0.22, 0.38];
+        const airPans = [-0.44, -0.28, -0.12, 0.12, 0.28, 0.44];
 
         bassPans.forEach((p, i) => voices.push(makeVoice(ac, "bass", midiToHz(31 + i), p, 0.82 - i * 0.08)));
         bodyPans.forEach((p, i) => voices.push(makeVoice(ac, "body", midiToHz(43 + (i % 3) * 3), p, 0.68 + (i % 4) * 0.08)));
-        airPans.forEach((p, i) => voices.push(makeVoice(ac, "air", midiToHz(67 + i), p, 0.75 + (i % 3) * 0.08)));
+        airPans.forEach((p, i) => voices.push(makeVoice(ac, "air", midiToHz(67 + i), p, 0.50 + (i % 3) * 0.07)));
       }
 
       function scheduleNoise() {
         const brown = ac.createBufferSource();
-        brown.buffer = createNoiseBuffer(ac, 4, "brown", 2026); brown.loop = true;
-        const brownLP = ac.createBiquadFilter(); brownLP.type = "lowpass"; brownLP.frequency.value = 480;
-        const brownHP = ac.createBiquadFilter(); brownHP.type = "highpass"; brownHP.frequency.value = 120;
-        const brownGain = ac.createGain(); brownGain.gain.value = 0.010;
+        brown.buffer = createNoiseBuffer(ac, 4, "brown", 2026);
+        brown.loop = true;
+        const brownLP = ac.createBiquadFilter();
+        brownLP.type = "lowpass";
+        brownLP.frequency.value = 480;
+        const brownHP = ac.createBiquadFilter();
+        brownHP.type = "highpass";
+        brownHP.frequency.value = 120;
+        const brownGain = ac.createGain();
+        brownGain.gain.value = 0.010;
         brown.connect(brownLP).connect(brownHP).connect(brownGain).connect(buses.dry);
         brown.connect(brownLP).connect(brownHP).connect(brownGain).connect(buses.reverbIn);
         brown.start();
 
         const air = ac.createBufferSource();
-        air.buffer = createNoiseBuffer(ac, 4, "white", 4040); air.loop = true;
-        const airBP = ac.createBiquadFilter(); airBP.type = "bandpass"; airBP.frequency.value = 1900; airBP.Q.value = 0.65;
-        const airGain = ac.createGain(); airGain.gain.value = 0.0015;
+        air.buffer = createNoiseBuffer(ac, 4, "white", 4040);
+        air.loop = true;
+        const airBP = ac.createBiquadFilter();
+        airBP.type = "bandpass";
+        airBP.frequency.value = 1900;
+        airBP.Q.value = 0.65;
+        const airGain = ac.createGain();
+        airGain.gain.value = 0.0015;
         air.connect(airBP).connect(airGain).connect(buses.reverbIn);
         air.start();
 
         noiseNodes.push({ brownGain, airGain, airBP, brownLP });
-        runtimeStops.push(() => { try { brown.stop(); air.stop(); } catch (_) {} });
+        runtimeStops.push(() => {
+          try { brown.stop(); air.stop(); } catch (_) {}
+        });
       }
 
       function scheduleForm() {
         const now = ac.currentTime;
 
-        // Master envelope: wider dynamic range for clearer rise-and-fall
         master.gain.setValueAtTime(0.0001, now);
-        master.gain.linearRampToValueAtTime(0.35, now + 22);
-        master.gain.linearRampToValueAtTime(0.58, now + 130);
-        master.gain.linearRampToValueAtTime(0.85, now + 274);
-        master.gain.linearRampToValueAtTime(0.35, now + 365);
+        master.gain.linearRampToValueAtTime(0.44, now + 22);
+        master.gain.linearRampToValueAtTime(0.68, now + 130);
+        master.gain.linearRampToValueAtTime(0.78, now + 274);
+        master.gain.linearRampToValueAtTime(0.40, now + 365);
         master.gain.linearRampToValueAtTime(0.0001, now + TOTAL_DURATION + 8);
 
         for (const h of HARMONIC_PLAN) {
@@ -321,10 +468,12 @@
           const airVoices = voices.filter(v => v.type === "air");
 
           bassVoices.forEach((v, i) => {
-            v.setTarget(h.bass[i % h.bass.length], section, t, 7.5 + i * 0.4);
+            const note = h.bass[i % h.bass.length];
+            v.setTarget(note, section, t, 7.5 + i * 0.4);
           });
 
           bodyVoices.forEach((v, i) => {
+            // Stronger registral definition so harmony reads instead of smearing into one drone.
             let midi = h.body[i % h.body.length];
             if (i < 2) midi -= 12;
             if (i >= 6) midi += 12;
@@ -333,11 +482,10 @@
 
           airVoices.forEach((v, i) => {
             const midi = h.top[i % h.top.length] + (i > 3 ? 12 : 0);
-            // Faster rise time for lead voices so they arrive ahead of body
-            v.setTarget(midi, section, t, 5 + i * 0.3);
+            v.setTarget(midi, section, t, 10 + i * 0.5);
           });
 
-          // Top-voice melodic emphasis within each region
+          // Top-voice emphasis inside each harmonic region. This is the key fix for the earlier "just a drone" problem.
           const span = h.end - h.start;
           const mid1 = t + span * 0.28;
           const mid2 = t + span * 0.62;
@@ -347,19 +495,19 @@
 
           airVoices.forEach((v, i) => {
             const octave = i > 2 ? 2 : 1;
-            v.oscA.frequency.setTargetAtTime(target1 * octave, t + 2 + i * 0.15, 8);
-            v.oscA.frequency.setTargetAtTime(target2 * octave, mid1 + i * 0.18, 7);
-            v.oscA.frequency.setTargetAtTime(target3 * octave, mid2 + i * 0.18, 7);
+            v.oscA.frequency.setTargetAtTime(target1 * octave, t + 2 + i * 0.15, 10);
+            v.oscA.frequency.setTargetAtTime(target2 * octave, mid1 + i * 0.18, 9);
+            v.oscA.frequency.setTargetAtTime(target3 * octave, mid2 + i * 0.18, 9);
           });
         }
 
-        // Local dynamic swells every ~24 seconds
+        // Local dynamic swells every ~24 seconds.
         for (let t = 18; t < TOTAL_DURATION - 20; t += 24) {
           const absolute = now + t;
           const section = sectionAt(t);
           voices.forEach((v, i) => {
-            const bump = v.type === "air" ? 1.25 : v.type === "bass" ? 1.08 : 1.12;
-            const back = v.type === "air" ? 0.92 : 1.0;
+            const bump = v.type === "air" ? 1.15 : v.type === "bass" ? 1.08 : 1.12;
+            const back = v.type === "air" ? 0.96 : 1.0;
             const current = (v.type === "bass" ? section.bass : v.type === "air" ? section.upper : section.amp * 0.08) * v.gainScale;
             v.amp.gain.setTargetAtTime(current * bump, absolute + i * 0.03, 3.8);
             v.amp.gain.setTargetAtTime(current * back, absolute + 7 + i * 0.03, 6.4);
@@ -384,9 +532,11 @@
         raf = requestAnimationFrame(draw);
         cx.fillStyle = "rgba(9,9,9,0.22)";
         cx.fillRect(0, 0, canvas.width, canvas.height);
+
         if (!analyser) return;
         const bins = new Uint8Array(analyser.frequencyBinCount);
         analyser.getByteFrequencyData(bins);
+
         cx.beginPath();
         for (let i = 0; i < bins.length; i++) {
           const x = i / (bins.length - 1) * canvas.width;
@@ -394,7 +544,9 @@
           if (i === 0) cx.moveTo(x, y); else cx.lineTo(x, y);
         }
         cx.strokeStyle = "rgba(233,228,218,0.86)";
-        cx.lineWidth = 1.2; cx.stroke();
+        cx.lineWidth = 1.2;
+        cx.stroke();
+
         if (playing && ac) {
           const elapsed = clamp(ac.currentTime - startedAt, 0, TOTAL_DURATION);
           const m = Math.floor(elapsed / 60);
@@ -406,19 +558,29 @@
 
       async function play() {
         if (playing) return;
-        ensureAudio(); await ac.resume();
-        buildVoices(); scheduleNoise(); scheduleForm();
-        startedAt = ac.currentTime; playing = true;
+        ensureAudio();
+        await ac.resume();
+
+        buildVoices();
+        scheduleNoise();
+        scheduleForm();
+
+        startedAt = ac.currentTime;
+        playing = true;
         if (!raf) draw();
       }
 
       function cleanupAudioGraph() {
-        runtimeStops.forEach(fn => fn()); runtimeStops = []; noiseNodes = []; voices = [];
+        runtimeStops.forEach(fn => fn());
+        runtimeStops = [];
+        noiseNodes = [];
+        voices = [];
       }
 
       async function stop() {
         if (!ac) return;
-        playing = false; timeEl.textContent = "00:00";
+        playing = false;
+        timeEl.textContent = "00:00";
         cleanupAudioGraph();
         try {
           master.gain.cancelScheduledValues(ac.currentTime);
@@ -427,7 +589,10 @@
         } catch (_) {}
         setTimeout(async () => {
           try { await ac.close(); } catch (_) {}
-          ac = null; master = null; analyser = null; buses = {};
+          ac = null;
+          master = null;
+          analyser = null;
+          buses = {};
         }, 2100);
       }
 
