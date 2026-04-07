@@ -8,35 +8,29 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { width: 100%; height: 100%; overflow: hidden; background: #000; color: rgba(233,228,218,0.9); font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; letter-spacing: 0.02em; -webkit-font-smoothing: antialiased; }
     canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; background: #000; }
-
-    /* Chooser */
     .chooser { position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; transition: opacity 600ms ease; }
     .chooser.hidden { opacity: 0; pointer-events: none; }
     .chooser-btn { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; font-weight: 300; font-size: clamp(0.7rem, 1.8vw, 0.85rem); color: rgba(233,228,218,0.85); background: none; border: 1px solid rgba(233,228,218,0.18); padding: 20px 44px; cursor: pointer; letter-spacing: 0.18em; text-transform: uppercase; transition: border-color 400ms ease, color 300ms ease; min-width: 280px; text-align: center; }
     .chooser-btn:hover { border-color: rgba(233,228,218,0.5); color: rgba(233,228,218,1); }
-
-    /* Playing overlay */
     .overlay { position: fixed; inset: 0; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; padding: 18px 20px; z-index: 10; mix-blend-mode: screen; opacity: 0; transition: opacity 600ms ease; }
     .overlay.visible { opacity: 1; }
     .topline, .bottomline { display: flex; justify-content: space-between; align-items: center; gap: 16px; font-size: 12px; color: rgba(233,228,218,0.45); text-transform: uppercase; letter-spacing: 0.14em; }
-    .title { color: rgba(233,228,218,0.9); font-size: 12px; letter-spacing: 0.18em; }
+    .title { color: rgba(233,228,218,0.9); font-size: 12px; letter-spacing: 0.18em; text-transform: none; }
     .hint { position: fixed; left: 50%; top: 50%; transform: translate(-50%,-50%); z-index: 15; pointer-events: none; text-align: center; color: rgba(233,228,218,0.5); font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0; transition: opacity 400ms ease; }
     .hint.visible { opacity: 1; }
   </style>
 </head>
 <body>
   <canvas id="visual"></canvas>
-
   <div class="chooser" id="chooser">
     <button class="chooser-btn" data-inst="ish">In Suspended Harmony</button>
     <button class="chooser-btn" data-inst="lem">Lemniscate</button>
+    <button class="chooser-btn" data-inst="gen" style="text-transform:none;letter-spacing:0.14em">Gendy c<sup style="font-size:0.7em">2</sup></button>
   </div>
-
   <div class="overlay" id="overlay">
     <div class="topline"><div class="title" id="title"></div><div id="status"></div></div>
     <div class="bottomline"><div id="phase">idle</div><div id="time">00:00</div></div>
   </div>
-
   <div class="hint" id="hint">tap anywhere to stop</div>
 
   <script>
@@ -44,6 +38,7 @@
       "use strict";
 
       const DUR = 407;
+      const NV = 20;
       const canvas = document.getElementById("visual");
       const cx = canvas.getContext("2d");
       const chooserEl = document.getElementById("chooser");
@@ -59,13 +54,15 @@
       let stopTimeout = null, iosAudioEl = null, stopping = false;
       let runtimeStops = [], noiseNodes = [], buses = {};
       let updateInterval = null, currentInst = null;
+      let activeVoices = new Set();
+      let voiceGainsCurrent = new Float32Array(NV);
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
       function resize() { canvas.width = innerWidth; canvas.height = innerHeight; }
       addEventListener("resize", resize); resize();
 
       // ================================================================
-      // DSS AUDIOWORKLET (shared by both instruments)
+      // DSS AUDIOWORKLET (shared, with gain target smoothing)
       // ================================================================
 
       const WORKLET_CODE = `
@@ -112,7 +109,7 @@ class DSSProcessor extends AudioWorkletProcessor {
       saMin: p.saMin||0.01, saMax: p.saMax||0.3,
       sdMin: p.sdMin||0.005, sdMax: p.sdMax||0.15,
       saRate: p.saRate||0.005, sdRate: p.sdRate||0.003,
-      bp: 0, si: 0, g: p.g||0.02, pan: p.pan||0
+      bp: 0, si: 0, g: p.g >= 0 ? p.g : 0.02, gT: p.g >= 0 ? p.g : 0.02, pan: p.pan||0
     };
   }
   applyUpdates(updates) {
@@ -121,7 +118,7 @@ class DSSProcessor extends AudioWorkletProcessor {
       if (u.fMin !== undefined) v.dMax = Math.max(v.dMin+1, Math.ceil(sampleRate/(u.fMin*v.n)));
       if (u.fMax !== undefined) v.dMin = Math.max(1, Math.ceil(sampleRate/(u.fMax*v.n)));
       if (v.dMin >= v.dMax) v.dMax = v.dMin + 1;
-      if (u.g !== undefined) v.g = u.g;
+      if (u.g !== undefined) v.gT = u.g;
       if (u.sa !== undefined) v.sa = u.sa;
       if (u.sd !== undefined) v.sd = u.sd;
       if (u.ab !== undefined) v.ab = u.ab;
@@ -140,6 +137,13 @@ class DSSProcessor extends AudioWorkletProcessor {
     for (let s = 0; s < L.length; s++) {
       let sL = 0, sR = 0;
       for (const v of this.voices) {
+        v.g += (v.gT - v.g) * 0.002;
+        if (v.g < 0.0005) {
+          v.si++;
+          const dur = Math.max(1, Math.round(v.durs[v.bp]));
+          if (v.si >= dur) { v.si = 0; v.bp = (v.bp + 1) % v.n; }
+          continue;
+        }
         const cur = v.amps[v.bp], nxt = v.amps[(v.bp+1)%v.n];
         const dur = Math.max(1, Math.round(v.durs[v.bp]));
         const t = v.si / dur;
@@ -177,15 +181,59 @@ registerProcessor("dss-processor", DSSProcessor);
       function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
       function lerp(a, b, t) { return a + (b - a) * t; }
       function fmt(s) { return `${String(Math.floor(s/60)).padStart(2,"0")}:${String(Math.floor(s%60)).padStart(2,"0")}`; }
+      function baseGain(n) { return n <= 4 ? 0.16 : n <= 6 ? 0.11 : n <= 8 ? 0.13 : 0.09; }
+
+      // Shared voice definitions (used by LEM and GEN)
+      const SHARED_VOICES = [
+        { n:4,  fLo:25,  fHi:350,  ab:0.90, pan:-0.08 },
+        { n:4,  fLo:30,  fHi:400,  ab:0.90, pan: 0.08 },
+        { n:4,  fLo:28,  fHi:320,  ab:0.85, pan:-0.02 },
+        { n:4,  fLo:35,  fHi:380,  ab:0.85, pan: 0.02 },
+        { n:8,  fLo:55,  fHi:1200, ab:0.75, pan:-0.32 },
+        { n:8,  fLo:70,  fHi:1400, ab:0.75, pan:-0.20 },
+        { n:8,  fLo:60,  fHi:1300, ab:0.70, pan:-0.10 },
+        { n:8,  fLo:80,  fHi:1500, ab:0.70, pan:-0.04 },
+        { n:8,  fLo:65,  fHi:1250, ab:0.75, pan: 0.04 },
+        { n:8,  fLo:75,  fHi:1350, ab:0.75, pan: 0.10 },
+        { n:8,  fLo:58,  fHi:1100, ab:0.70, pan: 0.20 },
+        { n:8,  fLo:85,  fHi:1600, ab:0.70, pan: 0.32 },
+        { n:14, fLo:180, fHi:4000, ab:0.50, pan:-0.40 },
+        { n:14, fLo:220, fHi:4500, ab:0.50, pan:-0.24 },
+        { n:14, fLo:200, fHi:3800, ab:0.45, pan:-0.10 },
+        { n:14, fLo:250, fHi:5000, ab:0.45, pan: 0.10 },
+        { n:14, fLo:210, fHi:4200, ab:0.50, pan: 0.24 },
+        { n:14, fLo:240, fHi:4800, ab:0.50, pan: 0.40 },
+        { n:6,  fLo:90,  fHi:2000, ab:0.60, pan:-0.04 },
+        { n:6,  fLo:110, fHi:2500, ab:0.60, pan: 0.04 }
+      ];
+
+      function buildFreeParams(section, voices, gains) {
+        const params = [], st = section.stoch, di = section.dist, fs = section.fScale;
+        voices.forEach((def, idx) => {
+          const center = (def.fLo + def.fHi) / 2;
+          const halfW = (def.fHi - def.fLo) / 2;
+          const fMin = Math.max(20, center - halfW * fs);
+          const fMax = Math.max(fMin * 1.5, center + halfW * fs);
+          const complexity = def.n <= 4 ? 0.7 : def.n <= 6 ? 0.85 : def.n <= 8 ? 1.0 : 1.3;
+          params.push({
+            n: def.n, fMin, fMax, ab: def.ab,
+            sa: st*complexity, sd: st*complexity*0.5, dist: di*complexity,
+            saRate: st*0.08, sdRate: st*0.04,
+            saMin: st*0.15, saMax: st*2.5, sdMin: st*0.08, sdMax: st*1.5,
+            g: gains ? gains[idx] : (def.n<=4 ? 0.042 : def.n<=6 ? 0.028 : def.n<=8 ? 0.030 : 0.020),
+            pan: def.pan
+          });
+        });
+        return params;
+      }
 
       // ================================================================
       // INSTRUMENT: IN SUSPENDED HARMONY
-      // Bb overtone series, composed dynamic arc, harmonic plan
       // ================================================================
 
       const ISH = {
-        name: "In Suspended Harmony",
-        lpFreq: 600,
+        name: "IN SUSPENDED HARMONY",
+        lpFreq: 600, sparse: false,
         sections: [
           { start: 0,   end: 35,  amp: 0.10, flt: 600,  noise: 0.006, stoch: 0.03, dist: 0.0,  label: "emergence" },
           { start: 35,  end: 80,  amp: 0.18, flt: 800,  noise: 0.012, stoch: 0.05, dist: 0.0,  label: "the fifth" },
@@ -219,16 +267,9 @@ registerProcessor("dss-processor", DSSProcessor);
           }
           return S[S.length - 1];
         },
-        harmonyAt(t) {
-          for (const h of this.harmony) if (t >= h.start && t < h.end) return h;
-          return this.harmony[this.harmony.length - 1];
-        },
-        initVoices(section) {
-          return this._buildParams(section, this.harmony[0], false);
-        },
-        updateVoices(section, elapsed) {
-          return this._buildParams(section, this.harmonyAt(elapsed), true);
-        },
+        harmonyAt(t) { for (const h of this.harmony) if (t >= h.start && t < h.end) return h; return this.harmony[this.harmony.length - 1]; },
+        initVoices(section) { return this._buildParams(section, this.harmony[0], false); },
+        updateVoices(section, elapsed) { return this._buildParams(section, this.harmonyAt(elapsed), true); },
         _buildParams(section, harmony, isUpdate) {
           const params = [], st = section.stoch, di = section.dist;
           [-0.06,0.06,-0.02,0.02].forEach((pan, i) => {
@@ -236,19 +277,16 @@ registerProcessor("dss-processor", DSSProcessor);
             params.push({ n:4, fMin:hz*0.95, fMax:hz*1.05, ab:0.85, sa:st*0.6, sd:st*0.3, dist:di*0.5, saRate:st*0.06, sdRate:st*0.03, saMin:st*0.15, saMax:st*2.0, sdMin:st*0.08, sdMax:st*1.2, g: isUpdate ? section.amp*0.08 : 0.038, pan });
           });
           [-0.30,-0.20,-0.10,-0.03,0.03,0.10,0.20,0.30].forEach((pan, i) => {
-            let midi = harmony.body[i % harmony.body.length];
-            if (i<2) midi -= 12; if (i>=6) midi += 12;
+            let midi = harmony.body[i % harmony.body.length]; if (i<2) midi -= 12; if (i>=6) midi += 12;
             const hz = midiToHz(midi);
             params.push({ n:8, fMin:hz*0.93, fMax:hz*1.07, ab:0.70, sa:st, sd:st*0.5, dist:di, saRate:st*0.08, sdRate:st*0.04, saMin:st*0.2, saMax:st*2.5, sdMin:st*0.1, sdMax:st*1.5, g: isUpdate ? section.amp*0.055 : 0.028, pan });
           });
           [-0.38,-0.22,-0.08,0.08,0.22,0.38].forEach((pan, i) => {
-            const midi = harmony.air[i % harmony.air.length] + (i>3?12:0);
-            const hz = midiToHz(midi);
+            const midi = harmony.air[i % harmony.air.length] + (i>3?12:0); const hz = midiToHz(midi);
             params.push({ n:14, fMin:hz*0.90, fMax:hz*1.10, ab:0.45, sa:st*1.3, sd:st*0.7, dist:di*1.2, saRate:st*0.10, sdRate:st*0.06, saMin:st*0.25, saMax:st*3.0, sdMin:st*0.12, sdMax:st*2.0, g: isUpdate ? section.amp*0.038 : 0.020, pan });
           });
           [-0.03,0.03].forEach((pan, i) => {
-            const midi = harmony.air[0] + (i===1?12:0);
-            const hz = midiToHz(midi);
+            const midi = harmony.air[0] + (i===1?12:0); const hz = midiToHz(midi);
             params.push({ n:6, fMin:hz*0.97, fMax:hz*1.03, ab:0.55, sa:st*0.4, sd:st*0.2, dist:di*0.3, saRate:st*0.04, sdRate:st*0.02, saMin:st*0.1, saMax:st*1.5, sdMin:st*0.05, sdMax:st*0.8, g: isUpdate ? section.amp*0.028 : 0.014, pan });
           });
           return params;
@@ -275,13 +313,12 @@ registerProcessor("dss-processor", DSSProcessor);
       };
 
       // ================================================================
-      // INSTRUMENT: LEMNISCATE
-      // Pure GENDY. No pitches. The mathematics decides.
+      // INSTRUMENT: LEMNISCATE (all 20 voices, flat dynamics)
       // ================================================================
 
       const LEM = {
-        name: "Lemniscate",
-        lpFreq: 5000,
+        name: "LEMNISCATE",
+        lpFreq: 5000, sparse: false,
         sections: [
           { start: 0,   end: 60,  amp: 0.12, flt: 700,  noise: 0.008, stoch: 0.06, dist: 0.0,  fScale: 0.35, label: "field i" },
           { start: 60,  end: 140, amp: 0.25, flt: 1000, noise: 0.016, stoch: 0.10, dist: 0.10, fScale: 0.55, label: "field ii" },
@@ -289,28 +326,6 @@ registerProcessor("dss-processor", DSSProcessor);
           { start: 220, end: 300, amp: 0.58, flt: 1600, noise: 0.036, stoch: 0.22, dist: 0.70, fScale: 1.0,  label: "field iv" },
           { start: 300, end: 370, amp: 0.25, flt: 900,  noise: 0.014, stoch: 0.08, dist: 0.15, fScale: 0.45, label: "field v" },
           { start: 370, end: 407, amp: 0.08, flt: 550,  noise: 0.004, stoch: 0.03, dist: 0.0,  fScale: 0.20, label: "field vi" }
-        ],
-        voices: [
-          { n:4,  fLo:25,  fHi:350,  ab:0.90, pan:-0.08 },
-          { n:4,  fLo:30,  fHi:400,  ab:0.90, pan: 0.08 },
-          { n:4,  fLo:28,  fHi:320,  ab:0.85, pan:-0.02 },
-          { n:4,  fLo:35,  fHi:380,  ab:0.85, pan: 0.02 },
-          { n:8,  fLo:55,  fHi:1200, ab:0.75, pan:-0.32 },
-          { n:8,  fLo:70,  fHi:1400, ab:0.75, pan:-0.20 },
-          { n:8,  fLo:60,  fHi:1300, ab:0.70, pan:-0.10 },
-          { n:8,  fLo:80,  fHi:1500, ab:0.70, pan:-0.04 },
-          { n:8,  fLo:65,  fHi:1250, ab:0.75, pan: 0.04 },
-          { n:8,  fLo:75,  fHi:1350, ab:0.75, pan: 0.10 },
-          { n:8,  fLo:58,  fHi:1100, ab:0.70, pan: 0.20 },
-          { n:8,  fLo:85,  fHi:1600, ab:0.70, pan: 0.32 },
-          { n:14, fLo:180, fHi:4000, ab:0.50, pan:-0.40 },
-          { n:14, fLo:220, fHi:4500, ab:0.50, pan:-0.24 },
-          { n:14, fLo:200, fHi:3800, ab:0.45, pan:-0.10 },
-          { n:14, fLo:250, fHi:5000, ab:0.45, pan: 0.10 },
-          { n:14, fLo:210, fHi:4200, ab:0.50, pan: 0.24 },
-          { n:14, fLo:240, fHi:4800, ab:0.50, pan: 0.40 },
-          { n:6,  fLo:90,  fHi:2000, ab:0.60, pan:-0.04 },
-          { n:6,  fLo:110, fHi:2500, ab:0.60, pan: 0.04 }
         ],
         lerpSection(elapsed) {
           const S = this.sections;
@@ -323,27 +338,8 @@ registerProcessor("dss-processor", DSSProcessor);
           }
           return S[S.length - 1];
         },
-        _buildParams(section) {
-          const params = [], st = section.stoch, di = section.dist, fs = section.fScale;
-          this.voices.forEach(def => {
-            const center = (def.fLo + def.fHi) / 2;
-            const halfW = (def.fHi - def.fLo) / 2;
-            const fMin = Math.max(20, center - halfW * fs);
-            const fMax = Math.max(fMin * 1.5, center + halfW * fs);
-            const complexity = def.n <= 4 ? 0.7 : def.n <= 6 ? 0.85 : def.n <= 8 ? 1.0 : 1.3;
-            params.push({
-              n: def.n, fMin, fMax, ab: def.ab,
-              sa: st*complexity, sd: st*complexity*0.5, dist: di*complexity,
-              saRate: st*0.08, sdRate: st*0.04,
-              saMin: st*0.15, saMax: st*2.5, sdMin: st*0.08, sdMax: st*1.5,
-              g: def.n<=4 ? 0.042 : def.n<=6 ? 0.028 : def.n<=8 ? 0.030 : 0.020,
-              pan: def.pan
-            });
-          });
-          return params;
-        },
-        initVoices(section) { return this._buildParams(section); },
-        updateVoices(section) { return this._buildParams(section); },
+        initVoices(section) { return buildFreeParams(section, SHARED_VOICES); },
+        updateVoices(section) { return buildFreeParams(section, SHARED_VOICES); },
         scheduleMaster(ac, master) {
           const now = ac.currentTime;
           master.gain.setValueAtTime(0.0001, now);
@@ -351,10 +347,48 @@ registerProcessor("dss-processor", DSSProcessor);
           master.gain.setValueAtTime(1.0, now + DUR - 1);
           master.gain.linearRampToValueAtTime(0.0001, now + DUR + 10);
         },
-        onUpdate() { /* No filter/noise automation. The process is the only shaping. */ }
+        onUpdate() {}
       };
 
-      const INSTRUMENTS = { ish: ISH, lem: LEM };
+      // ================================================================
+      // INSTRUMENT: GENDY c2 (sparse, 1-5 voices, GENDY3-faithful)
+      // ================================================================
+
+      const GEN = {
+        name: 'Gendy c<sup style="font-size:0.7em">2</sup>',
+        lpFreq: 8000, sparse: true,
+        sections: [
+          { start: 0,   end: 60,  amp: 0.12, flt: 700,  noise: 0.008, stoch: 0.06, dist: 0.0,  fScale: 0.35, density: 1.0, label: "field i" },
+          { start: 60,  end: 140, amp: 0.25, flt: 1000, noise: 0.016, stoch: 0.10, dist: 0.10, fScale: 0.55, density: 1.8, label: "field ii" },
+          { start: 140, end: 220, amp: 0.42, flt: 1300, noise: 0.024, stoch: 0.15, dist: 0.35, fScale: 0.75, density: 2.5, label: "field iii" },
+          { start: 220, end: 300, amp: 0.58, flt: 1600, noise: 0.036, stoch: 0.22, dist: 0.70, fScale: 1.0,  density: 4.0, label: "field iv" },
+          { start: 300, end: 370, amp: 0.25, flt: 900,  noise: 0.014, stoch: 0.08, dist: 0.15, fScale: 0.45, density: 2.0, label: "field v" },
+          { start: 370, end: 407, amp: 0.08, flt: 550,  noise: 0.004, stoch: 0.03, dist: 0.0,  fScale: 0.20, density: 1.0, label: "field vi" }
+        ],
+        lerpSection(elapsed) {
+          const S = this.sections;
+          for (let i = 0; i < S.length - 1; i++) {
+            if (elapsed < S[i+1].start) {
+              const t = (elapsed - S[i].start) / (S[i+1].start - S[i].start);
+              const a = S[i], b = S[i+1];
+              return { amp: lerp(a.amp,b.amp,t), flt: lerp(a.flt,b.flt,t), noise: lerp(a.noise,b.noise,t), stoch: lerp(a.stoch,b.stoch,t), dist: lerp(a.dist,b.dist,t), fScale: lerp(a.fScale,b.fScale,t), density: lerp(a.density,b.density,t), label: t<0.5?a.label:b.label };
+            }
+          }
+          return S[S.length - 1];
+        },
+        initVoices(section) { return buildFreeParams(section, SHARED_VOICES, voiceGainsCurrent); },
+        updateVoices(section) { return buildFreeParams(section, SHARED_VOICES, voiceGainsCurrent); },
+        scheduleMaster(ac, master) {
+          const now = ac.currentTime;
+          master.gain.setValueAtTime(0.0001, now);
+          master.gain.linearRampToValueAtTime(1.0, now + 3);
+          master.gain.setValueAtTime(1.0, now + DUR - 1);
+          master.gain.linearRampToValueAtTime(0.0001, now + DUR + 10);
+        },
+        onUpdate() {}
+      };
+
+      const INSTRUMENTS = { ish: ISH, lem: LEM, gen: GEN };
 
       // ================================================================
       // REVERB + NOISE (shared)
@@ -382,7 +416,7 @@ registerProcessor("dss-processor", DSSProcessor);
       }
 
       // ================================================================
-      // AUDIO GRAPH (shared, rebuilt per instrument for correct lowpass)
+      // AUDIO GRAPH
       // ================================================================
 
       async function ensureAudio(inst) {
@@ -393,7 +427,7 @@ registerProcessor("dss-processor", DSSProcessor);
         analyser.fftSize = 4096; analyser.smoothingTimeConstant = 0.65;
         analyser.minDecibels = -90; analyser.maxDecibels = -10;
 
-        const lp = ac.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = inst.lpFreq; lp.Q.value = 0.35;
+        const lp = ac.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = inst.lpFreq; lp.Q.value = 0.25;
         buses.lp = lp;
 
         const sat = ac.createWaveShaper();
@@ -443,7 +477,6 @@ registerProcessor("dss-processor", DSSProcessor);
             iosAudioEl.srcObject = ms.stream; iosAudioEl.play().catch(()=>{});
           } catch (_) {}
         }
-
         runtimeStops.push(() => { try { dssNode.disconnect(); lp.disconnect(); sat.disconnect(); } catch(_){} });
       }
 
@@ -454,19 +487,17 @@ registerProcessor("dss-processor", DSSProcessor);
         const bHP = ac.createBiquadFilter(); bHP.type="highpass"; bHP.frequency.value=50;
         const bG = ac.createGain(); bG.gain.value=0.008;
         brown.connect(bLP).connect(bHP).connect(bG).connect(buses.lp); brown.start();
-
         const white = ac.createBufferSource();
         white.buffer = createNoiseBuf(ac,"white",4040); white.loop=true;
         const wBP = ac.createBiquadFilter(); wBP.type="bandpass"; wBP.frequency.value=1500; wBP.Q.value=0.5;
         const wG = ac.createGain(); wG.gain.value=0.0012;
         white.connect(wBP).connect(wG).connect(buses.lp); white.start();
-
         noiseNodes.push({ bG, wG, wBP, bLP });
         runtimeStops.push(() => { try { brown.stop(); white.stop(); } catch(_){} });
       }
 
       // ================================================================
-      // UPDATER (dispatches to active instrument)
+      // UPDATER (with sparse voice management for GEN)
       // ================================================================
 
       function startUpdater() {
@@ -478,6 +509,35 @@ registerProcessor("dss-processor", DSSProcessor);
           if (elapsed >= DUR) return;
 
           const section = inst.lerpSection(elapsed);
+
+          // Sparse voice management (Gendy c2 only)
+          if (inst.sparse) {
+            const target = section.density;
+            const current = activeVoices.size;
+            if (current < Math.ceil(target) && Math.random() < 0.12) {
+              const inactive = [];
+              for (let i = 0; i < NV; i++) if (!activeVoices.has(i)) inactive.push(i);
+              if (inactive.length > 0) activeVoices.add(inactive[Math.floor(Math.random() * inactive.length)]);
+            }
+            if (current > target + 0.5 && Math.random() < 0.08) {
+              const active = Array.from(activeVoices);
+              if (active.length > 1) activeVoices.delete(active[Math.floor(Math.random() * active.length)]);
+            }
+            if (current >= 2 && Math.random() < 0.015) {
+              const active = Array.from(activeVoices);
+              const inactive = [];
+              for (let i = 0; i < NV; i++) if (!activeVoices.has(i)) inactive.push(i);
+              if (inactive.length > 0) {
+                activeVoices.delete(active[Math.floor(Math.random() * active.length)]);
+                activeVoices.add(inactive[Math.floor(Math.random() * inactive.length)]);
+              }
+            }
+            for (let i = 0; i < NV; i++) {
+              const tg = activeVoices.has(i) ? baseGain(SHARED_VOICES[i].n) : 0.0001;
+              voiceGainsCurrent[i] += (tg - voiceGainsCurrent[i]) * 0.12;
+            }
+          }
+
           const voices = inst.updateVoices(section, elapsed);
           dssNode.port.postMessage({ type: "update", updates: voices });
           inst.onUpdate(elapsed, section);
@@ -485,7 +545,7 @@ registerProcessor("dss-processor", DSSProcessor);
       }
 
       // ================================================================
-      // VISUALIZER (shared)
+      // VISUALIZER
       // ================================================================
 
       function drawViz() {
@@ -498,7 +558,6 @@ registerProcessor("dss-processor", DSSProcessor);
         analyser.getByteFrequencyData(freq);
         analyser.getByteTimeDomainData(time);
         const logS = (i,n) => Math.log10(i+1)/Math.log10(n);
-
         for (let i = 0; i < freq.length; i++) {
           const v = freq[i]/255; if (v < 0.015) continue;
           const x = logS(i,freq.length)*w;
@@ -529,7 +588,6 @@ registerProcessor("dss-processor", DSSProcessor);
         }
         cx.strokeStyle = "rgba(255,255,255,0.05)"; cx.lineWidth = 1; cx.stroke();
         cx.globalAlpha = 1;
-
         if (playing && ac && currentInst) {
           const inst = INSTRUMENTS[currentInst];
           const el = clamp(ac.currentTime - startedAt, 0, DUR + 12);
@@ -570,11 +628,20 @@ registerProcessor("dss-processor", DSSProcessor);
         if (stopping || ac) forceClose();
         const inst = INSTRUMENTS[instKey];
         currentInst = instKey;
-        titleEl.textContent = inst.name;
+        titleEl.innerHTML = inst.name;
 
         await ensureAudio(inst);
         if (!dssNode) return;
         await ac.resume();
+
+        // Sparse instruments start with one random voice
+        if (inst.sparse) {
+          activeVoices = new Set();
+          voiceGainsCurrent = new Float32Array(NV);
+          const first = Math.floor(Math.random() * NV);
+          activeVoices.add(first);
+          voiceGainsCurrent[first] = baseGain(SHARED_VOICES[first].n);
+        }
 
         const section0 = inst.sections[0];
         dssNode.port.postMessage({ type: "init", voices: inst.initVoices(section0) });
@@ -615,25 +682,14 @@ registerProcessor("dss-processor", DSSProcessor);
       // EVENT HANDLERS
       // ================================================================
 
-      // Chooser buttons
       chooserEl.addEventListener("click", (e) => {
         const btn = e.target.closest("[data-inst]");
         if (btn) play(btn.dataset.inst);
       });
-
-      // Tap to stop while playing
-      canvas.addEventListener("pointerdown", () => {
-        if (playing && !stopping) stop();
-      });
-
-      // iOS audio recovery
+      canvas.addEventListener("pointerdown", () => { if (playing && !stopping) stop(); });
       setInterval(() => { if (ac && playing && ac.state === "suspended") ac.resume(); }, 500);
-      document.addEventListener("visibilitychange", () => {
-        if (!document.hidden && ac && playing && ac.state === "suspended") ac.resume();
-      });
-      document.addEventListener("touchstart", () => {
-        if (ac && playing && ac.state === "suspended") ac.resume();
-      }, { passive: true });
+      document.addEventListener("visibilitychange", () => { if (!document.hidden && ac && playing && ac.state === "suspended") ac.resume(); });
+      document.addEventListener("touchstart", () => { if (ac && playing && ac.state === "suspended") ac.resume(); }, { passive: true });
 
     })();
   </script>
