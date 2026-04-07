@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>In Suspended Harmony – instrument + visualizer</title>
+  <title>In Suspended Harmony</title>
   <style>
     :root {
       --bg: #000;
@@ -133,6 +133,11 @@
       let voices = [];
       let buses = {};
       let vizStarted = false;
+      let stopTimeout = null;    // FIX 1: track pending stop timeout
+      let iosAudioEl = null;     // FIX 2: iOS audio element reference
+      let stopping = false;      // FIX 1: guard against race condition
+
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
       function resize() {
         canvas.width = window.innerWidth;
@@ -162,7 +167,7 @@
         { start: 220.00, end: 274.00, label: "Eb coloration",   bass: [39, 43],      body: [39, 43, 46, 51, 55, 58, 63], top: [67, 70, 75] },
         { start: 274.00, end: 330.00, label: "Bb / D / F area", bass: [34, 46],      body: [46, 50, 53, 58, 60, 62, 67], top: [70, 74, 77] },
         { start: 330.00, end: 365.00, label: "recession to G",  bass: [31, 43],      body: [43, 46, 50, 55, 58, 62],     top: [67, 70] },
-        { start: 365.00, end: 407.43, label: "G–A–Bb–D ending", bass: [31, 43],      body: [43, 45, 46, 50, 55, 57, 58], top: [62, 67, 70] }
+        { start: 365.00, end: 407.43, label: "G-A-Bb-D ending", bass: [31, 43],      body: [43, 45, 46, 50, 55, 57, 58], top: [62, 67, 70] }
       ];
 
       const LEAD_PLAN = [
@@ -285,7 +290,6 @@
 
         const lowpass = ctx.createBiquadFilter();
         lowpass.type = "lowpass";
-        // lead slightly darker here
         lowpass.frequency.value = type === "bass" ? 520 : type === "air" ? 2500 : type === "lead" ? 1400 : 1400;
         lowpass.Q.value = type === "lead" ? 0.55 : 0.4;
 
@@ -352,7 +356,6 @@
               ? baseFilter * 0.48
               : type === "air"
               ? baseFilter * 1.55
-              // lead slightly darker here too
               : type === "lead"
               ? baseFilter * 1.45
               : baseFilter * 0.92;
@@ -391,7 +394,10 @@
 
         analyser = ac.createAnalyser();
         analyser.fftSize = 4096;
-        analyser.smoothingTimeConstant = 0.92;
+        // FIX 3: Lower smoothing for more accurate amplitude response
+        analyser.smoothingTimeConstant = 0.65;
+        analyser.minDecibels = -90;
+        analyser.maxDecibels = -10;
 
         buses.dry = ac.createGain();
         buses.dry.gain.value = 1;
@@ -441,6 +447,20 @@
         comp.connect(analyser);
         analyser.connect(master);
         master.connect(ac.destination);
+
+        // FIX 2: iOS audio session activation
+        // Web Audio alone does not fully activate the iOS audio session.
+        // Route through a real HTML <audio> element to force iOS to play.
+        if (isMobile && ac.createMediaStreamDestination) {
+          try {
+            const msDest = ac.createMediaStreamDestination();
+            analyser.connect(msDest);
+            iosAudioEl = document.createElement("audio");
+            iosAudioEl.setAttribute("playsinline", "");
+            iosAudioEl.srcObject = msDest.stream;
+            iosAudioEl.play().catch(() => {});
+          } catch (_) {}
+        }
 
         runtimeStops.push(() => {
           try {
@@ -625,7 +645,8 @@
         const w = canvas.width;
         const h = canvas.height;
 
-        cx.fillStyle = "rgba(0,0,0,0.08)";
+        // FIX 3: Slightly faster fade so trails reflect current amplitude, not accumulated history
+        cx.fillStyle = "rgba(0,0,0,0.12)";
         cx.fillRect(0, 0, w, h);
 
         if (!analyser) return;
@@ -641,58 +662,58 @@
           return (Math.log10(index + 1) - min) / (max - min);
         }
 
-        // spectral fog
+        // FIX 3: Spectral fog with direct amplitude mapping (no power curve compression)
         for (let i = 0; i < freqData.length; i++) {
           const v = freqData[i] / 255;
-          if (v < 0.02) continue;
+          if (v < 0.015) continue;
 
           const x = logScale(i, freqData.length) * w;
-          const spread = Math.pow(v, 1.5) * h * 0.6;
+          const spread = v * h * 0.55;
           const yCenter = h * 0.5;
 
-          cx.globalAlpha = v * 0.35;
+          cx.globalAlpha = v * v * 0.6;
           cx.fillStyle = "#ffffff";
-          cx.fillRect(x, yCenter - spread * 0.5, 1, spread);
+          cx.fillRect(x, yCenter - spread * 0.5, 1.5, spread);
         }
 
-        // harmonic ridge
+        // FIX 3: Harmonic ridge with full vertical range
         cx.beginPath();
         for (let i = 0; i < freqData.length; i++) {
           const v = freqData[i] / 255;
           const x = logScale(i, freqData.length) * w;
-          const y = h * 0.5 - v * h * 0.35;
+          const y = h * 0.5 - v * h * 0.45;
           if (i === 0) cx.moveTo(x, y);
           else cx.lineTo(x, y);
         }
-        cx.strokeStyle = "rgba(255,255,255,0.24)";
+        cx.strokeStyle = "rgba(255,255,255,0.28)";
         cx.lineWidth = 1.2;
         cx.stroke();
 
-        // low foundation
+        // Low foundation
         cx.beginPath();
         for (let i = 0; i < 200; i++) {
           const v = freqData[i] / 255;
           const x = (i / 200) * w;
-          const y = h - v * h * 0.2;
+          const y = h - v * h * 0.25;
           if (i === 0) cx.moveTo(x, y);
           else cx.lineTo(x, y);
         }
-        cx.strokeStyle = "rgba(255,255,255,0.12)";
+        cx.strokeStyle = "rgba(255,255,255,0.14)";
         cx.lineWidth = 2;
         cx.stroke();
 
-        // air field
+        // Air field
         for (let i = Math.floor(freqData.length * 0.6); i < freqData.length; i++) {
           const v = freqData[i] / 255;
           if (v < 0.01) continue;
           const x = logScale(i, freqData.length) * w;
           const y = Math.random() * h;
-          cx.globalAlpha = v * 0.08;
+          cx.globalAlpha = v * 0.1;
           cx.fillStyle = "#ffffff";
           cx.fillRect(x, y, 1, 1);
         }
 
-        // subtle time-domain ghost
+        // Time-domain ghost
         cx.beginPath();
         for (let i = 0; i < timeData.length; i++) {
           const v = (timeData[i] - 128) / 128;
@@ -714,7 +735,7 @@
           statusEl.textContent = "playing";
 
           if (elapsed >= TOTAL_DURATION + 0.1) stop();
-        } else {
+        } else if (!stopping) {
           statusEl.textContent = "idle";
         }
       }
@@ -726,9 +747,39 @@
         voices = [];
       }
 
-      async function play() {
-        if (playing) return;
+      // FIX 1: Synchronous teardown that fully resets all state
+      function forceCloseAudio() {
+        // Cancel any pending stop timeout
+        if (stopTimeout) {
+          clearTimeout(stopTimeout);
+          stopTimeout = null;
+        }
+        // Stop all oscillators and disconnect graph
+        cleanupAudioGraph();
+        // Clean up iOS audio element
+        if (iosAudioEl) {
+          try { iosAudioEl.pause(); iosAudioEl.srcObject = null; } catch (_) {}
+          iosAudioEl = null;
+        }
+        // Close AudioContext
+        if (ac) {
+          try { ac.close(); } catch (_) {}
+        }
+        ac = null;
+        master = null;
+        analyser = null;
+        buses = {};
+        playing = false;
+        stopping = false;
+      }
 
+      async function play() {
+        // FIX 1: If a stop is pending, force-close everything first
+        if (stopping || ac) {
+          forceCloseAudio();
+        }
+
+        // Now we are guaranteed: ac is null, nothing is pending
         ensureAudio();
         await ac.resume();
 
@@ -738,6 +789,7 @@
 
         startedAt = ac.currentTime;
         playing = true;
+        stopping = false;
         hintEl.classList.add("hidden");
 
         if (!vizStarted) {
@@ -747,41 +799,79 @@
       }
 
       async function stop() {
-        if (!ac) return;
+        if (!ac || stopping) return;
 
         playing = false;
+        stopping = true;
         timeEl.textContent = "00:00";
         phaseEl.textContent = "idle";
         statusEl.textContent = "stopping";
 
+        // Stop all oscillators immediately
         cleanupAudioGraph();
 
+        // Fade master to zero
         try {
-          master.gain.cancelScheduledValues(ac.currentTime);
-          master.gain.setValueAtTime(master.gain.value, ac.currentTime);
-          master.gain.linearRampToValueAtTime(0.0001, ac.currentTime + 2);
+          const now = ac.currentTime;
+          master.gain.cancelScheduledValues(now);
+          master.gain.setValueAtTime(master.gain.value, now);
+          master.gain.linearRampToValueAtTime(0.0001, now + 2);
         } catch (_) {}
 
-        setTimeout(async () => {
-          try { await ac.close(); } catch (_) {}
+        // FIX 1: Store timeout so play() can cancel it if user taps again
+        stopTimeout = setTimeout(() => {
+          // Clean up iOS audio element
+          if (iosAudioEl) {
+            try { iosAudioEl.pause(); iosAudioEl.srcObject = null; } catch (_) {}
+            iosAudioEl = null;
+          }
+          if (ac) {
+            try { ac.close(); } catch (_) {}
+          }
           ac = null;
           master = null;
           analyser = null;
           buses = {};
+          stopping = false;
+          stopTimeout = null;
           statusEl.textContent = "tap anywhere to play";
-        }, 2100);
+        }, 2200);
       }
 
-window.addEventListener("pointerdown", async () => {
-  if (!playing) {
-    await play();
-  } else {
-    await stop();
-  }
-});
+      // FIX 1: Unified tap handler with proper state management
+      window.addEventListener("pointerdown", async () => {
+        if (stopping) {
+          // User tapped during fadeout: force restart
+          await play();
+        } else if (!playing) {
+          await play();
+        } else {
+          await stop();
+        }
+      });
 
-// close the IIFE properly
-})();
+      // FIX 2: iOS audio session watchdog
+      setInterval(() => {
+        if (ac && playing && ac.state === "suspended") {
+          ac.resume();
+        }
+      }, 500);
+
+      // FIX 2: Resume on visibility change (iOS backgrounding)
+      document.addEventListener("visibilitychange", () => {
+        if (!document.hidden && ac && playing && ac.state === "suspended") {
+          ac.resume();
+        }
+      });
+
+      // FIX 2: Resume on touch (iOS reclaims audio session)
+      document.addEventListener("touchstart", () => {
+        if (ac && playing && ac.state === "suspended") {
+          ac.resume();
+        }
+      }, { passive: true });
+
+    })();
   </script>
 </body>
 </html>
