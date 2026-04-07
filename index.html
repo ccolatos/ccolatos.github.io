@@ -660,7 +660,7 @@
       var embedData = this.dataset.embed || '';
       var entry = this.closest('.work-entry');
       var t = entry.querySelector('.work-entry-title').textContent;
-      var c = entry.querySelector('.work-entry-caption').textContent;
+      var c = entry.querySelector('.work-entry-caption').innerHTML;
       var imgSrc = this.querySelector('img').src;
       var html = '';
 
