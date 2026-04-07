@@ -10,7 +10,7 @@
     canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; background: #000; }
     .chooser { position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; transition: opacity 600ms ease; }
     .chooser.hidden { opacity: 0; pointer-events: none; }
-    .chooser-btn { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; font-weight: 300; font-size: clamp(0.7rem, 1.8vw, 0.85rem); color: rgba(233,228,218,0.85); background: none; border: 1px solid rgba(233,228,218,0.18); padding: 20px 44px; cursor: pointer; letter-spacing: 0.18em; text-transform: uppercase; transition: border-color 400ms ease, color 300ms ease; min-width: 280px; text-align: center; }
+    .chooser-btn { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; font-weight: 300; font-size: clamp(0.7rem, 1.8vw, 0.85rem); color: rgba(233,228,218,0.85); background: none; border: 1px solid rgba(233,228,218,0.18); padding: 20px 44px; cursor: pointer; letter-spacing: 0.18em; text-transform: uppercase; transition: border-color 400ms ease, color 300ms ease; width: min(380px, 80vw); text-align: center; }
     .chooser-btn:hover { border-color: rgba(233,228,218,0.5); color: rgba(233,228,218,1); }
     .overlay { position: fixed; inset: 0; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; padding: 18px 20px; z-index: 10; mix-blend-mode: screen; opacity: 0; transition: opacity 600ms ease; }
     .overlay.visible { opacity: 1; }
