@@ -468,7 +468,7 @@ registerProcessor("dss-processor", DSSProcessor);
         sat.connect(rvSend); rvSend.connect(conv); conv.connect(rvLP); rvLP.connect(rvHP); rvHP.connect(comp);
         sat.connect(shSend); shSend.connect(shDel); shDel.connect(shLP); shLP.connect(shGain); shGain.connect(comp);
         shGain.connect(shFb); shFb.connect(shDel);
-        comp.connect(analyser); analyser.connect(master); master.connect(ac.destination);
+        const makeup = ac.createGain(); makeup.gain.value = 1.4; comp.connect(makeup); makeup.connect(analyser); analyser.connect(master); master.connect(ac.destination);
 
         if (isMobile && ac.createMediaStreamDestination) {
           try {
