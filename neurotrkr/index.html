@@ -26,21 +26,21 @@
   --mix-hdr:#556;
 }
 body.retro{
-  --bg:#7b7b8a;--fg:#000;--panel:#8a8a99;--grid:#000028;
-  --btn:#9a9aaa;--brd:none;--brd2:#555;--brd3:#666;
-  --inp:#556;--inp-c:#fff;--dim:#444;--dim2:#555;--dim3:#555;
+  --bg:#888;--fg:#000;--panel:#999;--grid:#000;
+  --btn:#aaa;--brd:none;--brd2:#555;--brd3:#666;
+  --inp:#555;--inp-c:#fff;--dim:#555;--dim2:#666;--dim3:#555;
   --acc:#ff8800;--acc2:#ffaa00;--stop:#cc2200;
   --r:0px;--font:'VT323','Courier New',monospace;--fontD:'VT323','Courier New',monospace;
-  --modal:#8a8a99;--modal-brd:outset 2px #ccc;--shadow:3px 3px 0 #000;--blur:none;
-  --gr1:#00002a;--gr2:#000022;--grb:#000036;--grbb:2px solid #000055;--grbt:1px solid #000040;--grbd:1px solid #00001a;
-  --gra:#000060;--grab:#ff880055;--grn:#ff880088;
+  --modal:#999;--modal-brd:outset 2px #ccc;--shadow:3px 3px 0 #000;--blur:none;
+  --gr1:#080808;--gr2:#040404;--grb:#111;--grbb:2px solid #333;--grbt:1px solid #1a1a1a;--grbd:1px solid #0a0a0a;
+  --gra:#222;--grab:#88888855;--grn:#aaa;
   --accG:linear-gradient(90deg,#ff8800,#ffaa00);--accB:linear-gradient(135deg,#cc6600,#ff8800);
   --glow:none;
-  --bvt:2px solid #ccc;--bvr:2px solid #333;--bvb:2px solid #333;--bvl:2px solid #ccc;
+  --bvt:2px solid #ddd;--bvr:2px solid #333;--bvb:2px solid #333;--bvl:2px solid #ddd;
   --hdr-brd:2px outset #aaa;
   --wave:#ff8800;--sep:#666;
   --sb-track:#777;--sb-thumb:#555;--sb-r:0px;
-  --sel-bg:#7a6a40;--sel-brd:#ff880066;--sel-c:#ff8800;
+  --sel-bg:#666;--sel-brd:#ff880066;--sel-c:#ff8800;
   --mix-hdr:#333;
 }
 body{background:var(--bg);overflow:hidden;font-family:var(--font)}
@@ -243,7 +243,7 @@ function App(){
           {/* VIZ */}
           <div style={{display:'flex',gap:4,marginBottom:4,height:28,flexShrink:0}}>
             <div style={{flex:1,background:'var(--panel)',border:'var(--hdr-brd)',borderRadius:'var(--r)',overflow:'hidden'}}><svg viewBox="0 0 512 28" preserveAspectRatio="none" style={{width:'100%',height:'100%'}}>{wave&&(()=>{const pts=[];const sl=wave.length/512;for(let i=0;i<512;i++)pts.push(`${i},${(wave[Math.floor(i*sl)]/128)*14}`);return<polyline points={pts.join(' ')} fill="none" stroke="var(--wave)" strokeWidth="1" opacity="0.6"/>;})()}</svg></div>
-            <div style={{flex:1,background:'var(--panel)',border:'var(--hdr-brd)',borderRadius:'var(--r)',overflow:'hidden'}}><svg viewBox="0 0 128 28" preserveAspectRatio="none" style={{width:'100%',height:'100%'}}>{freq&&(()=>{const b=[];for(let i=0;i<64;i++){const v=freq[i*2]/255;b.push(<rect key={i} x={i*2} y={28-v*25} width={1.5} height={v*25} fill={retro?`hsl(${30+i*0.5},${70+v*30}%,${40+v*20}%)`:`hsl(${150+i*2.5},75%,50%)`} opacity={0.6}/>);}return b;})()}</svg></div>
+            <div style={{flex:1,background:'var(--panel)',border:'var(--hdr-brd)',borderRadius:'var(--r)',overflow:'hidden'}}><svg viewBox="0 0 128 28" preserveAspectRatio="none" style={{width:'100%',height:'100%'}}>{freq&&(()=>{const b=[];for(let i=0;i<64;i++){const v=freq[i*2]/255;b.push(<rect key={i} x={i*2} y={28-v*25} width={1.5} height={v*25} fill={`hsl(${150+i*2.5},75%,50%)`} opacity={0.6}/>);}return b;})()}</svg></div>
           </div>
           {/* MAIN */}
           <div style={{flex:1,display:'flex',overflow:'hidden',borderRadius:'var(--r)'}}>
@@ -268,8 +268,8 @@ function App(){
                     <div style={{width:RNW,minWidth:RNW,display:'flex',alignItems:'center',justifyContent:'flex-end',paddingRight:5,fontSize:retro?10:7,borderRight:'var(--grbt)',color:isBS?'var(--grn)':isBtS?'var(--dim2)':'var(--dim)',fontWeight:isBS?700:400}}>{isBS?`${barI+1}.${beatI+1}`:isBtS?`.${beatI+1}`:r+1}</div>
                     {chs.map((ch,ci)=>{const ev=ch.events[tp];const ct=CH[ci];const hS=solos.some(s=>s);const iM=mutes[ci]||(hS&&!solos[ci]);const vp=ev?Math.round(ev.vel*100):0;
                       return(<div key={ci} data-ci={ci} data-r={r} onMouseDown={e=>cellDown(ci,r,e)} onMouseEnter={()=>cellEnter(ci,r)} style={{width:colW,minWidth:colW,height:RH,borderRight:'var(--grbd)',display:'flex',alignItems:'center',justifyContent:'center',position:'relative',opacity:iM?0.2:1}}>
-                        {ev&&ct.drum&&<><div style={{position:'absolute',left:2,top:3,bottom:3,width:`${vp}%`,maxWidth:colW-4,background:retro?'#887766':ct.color,opacity:retro?0.3+ev.vel*0.3:0.3+ev.vel*0.4,borderRadius:retro?0:1}}/><div style={{position:'relative',zIndex:1,fontSize:retro?10:7,color:retro?'#aaaaaa':ct.color,fontWeight:600,opacity:retro?1:0.8}}>{Math.round(ev.vel*99)}</div></>}
-                        {ev&&!ct.drum&&ev.note&&<><div style={{position:'absolute',left:2,top:3,bottom:3,width:`${vp}%`,maxWidth:colW-4,background:retro?'#556677':ct.color,opacity:retro?0.2+ev.vel*0.3:0.15+ev.vel*0.25,borderRadius:retro?0:1}}/><span style={{position:'relative',zIndex:1,fontSize:retro?11:8,color:retro?'#cccccc':ct.color,fontWeight:700}}>{ev.note.replace('-','')}</span></>}
+                        {ev&&ct.drum&&<><div style={{position:'absolute',left:2,top:3,bottom:3,width:`${vp}%`,maxWidth:colW-4,background:retro?'#777':ct.color,opacity:0.3+ev.vel*0.4,borderRadius:retro?0:1}}/><div style={{position:'relative',zIndex:1,fontSize:retro?10:7,color:retro?'#aaa':ct.color,fontWeight:600,opacity:retro?1:0.8}}>{Math.round(ev.vel*99)}</div></>}
+                        {ev&&!ct.drum&&ev.note&&<><div style={{position:'absolute',left:2,top:3,bottom:3,width:`${vp}%`,maxWidth:colW-4,background:retro?'#555':ct.color,opacity:retro?0.3+ev.vel*0.3:0.15+ev.vel*0.25,borderRadius:retro?0:1}}/><span style={{position:'relative',zIndex:1,fontSize:retro?11:8,color:retro?'#ccc':ct.color,fontWeight:700}}>{ev.note.replace('-','')}</span></>}
                         {isAct&&<div style={{position:'absolute',inset:0,background:'var(--gra)',pointerEvents:'none'}}/>}
                       </div>);})}
                   </div>);})}
