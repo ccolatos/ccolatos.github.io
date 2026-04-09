@@ -42,6 +42,7 @@ body.retro{
   --sb-track:#777;--sb-thumb:#555;--sb-r:0px;
   --sel-bg:#444;--sel-brd:#ffffff66;--sel-c:#fff;
   --mix-hdr:#333;
+  --sl-c:#000;--sl-track:#555;--sl-fill:linear-gradient(90deg,#33333355,#333);--sl-handle:#333;--sl-glow:none;--sl-val:#000;--sl-r:0px;--sl-brd:2px solid #888;--sl-fs:11px;
 }
 body{background:var(--bg);overflow:hidden;font-family:var(--font)}
 #root{height:100vh}
@@ -119,12 +120,12 @@ function Slider({value,min,max,color,onChange,width=60,label}){
   const calc=e=>{const r=ref.current.getBoundingClientRect();return Math.round(min+(max-min)*Math.max(0,Math.min(1,(e.clientX-r.left)/r.width)));};
   useEffect(()=>{const mv=e=>{if(dragging.current)onChange(calc(e));};const up=()=>{dragging.current=false;};const tm=e=>{if(dragging.current){const t=e.touches[0];onChange(Math.round(min+(max-min)*Math.max(0,Math.min(1,(t.clientX-ref.current.getBoundingClientRect().left)/ref.current.getBoundingClientRect().width))));}};const te=()=>{dragging.current=false;};window.addEventListener('mousemove',mv);window.addEventListener('mouseup',up);window.addEventListener('touchmove',tm,{passive:false});window.addEventListener('touchend',te);return()=>{window.removeEventListener('mousemove',mv);window.removeEventListener('mouseup',up);window.removeEventListener('touchmove',tm);window.removeEventListener('touchend',te);};},[min,max,onChange]);
   return(<div style={{display:'flex',alignItems:'center',gap:4}}>
-    {label&&<span style={{color,fontWeight:700,fontSize:8,letterSpacing:1,minWidth:22}}>{label}</span>}
-    <div ref={ref} onMouseDown={e=>{dragging.current=true;onChange(calc(e));}} onTouchStart={e=>{e.preventDefault();dragging.current=true;const t=e.touches[0];const r=ref.current.getBoundingClientRect();onChange(Math.max(0,Math.min(1,(t.clientX-r.left)/r.width)));}} onTouchStart={e=>{e.preventDefault();dragging.current=true;const t=e.touches[0];const r=ref.current.getBoundingClientRect();onChange(Math.round(min+(max-min)*Math.max(0,Math.min(1,(t.clientX-r.left)/r.width))));}} style={{width,height:8,background:'#0e1220',borderRadius:4,cursor:'pointer',position:'relative',flexShrink:0}}>
-      <div style={{position:'absolute',left:0,top:0,bottom:0,width:`${pct}%`,background:`linear-gradient(90deg,${color}55,${color})`,borderRadius:4,transition:dragging.current?'none':'width 0.05s'}}/>
-      <div style={{position:'absolute',top:-2,width:12,height:12,borderRadius:6,background:color,border:'2px solid #060810',left:`calc(${pct}% - 6px)`,boxShadow:`0 0 6px ${color}44`,transition:dragging.current?'none':'left 0.05s'}}/>
+    {label&&<span style={{color:`var(--sl-c,${color})`,fontWeight:700,fontSize:'var(--sl-fs,8px)',letterSpacing:1,minWidth:22}}>{label}</span>}
+    <div ref={ref} onMouseDown={e=>{dragging.current=true;onChange(calc(e));}} onTouchStart={e=>{e.preventDefault();dragging.current=true;const t=e.touches[0];const r=ref.current.getBoundingClientRect();onChange(Math.round(min+(max-min)*Math.max(0,Math.min(1,(t.clientX-r.left)/r.width))));}} style={{width,height:8,background:'var(--sl-track,#0e1220)',borderRadius:4,cursor:'pointer',position:'relative',flexShrink:0}}>
+      <div style={{position:'absolute',left:0,top:0,bottom:0,width:`${pct}%`,background:`var(--sl-fill,linear-gradient(90deg,${color}55,${color}))`,borderRadius:4,transition:dragging.current?'none':'width 0.05s'}}/>
+      <div style={{position:'absolute',top:-2,width:12,height:12,borderRadius:'var(--sl-r,6px)',background:`var(--sl-handle,${color})`,border:'var(--sl-brd,2px solid #060810)',left:`calc(${pct}% - 6px)`,boxShadow:`var(--sl-glow,0 0 6px ${color}44)`,transition:dragging.current?'none':'left 0.05s'}}/>
     </div>
-    <span style={{fontSize:8,color:'#667',minWidth:22,textAlign:'right'}}>{value}</span>
+    <span style={{fontSize:'var(--sl-fs,8px)',color:'var(--sl-val,#667)',minWidth:22,textAlign:'right'}}>{value}</span>
   </div>);
 }
 
@@ -133,9 +134,9 @@ function MixFader({value,color,onChange}){
   const ref=useRef(null),dragging=useRef(false);
   const calc=e=>{const r=ref.current.getBoundingClientRect();return Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));};
   useEffect(()=>{const mv=e=>{if(dragging.current)onChange(calc(e));};const up=()=>{dragging.current=false;};const tm=e=>{if(dragging.current){const t=e.touches[0];const r=ref.current.getBoundingClientRect();onChange(Math.max(0,Math.min(1,(t.clientX-r.left)/r.width)));}};const te=()=>{dragging.current=false;};window.addEventListener('mousemove',mv);window.addEventListener('mouseup',up);window.addEventListener('touchmove',tm,{passive:false});window.addEventListener('touchend',te);return()=>{window.removeEventListener('mousemove',mv);window.removeEventListener('mouseup',up);window.removeEventListener('touchmove',tm);window.removeEventListener('touchend',te);};},[onChange]);
-  return(<div ref={ref} onMouseDown={e=>{dragging.current=true;onChange(calc(e));}} onTouchStart={e=>{e.preventDefault();dragging.current=true;const t=e.touches[0];const r=ref.current.getBoundingClientRect();onChange(Math.max(0,Math.min(1,(t.clientX-r.left)/r.width)));}} style={{flex:1,height:8,background:'#0e1220',borderRadius:4,cursor:'pointer',position:'relative'}}>
-    <div style={{position:'absolute',left:0,top:0,bottom:0,width:`${value*100}%`,background:`linear-gradient(90deg,${color}44,${color})`,borderRadius:4}}/>
-    <div style={{position:'absolute',top:-2,width:10,height:12,borderRadius:5,background:color,border:'2px solid #0a0d16',left:`calc(${value*100}% - 5px)`,boxShadow:`0 0 4px ${color}44`}}/>
+  return(<div ref={ref} onMouseDown={e=>{dragging.current=true;onChange(calc(e));}} onTouchStart={e=>{e.preventDefault();dragging.current=true;const t=e.touches[0];const r=ref.current.getBoundingClientRect();onChange(Math.max(0,Math.min(1,(t.clientX-r.left)/r.width)));}} style={{flex:1,height:8,background:'var(--sl-track,#0e1220)',borderRadius:4,cursor:'pointer',position:'relative'}}>
+    <div style={{position:'absolute',left:0,top:0,bottom:0,width:`${value*100}%`,background:`var(--sl-fill,linear-gradient(90deg,${color}44,${color}))`,borderRadius:4}}/>
+    <div style={{position:'absolute',top:-2,width:10,height:12,borderRadius:'var(--sl-r,5px)',background:`var(--sl-handle,${color})`,border:'var(--sl-brd,2px solid #0a0d16)',left:`calc(${value*100}% - 5px)`,boxShadow:`var(--sl-glow,0 0 4px ${color}44)`}}/>
   </div>);
 }
 
@@ -245,7 +246,7 @@ function App(){
           {/* VIZ */}
           <div style={{display:'flex',gap:4,marginBottom:4,height:28,flexShrink:0}}>
             <div style={{flex:1,background:'var(--panel)',border:'var(--hdr-brd)',borderRadius:'var(--r)',overflow:'hidden'}}><svg viewBox="0 0 512 28" preserveAspectRatio="none" style={{width:'100%',height:'100%'}}>{wave&&(()=>{const pts=[];const sl=wave.length/512;for(let i=0;i<512;i++)pts.push(`${i},${(wave[Math.floor(i*sl)]/128)*14}`);return<polyline points={pts.join(' ')} fill="none" stroke="var(--wave)" strokeWidth="1" opacity="0.6"/>;})()}</svg></div>
-            <div style={{flex:1,background:'var(--panel)',border:'var(--hdr-brd)',borderRadius:'var(--r)',overflow:'hidden'}}><svg viewBox="0 0 128 28" preserveAspectRatio="none" style={{width:'100%',height:'100%'}}>{freq&&(()=>{const b=[];for(let i=0;i<64;i++){const v=freq[i*2]/255;b.push(<rect key={i} x={i*2} y={28-v*25} width={1.5} height={v*25} fill={`hsl(${150+i*2.5},75%,50%)`} opacity={0.6}/>);}return b;})()}</svg></div>
+            <div style={{flex:1,background:'var(--panel)',border:'var(--hdr-brd)',borderRadius:'var(--r)',overflow:'hidden'}}><svg viewBox="0 0 128 28" preserveAspectRatio="none" style={{width:'100%',height:'100%'}}>{freq&&(()=>{const b=[];for(let i=0;i<64;i++){const v=freq[i*2]/255;b.push(<rect key={i} x={i*2} y={28-v*25} width={1.5} height={v*25} fill={retro?`hsl(0,0%,${20+v*50}%)`:`hsl(${150+i*2.5},75%,50%)`} opacity={0.6}/>);}return b;})()}</svg></div>
           </div>
           {/* MAIN */}
           <div style={{flex:1,display:'flex',overflow:'hidden',borderRadius:'var(--r)'}}>
