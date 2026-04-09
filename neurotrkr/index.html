@@ -41,7 +41,7 @@ const VR={
   lead:[{name:'Square',wave:'square',decay:0.3,co:3000,res:4,atk:0.01},{name:'Supersaw',wave:'sawtooth',decay:0.4,co:4000,res:2,atk:0.01},{name:'FM Bell',wave:'sine',decay:0.5,co:6000,res:1,atk:0.005},{name:'Sync',wave:'sawtooth',decay:0.3,co:5000,res:6,atk:0.005},{name:'Pluck',wave:'square',decay:0.12,co:4500,res:8,atk:0.002}],
   pad:[{name:'Lush',decay:2.5,co:2000,det:12,vc:5,atk:0.5},{name:'Dark',decay:3.0,co:800,det:8,vc:4,atk:0.8},{name:'Bright',decay:2.0,co:4000,det:10,vc:5,atk:0.3},{name:'Strings',decay:3.5,co:2500,det:4,vc:6,atk:1.0},{name:'Choir',decay:2.8,co:1500,det:20,vc:3,atk:0.6}],
 };
-const CH=[{id:'kick',name:'KICK',color:'#ff2d40',drum:1},{id:'snare',name:'SNARE',color:'#ff7b2d',drum:1},{id:'chh',name:'CH HI',color:'#ffc82d',drum:1},{id:'ohh',name:'OP HI',color:'#a0e020',drum:1},{id:'perc',name:'PERC',color:'#30e870',drum:1},{id:'bass',name:'BASS',color:'#20ddb0',drum:0},{id:'acid',name:'ACID',color:'#20b8ff',drum:0},{id:'lead',name:'LEAD',color:'#7040ff',drum:0},{id:'pad',name:'PAD',color:'#e040dd',drum:0}];
+const CH=[{id:'kick',name:'KICK',color:'#ff2d40',drum:1},{id:'snare',name:'SNARE',color:'#ff7b2d',drum:1},{id:'chh',name:'CH',color:'#ffc82d',drum:1},{id:'ohh',name:'OH',color:'#a0e020',drum:1},{id:'perc',name:'PERC',color:'#30e870',drum:1},{id:'bass',name:'BASS',color:'#20ddb0',drum:0},{id:'acid',name:'ACID',color:'#20b8ff',drum:0},{id:'lead',name:'LEAD',color:'#7040ff',drum:0},{id:'pad',name:'PAD',color:'#e040dd',drum:0}];
 
 class Eng{
   constructor(){this.c=null;this.m=null;this.comp=null;this.ana=null;this.del=null;this.dG=null;this.rN=null;this.rG=null;this.cG=[];this.cF=[];}
@@ -209,8 +209,8 @@ function App(){
               <div style={{display:'flex',flexShrink:0,borderBottom:'2px solid #1a2030',background:'#0a0e18'}}>
                 <div style={{width:RNW,minWidth:RNW,borderRight:'1px solid #1a2030',display:'flex',alignItems:'center',justifyContent:'center',fontSize:7,color:'#334',padding:'4px 0'}}>ROW</div>
                 {CH.map((ct,ci)=>{const hS=solos.some(s=>s);const iM=mutes[ci]||(hS&&!solos[ci]);return(<div key={ci} style={{width:colW,minWidth:colW,borderRight:'1px solid #10141e',padding:'3px 2px',opacity:iM?0.3:1,display:'flex',flexDirection:'column',alignItems:'center',gap:1}}>
-                  <span style={{color:ct.color,fontWeight:700,fontSize:9,letterSpacing:2}}>{ct.name}</span>
-                  <div style={{display:'flex',gap:1,alignItems:'center'}}><button onClick={()=>setSV(sV===ci?null:ci)} style={{background:'#0e1018',border:'1px solid #1a1e2a',color:'#556',padding:'0 3px',fontSize:6,cursor:'pointer',fontFamily:'inherit',lineHeight:'11px',borderRadius:1,maxWidth:colW-30,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{VR[ct.id][vars[ci]]?.name}</button>
+                  <span onClick={()=>setSV(sV===ci?null:ci)} style={{color:ct.color,fontWeight:700,fontSize:9,letterSpacing:2,cursor:'pointer'}}>{ct.name}</span>
+                  <div style={{display:'flex',gap:1,alignItems:'center'}}>
                   <button onClick={()=>togM(ci)} style={{background:mutes[ci]?'#ff2d40':'#0e1018',color:mutes[ci]?'#fff':'#334',border:'1px solid #1a1e2a',width:13,height:11,fontSize:6,cursor:'pointer',fontFamily:'inherit',padding:0,borderRadius:1}}>M</button>
                   <button onClick={()=>togS(ci)} style={{background:solos[ci]?'#ffaa30':'#0e1018',color:solos[ci]?'#000':'#334',border:'1px solid #1a1e2a',width:13,height:11,fontSize:6,cursor:'pointer',fontFamily:'inherit',padding:0,borderRadius:1}}>S</button></div></div>);})}
               </div>
