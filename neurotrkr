@@ -1,1 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEUROTRKR</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Oxanium:wght@700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#060810;overflow:hidden;font-family:'JetBrains Mono',monospace}
+#root{height:100vh}
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:#0a0d16}::-webkit-scrollbar-thumb{background:#1a2030;border-radius:3px}
+select,button{outline:none}
+</style>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body><div id="root"></div>
+<script type="text/babel">
+const{useState,useEffect,useRef,useCallback,useMemo}=React;
+const TPQ=64,NOTES=['C-','C#','D-','D#','E-','F-','F#','G-','G#','A-','A#','B-'];
+const ntf=(n,o)=>440*Math.pow(2,((NOTES.indexOf(n)-9)+(o-4)*12)/12);
+const TS=[[2,4],[3,4],[4,4],[5,4],[6,4],[7,4],[9,4],[11,4],[13,4],[2,2],[3,2],[3,8],[5,8],[6,8],[7,8],[9,8],[11,8],[12,8],[13,8],[15,8]];
+const GD=[{l:'1/4',t:64},{l:'1/8',t:32},{l:'1/12',t:21},{l:'1/16',t:16},{l:'1/24',t:11},{l:'1/32',t:8},{l:'1/48',t:5},{l:'1/64',t:4},{l:'1/128',t:2},{l:'1/256',t:1}];
+const qpb=(n,d)=>n*(4/d),TPB=(n,d)=>qpb(n,d)*TPQ;
+const VELS=[0.25,0.5,0.75,1.0];
+const VR={
+  kick:[{name:'Standard',pitch:55,decay:0.4,punch:150,click:0.7,drive:0},{name:'808',pitch:42,decay:0.7,punch:100,click:0.2,drive:0.1},{name:'Analog',pitch:58,decay:0.35,punch:130,click:0.5,drive:0.15},{name:'Punchy',pitch:62,decay:0.25,punch:200,click:1.0,drive:0.3},{name:'Sub',pitch:38,decay:0.6,punch:80,click:0.1,drive:0}],
+  snare:[{name:'Acoustic',tone:200,decay:0.2,snap:0.8,na:1,clap:0},{name:'808',tone:160,decay:0.3,snap:0.4,na:0.6,clap:0},{name:'Tight',tone:240,decay:0.1,snap:1.0,na:0.8,clap:0},{name:'Noise',tone:300,decay:0.22,snap:0.9,na:1.4,clap:0},{name:'Clap',tone:180,decay:0.25,snap:0.6,na:0.5,clap:1}],
+  chh:[{name:'Tight',decay:0.04,tone:9000},{name:'Crisp',decay:0.06,tone:11000},{name:'Digital',decay:0.03,tone:12000},{name:'Soft',decay:0.07,tone:6000},{name:'Lo-Fi',decay:0.08,tone:4500}],
+  ohh:[{name:'Standard',decay:0.25,tone:8000},{name:'Sizzle',decay:0.4,tone:10000},{name:'Trashy',decay:0.35,tone:5000},{name:'Short',decay:0.15,tone:9000},{name:'Dark',decay:0.3,tone:3500}],
+  perc:[{name:'Rim',type:'rim',pitch:800,decay:0.05},{name:'Cowbell',type:'metal',pitch:560,decay:0.08},{name:'Clave',type:'rim',pitch:2500,decay:0.02},{name:'Tom',type:'tom',pitch:120,decay:0.2},{name:'Shaker',type:'shaker',pitch:7000,decay:0.06}],
+  bass:[{name:'Acid',type:'acid',decay:0.3,co:800,res:14,env:3000,drv:0.4},{name:'Reese',type:'reese',decay:0.4,co:500,res:4,env:800,drv:0.5},{name:'Sub',type:'sub',decay:0.5,co:300,res:1,env:200,drv:0},{name:'FM',type:'fm',decay:0.3,co:1200,res:6,env:2000,drv:0.2},{name:'Pluck',type:'acid',decay:0.12,co:2000,res:10,env:5000,drv:0.3}],
+  acid:[{name:'Squelch',type:'acid',decay:0.2,co:400,res:22,env:6000,drv:0.5},{name:'Screamer',type:'acid',decay:0.25,co:600,res:18,env:5000,drv:0.8},{name:'Mellow',type:'acid',decay:0.3,co:900,res:6,env:1500,drv:0.2},{name:'Hoover',type:'reese',decay:0.35,co:700,res:8,env:2000,drv:0.4},{name:'Wobble',type:'acid',decay:0.4,co:500,res:15,env:4000,drv:0.3}],
+  lead:[{name:'Square',wave:'square',decay:0.3,co:3000,res:4,atk:0.01},{name:'Supersaw',wave:'sawtooth',decay:0.4,co:4000,res:2,atk:0.01},{name:'FM Bell',wave:'sine',decay:0.5,co:6000,res:1,atk:0.005},{name:'Sync',wave:'sawtooth',decay:0.3,co:5000,res:6,atk:0.005},{name:'Pluck',wave:'square',decay:0.12,co:4500,res:8,atk:0.002}],
+  pad:[{name:'Lush',decay:2.5,co:2000,det:12,vc:5,atk:0.5},{name:'Dark',decay:3.0,co:800,det:8,vc:4,atk:0.8},{name:'Bright',decay:2.0,co:4000,det:10,vc:5,atk:0.3},{name:'Strings',decay:3.5,co:2500,det:4,vc:6,atk:1.0},{name:'Choir',decay:2.8,co:1500,det:20,vc:3,atk:0.6}],
+};
+const CH=[{id:'kick',name:'KICK',color:'#ff2d40',drum:1},{id:'snare',name:'SNARE',color:'#ff7b2d',drum:1},{id:'chh',name:'CH HI',color:'#ffc82d',drum:1},{id:'ohh',name:'OP HI',color:'#a0e020',drum:1},{id:'perc',name:'PERC',color:'#30e870',drum:1},{id:'bass',name:'BASS',color:'#20ddb0',drum:0},{id:'acid',name:'ACID',color:'#20b8ff',drum:0},{id:'lead',name:'LEAD',color:'#7040ff',drum:0},{id:'pad',name:'PAD',color:'#e040dd',drum:0}];
 
+class Eng{
+  constructor(){this.c=null;this.m=null;this.comp=null;this.ana=null;this.del=null;this.dG=null;this.rN=null;this.rG=null;this.cG=[];this.cF=[];}
+  init(){if(this.c)return;this.c=new(window.AudioContext||window.webkitAudioContext)();this.ana=this.c.createAnalyser();this.ana.fftSize=2048;this.comp=this.c.createDynamicsCompressor();this.comp.threshold.value=-10;this.comp.ratio.value=4;this.comp.attack.value=0.003;this.comp.release.value=0.15;this.del=this.c.createDelay(1);this.del.delayTime.value=0.375;this.dG=this.c.createGain();this.dG.gain.value=0;const fb=this.c.createGain();fb.gain.value=0.35;const df=this.c.createBiquadFilter();df.type='lowpass';df.frequency.value=3000;this.del.connect(df);df.connect(fb);fb.connect(this.del);this.del.connect(this.dG);this.dG.connect(this.comp);this.rG=this.c.createGain();this.rG.gain.value=0;this.rN=this.c.createConvolver();const len=this.c.sampleRate*2.2,imp=this.c.createBuffer(2,len,this.c.sampleRate);for(let ch=0;ch<2;ch++){const d=imp.getChannelData(ch);for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/len,2.2);}this.rN.buffer=imp;this.rN.connect(this.rG);this.rG.connect(this.comp);this.m=this.c.createGain();this.m.gain.value=0.85;this.comp.connect(this.ana);this.ana.connect(this.m);this.m.connect(this.c.destination);for(let i=0;i<9;i++){const g=this.c.createGain();g.gain.value=0.7;const f=this.c.createBiquadFilter();f.type='lowpass';f.frequency.value=18000;f.Q.value=1;g.connect(f);f.connect(this.comp);f.connect(this.del);f.connect(this.rN);this.cG.push(g);this.cF.push(f);}}
+  sCV(i,v){if(this.cG[i])this.cG[i].gain.value=v;}sD(v){if(this.dG)this.dG.gain.value=v;}sR(v){if(this.rG)this.rG.gain.value=v;}sM(v){if(this.m)this.m.gain.value=v;}
+  _ws(d){const ws=this.c.createWaveShaper(),k=d*40,cv=new Float32Array(256);for(let i=0;i<256;i++){const x=(i*2)/255-1;cv[i]=Math.tanh(x*(1+k));}ws.curve=cv;return ws;}
+  _n(d){const n=Math.max(1,Math.floor(this.c.sampleRate*d)),b=this.c.createBuffer(1,n,this.c.sampleRate),dt=b.getChannelData(0);for(let i=0;i<n;i++)dt[i]=Math.random()*2-1;const s=this.c.createBufferSource();s.buffer=b;return s;}
+  kick(ch,v,p){const t=this.c.currentTime,o=this.c.createOscillator(),g=this.c.createGain();o.type='sine';o.frequency.setValueAtTime(p.pitch+p.punch,t);o.frequency.exponentialRampToValueAtTime(Math.max(p.pitch,20),t+0.07);g.gain.setValueAtTime(v*0.9,t);g.gain.exponentialRampToValueAtTime(0.001,t+p.decay);if(p.click>0.1){const co=this.c.createOscillator(),cg=this.c.createGain();co.type='square';co.frequency.setValueAtTime(800,t);co.frequency.exponentialRampToValueAtTime(100,t+0.01);cg.gain.setValueAtTime(p.click*v*0.3,t);cg.gain.exponentialRampToValueAtTime(0.001,t+0.03);co.connect(cg);cg.connect(this.cG[ch]);co.start(t);co.stop(t+0.04);}if(p.drive>0.05){const ws=this._ws(p.drive);o.connect(g);g.connect(ws);ws.connect(this.cG[ch]);}else{o.connect(g);g.connect(this.cG[ch]);}o.start(t);o.stop(t+p.decay+0.1);}
+  snare(ch,v,p){const t=this.c.currentTime;const o=this.c.createOscillator(),og=this.c.createGain();o.type='triangle';o.frequency.setValueAtTime(p.tone,t);o.frequency.exponentialRampToValueAtTime(Math.max(p.tone*0.4,20),t+0.06);og.gain.setValueAtTime(v*0.55,t);og.gain.exponentialRampToValueAtTime(0.001,t+0.13);o.connect(og);og.connect(this.cG[ch]);o.start(t);o.stop(t+0.15);if(p.clap){for(let b=0;b<4;b++){const off=b*0.013,n=this._n(0.025),ng=this.c.createGain(),bp=this.c.createBiquadFilter();bp.type='bandpass';bp.frequency.value=1200;bp.Q.value=2.5;ng.gain.setValueAtTime(v*0.35,t+off);ng.gain.exponentialRampToValueAtTime(0.001,t+off+0.025);n.connect(bp);bp.connect(ng);ng.connect(this.cG[ch]);n.start(t+off);n.stop(t+off+0.03);}}const n=this._n(p.decay+0.05),ng=this.c.createGain(),nf=this.c.createBiquadFilter();nf.type='highpass';nf.frequency.value=p.snap>0.5?2200:1000;ng.gain.setValueAtTime(v*(p.na||1)*0.55,t);ng.gain.exponentialRampToValueAtTime(0.001,t+p.decay);n.connect(nf);nf.connect(ng);ng.connect(this.cG[ch]);n.start(t);n.stop(t+p.decay+0.06);}
+  hat(ch,v,p,open){const t=this.c.currentTime,dur=p.decay;const n=this._n(dur+0.02),g=this.c.createGain(),hp=this.c.createBiquadFilter(),bp=this.c.createBiquadFilter();hp.type='highpass';hp.frequency.value=p.tone;bp.type='bandpass';bp.frequency.value=p.tone*1.2;bp.Q.value=open?0.8:2.5;g.gain.setValueAtTime(v*0.4,t);g.gain.exponentialRampToValueAtTime(0.001,t+dur);n.connect(hp);hp.connect(bp);bp.connect(g);g.connect(this.cG[ch]);n.start(t);n.stop(t+dur+0.02);}
+  perc(ch,v,p){const t=this.c.currentTime;if(p.type==='shaker'){const n=this._n(p.decay+0.02),g=this.c.createGain(),bp=this.c.createBiquadFilter();bp.type='bandpass';bp.frequency.value=p.pitch;bp.Q.value=2.5;g.gain.setValueAtTime(v*0.4,t);g.gain.exponentialRampToValueAtTime(0.001,t+p.decay);n.connect(bp);bp.connect(g);g.connect(this.cG[ch]);n.start(t);n.stop(t+p.decay+0.02);}else if(p.type==='tom'){const o=this.c.createOscillator(),g=this.c.createGain();o.type='sine';o.frequency.setValueAtTime(p.pitch*2.5,t);o.frequency.exponentialRampToValueAtTime(Math.max(p.pitch,20),t+0.05);g.gain.setValueAtTime(v*0.65,t);g.gain.exponentialRampToValueAtTime(0.001,t+p.decay);o.connect(g);g.connect(this.cG[ch]);o.start(t);o.stop(t+p.decay+0.02);}else if(p.type==='metal'){const o1=this.c.createOscillator(),o2=this.c.createOscillator(),g=this.c.createGain();o1.type='square';o2.type='square';o1.frequency.value=p.pitch;o2.frequency.value=p.pitch*1.47;g.gain.setValueAtTime(v*0.3,t);g.gain.exponentialRampToValueAtTime(0.001,t+p.decay);o1.connect(g);o2.connect(g);g.connect(this.cG[ch]);o1.start(t);o2.start(t);o1.stop(t+p.decay+0.02);o2.stop(t+p.decay+0.02);}else{const o=this.c.createOscillator(),g=this.c.createGain();o.type='triangle';o.frequency.setValueAtTime(p.pitch,t);o.frequency.exponentialRampToValueAtTime(Math.max(p.pitch*0.3,20),t+p.decay);g.gain.setValueAtTime(v*0.5,t);g.gain.exponentialRampToValueAtTime(0.001,t+p.decay);o.connect(g);g.connect(this.cG[ch]);o.start(t);o.stop(t+p.decay+0.02);}}
+  bass(ch,freq,v,p){const t=this.c.currentTime;const o1=this.c.createOscillator(),o2=this.c.createOscillator(),g=this.c.createGain(),f=this.c.createBiquadFilter();if(p.type==='sub'){o1.type='sine';o2.type='sine';o1.frequency.setValueAtTime(freq,t);o2.frequency.setValueAtTime(freq*2.001,t);}else if(p.type==='fm'){o1.type='sine';o2.type='sine';o1.frequency.setValueAtTime(freq,t);const mg=this.c.createGain();mg.gain.value=freq*2;o2.frequency.value=freq*1.5;o2.connect(mg);mg.connect(o1.frequency);}else{o1.type='sawtooth';o2.type='sawtooth';o1.frequency.setValueAtTime(freq,t);o2.frequency.setValueAtTime(freq*(p.type==='reese'?1.006:1.012),t);}f.type='lowpass';f.frequency.setValueAtTime(Math.max((p.co||800)+(p.env||2000),20),t);f.frequency.exponentialRampToValueAtTime(Math.max(p.co||800,20),t+0.15);f.Q.value=p.res||4;g.gain.setValueAtTime(v*0.5,t);g.gain.setValueAtTime(v*0.5,t+p.decay*0.7);g.gain.exponentialRampToValueAtTime(0.001,t+p.decay);const mx=this.c.createGain();mx.gain.value=0.6;if(p.type!=='fm'){o1.connect(mx);o2.connect(mx);}else o1.connect(mx);if((p.drv||0)>0.05){const ws=this._ws(p.drv);mx.connect(ws);ws.connect(f);}else mx.connect(f);f.connect(g);g.connect(this.cG[ch]);o1.start(t);o2.start(t);o1.stop(t+p.decay+0.1);o2.stop(t+p.decay+0.1);}
+  lead(ch,freq,v,p){const t=this.c.currentTime;const o=this.c.createOscillator(),o2=this.c.createOscillator(),g=this.c.createGain(),f=this.c.createBiquadFilter();o.type=p.wave||'square';o2.type='sawtooth';o.frequency.value=freq;o2.frequency.value=freq*2.005;if(p.wave==='sine'){const mod=this.c.createOscillator(),mg=this.c.createGain();mod.type='sine';mod.frequency.value=freq*3.5;mg.gain.value=freq*4;mod.connect(mg);mg.connect(o.frequency);mod.start(t);mod.stop(t+p.decay+0.1);}f.type='lowpass';f.frequency.setValueAtTime(Math.max((p.co||3000)*2,20),t);f.frequency.exponentialRampToValueAtTime(Math.max(p.co||3000,20),t+0.12);f.Q.value=p.res||4;g.gain.setValueAtTime(0.001,t);g.gain.linearRampToValueAtTime(v*0.35,t+(p.atk||0.01));g.gain.setValueAtTime(v*0.35,t+p.decay*0.6);g.gain.exponentialRampToValueAtTime(0.001,t+p.decay);const mx=this.c.createGain();mx.gain.value=0.5;o.connect(mx);o2.connect(mx);mx.connect(f);f.connect(g);g.connect(this.cG[ch]);o.start(t);o2.start(t);o.stop(t+p.decay+0.1);o2.stop(t+p.decay+0.1);}
+  pad(ch,freq,v,p){const t=this.c.currentTime;const g=this.c.createGain(),f=this.c.createBiquadFilter();const vc=p.vc||4;f.type='lowpass';f.frequency.value=p.co||2000;f.Q.value=1;g.gain.setValueAtTime(0.001,t);g.gain.linearRampToValueAtTime(v*0.25/vc,t+(p.atk||0.5));g.gain.setValueAtTime(v*0.25/vc,t+p.decay*0.5);g.gain.exponentialRampToValueAtTime(0.001,t+p.decay);for(let vi=0;vi<vc;vi++){const o=this.c.createOscillator();o.type='sawtooth';o.frequency.value=freq;o.detune.value=(vi-vc/2)*(p.det||8)+Math.random()*3;o.connect(f);o.start(t);o.stop(t+p.decay+0.2);}f.connect(g);g.connect(this.cG[ch]);}
+  gW(){if(!this.ana)return null;const d=new Uint8Array(this.ana.frequencyBinCount);this.ana.getByteTimeDomainData(d);return d;}
+  gF(){if(!this.ana)return null;const d=new Uint8Array(this.ana.frequencyBinCount);this.ana.getByteFrequencyData(d);return d;}
+}
+
+const PR={
+  'aphex-twin':{name:'Aphex Twin',bpm:133,swing:15,bars:16,ts:[4,4],gd:3,del:0.25,rev:0.35,ch:[{v:0,vol:0.8,p:[1,0,0,0,0,0,0,0,1,0,0,.5,0,0,0,0,1,0,0,0,0,0,.7,0,1,0,0,0,0,0,0,0]},{v:0,vol:0.6,p:[0,0,0,0,1,0,0,.4,0,0,0,0,1,0,.3,0,0,0,0,0,1,0,0,.5,0,.3,0,0,1,0,0,0]},{v:1,vol:0.4,p:[.5,0,.7,0,.5,0,.8,.3,.5,0,.6,0,.5,0,.9,0,.5,.3,.7,0,.5,0,.8,0,.5,0,.7,.4,.5,0,.8,0]},{v:0,vol:0.3,p:[0,0,0,0,0,0,0,0,0,0,0,0,.6,0,0,0,0,0,0,0,0,0,0,0,.5,0,0,0,0,0,0,0]},{v:0,vol:0.35,p:[0,0,0,0,0,0,.6,0,0,0,0,.5,0,0,0,0,0,0,.4,0,0,0,0,0,0,.6,0,0,0,0,0,.3]},{v:1,vol:0.7,n:['E-2','E-2','','','E-2','','','','G-2','','','','A-2','','','','E-2','','','','E-2','','','','C-2','','','','D-2','','','']},{v:0,vol:0.45,n:['C-3','','E-3','','','G-3','','','A-3','','','','G-3','','E-3','','C-3','','','D-3','','','','E-3','','','G-3','','','','A-3','']},{v:0,vol:0.3,n:['E-4','','','','','','','','G-4','','','','','','','','E-4','','','','','','D-4','','','','','','','','','']},{v:0,vol:0.25,n:['E-3','','','','','','','','','','','','','','','','G-3','','','','','','','','','','','','','','','']}]},
+  'venetian-snares':{name:'Venetian Snares',bpm:180,swing:0,bars:16,ts:[7,8],gd:3,del:0.15,rev:0.2,ch:[{v:3,vol:0.9,p:[1,0,0,0,0,0,0,0,0,.8,0,0,0,0,1,0,0,0,0,.6,0,0,0,1,0,0,0,0]},{v:2,vol:0.75,p:[0,0,1,0,0,.7,0,1,0,0,0,.8,0,0,0,1,0,0,0,0,.6,0,0,0,1,0,.5,0]},{v:2,vol:0.5,p:[.6,.4,.7,.5,.8,.4,.6,.5,.7,.4,.8,.5,.6,.4,.7,.5,.8,.4,.6,.5,.7,.4,.8,.5,.6,.7,.4,.5]},{v:2,vol:0.3,p:[0,0,0,0,0,.5,0,0,0,0,.4,0,0,0,0,0,0,0,.6,0,0,0,0,0,0,.5,0,0]},{v:1,vol:0.5,p:[0,0,0,.6,0,0,0,0,.5,0,0,0,.7,0,0,0,0,.4,0,0,0,.6,0,0,0,0,0,.5]},{v:1,vol:0.75,n:['D-1','','','D-1','','','','D-1','','','','D-1','','','','E-1','','','D-1','','','','','D-1','','F-1','','']},{v:0,vol:0,n:[]},{v:3,vol:0.35,n:['D-4','','','F-4','','','','A-4','','','','G-4','','','','F-4','','','E-4','','','','','D-4','','','','']},{v:1,vol:0.2,n:['D-3','','','','','','','','','','','','','','A-3','','','','','','','','','','','','','']}]},
+  'deadmau5':{name:'deadmau5',bpm:128,swing:0,bars:16,ts:[4,4],gd:3,del:0.2,rev:0.3,ch:[{v:0,vol:0.85,p:[1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0]},{v:0,vol:0.6,p:[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0]},{v:0,vol:0.35,p:[0,0,.6,0,0,0,.6,0,0,0,.6,0,0,0,.6,0,0,0,.6,0,0,0,.6,0,0,0,.6,0,0,0,.6,0]},{v:3,vol:0.2,p:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,.5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{v:0,vol:0.3,p:[0,0,0,0,0,0,0,.5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,.5,0,0,0,0,0,0,0,0]},{v:1,vol:0.8,n:['F-2','','','','F-2','','','','F-2','','','','F-2','','','','A#1','','','','A#1','','','','A#1','','','','A#1','','','']},{v:2,vol:0,n:[]},{v:1,vol:0.45,n:['F-4','','','A-4','','','C-5','','A-4','','','','','','','','A#4','','','D-5','','','F-5','','D-5','','','','','','','']},{v:0,vol:0.35,n:['F-3','','','','','','','','','','','','','','','','A#3','','','','','','','','','','','','','','','']}]},
+  'machinedrum':{name:'Machinedrum',bpm:160,swing:20,bars:16,ts:[4,4],gd:3,del:0.3,rev:0.25,ch:[{v:2,vol:0.85,p:[1,0,0,0,0,0,.7,0,0,0,1,0,0,0,0,0,.8,0,0,0,0,0,0,.6,0,0,1,0,0,0,0,0]},{v:0,vol:0.65,p:[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,.4,0,0,0,0,1,0,0,0,0,0,0,.5,1,0,0,0]},{v:0,vol:0.45,p:[.6,.4,.7,.5,.8,.4,.7,.5,.6,.4,.8,.5,.7,.4,.6,.5,.8,.4,.7,.5,.6,.4,.8,.5,.7,.4,.6,.5,.8,.4,.7,.5]},{v:1,vol:0.25,p:[0,0,0,0,0,0,0,0,0,0,0,0,.4,0,0,0,0,0,0,0,0,0,0,0,0,0,.5,0,0,0,0,0]},{v:1,vol:0.4,p:[0,0,0,.5,0,0,0,0,.4,0,0,0,0,0,.6,0,0,0,0,0,.5,0,0,0,0,0,0,.4,0,0,.5,0]},{v:1,vol:0.75,n:['G-1','','','','G-1','','','','G-1','','G-1','','','','','','A#1','','','','A#1','','','','C-2','','','','','','','']},{v:0,vol:0.4,n:['G-2','','D-3','','','G-2','','','A#2','','','','D-3','','G-2','','A#2','','','','F-3','','','','D-3','','','','A#2','','G-2','']},{v:0,vol:0.3,n:['','','','','','','','','G-4','','','','','','','','','','','','','','','','D-5','','','','','','','']},{v:2,vol:0.2,n:['G-3','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','']}]},
+  'pete-cannon':{name:'Pete Cannon',bpm:172,swing:8,bars:16,ts:[4,4],gd:3,del:0.15,rev:0.2,ch:[{v:3,vol:0.9,p:[1,0,0,0,0,0,0,0,0,0,.8,0,0,0,0,0,0,0,0,.7,0,0,0,0,1,0,0,0,0,0,0,0]},{v:2,vol:0.7,p:[0,0,0,0,1,0,0,.5,0,0,0,0,1,0,0,0,0,0,.7,0,1,0,0,0,0,0,0,.6,1,0,0,.4]},{v:1,vol:0.5,p:[.7,.4,.8,.5,.7,.4,.9,.3,.7,.5,.8,.4,.6,.4,.9,.5,.7,.3,.8,.5,.7,.4,.9,.3,.8,.5,.7,.4,.6,.4,.8,.5]},{v:0,vol:0.35,p:[0,0,0,0,0,0,0,0,0,0,0,.5,0,0,0,0,.6,0,0,0,0,0,0,0,0,0,.4,0,0,0,0,0]},{v:0,vol:0.35,p:[0,0,.5,0,0,0,0,0,0,.4,0,0,0,0,0,.5,0,0,0,0,.6,0,0,0,0,0,.4,0,0,0,0,0]},{v:1,vol:0.8,n:['E-1','','','','E-1','','','','E-1','','','','','','D-1','','E-1','','','','G-1','','','','E-1','','','','D-1','','','']},{v:0,vol:0,n:[]},{v:0,vol:0.3,n:['','','','','','','','','E-4','','','','','','','','','','','','','','','','G-4','','','','','','','']},{v:3,vol:0.2,n:['E-3','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','']}]},
+};
+function buildP(id){const p=PR[id];const tb=TPB(p.ts[0],p.ts[1]);const tot=p.bars*tb;const chs=p.ch.map(c=>{const ev={};const pat=c.p||[];const notes=c.n||[];const pl=Math.max(pat.length,notes.length,1);const t16=Math.floor(tot/16);for(let i=0;i<t16;i++){const vel=pat.length?pat[i%pl]:0;const note=notes.length?(notes[i%notes.length]||''):'';if(vel>0||note)ev[i*16]={vel:vel||0.8,note};}return{variant:c.v||0,vol:c.vol,events:ev};});return{...p,channels:chs};}
+
+// Draggable slider component
+function Slider({value,min,max,color,onChange,width=60,label}){
+  const ref=useRef(null),dragging=useRef(false);
+  const pct=((value-min)/(max-min))*100;
+  const calc=e=>{const r=ref.current.getBoundingClientRect();return Math.round(min+(max-min)*Math.max(0,Math.min(1,(e.clientX-r.left)/r.width)));};
+  useEffect(()=>{const mv=e=>{if(dragging.current)onChange(calc(e));};const up=()=>{dragging.current=false;};const tm=e=>{if(dragging.current){const t=e.touches[0];onChange(Math.round(min+(max-min)*Math.max(0,Math.min(1,(t.clientX-ref.current.getBoundingClientRect().left)/ref.current.getBoundingClientRect().width))));}};const te=()=>{dragging.current=false;};window.addEventListener('mousemove',mv);window.addEventListener('mouseup',up);window.addEventListener('touchmove',tm,{passive:false});window.addEventListener('touchend',te);return()=>{window.removeEventListener('mousemove',mv);window.removeEventListener('mouseup',up);window.removeEventListener('touchmove',tm);window.removeEventListener('touchend',te);};},[min,max,onChange]);
+  return(<div style={{display:'flex',alignItems:'center',gap:4}}>
+    {label&&<span style={{color,fontWeight:700,fontSize:8,letterSpacing:1,minWidth:22}}>{label}</span>}
+    <div ref={ref} onMouseDown={e=>{dragging.current=true;onChange(calc(e));}} onTouchStart={e=>{e.preventDefault();dragging.current=true;const t=e.touches[0];const r=ref.current.getBoundingClientRect();onChange(Math.max(0,Math.min(1,(t.clientX-r.left)/r.width)));}} onTouchStart={e=>{e.preventDefault();dragging.current=true;const t=e.touches[0];const r=ref.current.getBoundingClientRect();onChange(Math.round(min+(max-min)*Math.max(0,Math.min(1,(t.clientX-r.left)/r.width))));}} style={{width,height:8,background:'#0e1220',borderRadius:4,cursor:'pointer',position:'relative',flexShrink:0}}>
+      <div style={{position:'absolute',left:0,top:0,bottom:0,width:`${pct}%`,background:`linear-gradient(90deg,${color}55,${color})`,borderRadius:4,transition:dragging.current?'none':'width 0.05s'}}/>
+      <div style={{position:'absolute',top:-2,width:12,height:12,borderRadius:6,background:color,border:'2px solid #060810',left:`calc(${pct}% - 6px)`,boxShadow:`0 0 6px ${color}44`,transition:dragging.current?'none':'left 0.05s'}}/>
+    </div>
+    <span style={{fontSize:8,color:'#667',minWidth:22,textAlign:'right'}}>{value}</span>
+  </div>);
+}
+
+// Draggable mixer fader
+function MixFader({value,color,onChange}){
+  const ref=useRef(null),dragging=useRef(false);
+  const calc=e=>{const r=ref.current.getBoundingClientRect();return Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));};
+  useEffect(()=>{const mv=e=>{if(dragging.current)onChange(calc(e));};const up=()=>{dragging.current=false;};const tm=e=>{if(dragging.current){const t=e.touches[0];const r=ref.current.getBoundingClientRect();onChange(Math.max(0,Math.min(1,(t.clientX-r.left)/r.width)));}};const te=()=>{dragging.current=false;};window.addEventListener('mousemove',mv);window.addEventListener('mouseup',up);window.addEventListener('touchmove',tm,{passive:false});window.addEventListener('touchend',te);return()=>{window.removeEventListener('mousemove',mv);window.removeEventListener('mouseup',up);window.removeEventListener('touchmove',tm);window.removeEventListener('touchend',te);};},[onChange]);
+  return(<div ref={ref} onMouseDown={e=>{dragging.current=true;onChange(calc(e));}} style={{flex:1,height:8,background:'#0e1220',borderRadius:4,cursor:'pointer',position:'relative'}}>
+    <div style={{position:'absolute',left:0,top:0,bottom:0,width:`${value*100}%`,background:`linear-gradient(90deg,${color}44,${color})`,borderRadius:4}}/>
+    <div style={{position:'absolute',top:-2,width:10,height:12,borderRadius:5,background:color,border:'2px solid #0a0d16',left:`calc(${value*100}% - 5px)`,boxShadow:`0 0 4px ${color}44`}}/>
+  </div>);
+}
+
+const RH=19,RNW=44,MIX_W=220;
+function App(){
+  const eR=useRef(null);const[init,setInit]=useState(false);const[playing,setPlaying]=useState(false);const[curTick,setCurTick]=useState(-1);
+  const[bpm,setBpm]=useState(133);const[swing,setSwing]=useState(15);const[bars,setBars]=useState(16);const[ts,setTs]=useState([4,4]);const[gd,setGd]=useState(3);
+  const[chs,setChs]=useState([]);const[vars,setVars]=useState(Array(9).fill(0));const[vols,setVols]=useState(Array(9).fill(0.7));
+  const[mutes,setMutes]=useState(Array(9).fill(false));const[solos,setSolos]=useState(Array(9).fill(false));
+  const[dA,setDA]=useState(0.25);const[rA,setRA]=useState(0.35);const[mV,setMV]=useState(0.85);const[preset,setPreset]=useState('aphex-twin');
+  const[eN,setEN]=useState(null);const[wave,setWave]=useState(null);const[freq,setFreq]=useState(null);const[sV,setSV]=useState(null);
+  const[paintNote,setPaintNote]=useState('C-3');const[vel,setVel]=useState(0.75);const[showMix,setShowMix]=useState(false);
+  const isPaint=useRef(false),paintAct=useRef('add'),paintCh_=useRef(-1),lastPCell=useRef(-1);
+  const pR=useRef(false),tR=useRef(-1),tmR=useRef(null),cR=useRef([]),bR=useRef(133),swR=useRef(15),mR=useRef(Array(9).fill(false)),soR=useRef(Array(9).fill(false)),vrR=useRef(Array(9).fill(0)),tsR=useRef([4,4]),bsR=useRef(16),aR=useRef(null),gsR=useRef(null),velR=useRef(0.75),pnR=useRef('C-3');
+  const customSnap=useRef(null); // stores custom pattern state
+  const Tpb_=useMemo(()=>TPB(ts[0],ts[1]),[ts]);const totT=useMemo(()=>bars*Tpb_,[bars,Tpb_]);const cT=GD[gd].t;const totC=Math.ceil(totT/cT);const tpBt=(4/ts[1])*TPQ;
+  const[wW,setWW]=useState(1200);
+  useEffect(()=>{const r=()=>setWW(window.innerWidth);r();window.addEventListener('resize',r);return()=>window.removeEventListener('resize',r);},[]);
+  const colW=Math.max(48,Math.floor((wW-RNW-24-(showMix?MIX_W:0))/9));
+
+  const loadP=useCallback((id,skipSaveCustom)=>{
+    // Save current to custom if leaving custom
+    if(!skipSaveCustom&&preset==='custom'){customSnap.current={chs:cR.current,vars:vrR.current.slice(),vols:cR.current.map(c=>c.vol),mutes:mR.current.slice(),solos:soR.current.slice()};}
+    if(id==='custom'){
+      if(customSnap.current){
+        setChs(customSnap.current.chs);cR.current=customSnap.current.chs;
+        setVols(customSnap.current.vols);setVars(customSnap.current.vars);vrR.current=customSnap.current.vars;
+        setMutes(customSnap.current.mutes);mR.current=customSnap.current.mutes;
+        setSolos(customSnap.current.solos);soR.current=customSnap.current.solos;
+      } else {
+        // Init empty custom
+        const empty=Array(9).fill(null).map(()=>({variant:0,vol:0.7,events:{}}));
+        setChs(empty);cR.current=empty;setVols(Array(9).fill(0.7));setVars(Array(9).fill(0));vrR.current=Array(9).fill(0);
+      }
+      setPreset('custom');return;
+    }
+    const p=buildP(id);setBpm(p.bpm);bR.current=p.bpm;setSwing(p.swing);swR.current=p.swing;setBars(p.bars);bsR.current=p.bars;setTs(p.ts);tsR.current=p.ts;setGd(p.gd);setDA(p.del);setRA(p.rev);setChs(p.channels);cR.current=p.channels;setVols(p.channels.map(c=>c.vol));setVars(p.channels.map(c=>c.variant));vrR.current=p.channels.map(c=>c.variant);setPreset(id);if(eR.current){eR.current.sD(p.del);eR.current.sR(p.rev);p.channels.forEach((c,i)=>eR.current.sCV(i,c.vol));}
+  },[preset]);
+
+  const clearAll=useCallback(()=>{setChs(prev=>{const n=prev.map(ch=>({...ch,events:{}}));cR.current=n;return n;});customSnap.current=null;},[]);
+  const initA=useCallback(()=>{if(!eR.current)eR.current=new Eng();eR.current.init();setInit(true);loadP(preset,true);},[preset,loadP]);
+  useEffect(()=>{const draw=()=>{if(eR.current?.ana){setWave(eR.current.gW());setFreq(eR.current.gF());}aR.current=requestAnimationFrame(draw);};if(init)aR.current=requestAnimationFrame(draw);return()=>{if(aR.current)cancelAnimationFrame(aR.current);};},[init]);
+  const trigT=useCallback(tick=>{const e=eR.current,cs=cR.current;if(!e||!cs.length)return;const hS=soR.current.some(s=>s);cs.forEach((ch,i)=>{if(mR.current[i]||(hS&&!soR.current[i]))return;const ev=ch.events[tick];if(!ev||ev.vel<=0)return;const v=ev.vel,n=ev.note,p=VR[CH[i].id][vrR.current[i]];if(CH[i].id==='kick')e.kick(i,v,p);else if(CH[i].id==='snare')e.snare(i,v,p);else if(CH[i].id==='chh')e.hat(i,v,p,false);else if(CH[i].id==='ohh')e.hat(i,v,p,true);else if(CH[i].id==='perc')e.perc(i,v,p);else if(n){const m=n.match(/^([A-G][#-]?)(\d)$/);if(m){const fr=ntf(m[1],+m[2]);if(CH[i].id==='bass'||CH[i].id==='acid')e.bass(i,fr,v,p);else if(CH[i].id==='lead')e.lead(i,fr,v,p);else if(CH[i].id==='pad')e.pad(i,fr,v,p);}}});},[]);
+  const startP=useCallback(()=>{if(!eR.current)return;if(eR.current.c.state==='suspended')eR.current.c.resume();pR.current=true;tR.current=-1;setPlaying(true);const tick=()=>{if(!pR.current)return;const tb=TPB(tsR.current[0],tsR.current[1]),tot=bsR.current*tb;tR.current=(tR.current+1)%tot;setCurTick(tR.current);trigT(tR.current);const tMs=(60000/bR.current)/TPQ;const odd=tR.current%2===1;const sw=swR.current/100;const ms=odd?tMs*(1+sw):tMs*(1-sw);tmR.current=setTimeout(tick,Math.max(ms,1));};tick();},[trigT]);
+  const stopP=useCallback(()=>{pR.current=false;setPlaying(false);setCurTick(-1);tR.current=-1;if(tmR.current)clearTimeout(tmR.current);},[]);
+
+  // Paint with gap interpolation
+  const applyP=useCallback((ci,cellIdx)=>{const tp=cellIdx*cT;setChs(prev=>{const next=[...prev];const ch={...next[ci],events:{...next[ci].events}};if(paintAct.current==='add'){ch.events[tp]=CH[ci].drum?{vel:velR.current,note:''}:{vel:velR.current,note:pnR.current};}else delete ch.events[tp];next[ci]=ch;cR.current=next;return next;});},[cT]);
+  const applyRange=useCallback((ci,from,to)=>{const lo=Math.min(from,to),hi=Math.max(from,to);setChs(prev=>{const next=[...prev];const ch={...next[ci],events:{...next[ci].events}};for(let r=lo;r<=hi;r++){const tp=r*cT;if(paintAct.current==='add'){ch.events[tp]=CH[ci].drum?{vel:velR.current,note:''}:{vel:velR.current,note:pnR.current};}else delete ch.events[tp];}next[ci]=ch;cR.current=next;return next;});},[cT]);
+
+  const cellDown=useCallback((ci,cellIdx,e)=>{e.preventDefault();const tp=cellIdx*cT;
+    if(!CH[ci].drum){const ch=cR.current[ci];if(ch.events[tp]){paintAct.current='remove';isPaint.current=true;paintCh_.current=ci;lastPCell.current=cellIdx;applyP(ci,cellIdx);}else setEN({ch:ci,cell:cellIdx});return;}
+    const ch=cR.current[ci];paintAct.current=ch.events[tp]?'remove':'add';isPaint.current=true;paintCh_.current=ci;lastPCell.current=cellIdx;applyP(ci,cellIdx);},[cT,applyP]);
+
+  const cellEnter=useCallback((ci,cellIdx)=>{if(!isPaint.current||paintCh_.current!==ci)return;
+    const last=lastPCell.current;if(last>=0&&last!==cellIdx){applyRange(ci,last,cellIdx);}else{applyP(ci,cellIdx);}lastPCell.current=cellIdx;},[applyP,applyRange]);
+
+  useEffect(()=>{const up=()=>{isPaint.current=false;paintCh_.current=-1;lastPCell.current=-1;};window.addEventListener('mouseup',up);return()=>window.removeEventListener('mouseup',up);},[]);
+  const placeNote=useCallback((ci,cellIdx,note)=>{setPaintNote(note);pnR.current=note;paintAct.current='add';isPaint.current=true;paintCh_.current=ci;lastPCell.current=cellIdx;const tp=cellIdx*cT;setChs(prev=>{const next=[...prev];const ch={...next[ci],events:{...next[ci].events}};ch.events[tp]={vel:velR.current,note};next[ci]=ch;cR.current=next;return next;});setEN(null);},[cT]);
+  const togM=i=>{setMutes(p=>{const n=[...p];n[i]=!n[i];mR.current=n;return n;});};
+  const togS=i=>{setSolos(p=>{const n=[...p];n[i]=!n[i];soR.current=n;return n;});};
+  const setVa=(ci,vi)=>{setVars(p=>{const n=[...p];n[ci]=vi;vrR.current=n;return n;});setSV(null);};
+  const updV=(i,v)=>{setVols(p=>{const n=[...p];n[i]=v;return n;});eR.current?.sCV(i,v);setChs(prev=>{const n=[...prev];n[i]={...n[i],vol:v};cR.current=n;return n;});};
+  useEffect(()=>{if(playing&&curTick>=0&&gsR.current){const cr=Math.floor(curTick/cT);const vh=gsR.current.clientHeight;gsR.current.scrollTop=cr*RH-vh/2+RH/2;}},[curTick,playing,cT]);
+  // Spacebar play/stop
+  useEffect(()=>{const h=e=>{if(e.code==='Space'&&!eN&&!sV&&e.target.tagName!=='INPUT'&&e.target.tagName!=='SELECT'){e.preventDefault();if(pR.current)stopP();else startP();}};window.addEventListener('keydown',h);return()=>window.removeEventListener('keydown',h);},[startP,stopP,eN,sV]);
+  const setVelW=v=>{setVel(v);velR.current=v;};
+
+  const allPresets=[...Object.entries(PR),['custom',{name:'Custom'}]];
+
+  return(
+    <div style={{background:'#060810',color:'#b8bcc8',fontFamily:"'JetBrains Mono',monospace",height:'100vh',display:'flex',flexDirection:'column',overflow:'hidden'}}>
+      <div style={{display:'flex',flexDirection:'column',height:'100%',padding:'6px 12px'}}>
+        {/* HEADER */}
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',paddingBottom:6,marginBottom:6,borderBottom:'1px solid #141824',flexShrink:0}}>
+          <h1 style={{margin:0,fontSize:17,fontWeight:800,fontFamily:"'Oxanium',sans-serif",letterSpacing:5,background:'linear-gradient(90deg,#00ff88,#00ddff)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>NEUROTRKR</h1>
+          {!init?<button onClick={initA} style={{background:'linear-gradient(135deg,#00ff88,#00cc66)',color:'#000',border:'none',padding:'7px 24px',fontSize:12,fontWeight:700,letterSpacing:3,cursor:'pointer',fontFamily:"'Oxanium',sans-serif",borderRadius:2}}>▶ START</button>
+          :<div style={{display:'flex',gap:6,alignItems:'center'}}>
+            <button onClick={playing?stopP:startP} style={{background:playing?'#ff2d40':'#00ff88',color:'#000',border:'none',padding:'6px 18px',fontSize:11,fontWeight:700,letterSpacing:1,cursor:'pointer',fontFamily:'inherit',borderRadius:2}}>{playing?'■ STOP':'▶ PLAY'}</button>
+            <button onClick={clearAll} style={{background:'transparent',border:'1px solid #ff2d4044',color:'#ff2d40',padding:'6px 14px',fontSize:9,fontWeight:700,cursor:'pointer',fontFamily:'inherit',borderRadius:2,letterSpacing:1}}>CLEAR</button>
+            <button onClick={()=>setShowMix(!showMix)} style={{background:showMix?'#141824':'transparent',border:`1px solid ${showMix?'#00ff8844':'#141824'}`,color:showMix?'#00ff88':'#445',padding:'6px 14px',fontSize:9,fontWeight:700,cursor:'pointer',fontFamily:'inherit',borderRadius:2,letterSpacing:1}}>MIXER</button>
+          </div>}
+        </div>
+        {/* PRESETS */}
+        <div style={{display:'flex',gap:6,marginBottom:6,flexShrink:0,flexWrap:'wrap'}}>
+          {allPresets.map(([id,p])=><button key={id} onClick={()=>loadP(id)} style={{background:preset===id?'#0e1420':'transparent',border:`1px solid ${preset===id?(id==='custom'?'#ffaa3066':'#00ff8866'):'#141824'}`,color:preset===id?(id==='custom'?'#ffaa30':'#00ff88'):'#3a4050',padding:'5px 14px',fontSize:10,cursor:'pointer',fontFamily:'inherit',letterSpacing:1,borderRadius:2,fontWeight:preset===id?700:400}}>{p.name}</button>)}
+        </div>
+        {init&&<>
+          {/* CONTROLS */}
+          <div style={{display:'flex',gap:14,alignItems:'center',marginBottom:5,padding:'5px 10px',background:'#0a0d16',border:'1px solid #141824',borderRadius:2,flexWrap:'wrap',flexShrink:0}}>
+            <Slider label="BPM" color="#00ff88" value={bpm} min={40} max={240} width={70} onChange={v=>{setBpm(v);bR.current=v;}}/>
+            <Slider label="SWG" color="#ffaa30" value={swing} min={0} max={50} width={50} onChange={v=>{setSwing(v);swR.current=v;}}/>
+            <Slider label="DLY" color="#20b8ff" value={Math.round(dA*100)} min={0} max={100} width={50} onChange={v=>{setDA(v/100);eR.current?.sD(v/100);}}/>
+            <Slider label="REV" color="#7040ff" value={Math.round(rA*100)} min={0} max={100} width={50} onChange={v=>{setRA(v/100);eR.current?.sR(v/100);}}/>
+            <Slider label="VOL" color="#e040dd" value={Math.round(mV*100)} min={0} max={100} width={50} onChange={v=>{setMV(v/100);eR.current?.sM(v/100);}}/>
+            <div style={{width:1,height:16,background:'#1e2540'}}/>
+            <label style={{display:'flex',alignItems:'center',gap:4}}><span style={{color:'#ff6040',fontWeight:700,fontSize:8}}>TIME</span><select value={`${ts[0]}/${ts[1]}`} onChange={e=>{const[n,d]=e.target.value.split('/').map(Number);setTs([n,d]);tsR.current=[n,d];}} style={{background:'#0e1018',color:'#aab',border:'1px solid #1a1e2a',padding:'2px 3px',fontFamily:'inherit',fontSize:9,borderRadius:2}}>{TS.map(([n,d])=><option key={`${n}/${d}`} value={`${n}/${d}`}>{n}/{d}</option>)}</select></label>
+            <label style={{display:'flex',alignItems:'center',gap:4}}><span style={{color:'#40dda0',fontWeight:700,fontSize:8}}>BARS</span><input type="number" min={1} max={128} value={bars} onChange={e=>{const v=Math.max(1,Math.min(128,+e.target.value||1));setBars(v);bsR.current=v;}} style={{background:'#0e1018',color:'#aab',border:'1px solid #1a1e2a',padding:'2px 3px',width:36,fontFamily:'inherit',fontSize:9,borderRadius:2}}/></label>
+            <label style={{display:'flex',alignItems:'center',gap:4}}><span style={{color:'#a0bb30',fontWeight:700,fontSize:8}}>GRID</span><select value={gd} onChange={e=>setGd(+e.target.value)} style={{background:'#0e1018',color:'#aab',border:'1px solid #1a1e2a',padding:'2px 3px',fontFamily:'inherit',fontSize:9,borderRadius:2}}>{GD.map((g,i)=><option key={i} value={i}>{g.l}</option>)}</select></label>
+            <div style={{width:1,height:16,background:'#1e2540'}}/>
+            <label style={{display:'flex',alignItems:'center',gap:4}}><span style={{color:'#ff88cc',fontWeight:700,fontSize:8}}>NOTE</span><select value={paintNote} onChange={e=>{setPaintNote(e.target.value);pnR.current=e.target.value;}} style={{background:'#0e1018',color:'#aab',border:'1px solid #1a1e2a',padding:'2px 3px',fontFamily:'inherit',fontSize:9,borderRadius:2}}>{[1,2,3,4,5,6].map(o=>NOTES.map(n=><option key={n+o} value={n+o}>{(n+o).replace('-','')}</option>))}</select></label>
+            <div style={{display:'flex',alignItems:'center',gap:3}}><span style={{color:'#ffdd44',fontWeight:700,fontSize:8}}>VEL</span>{VELS.map(v=><button key={v} onClick={()=>setVelW(v)} style={{background:vel===v?'#ffdd4433':'transparent',border:`1px solid ${vel===v?'#ffdd4466':'#1a1e2a'}`,color:vel===v?'#ffdd44':'#334',width:24,height:16,fontSize:8,cursor:'pointer',fontFamily:'inherit',padding:0,borderRadius:2,fontWeight:700}}>{Math.round(v*100)}</button>)}</div>
+          </div>
+          {/* VIZ */}
+          <div style={{display:'flex',gap:4,marginBottom:4,height:28,flexShrink:0}}>
+            <div style={{flex:1,background:'#0a0d16',border:'1px solid #141824',borderRadius:2,overflow:'hidden'}}><svg viewBox="0 0 512 28" preserveAspectRatio="none" style={{width:'100%',height:'100%'}}>{wave&&(()=>{const pts=[];const sl=wave.length/512;for(let i=0;i<512;i++)pts.push(`${i},${(wave[Math.floor(i*sl)]/128)*14}`);return<polyline points={pts.join(' ')} fill="none" stroke="#00ff88" strokeWidth="1" opacity="0.6"/>;})()}</svg></div>
+            <div style={{flex:1,background:'#0a0d16',border:'1px solid #141824',borderRadius:2,overflow:'hidden'}}><svg viewBox="0 0 128 28" preserveAspectRatio="none" style={{width:'100%',height:'100%'}}>{freq&&(()=>{const b=[];for(let i=0;i<64;i++){const v=freq[i*2]/255;b.push(<rect key={i} x={i*2} y={28-v*25} width={1.5} height={v*25} fill={`hsl(${150+i*2.5},75%,50%)`} opacity={0.6}/>);}return b;})()}</svg></div>
+          </div>
+          {/* MAIN */}
+          <div style={{flex:1,display:'flex',overflow:'hidden',borderRadius:2}}>
+            {/* GRID */}
+            <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',border:'1px solid #141824',background:'#080b14'}}>
+              <div style={{display:'flex',flexShrink:0,borderBottom:'2px solid #1a2030',background:'#0a0e18'}}>
+                <div style={{width:RNW,minWidth:RNW,borderRight:'1px solid #1a2030',display:'flex',alignItems:'center',justifyContent:'center',fontSize:7,color:'#334',padding:'4px 0'}}>ROW</div>
+                {CH.map((ct,ci)=>{const hS=solos.some(s=>s);const iM=mutes[ci]||(hS&&!solos[ci]);return(<div key={ci} style={{width:colW,minWidth:colW,borderRight:'1px solid #10141e',padding:'3px 2px',opacity:iM?0.3:1,display:'flex',flexDirection:'column',alignItems:'center',gap:1}}>
+                  <span style={{color:ct.color,fontWeight:700,fontSize:9,letterSpacing:2}}>{ct.name}</span>
+                  <div style={{display:'flex',gap:1,alignItems:'center'}}><button onClick={()=>setSV(sV===ci?null:ci)} style={{background:'#0e1018',border:'1px solid #1a1e2a',color:'#556',padding:'0 3px',fontSize:6,cursor:'pointer',fontFamily:'inherit',lineHeight:'11px',borderRadius:1,maxWidth:colW-30,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{VR[ct.id][vars[ci]]?.name}</button>
+                  <button onClick={()=>togM(ci)} style={{background:mutes[ci]?'#ff2d40':'#0e1018',color:mutes[ci]?'#fff':'#334',border:'1px solid #1a1e2a',width:13,height:11,fontSize:6,cursor:'pointer',fontFamily:'inherit',padding:0,borderRadius:1}}>M</button>
+                  <button onClick={()=>togS(ci)} style={{background:solos[ci]?'#ffaa30':'#0e1018',color:solos[ci]?'#000':'#334',border:'1px solid #1a1e2a',width:13,height:11,fontSize:6,cursor:'pointer',fontFamily:'inherit',padding:0,borderRadius:1}}>S</button></div></div>);})}
+              </div>
+              <div style={{flex:1,position:'relative',overflow:'hidden'}}>
+              {playing&&<div style={{position:'absolute',left:0,right:0,top:'50%',height:RH,marginTop:-RH/2,background:'rgba(0,255,136,0.08)',borderTop:'1px solid #00ff8855',borderBottom:'1px solid #00ff8855',pointerEvents:'none',zIndex:10}}/>}
+              <div ref={gsR} style={{height:'100%',overflowY:'auto',overflowX:'hidden',userSelect:'none',cursor:'crosshair'}} onMouseLeave={()=>{isPaint.current=false;lastPCell.current=-1;}}
+              onTouchStart={e=>{const t=e.touches[0];const el=document.elementFromPoint(t.clientX,t.clientY);if(el&&el.dataset.ci!==undefined){const ci=+el.dataset.ci,r=+el.dataset.r;cellDown(ci,r,e);e.preventDefault();}}}
+              onTouchMove={e=>{const t=e.touches[0];const el=document.elementFromPoint(t.clientX,t.clientY);if(el&&el.dataset.ci!==undefined&&isPaint.current){const ci=+el.dataset.ci,r=+el.dataset.r;cellEnter(ci,r);e.preventDefault();}}}
+              onTouchEnd={()=>{isPaint.current=false;paintCh_.current=-1;lastPCell.current=-1;}}>
+                {Array.from({length:totC},(_,r)=>{const tp=r*cT,barI=Math.floor(tp/Tpb_),inB=tp-barI*Tpb_,beatI=Math.floor(inB/tpBt),isBS=inB<cT,isBtS=!isBS&&Math.abs(inB-beatI*tpBt)<cT;const isAct=playing&&curTick>=tp&&curTick<tp+cT;const gs=Math.floor(r/4)%2===0;
+                  return(<div key={r} style={{display:'flex',height:RH,minHeight:RH,borderTop:isBS?'2px solid #1e2540':isBtS?'1px solid #141828':'1px solid #0c0f18',background:isAct?'rgba(0,255,136,0.07)':isBS?'#0c0f1a':gs?'#090c14':'#080a12'}}>
+                    <div style={{width:RNW,minWidth:RNW,display:'flex',alignItems:'center',justifyContent:'flex-end',paddingRight:5,fontSize:7,borderRight:'1px solid #141828',color:isBS?'#00ff8888':isBtS?'#445':'#222',fontWeight:isBS?700:400}}>{isBS?`${barI+1}.${beatI+1}`:isBtS?`.${beatI+1}`:r+1}</div>
+                    {chs.map((ch,ci)=>{const ev=ch.events[tp];const ct=CH[ci];const hS=solos.some(s=>s);const iM=mutes[ci]||(hS&&!solos[ci]);const vp=ev?Math.round(ev.vel*100):0;
+                      return(<div key={ci} data-ci={ci} data-r={r} onMouseDown={e=>cellDown(ci,r,e)} onMouseEnter={()=>cellEnter(ci,r)} style={{width:colW,minWidth:colW,height:RH,borderRight:'1px solid #0c0f18',display:'flex',alignItems:'center',justifyContent:'center',position:'relative',opacity:iM?0.2:1}}>
+                        {ev&&ct.drum&&<><div style={{position:'absolute',left:2,top:3,bottom:3,width:`${vp}%`,maxWidth:colW-4,background:ct.color,opacity:0.3+ev.vel*0.4,borderRadius:1}}/><div style={{position:'relative',zIndex:1,fontSize:7,color:ct.color,fontWeight:600,opacity:0.8}}>{Math.round(ev.vel*99)}</div></>}
+                        {ev&&!ct.drum&&ev.note&&<><div style={{position:'absolute',left:2,top:3,bottom:3,width:`${vp}%`,maxWidth:colW-4,background:ct.color,opacity:0.15+ev.vel*0.25,borderRadius:1}}/><span style={{position:'relative',zIndex:1,fontSize:8,color:ct.color,fontWeight:700}}>{ev.note.replace('-','')}</span></>}
+                        {isAct&&<div style={{position:'absolute',inset:0,background:'rgba(0,255,136,0.06)',pointerEvents:'none'}}/>}
+                      </div>);})}
+                  </div>);})}
+              </div></div>
+            </div>
+            {/* MIXER */}
+            {showMix&&<div style={{width:MIX_W,flexShrink:0,background:'#0a0d16',borderLeft:'1px solid #141824',display:'flex',flexDirection:'column',overflow:'hidden'}}>
+              <div style={{padding:'8px',fontSize:10,fontWeight:700,color:'#556',letterSpacing:2,borderBottom:'1px solid #141824',textAlign:'center',fontFamily:"'Oxanium',sans-serif"}}>MIXER</div>
+              <div style={{flex:1,overflowY:'auto',padding:'10px 8px',display:'flex',flexDirection:'column',gap:8}}>
+                {CH.map((ct,i)=>{const hS=solos.some(s=>s);const iM=mutes[i]||(hS&&!solos[i]);return(<div key={i} style={{display:'flex',alignItems:'center',gap:5,opacity:iM?0.35:1}}>
+                  <span style={{color:ct.color,fontSize:8,fontWeight:700,width:36,textAlign:'right',letterSpacing:1}}>{ct.name}</span>
+                  <MixFader value={vols[i]} color={ct.color} onChange={v=>updV(i,v)}/>
+                  <span style={{fontSize:8,color:'#445',width:24,textAlign:'right'}}>{Math.round(vols[i]*100)}</span>
+                  <button onClick={()=>togM(i)} style={{background:mutes[i]?'#ff2d40':'#0e1018',color:mutes[i]?'#fff':'#334',border:'1px solid #1a1e2a',width:16,height:13,fontSize:7,cursor:'pointer',fontFamily:'inherit',padding:0,borderRadius:1}}>M</button>
+                  <button onClick={()=>togS(i)} style={{background:solos[i]?'#ffaa30':'#0e1018',color:solos[i]?'#000':'#334',border:'1px solid #1a1e2a',width:16,height:13,fontSize:7,cursor:'pointer',fontFamily:'inherit',padding:0,borderRadius:1}}>S</button>
+                </div>);})}
+              </div>
+            </div>}
+          </div>
+        </>}
+        {sV!==null&&<div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.75)',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:'blur(4px)'}} onClick={()=>setSV(null)}><div onClick={e=>e.stopPropagation()} style={{background:'#0c0f18',border:'1px solid #1e2540',padding:16,minWidth:220,borderRadius:4,boxShadow:'0 20px 60px rgba(0,0,0,0.5)'}}><div style={{fontSize:12,fontWeight:700,color:CH[sV].color,marginBottom:12,letterSpacing:2,fontFamily:"'Oxanium',sans-serif"}}>{CH[sV].name}</div>{VR[CH[sV].id].map((v,vi)=><button key={vi} onClick={()=>setVa(sV,vi)} style={{display:'block',width:'100%',marginBottom:3,background:vars[sV]===vi?`${CH[sV].color}18`:'#080b14',border:`1px solid ${vars[sV]===vi?CH[sV].color+'55':'#141824'}`,color:vars[sV]===vi?CH[sV].color:'#667',padding:'7px 12px',fontSize:10,cursor:'pointer',fontFamily:'inherit',textAlign:'left',borderRadius:2}}>{vi+1}. {v.name}</button>)}</div></div>}
+        {eN&&<div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.75)',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:'blur(4px)'}} onClick={()=>setEN(null)}><div onClick={e=>e.stopPropagation()} style={{background:'#0c0f18',border:'1px solid #1e2540',padding:16,maxWidth:500,width:'92%',borderRadius:4,boxShadow:'0 20px 60px rgba(0,0,0,0.5)'}}><div style={{fontSize:11,fontWeight:700,color:'#00ff88',marginBottom:4,fontFamily:"'Oxanium',sans-serif"}}>SELECT NOTE</div><div style={{fontSize:8,color:'#445',marginBottom:10}}>Pick note then drag to paint. Row {eN.cell+1} / {CH[eN.ch].name}</div>{[1,2,3,4,5,6].map(oct=><div key={oct} style={{display:'flex',gap:2,marginBottom:2}}><span style={{width:16,fontSize:8,color:'#334',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700}}>{oct}</span>{NOTES.map(n=>{const full=n+oct,sh=n.includes('#');return<button key={full} onClick={()=>placeNote(eN.ch,eN.cell,full)} style={{background:sh?'#14182a':'#0e1220',color:sh?'#88aaff':'#aab',border:`1px solid ${sh?'#1e2540':'#181c2a'}`,padding:'5px 0',fontSize:9,cursor:'pointer',fontFamily:'inherit',flex:1,minWidth:0,borderRadius:2,fontWeight:500}}>{n.replace('-','')}</button>;})}</div>)}<button onClick={()=>setEN(null)} style={{marginTop:10,background:'#141824',color:'#445',border:'1px solid #1e2540',padding:'5px 14px',fontSize:9,cursor:'pointer',fontFamily:'inherit',borderRadius:2}}>CANCEL</button></div></div>}
+        {!init&&<div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'#060810',display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:28,zIndex:50}}><h1 style={{fontSize:40,fontWeight:800,letterSpacing:10,margin:0,fontFamily:"'Oxanium',sans-serif",background:'linear-gradient(90deg,#00ff88,#00ddff)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>NEUROTRKR</h1><button onClick={initA} style={{background:'linear-gradient(135deg,#00ff88,#00cc66)',color:'#000',border:'none',padding:'14px 48px',fontSize:14,fontWeight:800,letterSpacing:5,cursor:'pointer',fontFamily:"'Oxanium',sans-serif",borderRadius:3,boxShadow:'0 0 40px #00ff8833'}}>▶ START</button></div>}
+      </div>
+    </div>);
+}
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
+</script></body></html>
