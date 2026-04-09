@@ -29,18 +29,18 @@ body.retro{
   --bg:#888;--fg:#000;--panel:#999;--grid:#000;
   --btn:#aaa;--brd:none;--brd2:#555;--brd3:#666;
   --inp:#555;--inp-c:#fff;--dim:#555;--dim2:#666;--dim3:#555;
-  --acc:#ff8800;--acc2:#ffaa00;--stop:#cc2200;
+  --acc:#fff;--acc2:#ddd;--stop:#444;
   --r:0px;--font:'VT323','Courier New',monospace;--fontD:'VT323','Courier New',monospace;
   --modal:#999;--modal-brd:outset 2px #ccc;--shadow:3px 3px 0 #000;--blur:none;
   --gr1:#080808;--gr2:#040404;--grb:#111;--grbb:2px solid #333;--grbt:1px solid #1a1a1a;--grbd:1px solid #0a0a0a;
   --gra:#222;--grab:#88888855;--grn:#aaa;
-  --accG:linear-gradient(90deg,#ff8800,#ffaa00);--accB:linear-gradient(135deg,#cc6600,#ff8800);
+  --accG:linear-gradient(90deg,#fff,#bbb);--accB:linear-gradient(135deg,#bbb,#ddd);
   --glow:none;
   --bvt:2px solid #ddd;--bvr:2px solid #333;--bvb:2px solid #333;--bvl:2px solid #ddd;
   --hdr-brd:2px outset #aaa;
-  --wave:#ff8800;--sep:#666;
+  --wave:#222;--sep:#666;
   --sb-track:#777;--sb-thumb:#555;--sb-r:0px;
-  --sel-bg:#666;--sel-brd:#ff880066;--sel-c:#ff8800;
+  --sel-bg:#444;--sel-brd:#ffffff66;--sel-c:#fff;
   --mix-hdr:#333;
 }
 body{background:var(--bg);overflow:hidden;font-family:var(--font)}
@@ -48,6 +48,8 @@ body{background:var(--bg);overflow:hidden;font-family:var(--font)}
 ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:var(--sb-track)}::-webkit-scrollbar-thumb{background:var(--sb-thumb);border-radius:var(--sb-r)}
 select,button{outline:none}
 body.retro select,body.retro button,body.retro input{font-family:var(--font)!important;border-radius:0!important}
+body.retro span[style*="fontWeight"]{color:#999!important}
+body.retro button[style*="ffaa30"]{background:#fff!important;color:#000!important}
 body.retro button{border-top:var(--bvt);border-right:var(--bvr);border-bottom:var(--bvb);border-left:var(--bvl);background:var(--btn);color:#000}
 body.retro button:active{border-top:var(--bvb);border-right:var(--bvl);border-bottom:var(--bvt);border-left:var(--bvr)}
 body.retro select,body.retro input[type="number"]{background:var(--inp)!important;color:var(--inp-c)!important;border:inset 2px #666!important}
@@ -217,7 +219,7 @@ function App(){
             <button onClick={playing?stopP:startP} style={{background:playing?'var(--stop)':'var(--acc)',color:'#000',border:'none',padding:'6px 18px',fontSize:retro?15:11,fontWeight:700,letterSpacing:1,cursor:'pointer',fontFamily:'inherit',borderRadius:'var(--r)',display:'flex',alignItems:'center',gap:3}}>{playing?<><span>&#9632;</span> STOP</>:<><svg viewBox="0 0 10 12" width="9" height="11" fill="currentColor"><path d="M0 0L10 6L0 12z"/></svg>PLAY</>}</button>
             <button onClick={clearAll} style={{background:'transparent',border:`1px solid ${retro?'#cc220044':'#ff2d4044'}`,color:'var(--stop)',padding:'6px 14px',fontSize:retro?13:9,fontWeight:700,cursor:'pointer',fontFamily:'inherit',borderRadius:'var(--r)',letterSpacing:1}}>CLEAR</button>
             <button onClick={()=>setShowMix(!showMix)} style={{background:showMix?'var(--btn)':'transparent',border:`1px solid ${showMix?'var(--acc)44':'var(--brd)'}`,color:showMix?'var(--acc)':'var(--dim2)',padding:'6px 14px',fontSize:retro?13:9,fontWeight:700,cursor:'pointer',fontFamily:'inherit',borderRadius:'var(--r)',letterSpacing:1}}>MIXER</button>
-            <button onClick={()=>setRetro(!retro)} style={{background:retro?'#0055aa':'transparent',border:retro?'outset 2px #88aadd':`1px solid #141824`,color:retro?'#fff':'#445',padding:'6px 14px',fontSize:retro?13:9,fontWeight:700,cursor:'pointer',fontFamily:'inherit',borderRadius:retro?0:2,letterSpacing:1}}>{retro?'MED':'RETRO'}</button>
+            <button onClick={()=>setRetro(!retro)} style={{background:retro?'#666':'transparent',border:retro?'outset 2px #aaa':`1px solid #141824`,color:retro?'#fff':'#445',padding:'6px 14px',fontSize:retro?13:9,fontWeight:700,cursor:'pointer',fontFamily:'inherit',borderRadius:retro?0:2,letterSpacing:1}}>{retro?'MED':'RETRO'}</button>
           </div>}
         </div>
         {/* PRESETS */}
@@ -227,11 +229,11 @@ function App(){
         {init&&<>
           {/* CONTROLS */}
           <div style={{display:'flex',gap:14,alignItems:'center',marginBottom:5,padding:'5px 10px',background:'var(--panel)',border:'var(--hdr-brd)',borderRadius:'var(--r)',flexWrap:'wrap',flexShrink:0}}>
-            <Slider label="BPM" color="#00ff88" value={bpm} min={40} max={240} width={70} onChange={v=>{setBpm(v);bR.current=v;}}/>
-            <Slider label="SWG" color="#ffaa30" value={swing} min={0} max={50} width={50} onChange={v=>{setSwing(v);swR.current=v;}}/>
-            <Slider label="DLY" color="#20b8ff" value={Math.round(dA*100)} min={0} max={100} width={50} onChange={v=>{setDA(v/100);eR.current?.sD(v/100);}}/>
-            <Slider label="REV" color="#7040ff" value={Math.round(rA*100)} min={0} max={100} width={50} onChange={v=>{setRA(v/100);eR.current?.sR(v/100);}}/>
-            <Slider label="VOL" color="#e040dd" value={Math.round(mV*100)} min={0} max={100} width={50} onChange={v=>{setMV(v/100);eR.current?.sM(v/100);}}/>
+            <Slider label="BPM" color={retro?"#999":"#00ff88"} value={bpm} min={40} max={240} width={70} onChange={v=>{setBpm(v);bR.current=v;}}/>
+            <Slider label="SWG" color={retro?"#999":"#ffaa30"} value={swing} min={0} max={50} width={50} onChange={v=>{setSwing(v);swR.current=v;}}/>
+            <Slider label="DLY" color={retro?"#999":"#20b8ff"} value={Math.round(dA*100)} min={0} max={100} width={50} onChange={v=>{setDA(v/100);eR.current?.sD(v/100);}}/>
+            <Slider label="REV" color={retro?"#999":"#7040ff"} value={Math.round(rA*100)} min={0} max={100} width={50} onChange={v=>{setRA(v/100);eR.current?.sR(v/100);}}/>
+            <Slider label="VOL" color={retro?"#999":"#e040dd"} value={Math.round(mV*100)} min={0} max={100} width={50} onChange={v=>{setMV(v/100);eR.current?.sM(v/100);}}/>
             <div style={{width:1,height:16,background:'var(--sep)'}}/>
             <label style={{display:'flex',alignItems:'center',gap:4}}><span style={{color:'#ff6040',fontWeight:700,fontSize:8}}>TIME</span><select value={`${ts[0]}/${ts[1]}`} onChange={e=>{const[n,d]=e.target.value.split('/').map(Number);setTs([n,d]);tsR.current=[n,d];}} style={{background:'#0e1018',color:'#aab',border:'1px solid #1a1e2a',padding:'2px 3px',fontFamily:'inherit',fontSize:9,borderRadius:2}}>{TS.map(([n,d])=><option key={`${n}/${d}`} value={`${n}/${d}`}>{n}/{d}</option>)}</select></label>
             <label style={{display:'flex',alignItems:'center',gap:4}}><span style={{color:'#40dda0',fontWeight:700,fontSize:8}}>BARS</span><input type="number" min={1} max={128} value={bars} onChange={e=>{const v=Math.max(1,Math.min(128,+e.target.value||1));setBars(v);bsR.current=v;}} style={{background:'#0e1018',color:'#aab',border:'1px solid #1a1e2a',padding:'2px 3px',width:36,fontFamily:'inherit',fontSize:9,borderRadius:2}}/></label>
@@ -252,7 +254,7 @@ function App(){
               <div style={{display:'flex',flexShrink:0,borderBottom:'var(--grbb)',background:'var(--panel)'}}>
                 <div style={{width:RNW,minWidth:RNW,borderRight:'1px solid var(--sep)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:retro?11:7,color:'var(--dim)',padding:'4px 0'}}>ROW</div>
                 {CH.map((ct,ci)=>{const hS=solos.some(s=>s);const iM=mutes[ci]||(hS&&!solos[ci]);return(<div key={ci} style={{width:colW,minWidth:colW,borderRight:'var(--grbd)',padding:'3px 2px',opacity:iM?0.3:1,display:'flex',flexDirection:'column',alignItems:'center',gap:1}}>
-                  <span onClick={()=>setSV(sV===ci?null:ci)} style={{color:ct.color,fontWeight:700,fontSize:retro?13:9,letterSpacing:2,cursor:'pointer'}}>{ct.name}</span>
+                  <span onClick={()=>setSV(sV===ci?null:ci)} style={{color:retro?'#ddd':ct.color,fontWeight:700,fontSize:retro?13:9,letterSpacing:2,cursor:'pointer'}}>{ct.name}</span>
                   <div style={{display:'flex',gap:1,alignItems:'center'}}>
                   <button onClick={()=>togM(ci)} style={{background:mutes[ci]?'var(--stop)':'var(--btn)',color:mutes[ci]?'#fff':'var(--dim)',border:'1px solid var(--brd2)',width:13,height:11,fontSize:retro?10:6,cursor:'pointer',fontFamily:'inherit',padding:0,borderRadius:'var(--r)'}}>M</button>
                   <button onClick={()=>togS(ci)} style={{background:solos[ci]?'#ffaa30':'var(--btn)',color:solos[ci]?'#000':'var(--dim)',border:'1px solid var(--brd2)',width:13,height:11,fontSize:retro?10:6,cursor:'pointer',fontFamily:'inherit',padding:0,borderRadius:'var(--r)'}}>S</button></div></div>);})}
@@ -280,8 +282,8 @@ function App(){
               <div style={{padding:'8px',fontSize:retro?16:10,fontWeight:700,color:'var(--mix-hdr)',letterSpacing:2,borderBottom:'var(--hdr-brd)',textAlign:'center',fontFamily:'var(--fontD)'}}>MIXER</div>
               <div style={{flex:1,overflowY:'auto',padding:'10px 8px',display:'flex',flexDirection:'column',gap:8}}>
                 {CH.map((ct,i)=>{const hS=solos.some(s=>s);const iM=mutes[i]||(hS&&!solos[i]);return(<div key={i} style={{display:'flex',alignItems:'center',gap:5,opacity:iM?0.35:1}}>
-                  <span style={{color:ct.color,fontSize:8,fontWeight:700,width:36,textAlign:'right',letterSpacing:1}}>{ct.name}</span>
-                  <MixFader value={vols[i]} color={ct.color} onChange={v=>updV(i,v)}/>
+                  <span style={{color:retro?'#ccc':ct.color,fontSize:retro?12:8,fontWeight:700,width:36,textAlign:'right',letterSpacing:1}}>{ct.name}</span>
+                  <MixFader value={vols[i]} color={retro?'#999':ct.color} onChange={v=>updV(i,v)}/>
                   <span style={{fontSize:8,color:'#445',width:24,textAlign:'right'}}>{Math.round(vols[i]*100)}</span>
                   <button onClick={()=>togM(i)} style={{background:mutes[i]?'var(--stop)':'var(--btn)',color:mutes[i]?'#fff':'var(--dim)',border:'1px solid var(--brd2)',width:16,height:13,fontSize:retro?11:7,cursor:'pointer',fontFamily:'inherit',padding:0,borderRadius:'var(--r)'}}>M</button>
                   <button onClick={()=>togS(i)} style={{background:solos[i]?'#ffaa30':'var(--btn)',color:solos[i]?'#000':'var(--dim)',border:'1px solid var(--brd2)',width:16,height:13,fontSize:retro?11:7,cursor:'pointer',fontFamily:'inherit',padding:0,borderRadius:'var(--r)'}}>S</button>
@@ -290,7 +292,7 @@ function App(){
             </div>}
           </div>
         </>}
-        {sV!==null&&<div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.6)',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:'var(--blur)'}} onClick={()=>setSV(null)}><div onClick={e=>e.stopPropagation()} style={{background:'var(--modal)',border:'var(--modal-brd)',padding:16,minWidth:220,borderRadius:'var(--r)',boxShadow:'var(--shadow)'}}><div style={{fontSize:retro?18:12,fontWeight:700,color:CH[sV].color,marginBottom:12,letterSpacing:2,fontFamily:'var(--fontD)'}}>{CH[sV].name}</div>{VR[CH[sV].id].map((v,vi)=><button key={vi} onClick={()=>setVa(sV,vi)} style={{display:'block',width:'100%',marginBottom:3,background:vars[sV]===vi?`${CH[sV].color}18`:'var(--grid)',border:`1px solid ${vars[sV]===vi?CH[sV].color+'55':'var(--brd)'}`,color:vars[sV]===vi?CH[sV].color:'var(--dim2)',padding:'7px 12px',fontSize:retro?16:10,cursor:'pointer',fontFamily:'inherit',textAlign:'left',borderRadius:'var(--r)'}}>{vi+1}. {v.name}</button>)}</div></div>}
+        {sV!==null&&<div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.6)',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:'var(--blur)'}} onClick={()=>setSV(null)}><div onClick={e=>e.stopPropagation()} style={{background:'var(--modal)',border:'var(--modal-brd)',padding:16,minWidth:220,borderRadius:'var(--r)',boxShadow:'var(--shadow)'}}><div style={{fontSize:retro?18:12,fontWeight:700,color:retro?'#333':CH[sV].color,marginBottom:12,letterSpacing:2,fontFamily:'var(--fontD)'}}>{CH[sV].name}</div>{VR[CH[sV].id].map((v,vi)=><button key={vi} onClick={()=>setVa(sV,vi)} style={{display:'block',width:'100%',marginBottom:3,background:vars[sV]===vi?(retro?'#ddd':`${CH[sV].color}18`):'var(--grid)',border:`1px solid ${vars[sV]===vi?(retro?'#888':CH[sV].color+'55'):'var(--brd)'}`,color:vars[sV]===vi?(retro?'#000':CH[sV].color):'var(--dim2)',padding:'7px 12px',fontSize:retro?16:10,cursor:'pointer',fontFamily:'inherit',textAlign:'left',borderRadius:'var(--r)'}}>{vi+1}. {v.name}</button>)}</div></div>}
         {eN&&<div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.6)',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:'var(--blur)'}} onClick={()=>setEN(null)}><div onClick={e=>e.stopPropagation()} style={{background:'var(--modal)',border:'var(--modal-brd)',padding:16,maxWidth:500,width:'92%',borderRadius:'var(--r)',boxShadow:'var(--shadow)'}}><div style={{fontSize:retro?16:11,fontWeight:700,color:'var(--acc)',marginBottom:4,fontFamily:'var(--fontD)'}}>SELECT NOTE</div><div style={{fontSize:retro?12:8,color:'var(--dim2)',marginBottom:10}}>Pick note then drag to paint. Row {eN.cell+1} / {CH[eN.ch].name}</div>{[1,2,3,4,5,6].map(oct=><div key={oct} style={{display:'flex',gap:2,marginBottom:2}}><span style={{width:16,fontSize:8,color:'#334',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700}}>{oct}</span>{NOTES.map(n=>{const full=n+oct,sh=n.includes('#');return<button key={full} onClick={()=>placeNote(eN.ch,eN.cell,full)} style={{background:sh?(retro?'#444':'#14182a'):(retro?'#666':'#0e1220'),color:sh?(retro?'#aaccff':'#88aaff'):(retro?'#fff':'#aab'),border:`1px solid ${sh?'var(--brd3)':'var(--brd2)'}`,padding:'5px 0',fontSize:retro?14:9,cursor:'pointer',fontFamily:'inherit',flex:1,minWidth:0,borderRadius:'var(--r)',fontWeight:500}}>{n.replace('-','')}</button>;})}</div>)}<button onClick={()=>setEN(null)} style={{marginTop:10,background:'var(--btn)',color:'var(--dim2)',border:'1px solid var(--brd3)',padding:'5px 14px',fontSize:retro?14:9,cursor:'pointer',fontFamily:'inherit',borderRadius:'var(--r)'}}>CANCEL</button></div></div>}
         {!init&&<div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'var(--bg)',display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:28,zIndex:50}}><h1 style={{fontSize:retro?48:40,fontWeight:800,letterSpacing:10,margin:0,fontFamily:'var(--fontD)',background:'var(--accG)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>NEUROTRKR</h1><button onClick={initA} style={{background:'var(--accB)',color:'#000',border:'none',padding:'14px 48px',fontSize:retro?20:14,fontWeight:800,letterSpacing:5,cursor:'pointer',fontFamily:'var(--fontD)',borderRadius:'var(--r)',boxShadow:'var(--glow)',display:'flex',alignItems:'center',gap:6}}><svg viewBox="0 0 10 12" width="12" height="14" fill="currentColor"><path d="M0 0L10 6L0 12z"/></svg>START</button></div>}
       </div>
