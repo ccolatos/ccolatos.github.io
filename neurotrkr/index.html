@@ -225,6 +225,14 @@ function App(){
             <button onClick={()=>setRetro(!retro)} style={{background:retro?'#666':'transparent',border:retro?'outset 2px #aaa':`1px solid #141824`,color:retro?'#fff':'#445',padding:'6px 8px',fontSize:retro?13:9,fontWeight:700,cursor:'pointer',fontFamily:'inherit',borderRadius:retro?0:2,letterSpacing:1}}>{retro?'MED':'RETRO'}</button>
           </div>}
         </div>
+        {/* TRANSPORT */}
+        {init&&<div style={{display:'flex',justifyContent:'flex-end',marginBottom:4,flexShrink:0}}>
+          <div style={{fontFamily:'var(--fontD)',fontSize:retro?15:10,fontWeight:700,color:retro?'#000':'#556',background:retro?'#777':'#0a0d16',border:retro?'inset 2px #555':'1px solid #141824',padding:'3px 10px',borderRadius:'var(--r)',letterSpacing:2,fontVariantNumeric:'tabular-nums',display:'flex',gap:8,alignItems:'center'}}>
+            <span>{playing&&curTick>=0?`${Math.floor(curTick/Tpb_)+1}.${Math.floor((curTick%Tpb_)/tpBt)+1}`:'1.1'}</span>
+            <span style={{opacity:0.4}}>|</span>
+            <span>{(()=>{const s=curTick>=0?curTick*60/(bpm*64):0;return `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;})()}</span>
+          </div>
+        </div>}
         {/* PRESETS */}
         <div style={{display:'flex',gap:6,marginBottom:6,flexShrink:0,flexWrap:'wrap'}}>
           {allPresets.map(([id,p])=><button key={id} onClick={()=>loadP(id)} style={{background:preset===id?'var(--sel-bg)':'transparent',border:`1px solid ${preset===id?(id==='custom'?'#ffaa3066':'var(--sel-brd)'):'var(--brd)'}`,color:preset===id?(id==='custom'?'#ffaa30':'var(--sel-c)'):'var(--dim3)',padding:'5px 14px',fontSize:retro?14:10,cursor:'pointer',fontFamily:'inherit',letterSpacing:1,borderRadius:'var(--r)',fontWeight:preset===id?700:400}}>{p.name}</button>)}
