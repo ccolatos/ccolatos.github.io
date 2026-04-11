@@ -154,7 +154,59 @@ function App(){
   const[retro,setRetro]=useState(false);
   useEffect(()=>{document.body.classList.toggle('retro',retro);},[retro]);
   const isPaint=useRef(false),paintAct=useRef('add'),paintCh_=useRef(-1),lastPCell=useRef(-1);
-  const pR=useRef(false),tR=useRef(-1),tmR=useRef(null),cR=useRef([]),bR=useRef(133),swR=useRef(15),mR=useRef(Array(9).fill(false)),soR=useRef(Array(9).fill(false)),vrR=useRef(Array(9).fill(0)),tsR=useRef([4,4]),bsR=useRef(16),aR=useRef(null),gsR=useRef(null),velR=useRef(0.75),pnR=useRef('C-3');
+  const pR=useRef(false),tR=useRef(-1),tmR=useRef(null),cR=useRef([]),bR=useRef(133),swR=useRef(15),mR=useRef(Array(9).fill(false)),soR=useRef(Array(9).fill(false)),vrR=useRef(Array(9).fill(0)),tsR=useRef([4,4]),bsR=useRef(16),aR=useRef(null),gsR=useRef(null),velR=useRef(0.75),pnR=useRef('C-3'),wkR=useRef(null);
+  useEffect(()=>{try{const src=`let t=null;onmessage=e=>{if(e.data.cmd==='wait'){if(t)clearTimeout(t);t=setTimeout(()=>postMessage('tick'),e.data.ms);}else if(e.data.cmd==='stop'){if(t)clearTimeout(t);t=null;}};`;const blob=new Blob([src],{type:'application/javascript'});wkR.current=new Worker(URL.createObjectURL(blob));}catch(e){wkR.current=null;}return()=>{if(wkR.current){wkR.current.terminate();wkR.current=null;}};},[]);
+  // MIDI: GM program + note mapping
+  // Drums on ch10 (index 9): kick=36, snare=38, chh=42, ohh=46, perc=39(clap)
+  // Melodic: bass=ch1 pgm38, acid=ch2 pgm81, lead=ch3 pgm80, pad=ch4 pgm89
+  const MIDI_DRUM={kick:36,snare:38,chh:42,ohh:46,perc:39};
+  const MIDI_CH={kick:9,snare:9,chh:9,ohh:9,perc:9,bass:0,acid:1,lead:2,pad:3};
+  const MIDI_PGM={bass:38,acid:81,lead:80,pad:89};
+  const noteToMidi=n=>{if(!n)return 60;const m=n.match(/^([A-G][#-]?)(\d)$/);if(!m)return 60;const semis={'C-':0,'C#':1,'D-':2,'D#':3,'E-':4,'F-':5,'F#':6,'G-':7,'G#':8,'A-':9,'A#':10,'B-':11};return (semis[m[1]]||0)+(+m[2]+1)*12;};
+  const[midiPorts,setMidiPorts]=useState([]);const[midiPort,setMidiPort]=useState('');const midiOutR=useRef(null);
+  useEffect(()=>{if(!navigator.requestMIDIAccess)return;let access=null;const refresh=a=>{const ps=[];a.outputs.forEach(p=>ps.push({id:p.id,name:p.name}));setMidiPorts(ps);};navigator.requestMIDIAccess().then(a=>{access=a;refresh(a);a.onstatechange=()=>refresh(a);}).catch(()=>{});return()=>{if(access)access.onstatechange=null;};},[]);
+  useEffect(()=>{if(!midiPort||!navigator.requestMIDIAccess){midiOutR.current=null;return;}navigator.requestMIDIAccess().then(a=>{midiOutR.current=a.outputs.get(midiPort)||null;});},[midiPort]);
+  const exportMIDI=useCallback(()=>{
+    const chs=cR.current;if(!chs||!chs.length)return;
+    const PPQ=480,tb=TPB(tsR.current[0],tsR.current[1]),tot=bsR.current*tb;
+    // Convert internal tick (TPQ=64 ticks per quarter) to SMF delta (PPQ=480 per quarter)
+    const toSmf=t=>Math.round(t*(PPQ/TPQ));
+    const vlq=n=>{const b=[n&0x7f];while((n>>=7)>0)b.unshift((n&0x7f)|0x80);return b;};
+    const be32=n=>[(n>>24)&0xff,(n>>16)&0xff,(n>>8)&0xff,n&0xff];
+    const be16=n=>[(n>>8)&0xff,n&0xff];
+    const str=s=>[...s].map(c=>c.charCodeAt(0));
+    const track=bytes=>[...str('MTrk'),...be32(bytes.length),...bytes];
+    // Tempo track
+    const uspq=Math.round(60000000/bR.current);
+    const tempo=[0,0xff,0x51,0x03,(uspq>>16)&0xff,(uspq>>8)&0xff,uspq&0xff,0,0xff,0x58,0x04,tsR.current[0],Math.log2(tsR.current[1]),24,8,0,0xff,0x2f,0];
+    const tracks=[track(tempo)];
+    // One track per channel
+    chs.forEach((ch,i)=>{
+      const id=CH[i].id,drum=CH[i].drum,mCh=MIDI_CH[id];
+      const events=[];
+      // Program change for melodic
+      if(!drum&&MIDI_PGM[id]!==undefined)events.push({t:0,d:[0xc0|mCh,MIDI_PGM[id]]});
+      // Track name meta
+      events.push({t:0,d:[0xff,0x03,CH[i].name.length,...str(CH[i].name)]});
+      // Notes
+      Object.keys(ch.events).forEach(tk=>{
+        const ev=ch.events[tk];const t=+tk;
+        const note=drum?MIDI_DRUM[id]:noteToMidi(ev.note);
+        const vel=Math.max(1,Math.min(127,Math.round(ev.vel*127)));
+        events.push({t,d:[0x90|mCh,note,vel]});
+        events.push({t:Math.min(t+8,tot-1),d:[0x80|mCh,note,0]});
+      });
+      events.sort((a,b)=>a.t-b.t||((a.d[0]&0xf0)===0x80?-1:1));
+      const bytes=[];let last=0;
+      events.forEach(e=>{const d=toSmf(e.t-last);bytes.push(...vlq(d),...e.d);last=e.t;});
+      bytes.push(...vlq(toSmf(tot-last)),0xff,0x2f,0);
+      tracks.push(track(bytes));
+    });
+    const header=[...str('MThd'),...be32(6),...be16(1),...be16(tracks.length),...be16(PPQ)];
+    const all=new Uint8Array([...header,...tracks.flat()]);
+    const blob=new Blob([all],{type:'audio/midi'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`neurotrkr_${preset}.mid`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  },[preset]);
   const customSnap=useRef(null); // stores custom pattern state
   const Tpb_=useMemo(()=>TPB(ts[0],ts[1]),[ts]);const totT=useMemo(()=>bars*Tpb_,[bars,Tpb_]);const cT=GD[gd].t;const totC=Math.ceil(totT/cT);const tpBt=(4/ts[1])*TPQ;
   const[wW,setWW]=useState(1200);
@@ -183,9 +235,9 @@ function App(){
   const clearAll=useCallback(()=>{setChs(prev=>{const n=prev.map(ch=>({...ch,events:{}}));cR.current=n;return n;});customSnap.current=null;},[]);
   const initA=useCallback(()=>{if(!eR.current)eR.current=new Eng();eR.current.init();eR.current.chime();setInit(true);loadP(preset,true);},[preset,loadP]);
   useEffect(()=>{const draw=()=>{if(eR.current?.ana){setWave(eR.current.gW());setFreq(eR.current.gF());}aR.current=requestAnimationFrame(draw);};if(init)aR.current=requestAnimationFrame(draw);return()=>{if(aR.current)cancelAnimationFrame(aR.current);};},[init]);
-  const trigT=useCallback(tick=>{const e=eR.current,cs=cR.current;if(!e||!cs.length)return;const hS=soR.current.some(s=>s);cs.forEach((ch,i)=>{if(mR.current[i]||(hS&&!soR.current[i]))return;const ev=ch.events[tick];if(!ev||ev.vel<=0)return;const v=ev.vel,n=ev.note,p=VR[CH[i].id][vrR.current[i]];if(CH[i].id==='kick')e.kick(i,v,p);else if(CH[i].id==='snare')e.snare(i,v,p);else if(CH[i].id==='chh')e.hat(i,v,p,false);else if(CH[i].id==='ohh')e.hat(i,v,p,true);else if(CH[i].id==='perc')e.perc(i,v,p);else if(n){const m=n.match(/^([A-G][#-]?)(\d)$/);if(m){const fr=ntf(m[1],+m[2]);if(CH[i].id==='bass'||CH[i].id==='acid')e.bass(i,fr,v,p);else if(CH[i].id==='lead')e.lead(i,fr,v,p);else if(CH[i].id==='pad')e.pad(i,fr,v,p);}}});},[]);
-  const startP=useCallback(()=>{if(!eR.current)return;if(eR.current.c.state==='suspended')eR.current.c.resume();pR.current=true;tR.current=-1;setPlaying(true);const tick=()=>{if(!pR.current)return;const tb=TPB(tsR.current[0],tsR.current[1]),tot=bsR.current*tb;tR.current=(tR.current+1)%tot;setCurTick(tR.current);trigT(tR.current);const tMs=(60000/bR.current)/TPQ;const odd=tR.current%2===1;const sw=swR.current/100;const ms=odd?tMs*(1+sw):tMs*(1-sw);tmR.current=setTimeout(tick,Math.max(ms,1));};tick();},[trigT]);
-  const stopP=useCallback(()=>{pR.current=false;setPlaying(false);setCurTick(-1);tR.current=-1;if(tmR.current)clearTimeout(tmR.current);},[]);
+  const trigT=useCallback(tick=>{const e=eR.current,cs=cR.current;if(!e||!cs.length)return;const hS=soR.current.some(s=>s);const mout=midiOutR.current;cs.forEach((ch,i)=>{if(mR.current[i]||(hS&&!soR.current[i]))return;const ev=ch.events[tick];if(!ev||ev.vel<=0)return;const v=ev.vel,n=ev.note,p=VR[CH[i].id][vrR.current[i]];if(mout){const id=CH[i].id,drum=CH[i].drum,mCh=MIDI_CH[id],note=drum?MIDI_DRUM[id]:noteToMidi(n||'C-3'),mv=Math.max(1,Math.min(127,Math.round(v*127)));try{mout.send([0x90|mCh,note,mv]);mout.send([0x80|mCh,note,0],performance.now()+120);}catch(err){}}if(CH[i].id==='kick')e.kick(i,v,p);else if(CH[i].id==='snare')e.snare(i,v,p);else if(CH[i].id==='chh')e.hat(i,v,p,false);else if(CH[i].id==='ohh')e.hat(i,v,p,true);else if(CH[i].id==='perc')e.perc(i,v,p);else if(n){const m=n.match(/^([A-G][#-]?)(\d)$/);if(m){const fr=ntf(m[1],+m[2]);if(CH[i].id==='bass'||CH[i].id==='acid')e.bass(i,fr,v,p);else if(CH[i].id==='lead')e.lead(i,fr,v,p);else if(CH[i].id==='pad')e.pad(i,fr,v,p);}}});},[]);
+  const startP=useCallback(()=>{if(!eR.current)return;if(eR.current.c.state==='suspended')eR.current.c.resume();pR.current=true;tR.current=-1;setPlaying(true);const tick=()=>{if(!pR.current)return;const tb=TPB(tsR.current[0],tsR.current[1]),tot=bsR.current*tb;tR.current=(tR.current+1)%tot;setCurTick(tR.current);trigT(tR.current);const tMs=(60000/bR.current)/TPQ;const odd=tR.current%2===1;const sw=swR.current/100;const ms=Math.max(odd?tMs*(1+sw):tMs*(1-sw),1);if(wkR.current){wkR.current.postMessage({cmd:'wait',ms});}else{tmR.current=setTimeout(tick,ms);}};if(wkR.current){wkR.current.onmessage=()=>{if(pR.current)tick();};}tick();},[trigT]);
+  const stopP=useCallback(()=>{pR.current=false;setPlaying(false);setCurTick(-1);tR.current=-1;if(tmR.current){clearTimeout(tmR.current);tmR.current=null;}if(wkR.current){wkR.current.postMessage({cmd:'stop'});wkR.current.onmessage=null;}},[]);
 
   // Paint with gap interpolation
   const applyP=useCallback((ci,cellIdx)=>{const tp=cellIdx*cT;setChs(prev=>{const next=[...prev];const ch={...next[ci],events:{...next[ci].events}};if(paintAct.current==='add'){ch.events[tp]=CH[ci].drum?{vel:velR.current,note:''}:{vel:velR.current,note:pnR.current};}else delete ch.events[tp];next[ci]=ch;cR.current=next;return next;});},[cT]);
@@ -223,6 +275,8 @@ function App(){
             <button onClick={clearAll} style={{background:'transparent',border:`1px solid ${retro?'#cc220044':'#ff2d4044'}`,color:'var(--stop)',padding:'6px 8px',fontSize:retro?13:9,fontWeight:700,cursor:'pointer',fontFamily:'inherit',borderRadius:'var(--r)',letterSpacing:1}}>CLEAR</button>
             <button onClick={()=>setShowMix(!showMix)} style={{background:showMix?'var(--btn)':'transparent',border:`1px solid ${showMix?'var(--acc)44':'var(--brd)'}`,color:showMix?'var(--acc)':'var(--dim2)',padding:'6px 8px',fontSize:retro?13:9,fontWeight:700,cursor:'pointer',fontFamily:'inherit',borderRadius:'var(--r)',letterSpacing:1}}>MIXER</button>
             <button onClick={()=>setRetro(!retro)} style={{background:retro?'#666':'transparent',border:retro?'outset 2px #aaa':`1px solid #141824`,color:retro?'#fff':'#445',padding:'6px 8px',fontSize:retro?13:9,fontWeight:700,cursor:'pointer',fontFamily:'inherit',borderRadius:retro?0:2,letterSpacing:1}}>{retro?'MED':'RETRO'}</button>
+            <button onClick={exportMIDI} title="Export performance as General MIDI file" style={{background:'transparent',border:`1px solid ${retro?'#666':'var(--brd)'}`,color:'var(--dim2)',padding:'6px 8px',fontSize:retro?13:9,fontWeight:700,cursor:'pointer',fontFamily:'inherit',borderRadius:'var(--r)',letterSpacing:1}}>.MID</button>
+            {midiPorts.length>0&&<select value={midiPort} onChange={e=>setMidiPort(e.target.value)} title="Live MIDI output device" style={{background:retro?'#aaa':'#0e1018',color:retro?'#000':'#aab',border:retro?'inset 1px #555':'1px solid #1a1e2a',padding:'4px 2px',fontFamily:'inherit',fontSize:retro?13:9,fontWeight:700,borderRadius:'var(--r)',maxWidth:90}}><option value="">MIDI OUT</option>{midiPorts.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select>}
           </div>}
         </div>
         {/* PRESETS */}
