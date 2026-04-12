@@ -74,7 +74,7 @@ const ntf=(n,o)=>440*Math.pow(2,((NOTES.indexOf(n)-9)+(o-4)*12)/12);
 const TS=[[2,4],[3,4],[4,4],[5,4],[6,4],[7,4],[9,4],[11,4],[13,4],[2,2],[3,2],[3,8],[5,8],[6,8],[7,8],[9,8],[11,8],[12,8],[13,8],[15,8]];
 const GD=[{l:'1/4',t:64},{l:'1/8',t:32},{l:'1/12',t:21},{l:'1/16',t:16},{l:'1/24',t:11},{l:'1/32',t:8},{l:'1/48',t:5},{l:'1/64',t:4},{l:'1/128',t:2},{l:'1/256',t:1}];
 const qpb=(n,d)=>n*(4/d),TPB=(n,d)=>qpb(n,d)*TPQ;
-const VELS=[0.25,0.5,0.75,1.0];
+const VELS=[24/127,42/127,60/127,80/127,100/127,1.0];
 const VR={
   kick:[{name:'Standard',pitch:55,decay:0.4,punch:150,click:0.7,drive:0},{name:'808',pitch:42,decay:0.7,punch:100,click:0.2,drive:0.1},{name:'Analog',pitch:58,decay:0.35,punch:130,click:0.5,drive:0.15},{name:'Punchy',pitch:62,decay:0.25,punch:200,click:1.0,drive:0.3},{name:'Sub',pitch:38,decay:0.6,punch:80,click:0.1,drive:0}],
   snare:[{name:'Acoustic',tone:200,decay:0.2,snap:0.8,na:1,clap:0},{name:'808',tone:160,decay:0.3,snap:0.4,na:0.6,clap:0},{name:'Tight',tone:240,decay:0.1,snap:1.0,na:0.8,clap:0},{name:'Noise',tone:300,decay:0.22,snap:0.9,na:1.4,clap:0},{name:'Clap',tone:180,decay:0.25,snap:0.6,na:0.5,clap:1}],
@@ -124,7 +124,7 @@ function Slider({value,min,max,color,onChange,width=60,label}){
   const calc=e=>{const r=ref.current.getBoundingClientRect();return Math.round(min+(max-min)*Math.max(0,Math.min(1,(e.clientX-r.left)/r.width)));};
   useEffect(()=>{const mv=e=>{if(dragging.current)onChange(calc(e));};const up=()=>{dragging.current=false;};const tm=e=>{if(dragging.current){const t=e.touches[0];onChange(Math.round(min+(max-min)*Math.max(0,Math.min(1,(t.clientX-ref.current.getBoundingClientRect().left)/ref.current.getBoundingClientRect().width))));}};const te=()=>{dragging.current=false;};window.addEventListener('mousemove',mv);window.addEventListener('mouseup',up);window.addEventListener('touchmove',tm,{passive:false});window.addEventListener('touchend',te);return()=>{window.removeEventListener('mousemove',mv);window.removeEventListener('mouseup',up);window.removeEventListener('touchmove',tm);window.removeEventListener('touchend',te);};},[min,max,onChange]);
   return(<div style={{display:'flex',alignItems:'center',gap:4}}>
-    {label&&<span style={{color:`var(--sl-c,${color})`,fontWeight:700,fontSize:'var(--sl-fs,8px)',letterSpacing:1,minWidth:22}}>{label}</span>}
+    {label&&<span style={{color:`var(--sl-c,${color})`,fontWeight:700,fontSize:'var(--sl-fs,8px)',letterSpacing:1,minWidth:32,display:'inline-block'}}>{label}</span>}
     <div ref={ref} onMouseDown={e=>{dragging.current=true;onChange(calc(e));}} onTouchStart={e=>{e.preventDefault();dragging.current=true;const t=e.touches[0];const r=ref.current.getBoundingClientRect();onChange(Math.round(min+(max-min)*Math.max(0,Math.min(1,(t.clientX-r.left)/r.width))));}} style={{width,height:8,background:'var(--sl-track,#0e1220)',borderRadius:4,cursor:'pointer',position:'relative',flexShrink:0}}>
       <div style={{position:'absolute',left:0,top:0,bottom:0,width:`${pct}%`,background:`var(--sl-fill,linear-gradient(90deg,${color}55,${color}))`,borderRadius:4,transition:dragging.current?'none':'width 0.05s'}}/>
       <div style={{position:'absolute',top:-2,width:12,height:12,borderRadius:'var(--sl-r,6px)',background:`var(--sl-handle,${color})`,border:'var(--sl-brd,2px solid #060810)',left:`calc(${pct}% - 6px)`,boxShadow:`var(--sl-glow,0 0 6px ${color}44)`,transition:dragging.current?'none':'left 0.05s'}}/>
@@ -152,11 +152,11 @@ function App(){
   const[mutes,setMutes]=useState(Array(9).fill(false));const[solos,setSolos]=useState(Array(9).fill(false));
   const[dA,setDA]=useState(0.25);const[rA,setRA]=useState(0.35);const[mV,setMV]=useState(0.85);const[xA,setXA]=useState(0);const[preset,setPreset]=useState('aphex-twin');
   const[eN,setEN]=useState(null);const[wave,setWave]=useState(null);const[freq,setFreq]=useState(null);const[sV,setSV]=useState(null);
-  const[paintNote,setPaintNote]=useState('C-3');const[vel,setVel]=useState(0.75);const[showMix,setShowMix]=useState(false);
+  const[paintNote,setPaintNote]=useState('C-3');const[vel,setVel]=useState(100/127);const[showMix,setShowMix]=useState(false);
   const[retro,setRetro]=useState(false);
   useEffect(()=>{document.body.classList.toggle('retro',retro);},[retro]);
   const isPaint=useRef(false),paintAct=useRef('add'),paintCh_=useRef(-1),lastPCell=useRef(-1);
-  const pR=useRef(false),tR=useRef(-1),tmR=useRef(null),cR=useRef([]),bR=useRef(133),swR=useRef(15),mR=useRef(Array(9).fill(false)),soR=useRef(Array(9).fill(false)),vrR=useRef(Array(9).fill(0)),tsR=useRef([4,4]),bsR=useRef(16),aR=useRef(null),gsR=useRef(null),velR=useRef(0.75),pnR=useRef('C-3'),wkR=useRef(null),aR2=useRef(null);
+  const pR=useRef(false),tR=useRef(-1),tmR=useRef(null),cR=useRef([]),bR=useRef(133),swR=useRef(15),mR=useRef(Array(9).fill(false)),soR=useRef(Array(9).fill(false)),vrR=useRef(Array(9).fill(0)),tsR=useRef([4,4]),bsR=useRef(16),aR=useRef(null),gsR=useRef(null),velR=useRef(100/127),pnR=useRef('C-3'),wkR=useRef(null),aR2=useRef(null);
   useEffect(()=>{try{const src=`let t=null;onmessage=e=>{if(e.data.cmd==='wait'){if(t)clearTimeout(t);t=setTimeout(()=>postMessage('tick'),e.data.ms);}else if(e.data.cmd==='stop'){if(t)clearTimeout(t);t=null;}};`;const blob=new Blob([src],{type:'application/javascript'});wkR.current=new Worker(URL.createObjectURL(blob));}catch(e){wkR.current=null;}return()=>{if(wkR.current){wkR.current.terminate();wkR.current=null;}};},[]);
   // MIDI: GM program + note mapping
   // Drums on ch10 (index 9): kick=36, snare=38, chh=42, ohh=46, perc=39(clap)
@@ -331,7 +331,7 @@ function App(){
         {init&&<>
           {/* CONTROLS */}
           <div style={{display:'flex',gap:14,alignItems:'center',marginBottom:5,padding:'5px 10px',background:'var(--panel)',border:'var(--hdr-brd)',borderRadius:'var(--r)',flexWrap:'wrap',flexShrink:0}}>
-            <Slider label="BPM" color={retro?"#444":"#00ff88"} value={bpm} min={40} max={240} width={70} onChange={v=>{setBpm(v);bR.current=v;}}/>
+            <Slider label="BPM" color={retro?"#444":"#00ff88"} value={bpm} min={40} max={240} width={50} onChange={v=>{setBpm(v);bR.current=v;}}/>
             <Slider label="SWG" color={retro?"#444":"#ffaa30"} value={swing} min={0} max={50} width={50} onChange={v=>{setSwing(v);swR.current=v;}}/>
             <Slider label="DLY" color={retro?"#444":"#20b8ff"} value={Math.round(dA*100)} min={0} max={100} width={50} onChange={v=>{setDA(v/100);eR.current?.sD(v/100);}}/>
             <Slider label="REV" color={retro?"#444":"#7040ff"} value={Math.round(rA*100)} min={0} max={100} width={50} onChange={v=>{setRA(v/100);eR.current?.sR(v/100);}}/>
@@ -343,7 +343,7 @@ function App(){
             <label style={{display:'flex',alignItems:'center',gap:4}}><span style={{color:'#a0bb30',fontWeight:700,fontSize:8}}>GRID</span><select value={gd} onChange={e=>setGd(+e.target.value)} style={{background:'#0e1018',color:'#aab',border:'1px solid #1a1e2a',padding:'2px 3px',fontFamily:'inherit',fontSize:9,borderRadius:2}}>{GD.map((g,i)=><option key={i} value={i}>{g.l}</option>)}</select></label>
             <div style={{width:1,height:16,background:'var(--sep)'}}/>
             <label title="Note painted on melodic channels. Shift+click an empty cell to open the full octave picker." style={{display:'flex',alignItems:'center',gap:4}}><span style={{color:'#ff88cc',fontWeight:700,fontSize:8}}>NOTE</span><select value={paintNote} onChange={e=>{setPaintNote(e.target.value);pnR.current=e.target.value;}} style={{background:'#0e1018',color:'#aab',border:'1px solid #1a1e2a',padding:'2px 3px',fontFamily:'inherit',fontSize:9,borderRadius:2}}>{[1,2,3,4,5,6].map(o=>NOTES.map(n=><option key={n+o} value={n+o}>{(n+o).replace('-','')}</option>))}</select></label>
-            <div style={{display:'flex',alignItems:'center',gap:3}}><span style={{color:'#ffdd44',fontWeight:700,fontSize:8}}>VEL</span>{VELS.map(v=><button key={v} onClick={()=>setVelW(v)} style={{background:vel===v?'#ffdd4433':'transparent',border:`1px solid ${vel===v?'#ffdd4466':'#1a1e2a'}`,color:vel===v?'#ffdd44':'#334',width:24,height:16,fontSize:8,cursor:'pointer',fontFamily:'inherit',padding:0,borderRadius:2,fontWeight:700}}>{Math.round(v*100)}</button>)}</div>
+            <label style={{display:'flex',alignItems:'center',gap:4}}><span style={{color:'#ffdd44',fontWeight:700,fontSize:8}}>VEL</span><select value={vel} onChange={e=>setVelW(+e.target.value)} style={{background:'#0e1018',color:'#aab',border:'1px solid #1a1e2a',padding:'2px 3px',fontFamily:'inherit',fontSize:9,borderRadius:2}}>{[24,42,60,80,100,127].map(v=><option key={v} value={v/127}>{v}</option>)}</select></label>
           </div>
           {/* VIZ */}
           <div style={{display:'flex',gap:4,marginBottom:4,height:28,flexShrink:0}}>
