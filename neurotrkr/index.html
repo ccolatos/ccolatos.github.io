@@ -239,6 +239,9 @@ function App(){
   useEffect(()=>{const draw=()=>{if(eR.current?.ana){setWave(eR.current.gW());setFreq(eR.current.gF());}aR.current=requestAnimationFrame(draw);};if(init)aR.current=requestAnimationFrame(draw);return()=>{if(aR.current)cancelAnimationFrame(aR.current);};},[init]);
   const trigT=useCallback((tick,when)=>{const e=eR.current,cs=cR.current;if(!e||!cs.length)return;const hS=soR.current.some(s=>s);const mout=midiOutR.current;cs.forEach((ch,i)=>{if(mR.current[i]||(hS&&!soR.current[i]))return;const ev=ch.events[tick];if(!ev||ev.vel<=0)return;const v=ev.vel,n=ev.note,p=VR[CH[i].id][vrR.current[i]];if(mout){const id=CH[i].id,drum=CH[i].drum,mCh=MIDI_CH[id],note=drum?MIDI_DRUM[id]:noteToMidi(n||'C-3'),mv=Math.max(1,Math.min(127,Math.round(v*127)));try{const nowP=performance.now(),delayMs=when?Math.max(0,(when-e.c.currentTime)*1000):0;mout.send([0x90|mCh,note,mv],nowP+delayMs);mout.send([0x80|mCh,note,0],nowP+delayMs+120);}catch(err){}}if(CH[i].id==='kick')e.kick(i,v,p,when);else if(CH[i].id==='snare')e.snare(i,v,p,when);else if(CH[i].id==='chh')e.hat(i,v,p,false,when);else if(CH[i].id==='ohh')e.hat(i,v,p,true,when);else if(CH[i].id==='perc')e.perc(i,v,p,when);else if(n){const m=n.match(/^([A-G][#-]?)(\d)$/);if(m){const fr=ntf(m[1],+m[2]);if(CH[i].id==='bass'||CH[i].id==='acid')e.bass(i,fr,v,p,when);else if(CH[i].id==='lead')e.lead(i,fr,v,p,when);else if(CH[i].id==='pad')e.pad(i,fr,v,p,when);}}});},[]);
   const schedR=useRef({next:0,tick:0,start:0,anchor:0});
+  // Swing scale factor for a tick: ticks within "off" 16ths (sub 1 or 3 of each beat) get shorter,
+  // ticks within "on" 16ths get longer. Net duration of each beat is preserved.
+  const swingScale=(tick,sw)=>{const sub=Math.floor((tick%TPQ)/16);return (sub===1||sub===3)?(1-sw):(1+sw);};
   const startP=useCallback(()=>{
     if(!eR.current)return;
     const ctx=eR.current.c;
@@ -254,9 +257,8 @@ function App(){
       const tMs=(60000/bR.current)/TPQ,tSec=tMs/1000;
       while(s.next<ctx.currentTime+LOOK){
         trigT(s.tick,s.next);
-        const odd=s.tick%2===1;
         const sw=swR.current/100;
-        const dt=odd?tSec*(1+sw):tSec*(1-sw);
+        const dt=tSec*swingScale(s.tick,sw);
         s.next+=Math.max(dt,0.001);
         s.tick=(s.tick+1)%tot;
         if(s.tick===0){s.anchor=s.next;s.anchorTick=0;}
@@ -273,8 +275,9 @@ function App(){
       const tMs=(60000/bR.current)/TPQ,tSec=tMs/1000;
       const elapsed=ctxNow-s.start;
       if(elapsed>=0){
-        const approx=Math.floor(elapsed/tSec);
-        const vTick=((approx%tot)+tot)%tot;
+        // Linear estimate is good enough for visual playhead since swing averages out per beat
+        const linear=Math.floor(elapsed/tSec);
+        const vTick=((linear%tot)+tot)%tot;
         if(vTick!==tR.current){tR.current=vTick;setCurTick(vTick);}
       }
       aR2.current=requestAnimationFrame(visLoop);
