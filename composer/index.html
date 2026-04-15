@@ -26,6 +26,7 @@
     <button class="chooser-btn" data-inst="ish">In Suspended Harmony</button>
     <button class="chooser-btn" data-inst="lem">Lemniscate</button>
     <button class="chooser-btn" data-inst="gen" style="text-transform:none;letter-spacing:0.14em">Gendy c<sup style="font-size:0.7em">2</sup></button>
+    <button class="chooser-btn" data-inst="chi">Chiaroscuro</button>
   </div>
   <div class="overlay" id="overlay">
     <div class="topline"><div class="title" id="title"></div><div id="status"></div></div>
@@ -388,7 +389,261 @@ registerProcessor("dss-processor", DSSProcessor);
         onUpdate() {}
       };
 
-      const INSTRUMENTS = { ish: ISH, lem: LEM, gen: GEN };
+      // ================================================================
+      // INSTRUMENT: CHIAROSCURO
+      //
+      // 8:08. Light and shadow. A composition of rotating leadership,
+      // harmonic progression, breathing swells, and structural Cauchy
+      // events as punctuation. Each voice class takes prominence in
+      // turn. The piece modulates through multiple tonal centers before
+      // returning home. Shorter voice presences create form you can
+      // hear: voices enter, swell, and withdraw as gestures.
+      // ================================================================
+
+      // Chiaroscuro timing (488 seconds total)
+      // The piece has 12 regions, each with its own tonal center,
+      // lead voice class, and stoch/dist profile. Cauchy events fire
+      // at structural moments (region transitions with dramatic shifts).
+      const CHI_DUR = 488;
+
+      // Each region: center (MIDI root), mode, lead class, stoch, dist, cauchyBurst
+      const CHI_REGIONS = [
+        { start: 0,   end: 38,  root: 34, mode: "majorish",  lead: "bass", stoch: 0.04, dist: 0.0,  cauchy: false, label: "emergence (Bb)" },
+        { start: 38,  end: 82,  root: 34, mode: "majorish",  lead: "body", stoch: 0.07, dist: 0.0,  cauchy: false, label: "opening (Bb)" },
+        { start: 82,  end: 128, root: 41, mode: "majorish",  lead: "air",  stoch: 0.10, dist: 0.1,  cauchy: true,  label: "ascent (F)" },
+        { start: 128, end: 176, root: 39, mode: "majorish",  lead: "body", stoch: 0.12, dist: 0.15, cauchy: false, label: "shadow (Eb)" },
+        { start: 176, end: 222, root: 43, mode: "minor",     lead: "lead", stoch: 0.14, dist: 0.25, cauchy: true,  label: "dusk (Gm)" },
+        { start: 222, end: 272, root: 38, mode: "minor",     lead: "air",  stoch: 0.18, dist: 0.45, cauchy: true,  label: "descent (Dm)" },
+        { start: 272, end: 320, root: 34, mode: "altered",   lead: "all",  stoch: 0.22, dist: 0.65, cauchy: true,  label: "rupture (Bb*)" },
+        { start: 320, end: 362, root: 38, mode: "minor",     lead: "lead", stoch: 0.15, dist: 0.30, cauchy: false, label: "aftermath (Dm)" },
+        { start: 362, end: 400, root: 32, mode: "majorish",  lead: "body", stoch: 0.10, dist: 0.10, cauchy: true,  label: "turn (Ab)" },
+        { start: 400, end: 438, root: 34, mode: "majorish",  lead: "air",  stoch: 0.06, dist: 0.0,  cauchy: false, label: "return (Bb)" },
+        { start: 438, end: 468, root: 34, mode: "majorish",  lead: "bass", stoch: 0.03, dist: 0.0,  cauchy: false, label: "resolution (Bb)" },
+        { start: 468, end: 488, root: 34, mode: "majorish",  lead: "none", stoch: 0.02, dist: 0.0,  cauchy: false, label: "silence" }
+      ];
+
+      // Harmonic content derived from region: root + mode determines pitches
+      function chiPitches(root, mode) {
+        // Derive pitch structures from the root
+        if (mode === "majorish") {
+          // Overtone-series based: root, fifth, major third, seventh, ninth
+          return {
+            bass: [root, root + 12],
+            body: [root, root + 12, root + 12, root + 19, root + 19, root + 16, root + 24, root + 24],
+            air:  [root + 24, root + 28, root + 31, root + 24, root + 28, root + 31],
+            lead: [root + 24, root + 31]
+          };
+        } else if (mode === "minor") {
+          // Minor: flat third, perfect fifth, flat seventh
+          return {
+            bass: [root, root + 12],
+            body: [root, root + 12, root + 15, root + 19, root + 19, root + 22, root + 24, root + 27],
+            air:  [root + 24, root + 27, root + 31, root + 24, root + 27, root + 31],
+            lead: [root + 24, root + 31]
+          };
+        } else {
+          // Altered: cluster of tensions - augmented fifth, minor second, tritone
+          return {
+            bass: [root, root + 12, root + 13],
+            body: [root, root + 13, root + 16, root + 18, root + 20, root + 23, root + 25, root + 27],
+            air:  [root + 24, root + 26, root + 30, root + 25, root + 28, root + 32],
+            lead: [root + 25, root + 30]
+          };
+        }
+      }
+
+      // Breathing swells: asymmetric, overlapping waves
+      // Each swell has a start time, peak, and return
+      const CHI_BREATHS = [
+        { peak: 28,  width: 38 },   // slow opening breath
+        { peak: 62,  width: 28 },   // quicker
+        { peak: 102, width: 34 },
+        { peak: 148, width: 30 },
+        { peak: 195, width: 36 },
+        { peak: 245, width: 42 },
+        { peak: 294, width: 46 },   // climax breath
+        { peak: 340, width: 32 },
+        { peak: 380, width: 30 },
+        { peak: 418, width: 36 },
+        { peak: 452, width: 28 }    // final breath
+      ];
+
+      function chiBreathGain(elapsed) {
+        // Sum contributions from all breaths using Gaussian-shaped curves
+        let g = 0.3;  // baseline
+        for (const b of CHI_BREATHS) {
+          const dt = (elapsed - b.peak) / b.width;
+          g += 0.7 * Math.exp(-dt * dt);
+        }
+        return Math.min(1.0, g);
+      }
+
+      // Voice presence: not all 20 always active
+      // Each voice has a presence schedule (when it's active)
+      // Presences are shorter than the old version: 20-50 seconds
+      const CHI_PRESENCES = [
+        // bass voices (0-3)
+        { voice: 0, windows: [[0, 60], [380, 488]] },
+        { voice: 1, windows: [[30, 95], [220, 275], [420, 488]] },
+        { voice: 2, windows: [[50, 130], [280, 340], [440, 488]] },
+        { voice: 3, windows: [[80, 160], [330, 400]] },
+        // body voices (4-11)
+        { voice: 4, windows: [[20, 90], [170, 240], [360, 440]] },
+        { voice: 5, windows: [[40, 130], [200, 270], [380, 460]] },
+        { voice: 6, windows: [[60, 150], [220, 300], [390, 470]] },
+        { voice: 7, windows: [[100, 180], [260, 330], [400, 480]] },
+        { voice: 8, windows: [[120, 200], [270, 340], [410, 480]] },
+        { voice: 9, windows: [[140, 220], [280, 360]] },
+        { voice: 10, windows: [[160, 250], [290, 370], [430, 488]] },
+        { voice: 11, windows: [[80, 170], [240, 320], [370, 450]] },
+        // air voices (12-17)
+        { voice: 12, windows: [[90, 160], [220, 290], [400, 460]] },
+        { voice: 13, windows: [[110, 190], [240, 310], [420, 488]] },
+        { voice: 14, windows: [[130, 210], [260, 340], [410, 470]] },
+        { voice: 15, windows: [[150, 230], [280, 360], [390, 460]] },
+        { voice: 16, windows: [[170, 250], [300, 380]] },
+        { voice: 17, windows: [[190, 270], [320, 400]] },
+        // lead voices (18-19)
+        { voice: 18, windows: [[180, 230], [340, 400]] },
+        { voice: 19, windows: [[190, 240], [350, 410]] }
+      ];
+
+      function chiVoicePresence(voiceIdx, elapsed) {
+        const p = CHI_PRESENCES[voiceIdx];
+        if (!p) return 0;
+        for (const [start, end] of p.windows) {
+          if (elapsed >= start - 3 && elapsed <= end + 5) {
+            const fadeIn = Math.min(1, Math.max(0, (elapsed - start + 3) / 6));
+            const fadeOut = Math.min(1, Math.max(0, (end + 5 - elapsed) / 8));
+            return fadeIn * fadeOut;
+          }
+        }
+        return 0;
+      }
+
+      // Lead class boost: selected class gets amplitude emphasis
+      function chiLeadBoost(voiceIdx, leadClass) {
+        const classOf = voiceIdx < 4 ? "bass" : voiceIdx < 12 ? "body" : voiceIdx < 18 ? "air" : "lead";
+        if (leadClass === "all") return 1.0;
+        if (leadClass === "none") return 0.8;
+        if (classOf === leadClass) return 1.4;
+        return 0.75;
+      }
+
+      const CHI = {
+        name: "CHIAROSCURO",
+        lpFreq: 5500, sparse: false,
+        sections: CHI_REGIONS,
+        lerpRegion(elapsed) {
+          for (let i = 0; i < CHI_REGIONS.length - 1; i++) {
+            if (elapsed < CHI_REGIONS[i+1].start) {
+              const t = (elapsed - CHI_REGIONS[i].start) / (CHI_REGIONS[i+1].start - CHI_REGIONS[i].start);
+              const a = CHI_REGIONS[i], b = CHI_REGIONS[i+1];
+              return {
+                t, a, b,
+                stoch: lerp(a.stoch, b.stoch, t),
+                dist: lerp(a.dist, b.dist, t),
+                label: t < 0.5 ? a.label : b.label,
+                lead: a.lead,   // lead class switches at boundary
+                root: a.root, mode: a.mode   // harmony holds until boundary
+              };
+            }
+          }
+          const last = CHI_REGIONS[CHI_REGIONS.length - 1];
+          return { t: 1, a: last, b: last, stoch: last.stoch, dist: last.dist, label: last.label, lead: last.lead, root: last.root, mode: last.mode };
+        },
+        lerpSection(elapsed) {
+          // Used by visualizer for label
+          const r = this.lerpRegion(elapsed);
+          return { label: r.label };
+        },
+        initVoices() {
+          // Initialize with all voices silent; presence schedule will bring them in
+          return this._buildParams(0);
+        },
+        updateVoices(section, elapsed) {
+          return this._buildParams(elapsed);
+        },
+        _buildParams(elapsed) {
+          const region = this.lerpRegion(elapsed);
+          const pitches = chiPitches(region.root, region.mode);
+          const breath = chiBreathGain(elapsed);
+          const params = [], st = region.stoch, di = region.dist;
+
+          // 4 bass voices
+          [-0.06,0.06,-0.02,0.02].forEach((pan, i) => {
+            const hz = midiToHz(pitches.bass[i % pitches.bass.length]);
+            const presence = chiVoicePresence(i, elapsed);
+            const boost = chiLeadBoost(i, region.lead);
+            params.push({
+              n:4, fMin:hz*0.95, fMax:hz*1.05, ab:0.85,
+              sa:st*0.6, sd:st*0.3, dist:di*0.5,
+              saRate:st*0.06, sdRate:st*0.03, saMin:st*0.15, saMax:st*2.0, sdMin:st*0.08, sdMax:st*1.2,
+              g: 0.050 * presence * boost * breath, pan
+            });
+          });
+
+          // 8 body voices
+          [-0.30,-0.20,-0.10,-0.03,0.03,0.10,0.20,0.30].forEach((pan, i) => {
+            let midi = pitches.body[i % pitches.body.length];
+            if (i < 2) midi -= 12; if (i >= 6) midi += 12;
+            const hz = midiToHz(midi);
+            const presence = chiVoicePresence(4 + i, elapsed);
+            const boost = chiLeadBoost(4 + i, region.lead);
+            params.push({
+              n:8, fMin:hz*0.93, fMax:hz*1.07, ab:0.70,
+              sa:st, sd:st*0.5, dist:di,
+              saRate:st*0.08, sdRate:st*0.04, saMin:st*0.2, saMax:st*2.5, sdMin:st*0.1, sdMax:st*1.5,
+              g: 0.038 * presence * boost * breath, pan
+            });
+          });
+
+          // 6 air voices
+          [-0.38,-0.22,-0.08,0.08,0.22,0.38].forEach((pan, i) => {
+            const midi = pitches.air[i % pitches.air.length] + (i > 3 ? 12 : 0);
+            const hz = midiToHz(midi);
+            const presence = chiVoicePresence(12 + i, elapsed);
+            const boost = chiLeadBoost(12 + i, region.lead);
+            params.push({
+              n:14, fMin:hz*0.90, fMax:hz*1.10, ab:0.45,
+              sa:st*1.3, sd:st*0.7, dist:di*1.2,
+              saRate:st*0.10, sdRate:st*0.06, saMin:st*0.25, saMax:st*3.0, sdMin:st*0.12, sdMax:st*2.0,
+              g: 0.028 * presence * boost * breath, pan
+            });
+          });
+
+          // 2 lead voices
+          [-0.03,0.03].forEach((pan, i) => {
+            const midi = pitches.lead[i % pitches.lead.length];
+            const hz = midiToHz(midi);
+            const presence = chiVoicePresence(18 + i, elapsed);
+            const boost = chiLeadBoost(18 + i, region.lead);
+            params.push({
+              n:6, fMin:hz*0.97, fMax:hz*1.03, ab:0.55,
+              sa:st*0.4, sd:st*0.2, dist:di*0.3,
+              saRate:st*0.04, sdRate:st*0.02, saMin:st*0.1, saMax:st*1.5, sdMin:st*0.05, sdMax:st*0.8,
+              g: 0.022 * presence * boost * breath, pan
+            });
+          });
+          return params;
+        },
+        scheduleMaster(ac, master) {
+          const now = ac.currentTime;
+          master.gain.setValueAtTime(0.0001, now);
+          master.gain.linearRampToValueAtTime(1.0, now + 4);
+          master.gain.setValueAtTime(1.0, now + CHI_DUR - 1);
+          master.gain.linearRampToValueAtTime(0.0001, now + CHI_DUR + 12);
+        },
+        onUpdate(elapsed, section) {
+          // Gentle filter automation: brighter at climax regions
+          const now = ac.currentTime;
+          const region = this.lerpRegion(elapsed);
+          const filterFreq = 600 + region.stoch * 6000;
+          buses.lp.frequency.setTargetAtTime(Math.min(5500, filterFreq), now, 0.5);
+        }
+      };
+
+      const INSTRUMENTS = { ish: ISH, lem: LEM, gen: GEN, chi: CHI };
 
       // ================================================================
       // REVERB + NOISE (shared)
@@ -504,9 +759,10 @@ registerProcessor("dss-processor", DSSProcessor);
         updateInterval = setInterval(() => {
           if (!playing || !ac || !dssNode || !currentInst) return;
           const inst = INSTRUMENTS[currentInst];
+          const dur = currentInst === "chi" ? CHI_DUR : DUR;
           const elapsed = ac.currentTime - startedAt;
-          if (elapsed >= DUR + 12) { stop(); return; }
-          if (elapsed >= DUR) return;
+          if (elapsed >= dur + 12) { stop(); return; }
+          if (elapsed >= dur) return;
 
           const section = inst.lerpSection(elapsed);
 
@@ -590,9 +846,10 @@ registerProcessor("dss-processor", DSSProcessor);
         cx.globalAlpha = 1;
         if (playing && ac && currentInst) {
           const inst = INSTRUMENTS[currentInst];
-          const el = clamp(ac.currentTime - startedAt, 0, DUR + 12);
-          timeEl.textContent = fmt(Math.min(el, DUR));
-          if (el >= DUR) { phaseEl.textContent = "silence"; statusEl.textContent = "fading"; }
+          const dur = currentInst === "chi" ? CHI_DUR : DUR;
+          const el = clamp(ac.currentTime - startedAt, 0, dur + 12);
+          timeEl.textContent = fmt(Math.min(el, dur));
+          if (el >= dur) { phaseEl.textContent = "silence"; statusEl.textContent = "fading"; }
           else { phaseEl.textContent = inst.lerpSection(el).label; statusEl.textContent = "playing"; }
         }
       }
