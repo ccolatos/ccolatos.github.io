@@ -918,7 +918,8 @@ registerProcessor("dss-processor", DSSProcessor);
         if (!ac || stopping) return;
         playing = false; stopping = true;
         statusEl.textContent = "stopping";
-        if (updateInterval) { clearInterval(updateInterval); updateInterval = null; }
+        if (currentInst === "chi") { try { master.gain.setValueAtTime(0.0001, ac.currentTime); } catch (_) {} }
+        cleanup();
         try {
           const now = ac.currentTime;
           master.gain.cancelScheduledValues(now);
@@ -926,7 +927,6 @@ registerProcessor("dss-processor", DSSProcessor);
           master.gain.linearRampToValueAtTime(0.0001, now + 4);
         } catch (_) {}
         stopTimeout = setTimeout(() => {
-          cleanup();
           if (dssNode) { try { dssNode.port.postMessage({ type: "clear" }); } catch(_){} }
           if (iosAudioEl) { try { iosAudioEl.pause(); iosAudioEl.srcObject = null; } catch(_){} iosAudioEl = null; }
           if (ac) { try { ac.close(); } catch(_){} }
