@@ -25,7 +25,7 @@
   <div class="chooser" id="chooser">
     <button class="chooser-btn" data-inst="ish">In Suspended Harmony</button>
     <button class="chooser-btn" data-inst="lem">Lemniscate</button>
-    <button class="chooser-btn" data-inst="gen" style="text-transform:none;letter-spacing:0.14em">Gendy c<sup style="font-size:0.7em">2</sup></button>
+    <button class="chooser-btn" data-inst="gen" style="text-transform:none;letter-spacing:0.14em">GENDY c<sup style="font-size:0.7em">2</sup></button>
     <button class="chooser-btn" data-inst="chi">Chiaroscuro</button>
   </div>
   <div class="overlay" id="overlay">
@@ -356,7 +356,7 @@ registerProcessor("dss-processor", DSSProcessor);
       // ================================================================
 
       const GEN = {
-        name: 'Gendy c<sup style="font-size:0.7em">2</sup>',
+        name: 'GENDY c<sup style="font-size:0.7em">2</sup>',
         lpFreq: 8000, sparse: true,
         sections: [
           { start: 0,   end: 60,  amp: 0.12, flt: 700,  noise: 0.008, stoch: 0.06, dist: 0.0,  fScale: 0.35, density: 1.0, label: "field i" },
@@ -918,7 +918,7 @@ registerProcessor("dss-processor", DSSProcessor);
         if (!ac || stopping) return;
         playing = false; stopping = true;
         statusEl.textContent = "stopping";
-        cleanup();
+        if (updateInterval) { clearInterval(updateInterval); updateInterval = null; }
         try {
           const now = ac.currentTime;
           master.gain.cancelScheduledValues(now);
@@ -926,6 +926,7 @@ registerProcessor("dss-processor", DSSProcessor);
           master.gain.linearRampToValueAtTime(0.0001, now + 4);
         } catch (_) {}
         stopTimeout = setTimeout(() => {
+          cleanup();
           if (dssNode) { try { dssNode.port.postMessage({ type: "clear" }); } catch(_){} }
           if (iosAudioEl) { try { iosAudioEl.pause(); iosAudioEl.srcObject = null; } catch(_){} iosAudioEl = null; }
           if (ac) { try { ac.close(); } catch(_){} }
