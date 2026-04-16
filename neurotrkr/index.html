@@ -150,6 +150,10 @@ function MixFader({value,color,onChange}){
 }
 
 const RH=19,RNW=44,MIX_W=220;
+const VAR_COLORS=['#ffaa30','#00ddff','#e040dd','#a0e020'];
+const VAR_LETTERS=['A','B','C','D'];
+// Evaluate trig condition for an event. `cond` forms: "N:M" (plays on bar N of every M bars within pattern), "pre" (plays if previous trigger on same channel fired), "!pre" (plays if previous did not).
+const evalCondAt=(cond,tick,tb,prev)=>{if(!cond)return true;if(cond==='pre')return prev===true;if(cond==='!pre')return prev===false;const m=cond.match(/^(\d+):(\d+)$/);if(m){const n=+m[1],total=+m[2];const barN=Math.floor(tick/tb);return ((barN%total)+1)===n;}return true;};
 function App(){
   const eR=useRef(null);const[init,setInit]=useState(false);const[playing,setPlaying]=useState(false);const[curTick,setCurTick]=useState(-1);
   const[bpm,setBpm]=useState(133);const[swing,setSwing]=useState(15);const[bars,setBars]=useState(16);const[ts,setTs]=useState([4,4]);const[gd,setGd]=useState(3);
@@ -159,9 +163,17 @@ function App(){
   const[eN,setEN]=useState(null);const[wave,setWave]=useState(null);const[freq,setFreq]=useState(null);const[sV,setSV]=useState(null);
   const[paintNote,setPaintNote]=useState('C-3');const[vel,setVel]=useState(100/127);const[showMix,setShowMix]=useState(false);
   const[retro,setRetro]=useState(false);
+  // Variants (capture feature): null when unused (default). Array of {chs,vars,vols,mutes,solos} once captured. barAssign: per-bar variant index.
+  const[variants,setVariants]=useState(null);const[activeVar,setActiveVar]=useState(0);const[barAssign,setBarAssign]=useState([]);
+  // Cell editor: null when closed. {ch,cell,tp} when open - for probability/condition editing.
+  const[cellEd,setCellEd]=useState(null);
+  // Help / reference modal
+  const[showHelp,setShowHelp]=useState(false);
   useEffect(()=>{document.body.classList.toggle('retro',retro);},[retro]);
   const isPaint=useRef(false),paintAct=useRef('add'),paintCh_=useRef(-1),lastPCell=useRef(-1);
   const pR=useRef(false),tR=useRef(-1),tmR=useRef(null),cR=useRef([]),bR=useRef(133),swR=useRef(15),mR=useRef(Array(9).fill(false)),soR=useRef(Array(9).fill(false)),vrR=useRef(Array(9).fill(0)),tsR=useRef([4,4]),bsR=useRef(16),aR=useRef(null),gsR=useRef(null),velR=useRef(100/127),pnR=useRef('C-3'),wkR=useRef(null),aR2=useRef(null);
+  // Variant refs (mirror state for scheduler access without re-renders), prev-fired tracking for PRE/!PRE conditions, long-press state for touch cell editor.
+  const vaR=useRef(null),avR=useRef(0),baR=useRef([]),prevFiredR=useRef(Array(9).fill(false)),lpTimer=useRef(null),lpStart=useRef(null);
   useEffect(()=>{try{const src=`let t=null;onmessage=e=>{if(e.data.cmd==='wait'){if(t)clearTimeout(t);t=setTimeout(()=>postMessage('tick'),e.data.ms);}else if(e.data.cmd==='stop'){if(t)clearTimeout(t);t=null;}};`;const blob=new Blob([src],{type:'application/javascript'});wkR.current=new Worker(URL.createObjectURL(blob));}catch(e){wkR.current=null;}return()=>{if(wkR.current){wkR.current.terminate();wkR.current=null;}};},[]);
   // MIDI: GM program + note mapping
   // Drums on ch10 (index 9): kick=36, snare=38, chh=42, ohh=46, perc=39(clap)
@@ -221,25 +233,31 @@ function App(){
   const colW=Math.max(32,Math.floor((wW-RNW-24-(showMix?MIX_W:0))/9));
 
   const loadP=useCallback((id,skipSaveCustom)=>{
-    // Save current to custom if leaving custom
-    if(!skipSaveCustom&&preset==='custom'){customSnap.current={chs:cR.current,vars:vrR.current.slice(),vols:cR.current.map(c=>c.vol),mutes:mR.current.slice(),solos:soR.current.slice()};}
+    // Save current to custom if leaving custom (include variant state)
+    if(!skipSaveCustom&&preset==='custom'){customSnap.current={chs:cR.current,vars:vrR.current.slice(),vols:cR.current.map(c=>c.vol),mutes:mR.current.slice(),solos:soR.current.slice(),variants:vaR.current?vaR.current.map(v=>({chs:v.chs.map(ch=>({...ch,events:{...ch.events}}))})):null,activeVar:avR.current,barAssign:baR.current.slice()};}
     if(id==='custom'){
       if(customSnap.current){
         setChs(customSnap.current.chs);cR.current=customSnap.current.chs;
         setVols(customSnap.current.vols);setVars(customSnap.current.vars);vrR.current=customSnap.current.vars;
         setMutes(customSnap.current.mutes);mR.current=customSnap.current.mutes;
         setSolos(customSnap.current.solos);soR.current=customSnap.current.solos;
+        // Restore variants if they were captured in custom
+        if(customSnap.current.variants){vaR.current=customSnap.current.variants;setVariants(customSnap.current.variants);avR.current=customSnap.current.activeVar||0;setActiveVar(customSnap.current.activeVar||0);baR.current=customSnap.current.barAssign||[];setBarAssign(customSnap.current.barAssign||[]);}
+        else{vaR.current=null;setVariants(null);avR.current=0;setActiveVar(0);baR.current=[];setBarAssign([]);}
       } else {
         // Init empty custom
         const empty=Array(9).fill(null).map(()=>({variant:0,vol:0.7,events:{}}));
         setChs(empty);cR.current=empty;setVols(Array(9).fill(0.7));setVars(Array(9).fill(0));vrR.current=Array(9).fill(0);
+        vaR.current=null;setVariants(null);avR.current=0;setActiveVar(0);baR.current=[];setBarAssign([]);
       }
       setPreset('custom');return;
     }
     const p=buildP(id);setBpm(p.bpm);bR.current=p.bpm;setSwing(p.swing);swR.current=p.swing;setBars(p.bars);bsR.current=p.bars;setTs(p.ts);tsR.current=p.ts;setGd(p.gd);setDA(p.del);setRA(p.rev);setChs(p.channels);cR.current=p.channels;setVols(p.channels.map(c=>c.vol));setVars(p.channels.map(c=>c.variant));vrR.current=p.channels.map(c=>c.variant);const mu=p.mutes||Array(9).fill(false);setMutes(mu);mR.current=mu;const so=Array(9).fill(false);setSolos(so);soR.current=so;setPreset(id);if(eR.current){eR.current.sD(p.del);eR.current.sR(p.rev);p.channels.forEach((c,i)=>eR.current.sCV(i,c.vol));}
+    // Presets don't use variants; reset.
+    vaR.current=null;setVariants(null);avR.current=0;setActiveVar(0);baR.current=[];setBarAssign([]);
   },[preset]);
   const loadBeat=useCallback((bi)=>{
-    if(preset==='custom'){customSnap.current={chs:cR.current,vars:vrR.current.slice(),vols:cR.current.map(c=>c.vol),mutes:mR.current.slice(),solos:soR.current.slice()};}
+    if(preset==='custom'){customSnap.current={chs:cR.current,vars:vrR.current.slice(),vols:cR.current.map(c=>c.vol),mutes:mR.current.slice(),solos:soR.current.slice(),variants:vaR.current?vaR.current.map(v=>({chs:v.chs.map(ch=>({...ch,events:{...ch.events}}))})):null,activeVar:avR.current,barAssign:baR.current.slice()};}
     const b=BEATS[bi];if(!b)return;
     const [,,bbpm,steps,hits,vels,mel,opts]=b;
     // opts optional: {sw, del, rev, vars, offs (per-channel step->tick-offset), b808 (true to fill BASS with kick rhythm)}
@@ -309,12 +327,14 @@ function App(){
     const mu=Array(9).fill(false);setMutes(mu);mR.current=mu;const so=Array(9).fill(false);setSolos(so);soR.current=so;
     setPreset('beat:'+bi);
     if(eR.current){eR.current.sD(del);eR.current.sR(rev);channels.forEach((c,i)=>eR.current.sCV(i,c.vol));}
+    // Beats don't use variants; reset.
+    vaR.current=null;setVariants(null);avR.current=0;setActiveVar(0);baR.current=[];setBarAssign([]);
   },[preset]);
 
-  const clearAll=useCallback(()=>{setChs(prev=>{const n=prev.map(ch=>({...ch,events:{}}));cR.current=n;return n;});customSnap.current=null;},[]);
+  const clearAll=useCallback(()=>{setChs(prev=>{const n=prev.map(ch=>({...ch,events:{}}));cR.current=n;return n;});customSnap.current=null;vaR.current=null;setVariants(null);avR.current=0;setActiveVar(0);baR.current=[];setBarAssign([]);},[]);
   const initA=useCallback(()=>{if(!eR.current)eR.current=new Eng();eR.current.init();eR.current.chime();setInit(true);loadP(preset,true);},[preset,loadP]);
   useEffect(()=>{const draw=()=>{if(eR.current?.ana){setWave(eR.current.gW());setFreq(eR.current.gF());}aR.current=requestAnimationFrame(draw);};if(init)aR.current=requestAnimationFrame(draw);return()=>{if(aR.current)cancelAnimationFrame(aR.current);};},[init]);
-  const trigT=useCallback((tick,when)=>{const e=eR.current,cs=cR.current;if(!e||!cs.length)return;const hS=soR.current.some(s=>s);const mout=midiOutR.current;cs.forEach((ch,i)=>{if(mR.current[i]||(hS&&!soR.current[i]))return;const ev=ch.events[tick];if(!ev||ev.vel<=0)return;const v=ev.vel,n=ev.note,p=VR[CH[i].id][vrR.current[i]];if(mout){const id=CH[i].id,drum=CH[i].drum,mCh=MIDI_CH[id],note=drum?MIDI_DRUM[id]:noteToMidi(n||'C-3'),mv=Math.max(1,Math.min(127,Math.round(v*127)));try{const nowP=performance.now(),delayMs=when?Math.max(0,(when-e.c.currentTime)*1000):0;mout.send([0x90|mCh,note,mv],nowP+delayMs);mout.send([0x80|mCh,note,0],nowP+delayMs+120);}catch(err){}}if(CH[i].id==='kick')e.kick(i,v,p,when);else if(CH[i].id==='snare')e.snare(i,v,p,when);else if(CH[i].id==='chh')e.hat(i,v,p,false,when);else if(CH[i].id==='ohh')e.hat(i,v,p,true,when);else if(CH[i].id==='perc')e.perc(i,v,p,when);else if(n){const m=n.match(/^([A-G][#-]?)(\d)$/);if(m){const fr=ntf(m[1],+m[2]);if(CH[i].id==='bass'||CH[i].id==='acid')e.bass(i,fr,v,p,when);else if(CH[i].id==='lead')e.lead(i,fr,v,p,when);else if(CH[i].id==='pad')e.pad(i,fr,v,p,when);}}});},[]);
+  const trigT=useCallback((tick,when)=>{const e=eR.current;if(!e)return;const tb=TPB(tsR.current[0],tsR.current[1]);const vs=vaR.current,ba=baR.current;let cs;if(vs&&vs.length>0&&ba.length>0){const barI=Math.floor(tick/tb);const vi=ba[barI]!==undefined?ba[barI]:0;cs=(vs[vi]&&vs[vi].chs)||cR.current;}else cs=cR.current;if(!cs||!cs.length)return;const hS=soR.current.some(s=>s);const mout=midiOutR.current;cs.forEach((ch,i)=>{if(mR.current[i]||(hS&&!soR.current[i]))return;const ev=ch.events[tick];if(!ev||ev.vel<=0)return;if(ev.prob!==undefined&&ev.prob<100){if(Math.random()*100>ev.prob){prevFiredR.current[i]=false;return;}}if(ev.cond){if(!evalCondAt(ev.cond,tick,tb,prevFiredR.current[i])){prevFiredR.current[i]=false;return;}}prevFiredR.current[i]=true;const v=ev.vel,n=ev.note,p=VR[CH[i].id][vrR.current[i]];if(mout){const id=CH[i].id,drum=CH[i].drum,mCh=MIDI_CH[id],note=drum?MIDI_DRUM[id]:noteToMidi(n||'C-3'),mv=Math.max(1,Math.min(127,Math.round(v*127)));try{const nowP=performance.now(),delayMs=when?Math.max(0,(when-e.c.currentTime)*1000):0;mout.send([0x90|mCh,note,mv],nowP+delayMs);mout.send([0x80|mCh,note,0],nowP+delayMs+120);}catch(err){}}if(CH[i].id==='kick')e.kick(i,v,p,when);else if(CH[i].id==='snare')e.snare(i,v,p,when);else if(CH[i].id==='chh')e.hat(i,v,p,false,when);else if(CH[i].id==='ohh')e.hat(i,v,p,true,when);else if(CH[i].id==='perc')e.perc(i,v,p,when);else if(n){const m=n.match(/^([A-G][#-]?)(\d)$/);if(m){const fr=ntf(m[1],+m[2]);if(CH[i].id==='bass'||CH[i].id==='acid')e.bass(i,fr,v,p,when);else if(CH[i].id==='lead')e.lead(i,fr,v,p,when);else if(CH[i].id==='pad')e.pad(i,fr,v,p,when);}}});},[]);
   const schedR=useRef({next:0,tick:0,start:0,anchor:0});
   // Swing scale factor for a tick: ticks within "off" 16ths (sub 1 or 3 of each beat) get shorter,
   // ticks within "on" 16ths get longer. Net duration of each beat is preserved.
@@ -361,11 +381,11 @@ function App(){
     };
     aR2.current=requestAnimationFrame(visLoop);
   },[trigT]);
-  const stopP=useCallback(()=>{pR.current=false;setPlaying(false);setCurTick(-1);tR.current=-1;if(tmR.current){clearTimeout(tmR.current);tmR.current=null;}if(wkR.current){wkR.current.postMessage({cmd:'stop'});wkR.current.onmessage=null;}if(aR2.current){cancelAnimationFrame(aR2.current);aR2.current=null;}},[]);
+  const stopP=useCallback(()=>{pR.current=false;setPlaying(false);setCurTick(-1);tR.current=-1;if(tmR.current){clearTimeout(tmR.current);tmR.current=null;}if(wkR.current){wkR.current.postMessage({cmd:'stop'});wkR.current.onmessage=null;}if(aR2.current){cancelAnimationFrame(aR2.current);aR2.current=null;}prevFiredR.current=Array(9).fill(false);},[]);
 
   // Paint with gap interpolation
-  const applyP=useCallback((ci,cellIdx)=>{const tp=cellIdx*cT;setChs(prev=>{const next=[...prev];const ch={...next[ci],events:{...next[ci].events}};if(paintAct.current==='add'){ch.events[tp]=CH[ci].drum?{vel:velR.current,note:''}:{vel:velR.current,note:pnR.current};}else delete ch.events[tp];next[ci]=ch;cR.current=next;return next;});},[cT]);
-  const applyRange=useCallback((ci,from,to)=>{const lo=Math.min(from,to),hi=Math.max(from,to);setChs(prev=>{const next=[...prev];const ch={...next[ci],events:{...next[ci].events}};for(let r=lo;r<=hi;r++){const tp=r*cT;if(paintAct.current==='add'){ch.events[tp]=CH[ci].drum?{vel:velR.current,note:''}:{vel:velR.current,note:pnR.current};}else delete ch.events[tp];}next[ci]=ch;cR.current=next;return next;});},[cT]);
+  const applyP=useCallback((ci,cellIdx)=>{const tp=cellIdx*cT;setChs(prev=>{const next=[...prev];const ch={...next[ci],events:{...next[ci].events}};if(paintAct.current==='add'){const cur=ch.events[tp];ch.events[tp]={...(cur||{}),vel:velR.current,note:CH[ci].drum?'':pnR.current};}else delete ch.events[tp];next[ci]=ch;cR.current=next;if(vaR.current){const vs=[...vaR.current];vs[avR.current]={...vs[avR.current],chs:next};vaR.current=vs;setVariants(vs);}return next;});},[cT]);
+  const applyRange=useCallback((ci,from,to)=>{const lo=Math.min(from,to),hi=Math.max(from,to);setChs(prev=>{const next=[...prev];const ch={...next[ci],events:{...next[ci].events}};for(let r=lo;r<=hi;r++){const tp=r*cT;if(paintAct.current==='add'){const cur=ch.events[tp];ch.events[tp]={...(cur||{}),vel:velR.current,note:CH[ci].drum?'':pnR.current};}else delete ch.events[tp];}next[ci]=ch;cR.current=next;if(vaR.current){const vs=[...vaR.current];vs[avR.current]={...vs[avR.current],chs:next};vaR.current=vs;setVariants(vs);}return next;});},[cT]);
 
   const cellDown=useCallback((ci,cellIdx,e)=>{e.preventDefault();const tp=cellIdx*cT;
     if(!CH[ci].drum){const ch=cR.current[ci];if(ch.events[tp]){paintAct.current='remove';isPaint.current=true;paintCh_.current=ci;lastPCell.current=cellIdx;applyP(ci,cellIdx);}else if(e.shiftKey){setEN({ch:ci,cell:cellIdx});}else{paintAct.current='add';isPaint.current=true;paintCh_.current=ci;lastPCell.current=cellIdx;applyP(ci,cellIdx);}return;}
@@ -375,15 +395,27 @@ function App(){
     const last=lastPCell.current;if(last>=0&&last!==cellIdx){applyRange(ci,last,cellIdx);}else{applyP(ci,cellIdx);}lastPCell.current=cellIdx;},[applyP,applyRange]);
 
   useEffect(()=>{const up=()=>{isPaint.current=false;paintCh_.current=-1;lastPCell.current=-1;};window.addEventListener('mouseup',up);return()=>window.removeEventListener('mouseup',up);},[]);
-  const placeNote=useCallback((ci,cellIdx,note)=>{setPaintNote(note);pnR.current=note;paintAct.current='add';isPaint.current=true;paintCh_.current=ci;lastPCell.current=cellIdx;const tp=cellIdx*cT;setChs(prev=>{const next=[...prev];const ch={...next[ci],events:{...next[ci].events}};ch.events[tp]={vel:velR.current,note};next[ci]=ch;cR.current=next;return next;});setEN(null);},[cT]);
+  const placeNote=useCallback((ci,cellIdx,note)=>{setPaintNote(note);pnR.current=note;paintAct.current='add';isPaint.current=true;paintCh_.current=ci;lastPCell.current=cellIdx;const tp=cellIdx*cT;setChs(prev=>{const next=[...prev];const ch={...next[ci],events:{...next[ci].events}};const cur=ch.events[tp];ch.events[tp]={...(cur||{}),vel:velR.current,note};next[ci]=ch;cR.current=next;if(vaR.current){const vs=[...vaR.current];vs[avR.current]={...vs[avR.current],chs:next};vaR.current=vs;setVariants(vs);}return next;});setEN(null);},[cT]);
+  // Clear the variants system (used by preset load and clearAll).
+  const clearVariants=useCallback(()=>{vaR.current=null;setVariants(null);avR.current=0;setActiveVar(0);baR.current=[];setBarAssign([]);},[]);
+  // Edit a single cell event. `patch` merges over existing event; _delete:true removes. Auto-creates if empty (except when deleting).
+  const updateCell=useCallback((ci,tp,patch)=>{setChs(prev=>{const next=[...prev];const ch={...next[ci],events:{...next[ci].events}};const cur=ch.events[tp];if(patch._delete){if(cur)delete ch.events[tp];else return prev;}else if(cur){ch.events[tp]={...cur,...patch};}else{ch.events[tp]={vel:velR.current,note:CH[ci].drum?'':pnR.current,...patch};}next[ci]=ch;cR.current=next;if(vaR.current){const vs=[...vaR.current];vs[avR.current]={...vs[avR.current],chs:next};vaR.current=vs;setVariants(vs);}return next;});},[]);
+  // Capture current pattern state as a new variant slot (A/B/C/D). Variants store ONLY pattern data (channel events) — mixer/synths/mutes/solos remain global across variants. First capture splits bars 50/50 between A and B so the feature is audible immediately.
+  const captureVar=useCallback(()=>{const snap=()=>({chs:cR.current.map(ch=>({...ch,events:{...ch.events}}))});if(!vaR.current){const a=snap();const b=snap();const vs=[a,b];vaR.current=vs;setVariants(vs);const half=Math.max(1,Math.floor(bsR.current/2));const ba=Array(bsR.current).fill(0).map((_,i)=>i<half?0:1);baR.current=ba;setBarAssign(ba);avR.current=1;setActiveVar(1);}else if(vaR.current.length<4){const vs=[...vaR.current,snap()];vaR.current=vs;setVariants(vs);avR.current=vs.length-1;setActiveVar(vs.length-1);}},[]);
+  // Switch which variant is displayed/edited on the grid. Only swaps the pattern; session-level settings are preserved.
+  const switchVar=useCallback((idx)=>{if(!vaR.current||idx<0||idx>=vaR.current.length)return;setActiveVar(idx);avR.current=idx;const v=vaR.current[idx];setChs(v.chs);cR.current=v.chs;},[]);
+  // Cycle a bar's variant assignment through A→B→C→D→A (only through captured variants).
+  const cycleBar=useCallback((barI)=>{if(!vaR.current)return;const ba=[...baR.current];const nv=((ba[barI]||0)+1)%vaR.current.length;ba[barI]=nv;baR.current=ba;setBarAssign(ba);},[]);
   const togM=i=>{setMutes(p=>{const n=[...p];n[i]=!n[i];mR.current=n;return n;});};
   const togS=i=>{setSolos(p=>{const n=[...p];n[i]=!n[i];soR.current=n;return n;});};
   const setVa=(ci,vi)=>{setVars(p=>{const n=[...p];n[ci]=vi;vrR.current=n;return n;});setSV(null);};
   const toggleMute=useCallback(()=>{setMuted(m=>{const nm=!m;if(eR.current)eR.current.sM(nm?0:mV);return nm;});},[mV]);
   const updV=(i,v)=>{setVols(p=>{const n=[...p];n[i]=v;return n;});eR.current?.sCV(i,v);setChs(prev=>{const n=[...prev];n[i]={...n[i],vol:v};cR.current=n;return n;});};
   useEffect(()=>{if(playing&&curTick>=0&&gsR.current){const cr=Math.floor(curTick/cT);const vh=gsR.current.clientHeight;gsR.current.scrollTop=cr*RH-vh/2+RH/2;}},[curTick,playing,cT]);
+  // Resize barAssign when bars count changes (preserves existing assignments where possible).
+  useEffect(()=>{if(vaR.current&&baR.current.length!==bars){const ba=Array(bars).fill(0).map((_,i)=>baR.current[i]!==undefined?baR.current[i]:0);baR.current=ba;setBarAssign(ba);}},[bars]);
   // Spacebar play/stop
-  useEffect(()=>{const h=e=>{if(e.code==='Space'&&!eN&&!sV&&e.target.tagName!=='INPUT'&&e.target.tagName!=='SELECT'){e.preventDefault();if(pR.current)stopP();else startP();}};window.addEventListener('keydown',h);return()=>window.removeEventListener('keydown',h);},[startP,stopP,eN,sV]);
+  useEffect(()=>{const h=e=>{if(e.code==='Space'&&!eN&&!sV&&!cellEd&&!showHelp&&e.target.tagName!=='INPUT'&&e.target.tagName!=='SELECT'){e.preventDefault();if(pR.current)stopP();else startP();}};window.addEventListener('keydown',h);return()=>window.removeEventListener('keydown',h);},[startP,stopP,eN,sV,cellEd,showHelp]);
   const setVelW=v=>{setVel(v);velR.current=v;};
 
   const allPresets=[...Object.entries(PR),['custom',{name:'Custom'}]];
@@ -393,7 +425,10 @@ function App(){
       <div style={{display:'flex',flexDirection:'column',height:'100%',padding:'6px 12px'}}>
         {/* HEADER */}
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',paddingBottom:6,marginBottom:6,borderBottom:'var(--hdr-brd)',flexShrink:0}}>
-          <h1 style={{margin:0,fontSize:retro?22:17,fontWeight:800,fontFamily:'var(--fontD)',letterSpacing:5,background:'var(--accG)',backgroundClip:'text',WebkitBackgroundClip:'text',color:'transparent',WebkitTextFillColor:'transparent'}}>NEUROTRKR</h1>
+          <div style={{display:'flex',alignItems:'center',gap:8,minWidth:0}}>
+            <h1 style={{margin:0,fontSize:retro?22:17,fontWeight:800,fontFamily:'var(--fontD)',letterSpacing:5,background:'var(--accG)',backgroundClip:'text',WebkitBackgroundClip:'text',color:'transparent',WebkitTextFillColor:'transparent'}}>NEUROTRKR</h1>
+            {init&&<button onClick={()=>setShowHelp(true)} title="Reference: features, shortcuts, MIDI routing" style={{background:'transparent',border:`1px solid ${retro?'#888':'var(--brd2)'}`,color:retro?'#000':'var(--dim2)',width:retro?22:18,height:retro?22:18,padding:0,fontSize:retro?15:10,fontWeight:700,fontFamily:'inherit',cursor:'pointer',borderRadius:retro?0:'50%',display:'flex',alignItems:'center',justifyContent:'center',letterSpacing:0,lineHeight:1,flexShrink:0}}>?</button>}
+          </div>
           {!init?<button onClick={initA} style={{background:'var(--accB)',color:'#000',border:'none',padding:'7px 24px',fontSize:retro?16:12,fontWeight:700,letterSpacing:3,cursor:'pointer',fontFamily:'var(--fontD)',borderRadius:'var(--r)',display:'flex',alignItems:'center',gap:4}}><svg viewBox="0 0 10 12" width="10" height="12" fill="currentColor"><path d="M0 0L10 6L0 12z"/></svg>START</button>
           :<div style={{display:'flex',gap:3,alignItems:'center'}}>
             <button onClick={playing?stopP:startP} style={{background:playing?'var(--stop)':'var(--acc)',color:'#000',border:'none',padding:'6px 12px',fontSize:retro?15:11,fontWeight:700,letterSpacing:1,cursor:'pointer',fontFamily:'inherit',borderRadius:'var(--r)',display:'flex',alignItems:'center',gap:3}}>{playing?<><span>&#9632;</span> STOP</>:<><svg viewBox="0 0 10 12" width="9" height="11" fill="currentColor"><path d="M0 0L10 6L0 12z"/></svg>PLAY</>}</button>
@@ -412,6 +447,9 @@ function App(){
             {(()=>{const groups={};BEATS.forEach((b,i)=>{(groups[b[1]]=groups[b[1]]||[]).push([i,b[0]]);});return Object.keys(groups).map(g=><optgroup key={g} label={g}>{groups[g].map(([i,n])=><option key={i} value={i}>{n}</option>)}</optgroup>);})()}
           </select>
           <button key="custom" onClick={()=>loadP('custom')} style={{background:preset==='custom'?'var(--sel-bg)':'transparent',border:`1px solid ${preset==='custom'?'#ffaa3066':'var(--brd)'}`,color:preset==='custom'?'#ffaa30':'var(--dim3)',padding:'5px 10px',fontSize:retro?14:10,cursor:'pointer',fontFamily:'inherit',letterSpacing:1,borderRadius:'var(--r)',fontWeight:preset==='custom'?700:400}}>Custom</button>
+          {/* Variant switcher (A/B/C/D) + CAPTURE. When no variants exist, only CAPTURE shows. Same line as presets on desktop; wraps naturally on mobile without adding to the fixed 2-line feature section. */}
+          {variants&&variants.map((_,i)=><button key={'v'+i} onClick={()=>switchVar(i)} title={`Switch to variant ${VAR_LETTERS[i]}`} style={{background:activeVar===i?(retro?'#ddd':VAR_COLORS[i]+'22'):'transparent',border:`1px solid ${activeVar===i?(retro?'#888':VAR_COLORS[i]+'88'):'var(--brd)'}`,color:activeVar===i?(retro?'#000':VAR_COLORS[i]):'var(--dim3)',padding:'5px 9px',fontSize:retro?14:10,cursor:'pointer',fontFamily:'inherit',letterSpacing:1,borderRadius:'var(--r)',fontWeight:700,minWidth:24}}>{VAR_LETTERS[i]}</button>)}
+          <button onClick={captureVar} disabled={variants&&variants.length>=4} title={variants?'Capture current state as a new variant':'Capture this pattern. Creates A/B variants you can assign per bar.'} style={{background:'transparent',border:`1px solid ${retro?(variants&&variants.length>=4?'#555':'#888'):(variants&&variants.length>=4?'#33333344':'#ffaa3066')}`,color:variants&&variants.length>=4?'var(--dim)':(retro?'#000':'#ffaa30'),padding:'5px 8px',fontSize:retro?13:9,cursor:variants&&variants.length>=4?'not-allowed':'pointer',fontFamily:'inherit',letterSpacing:1,borderRadius:'var(--r)',fontWeight:700,opacity:variants&&variants.length>=4?0.4:1}}>{variants?'+':'CAPTURE'}</button>
           {init&&<div style={{marginLeft:'auto',fontFamily:'var(--fontD)',fontSize:retro?14:11,fontWeight:700,color:retro?'#000':'#556',background:retro?'#777':'#0a0d16',border:retro?'inset 1px #555':'1px solid #141824',padding:'2px 5px',borderRadius:'var(--r)',letterSpacing:1,fontVariantNumeric:'tabular-nums',display:'flex',gap:4,alignItems:'center'}}><span>{playing&&curTick>=0?`${Math.floor(curTick/Tpb_)+1}.${Math.floor((curTick%Tpb_)/tpBt)+1}`:'1.1'}</span><span style={{opacity:0.4}}>|</span><span>{(()=>{const s=curTick>=0?curTick*60/(bpm*64):0;return `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;})()}</span></div>}
         </div>
         {init&&<>
@@ -450,16 +488,20 @@ function App(){
               <div style={{flex:1,position:'relative',overflow:'hidden'}}>
               {playing&&<div style={{position:'absolute',left:0,right:0,top:'50%',height:RH,marginTop:-RH/2,background:'var(--gra)',borderTop:`1px solid var(--grab)`,borderBottom:`1px solid var(--grab)`,pointerEvents:'none',zIndex:10}}/>}
               <div ref={gsR} style={{height:'100%',overflowY:'auto',overflowX:'auto',userSelect:'none',cursor:'crosshair'}} onMouseLeave={()=>{isPaint.current=false;lastPCell.current=-1;}}
-              onTouchStart={e=>{const t=e.touches[0];const el=document.elementFromPoint(t.clientX,t.clientY);if(el&&el.dataset.ci!==undefined){const ci=+el.dataset.ci,r=+el.dataset.r;cellDown(ci,r,e);e.preventDefault();}}}
-              onTouchMove={e=>{const t=e.touches[0];const el=document.elementFromPoint(t.clientX,t.clientY);if(el&&el.dataset.ci!==undefined&&isPaint.current){const ci=+el.dataset.ci,r=+el.dataset.r;cellEnter(ci,r);e.preventDefault();}}}
-              onTouchEnd={()=>{isPaint.current=false;paintCh_.current=-1;lastPCell.current=-1;}}>
+              onTouchStart={e=>{const t=e.touches[0];const el=document.elementFromPoint(t.clientX,t.clientY);if(el&&el.dataset.ci!==undefined){const ci=+el.dataset.ci,r=+el.dataset.r;const tp=r*cT;const origEv=cR.current[ci]&&cR.current[ci].events[tp]?{...cR.current[ci].events[tp]}:null;cellDown(ci,r,e);e.preventDefault();lpStart.current={x:t.clientX,y:t.clientY,ci,r,tp,origEv};if(lpTimer.current)clearTimeout(lpTimer.current);lpTimer.current=setTimeout(()=>{lpTimer.current=null;isPaint.current=false;paintCh_.current=-1;lastPCell.current=-1;setChs(prev=>{const next=[...prev];const ch={...next[ci],events:{...next[ci].events}};if(origEv)ch.events[tp]=origEv;else delete ch.events[tp];next[ci]=ch;cR.current=next;if(vaR.current){const vs=[...vaR.current];vs[avR.current]={...vs[avR.current],chs:next};vaR.current=vs;setVariants(vs);}return next;});if(origEv)setCellEd({ch:ci,cell:r,tp});lpStart.current=null;},500);}}}
+              onTouchMove={e=>{const t=e.touches[0];if(lpTimer.current&&lpStart.current){const dx=t.clientX-lpStart.current.x,dy=t.clientY-lpStart.current.y;if(Math.sqrt(dx*dx+dy*dy)>10){clearTimeout(lpTimer.current);lpTimer.current=null;lpStart.current=null;}}const el=document.elementFromPoint(t.clientX,t.clientY);if(el&&el.dataset.ci!==undefined&&isPaint.current){const ci=+el.dataset.ci,r=+el.dataset.r;cellEnter(ci,r);e.preventDefault();}}}
+              onTouchEnd={()=>{if(lpTimer.current){clearTimeout(lpTimer.current);lpTimer.current=null;}lpStart.current=null;isPaint.current=false;paintCh_.current=-1;lastPCell.current=-1;}}>
                 {Array.from({length:totC},(_,r)=>{const tp=r*cT,barI=Math.floor(tp/Tpb_),inB=tp-barI*Tpb_,beatI=Math.floor(inB/tpBt),isBS=inB<cT,isBtS=!isBS&&Math.abs(inB-beatI*tpBt)<cT;const isAct=playing&&curTick>=tp&&curTick<tp+cT;const gs=Math.floor(r/4)%2===0;
                   return(<div key={r} style={{display:'flex',height:RH,minHeight:RH,borderTop:isBS?'var(--grbb)':isBtS?'var(--grbt)':'var(--grbd)',background:isAct?'var(--gra)':isBS?'var(--grb)':gs?'var(--gr1)':'var(--gr2)'}}>
-                    <div style={{width:RNW,minWidth:RNW,display:'flex',alignItems:'center',justifyContent:'flex-end',paddingRight:5,fontSize:retro?10:7,borderRight:'var(--grbt)',color:isBS?'var(--grn)':isBtS?'var(--dim2)':'var(--dim)',fontWeight:isBS?700:400}}>{isBS?`${barI+1}.${beatI+1}`:isBtS?`.${beatI+1}`:r+1}</div>
+                    <div style={{width:RNW,minWidth:RNW,display:'flex',alignItems:'center',justifyContent:'flex-end',paddingRight:5,fontSize:retro?10:7,borderRight:'var(--grbt)',color:isBS?'var(--grn)':isBtS?'var(--dim2)':'var(--dim)',fontWeight:isBS?700:400,gap:3}}>
+                      <span>{isBS?`${barI+1}.${beatI+1}`:isBtS?`.${beatI+1}`:r+1}</span>
+                      {isBS&&variants&&<span onClick={e=>{e.stopPropagation();cycleBar(barI);}} title={`Bar ${barI+1}: variant ${VAR_LETTERS[barAssign[barI]||0]} (click to cycle)`} style={{color:retro?'#000':VAR_COLORS[barAssign[barI]||0],background:retro?'#ccc':VAR_COLORS[barAssign[barI]||0]+'22',border:`1px solid ${retro?'#888':VAR_COLORS[barAssign[barI]||0]+'66'}`,padding:'0 2px',borderRadius:retro?0:2,cursor:'pointer',fontSize:retro?9:6,fontWeight:900,letterSpacing:0,lineHeight:'10px',minWidth:8,textAlign:'center'}}>{VAR_LETTERS[barAssign[barI]||0]}</span>}
+                    </div>
                     {chs.map((ch,ci)=>{const ev=ch.events[tp];const ct=CH[ci];const hS=solos.some(s=>s);const iM=mutes[ci]||(hS&&!solos[ci]);const vp=ev?Math.round(ev.vel*100):0;
-                      return(<div key={ci} data-ci={ci} data-r={r} onMouseDown={e=>cellDown(ci,r,e)} onMouseEnter={()=>cellEnter(ci,r)} style={{width:colW,minWidth:colW,height:RH,borderRight:'var(--grbd)',display:'flex',alignItems:'center',justifyContent:'center',position:'relative',opacity:iM?0.2:1}}>
+                      return(<div key={ci} data-ci={ci} data-r={r} onMouseDown={e=>cellDown(ci,r,e)} onMouseEnter={()=>cellEnter(ci,r)} onContextMenu={e=>{e.preventDefault();const tp2=r*cT;if(cR.current[ci]&&cR.current[ci].events[tp2])setCellEd({ch:ci,cell:r,tp:tp2});}} style={{width:colW,minWidth:colW,height:RH,borderRight:'var(--grbd)',display:'flex',alignItems:'center',justifyContent:'center',position:'relative',opacity:iM?0.2:1}}>
                         {ev&&ct.drum&&<><div style={{position:'absolute',left:2,top:3,bottom:3,width:`${vp}%`,maxWidth:colW-4,background:retro?'#777':ct.color,opacity:0.3+ev.vel*0.4,borderRadius:retro?0:1}}/><div style={{position:'relative',zIndex:1,fontSize:retro?10:7,color:retro?'#aaa':ct.color,fontWeight:600,opacity:retro?1:0.8}}>{Math.round(ev.vel*99)}</div></>}
                         {ev&&!ct.drum&&ev.note&&<><div style={{position:'absolute',left:2,top:3,bottom:3,width:`${vp}%`,maxWidth:colW-4,background:retro?'#555':ct.color,opacity:retro?0.3+ev.vel*0.3:0.15+ev.vel*0.25,borderRadius:retro?0:1}}/><span style={{position:'relative',zIndex:1,fontSize:retro?11:8,color:retro?'#ccc':ct.color,fontWeight:700}}>{ev.note.replace('-','')}</span></>}
+                        {ev&&((ev.prob!==undefined&&ev.prob<100)||ev.cond)&&<div title={`${ev.prob!==undefined&&ev.prob<100?`${ev.prob}% `:''}${ev.cond||''}`} style={{position:'absolute',top:1,right:1,width:4,height:4,borderRadius:retro?0:'50%',background:retro?'#fff':'var(--acc)',boxShadow:retro?'none':'0 0 3px var(--acc)',zIndex:2,pointerEvents:'none'}}/>}
                         {isAct&&<div style={{position:'absolute',inset:0,background:'var(--gra)',pointerEvents:'none'}}/>}
                       </div>);})}
                   </div>);})}
@@ -489,6 +531,59 @@ function App(){
         </>}
         {sV!==null&&<div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.6)',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:'var(--blur)'}} onClick={()=>setSV(null)}><div onClick={e=>e.stopPropagation()} style={{background:'var(--modal)',border:'var(--modal-brd)',padding:16,minWidth:220,borderRadius:'var(--r)',boxShadow:'var(--shadow)'}}><div style={{fontSize:retro?18:12,fontWeight:700,color:retro?'#333':CH[sV].color,marginBottom:12,letterSpacing:2,fontFamily:'var(--fontD)'}}>{CH[sV].name}</div>{VR[CH[sV].id].map((v,vi)=><button key={vi} onClick={()=>setVa(sV,vi)} style={{display:'block',width:'100%',marginBottom:3,background:vars[sV]===vi?(retro?'#ddd':`${CH[sV].color}18`):'var(--grid)',border:`1px solid ${vars[sV]===vi?(retro?'#888':CH[sV].color+'55'):'var(--brd)'}`,color:vars[sV]===vi?(retro?'#000':CH[sV].color):'var(--dim2)',padding:'7px 12px',fontSize:retro?16:10,cursor:'pointer',fontFamily:'inherit',textAlign:'left',borderRadius:'var(--r)'}}>{vi+1}. {v.name}</button>)}</div></div>}
         {eN&&<div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.6)',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:'var(--blur)'}} onClick={()=>setEN(null)}><div onClick={e=>e.stopPropagation()} style={{background:'var(--modal)',border:'var(--modal-brd)',padding:16,maxWidth:500,width:'92%',borderRadius:'var(--r)',boxShadow:'var(--shadow)'}}><div style={{fontSize:retro?16:11,fontWeight:700,color:'var(--acc)',marginBottom:4,fontFamily:'var(--fontD)'}}>SELECT NOTE</div><div style={{fontSize:retro?12:8,color:'var(--dim2)',marginBottom:10}}>Pick note then drag to paint. Row {eN.cell+1} / {CH[eN.ch].name}</div>{[1,2,3,4,5,6].map(oct=><div key={oct} style={{display:'flex',gap:2,marginBottom:2}}><span style={{width:16,fontSize:8,color:'#334',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700}}>{oct}</span>{NOTES.map(n=>{const full=n+oct,sh=n.includes('#');return<button key={full} onClick={()=>placeNote(eN.ch,eN.cell,full)} style={{background:sh?(retro?'#444':'#14182a'):(retro?'#666':'#0e1220'),color:sh?(retro?'#aaccff':'#88aaff'):(retro?'#fff':'#aab'),border:`1px solid ${sh?'var(--brd3)':'var(--brd2)'}`,padding:'5px 0',fontSize:retro?14:9,cursor:'pointer',fontFamily:'inherit',flex:1,minWidth:0,borderRadius:'var(--r)',fontWeight:500}}>{n.replace('-','')}</button>;})}</div>)}<button onClick={()=>setEN(null)} style={{marginTop:10,background:'var(--btn)',color:'var(--dim2)',border:'1px solid var(--brd3)',padding:'5px 14px',fontSize:retro?14:9,cursor:'pointer',fontFamily:'inherit',borderRadius:'var(--r)'}}>CANCEL</button></div></div>}
+        {cellEd&&(()=>{const ev=chs[cellEd.ch]&&chs[cellEd.ch].events[cellEd.tp];if(!ev){return null;}const curProb=ev.prob!==undefined?ev.prob:100;const curCond=ev.cond||'';const curVel=Math.round(ev.vel*127);const conds=[['','ALW'],['1:2','1:2'],['2:2','2:2'],['1:3','1:3'],['2:3','2:3'],['3:3','3:3'],['1:4','1:4'],['2:4','2:4'],['3:4','3:4'],['4:4','4:4'],['pre','PRE'],['!pre','!PRE']];return(<div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.6)',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:'var(--blur)'}} onClick={()=>setCellEd(null)}><div onClick={e=>e.stopPropagation()} style={{background:'var(--modal)',border:'var(--modal-brd)',padding:16,maxWidth:440,width:'94%',borderRadius:'var(--r)',boxShadow:'var(--shadow)'}}><div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}><div style={{fontSize:retro?16:11,fontWeight:700,color:retro?'#333':CH[cellEd.ch].color,letterSpacing:2,fontFamily:'var(--fontD)'}}>{CH[cellEd.ch].name} · STEP {cellEd.cell+1}{ev.note?` · ${ev.note.replace('-','')}`:''}</div><button onClick={()=>setCellEd(null)} style={{background:'transparent',border:'1px solid var(--brd3)',color:'var(--dim2)',padding:'2px 8px',fontSize:retro?14:10,cursor:'pointer',fontFamily:'inherit',borderRadius:'var(--r)',lineHeight:1}}>×</button></div><div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}><span style={{color:retro?'#333':'#ffdd44',fontWeight:700,fontSize:retro?13:9,width:40,letterSpacing:1}}>VEL</span><Slider label="" color={retro?"#444":"#ffdd44"} value={curVel} min={1} max={127} width={220} onChange={v=>updateCell(cellEd.ch,cellEd.tp,{vel:v/127})}/></div><div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}><span style={{color:retro?'#333':'var(--acc)',fontWeight:700,fontSize:retro?13:9,width:40,letterSpacing:1}}>PROB</span><Slider label="" color={retro?"#444":"#00ff88"} value={curProb} min={0} max={100} width={220} onChange={v=>updateCell(cellEd.ch,cellEd.tp,{prob:v===100?undefined:v})}/><span style={{fontSize:retro?12:8,color:'var(--dim2)',minWidth:22}}>%</span></div><div style={{fontSize:retro?12:8,color:'var(--dim2)',letterSpacing:2,marginBottom:5,fontWeight:700}}>CONDITION</div><div style={{display:'flex',flexWrap:'wrap',gap:3,marginBottom:12}}>{conds.map(([val,lbl])=>{const active=curCond===val;return<button key={lbl} onClick={()=>updateCell(cellEd.ch,cellEd.tp,{cond:val||undefined})} style={{background:active?(retro?'#ddd':'#00ff8822'):'var(--grid)',border:`1px solid ${active?(retro?'#888':'#00ff8866'):'var(--brd)'}`,color:active?(retro?'#000':'var(--acc)'):'var(--dim2)',padding:'5px 8px',fontSize:retro?13:9,cursor:'pointer',fontFamily:'inherit',borderRadius:'var(--r)',fontWeight:active?700:500,letterSpacing:1,minWidth:34}}>{lbl}</button>;})}</div><div style={{fontSize:retro?11:7,color:'var(--dim)',marginBottom:12,lineHeight:1.5,letterSpacing:0.5}}><span style={{fontWeight:700,color:'var(--dim2)'}}>N:M</span> plays on bar N of every M within the pattern · <span style={{fontWeight:700,color:'var(--dim2)'}}>PRE</span> plays if the previous trigger on this channel fired · <span style={{fontWeight:700,color:'var(--dim2)'}}>!PRE</span> plays if it did not</div><div style={{display:'flex',gap:6,justifyContent:'space-between'}}><button onClick={()=>{updateCell(cellEd.ch,cellEd.tp,{_delete:true});setCellEd(null);}} style={{background:'transparent',border:`1px solid ${retro?'#444':'#ff2d4066'}`,color:'var(--stop)',padding:'5px 12px',fontSize:retro?13:9,cursor:'pointer',fontFamily:'inherit',borderRadius:'var(--r)',letterSpacing:1,fontWeight:700}}>DELETE</button><button onClick={()=>setCellEd(null)} style={{background:retro?'#666':'var(--acc)',border:'none',color:'#000',padding:'5px 18px',fontSize:retro?13:9,cursor:'pointer',fontFamily:'inherit',borderRadius:'var(--r)',letterSpacing:1,fontWeight:700}}>DONE</button></div></div></div>);})()}
+        {showHelp&&(()=>{const hS={fontSize:retro?14:10,fontWeight:700,letterSpacing:2,color:retro?'#000':'var(--acc)',marginBottom:6,marginTop:18,fontFamily:'var(--fontD)'};const bS={fontSize:retro?13:10,color:retro?'#111':'var(--fg)',lineHeight:1.6,marginBottom:4};const lbl={color:retro?'#000':'var(--dim2)',fontWeight:700,letterSpacing:1};const sec=(title,items)=><div><div style={hS}>{title}</div>{items.map((it,i)=><div key={i} style={bS}>{it}</div>)}</div>;return(<div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.65)',zIndex:201,display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:'var(--blur)',padding:10}} onClick={()=>setShowHelp(false)}><div onClick={e=>e.stopPropagation()} style={{background:'var(--modal)',border:'var(--modal-brd)',padding:'16px 20px 20px',maxWidth:620,width:'96%',maxHeight:'88vh',overflowY:'auto',borderRadius:'var(--r)',boxShadow:'var(--shadow)'}}><div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10,position:'sticky',top:-16,background:'var(--modal)',paddingTop:16,marginTop:-16,paddingBottom:8,borderBottom:`1px solid ${retro?'#555':'var(--brd)'}`,zIndex:1}}><div style={{fontSize:retro?20:13,fontWeight:800,letterSpacing:4,fontFamily:'var(--fontD)',background:retro?'none':'var(--accG)',backgroundClip:retro?'initial':'text',WebkitBackgroundClip:retro?'initial':'text',color:retro?'#333':'transparent',WebkitTextFillColor:retro?'#333':'transparent'}}>NEUROTRKR · REFERENCE</div><button onClick={()=>setShowHelp(false)} style={{background:'transparent',border:'1px solid var(--brd3)',color:'var(--dim2)',padding:'3px 10px',fontSize:retro?15:11,cursor:'pointer',fontFamily:'inherit',borderRadius:'var(--r)',lineHeight:1}}>×</button></div>
+{sec('GETTING AROUND',[
+<><b style={lbl}>Click</b> a cell to place or remove a hit. Drag across cells to paint.</>,
+<><b style={lbl}>Shift+click</b> an empty melodic cell to open the octave picker.</>,
+<><b style={lbl}>Right-click</b> a note (long-press on touch) to edit velocity, probability, and trig conditions.</>,
+<><b style={lbl}>Spacebar</b> plays and stops.</>,
+<>Click a channel name in the grid header (KCK, SNR, etc.) to pick its synth variant.</>,
+])}
+{sec('VARIANTS (A B C D)',[
+<><b style={lbl}>CAPTURE</b> copies the current pattern into a new slot. The first capture creates A and B, splitting bars 50/50. Up to 4 slots total.</>,
+<>The letter next to each bar number shows which variant plays for that bar. Click it to cycle.</>,
+<>The <b style={lbl}>A/B/C/D</b> buttons switch which variant you are editing. Edits to one variant do not affect the others.</>,
+<>Mixer volumes, synth variants, mutes, and solos are global — they apply regardless of which variant is playing.</>,
+])}
+{sec('PROBABILITY & CONDITIONS',[
+<>Right-click a note (long-press on touch) to open the cell editor.</>,
+<><b style={lbl}>PROB</b> 0–100: chance the hit fires each time through.</>,
+<><b style={lbl}>N:M</b> fires on bar N of every M bars within the pattern. Example: <b style={lbl}>1:2</b> alternates bars, <b style={lbl}>1:4</b> fires once every four bars.</>,
+<><b style={lbl}>PRE</b> fires only if the previous trigger on this channel played. <b style={lbl}>!PRE</b> fires only if it did not.</>,
+<>A small green dot on a cell means probability or a condition is set.</>,
+])}
+{sec('MIXER & MUTES',[
+<>The <b style={lbl}>VOL</b> label in the top bar is a clickable master mute. Tap it to silence everything, tap again to restore. It flashes while muted.</>,
+<><b style={lbl}>M</b> and <b style={lbl}>S</b> above each channel column mute or solo that channel.</>,
+<>Open <b style={lbl}>MIXER</b> for per-channel faders and a master with its own mute button.</>,
+])}
+{sec('EXTERNAL MIDI OUT',[
+<>The <b style={lbl}>MIDI OUT</b> selector appears in the header when a MIDI device is connected. Pick a device to send live MIDI alongside the internal audio.</>,
+<>Drums are on <b style={lbl}>channel 10</b> (GM percussion): KCK=36, SNR=38, CH=42, OH=46, PERC=39.</>,
+<><b style={lbl}>BASS</b> → ch 1, program 38 (Synth Bass 1).</>,
+<><b style={lbl}>ACID</b> → ch 2, program 81 (Square Lead).</>,
+<><b style={lbl}>LEAD</b> → ch 3, program 80 (Square Lead).</>,
+<><b style={lbl}>PAD</b> → ch 4, program 89 (New Age Pad).</>,
+<>Your receiving synth can ignore program changes if you want to patch it yourself. Probability and conditions are evaluated at play time, so MIDI out reflects what you hear.</>,
+])}
+{sec('.MID EXPORT',[
+<>Saves the pattern as a standard MIDI file using the same channel and program map as live MIDI out.</>,
+<>Probability and conditions are <b style={lbl}>NOT</b> baked into the exported file — every note plays unconditionally. Export captures the grid as drawn.</>,
+])}
+{sec('EFFECTS',[
+<><b style={lbl}>DLY</b> is a dotted-8th feedback delay with low-passed repeats.</>,
+<><b style={lbl}>REV</b> is a convolution reverb (~2.2s impulse).</>,
+<><b style={lbl}>CRUSH</b> progressively reduces bit depth from 16 down to 2. High values are harsh by design.</>,
+<><b style={lbl}>SWG</b> offsets off-beat 16ths for swing and shuffle feels.</>,
+])}
+{sec('GRID & TIME',[
+<><b style={lbl}>TIME</b>: time signature, including many odd meters (5/4, 7/8, 13/8, and more).</>,
+<><b style={lbl}>BARS</b>: total pattern length, up to 128.</>,
+<><b style={lbl}>GRID</b>: cell resolution, from 1/4 down to 1/256. Affects paint precision and the step grid, not playback itself.</>,
+])}
+<div style={{marginTop:22,paddingTop:10,borderTop:`1px solid ${retro?'#555':'var(--brd)'}`,fontSize:retro?11:8,color:'var(--dim)',letterSpacing:0.5,lineHeight:1.5}}>NEUROTRKR runs entirely in your browser. Audio uses Web Audio; MIDI uses Web MIDI. No audio is sent to any server. Close the tab to free everything.</div>
+</div></div>);})()}
         {!init&&<div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'var(--bg)',display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:28,zIndex:50}}><h1 style={{fontSize:retro?48:40,fontWeight:800,letterSpacing:10,margin:0,fontFamily:'var(--fontD)',background:'var(--accG)',backgroundClip:'text',WebkitBackgroundClip:'text',color:'transparent',WebkitTextFillColor:'transparent'}}>NEUROTRKR</h1><button onClick={initA} style={{background:'var(--accB)',color:'#000',border:'none',padding:'14px 48px',fontSize:retro?20:14,fontWeight:800,letterSpacing:5,cursor:'pointer',fontFamily:'var(--fontD)',borderRadius:'var(--r)',boxShadow:'var(--glow)',display:'flex',alignItems:'center',gap:6}}><svg viewBox="0 0 10 12" width="12" height="14" fill="currentColor"><path d="M0 0L10 6L0 12z"/></svg>START</button></div>}
       </div>
     </div>);
