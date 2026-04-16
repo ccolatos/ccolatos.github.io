@@ -670,7 +670,7 @@ registerProcessor("dss-processor", DSSProcessor);
           // 0.8x preserves the pure stochastic character while still adding warmth.
           if (buses.sat) {
             const gCurve = new Float32Array(1024);
-            for (let i = 0; i < 1024; i++) { const x = (i/512)-1; gCurve[i] = Math.tanh(x*0.8); }
+            for (let i = 0; i < 1024; i++) { const x = (i/512)-1; gCurve[i] = Math.tanh(x*2.4); }
             buses.sat.curve = gCurve;
           }
         },
