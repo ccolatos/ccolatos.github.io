@@ -820,15 +820,7 @@ registerProcessor("dss-processor", DSSProcessor);
         msMid.connect(msDecR); msSideHPF.connect(msDecRNeg); msDecRNeg.connect(msDecR);  // R = mid - sideHP
         msDecL.connect(msMerge, 0, 0); msDecR.connect(msMerge, 0, 1);  // merge back to stereo
 
-        // True peak limiter: brick-wall at -1 dBTP prevents inter-sample clipping
-        // when the output is resampled by streaming/playback systems.
-        const limiter = ac.createDynamicsCompressor();
-        limiter.threshold.value = -1; limiter.knee.value = 0; limiter.ratio.value = 20;
-        limiter.attack.value = 0.001; limiter.release.value = 0.05;
-        buses.limiter = limiter;
-
-        msMerge.connect(limiter);
-        limiter.connect(analyser); analyser.connect(master); master.connect(ac.destination);
+        msMerge.connect(analyser); analyser.connect(master); master.connect(ac.destination);
 
         if (isMobile && ac.createMediaStreamDestination) {
           try {
@@ -838,7 +830,7 @@ registerProcessor("dss-processor", DSSProcessor);
           } catch (_) {}
         }
         runtimeStops.push(() => { try { dssNode.disconnect(); dssHP.disconnect(); lowShelf.disconnect(); lp.disconnect(); sat.disconnect(); } catch(_){} });
-        runtimeStops.push(() => { try { makeup.disconnect(); tiltLow.disconnect(); tiltHigh.disconnect(); msMerge.disconnect(); limiter.disconnect(); } catch(_){} });
+        runtimeStops.push(() => { try { makeup.disconnect(); tiltLow.disconnect(); tiltHigh.disconnect(); msMerge.disconnect(); } catch(_){} });
       }
 
       function scheduleNoise() {
