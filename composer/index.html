@@ -633,13 +633,52 @@ registerProcessor("dss-processor", DSSProcessor);
           master.gain.linearRampToValueAtTime(1.0, now + 4);
           master.gain.setValueAtTime(1.0, now + CHI_DUR - 1);
           master.gain.linearRampToValueAtTime(0.0001, now + CHI_DUR + 12);
+
+          // === MASTERING CHAIN (Chiaroscuro only) ===
+          // Reduce reverb send: 0.40 -> 0.22. The 12s tail was muddying
+          // harmonic modulations. Less wet = each region's tonal center stays defined.
+          if (buses.rvSend) buses.rvSend.gain.setValueAtTime(0.22, now);
+          // Brighter reverb tail: 1800 -> 2400Hz lets articulation through
+          if (buses.rvLP) buses.rvLP.frequency.setValueAtTime(2400, now);
+          // Reduce shimmer: it was adding to the muddiness
+          if (buses.shSend) buses.shSend.gain.setValueAtTime(0.06, now);
+          if (buses.shGain) buses.shGain.gain.setValueAtTime(0.05, now);
+          // More transparent compression: -16 -> -12 threshold, 2.5 -> 2.0 ratio
+          // Preserves Cauchy bursts as events rather than squashing them
+          if (buses.comp) {
+            buses.comp.threshold.setValueAtTime(-12, now);
+            buses.comp.ratio.setValueAtTime(2.0, now);
+            buses.comp.knee.setValueAtTime(8, now);
+            buses.comp.attack.setValueAtTime(0.040, now);
+            buses.comp.release.setValueAtTime(0.180, now);
+          }
+          // BASS CONTROL: tame the rumble that was rattling speakers
+          // High-pass at 38Hz removes sub-bass energy below musical content
+          // Low-shelf -3dB at 95Hz reduces the bass body without losing foundation
+          if (buses.dssHP) buses.dssHP.frequency.setValueAtTime(38, now);
+          if (buses.lowShelf) {
+            buses.lowShelf.frequency.setValueAtTime(95, now);
+            buses.lowShelf.gain.setValueAtTime(-3, now);
+          }
         },
         onUpdate(elapsed, section) {
-          // Gentle filter automation: brighter at climax regions
+          // === DYNAMIC MASTERING ===
           const now = ac.currentTime;
           const region = this.lerpRegion(elapsed);
-          const filterFreq = 600 + region.stoch * 6000;
-          buses.lp.frequency.setTargetAtTime(Math.min(5500, filterFreq), now, 0.5);
+
+          // OPEN THE SPECTRUM: was 600 + stoch*6000 capped at 5500 (peaked ~1900Hz at climax)
+          // Now: base 2800Hz, opens to ~7800Hz at climax. Lead-class aware.
+          const intensity = region.stoch / 0.22;  // 0..1
+          const leadOpen = region.lead === "air" || region.lead === "all" ? 1200 : 0;
+          const filterFreq = 2800 + intensity * 5000 + leadOpen;
+          buses.lp.frequency.setTargetAtTime(Math.min(8500, filterFreq), now, 0.6);
+
+          // DYNAMIC REVERB: less wet at climax for definition, more wet in calm regions
+          // The piece breathes with reverb - clarity when intense, atmosphere when calm
+          if (buses.rvSend) {
+            const reverbWet = 0.26 - intensity * 0.10;  // 0.26 calm -> 0.16 climax
+            buses.rvSend.gain.setTargetAtTime(reverbWet, now, 0.5);
+          }
         }
       };
 
@@ -685,6 +724,11 @@ registerProcessor("dss-processor", DSSProcessor);
         const lp = ac.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = inst.lpFreq; lp.Q.value = 0.25;
         buses.lp = lp;
 
+        // Bass control nodes (transparent at defaults; only Chiaroscuro adjusts them)
+        const dssHP = ac.createBiquadFilter(); dssHP.type = "highpass"; dssHP.frequency.value = 20; dssHP.Q.value = 0.7;
+        const lowShelf = ac.createBiquadFilter(); lowShelf.type = "lowshelf"; lowShelf.frequency.value = 100; lowShelf.gain.value = 0;
+        buses.dssHP = dssHP; buses.lowShelf = lowShelf;
+
         const sat = ac.createWaveShaper();
         const curve = new Float32Array(1024);
         for (let i = 0; i < 1024; i++) { const x = (i/512)-1; curve[i] = Math.tanh(x*1.4); }
@@ -705,6 +749,10 @@ registerProcessor("dss-processor", DSSProcessor);
         comp.threshold.value=-16; comp.knee.value=10; comp.ratio.value=2.5;
         comp.attack.value=0.03; comp.release.value=0.20;
 
+        // Expose nodes so per-instrument onUpdate can master them
+        buses.rvSend = rvSend; buses.shSend = shSend; buses.shGain = shGain;
+        buses.rvLP = rvLP; buses.comp = comp;
+
         try {
           const blob = new Blob([WORKLET_CODE], { type: "text/javascript" });
           const url = URL.createObjectURL(blob);
@@ -718,7 +766,7 @@ registerProcessor("dss-processor", DSSProcessor);
           } catch (e2) { console.error("AudioWorklet not supported:", e2); return; }
         }
 
-        dssNode.connect(lp);
+        dssNode.connect(dssHP); dssHP.connect(lowShelf); lowShelf.connect(lp);
         lp.connect(sat); sat.connect(comp);
         sat.connect(rvSend); rvSend.connect(conv); conv.connect(rvLP); rvLP.connect(rvHP); rvHP.connect(comp);
         sat.connect(shSend); shSend.connect(shDel); shDel.connect(shLP); shLP.connect(shGain); shGain.connect(comp);
@@ -732,7 +780,7 @@ registerProcessor("dss-processor", DSSProcessor);
             iosAudioEl.srcObject = ms.stream; iosAudioEl.play().catch(()=>{});
           } catch (_) {}
         }
-        runtimeStops.push(() => { try { dssNode.disconnect(); lp.disconnect(); sat.disconnect(); } catch(_){} });
+        runtimeStops.push(() => { try { dssNode.disconnect(); dssHP.disconnect(); lowShelf.disconnect(); lp.disconnect(); sat.disconnect(); } catch(_){} });
       }
 
       function scheduleNoise() {
