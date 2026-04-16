@@ -660,6 +660,19 @@ registerProcessor("dss-processor", DSSProcessor);
             buses.lowShelf.frequency.setValueAtTime(95, now);
             buses.lowShelf.gain.setValueAtTime(-3, now);
           }
+          // TILT EQ: +1.5dB air shelf at 8kHz adds perceived clarity ("shimmer")
+          // without being harsh; matching -1.5dB low shelf at 300Hz keeps the
+          // spectral balance neutral (tilt, not boost).
+          if (buses.tiltHigh) buses.tiltHigh.gain.setValueAtTime(1.5, now);
+          if (buses.tiltLow)  buses.tiltLow.gain.setValueAtTime(-1.5, now);
+          // GENTLER SATURATION: tanh drive 1.4 -> 0.8 for Chiaroscuro's quieter passages.
+          // The shared 1.4x curve adds audible harmonic distortion to subtle DSS waveforms;
+          // 0.8x preserves the pure stochastic character while still adding warmth.
+          if (buses.sat) {
+            const gCurve = new Float32Array(1024);
+            for (let i = 0; i < 1024; i++) { const x = (i/512)-1; gCurve[i] = Math.tanh(x*0.8); }
+            buses.sat.curve = gCurve;
+          }
         },
         onUpdate(elapsed, section) {
           // === DYNAMIC MASTERING ===
@@ -749,9 +762,14 @@ registerProcessor("dss-processor", DSSProcessor);
         comp.threshold.value=-16; comp.knee.value=10; comp.ratio.value=2.5;
         comp.attack.value=0.03; comp.release.value=0.20;
 
+        // Tilt EQ (transparent at default 0dB; CHI activates +1.5/-1.5dB)
+        const tiltHigh = ac.createBiquadFilter(); tiltHigh.type = "highshelf"; tiltHigh.frequency.value = 8000; tiltHigh.gain.value = 0;
+        const tiltLow  = ac.createBiquadFilter(); tiltLow.type  = "lowshelf";  tiltLow.frequency.value  = 300;  tiltLow.gain.value  = 0;
+
         // Expose nodes so per-instrument onUpdate can master them
         buses.rvSend = rvSend; buses.shSend = shSend; buses.shGain = shGain;
-        buses.rvLP = rvLP; buses.comp = comp;
+        buses.rvLP = rvLP; buses.comp = comp; buses.sat = sat;
+        buses.tiltHigh = tiltHigh; buses.tiltLow = tiltLow;
 
         try {
           const blob = new Blob([WORKLET_CODE], { type: "text/javascript" });
@@ -771,7 +789,46 @@ registerProcessor("dss-processor", DSSProcessor);
         sat.connect(rvSend); rvSend.connect(conv); conv.connect(rvLP); rvLP.connect(rvHP); rvHP.connect(comp);
         sat.connect(shSend); shSend.connect(shDel); shDel.connect(shLP); shLP.connect(shGain); shGain.connect(comp);
         shGain.connect(shFb); shFb.connect(shDel);
-        const makeup = ac.createGain(); makeup.gain.value = 1.4; comp.connect(makeup); makeup.connect(analyser); analyser.connect(master); master.connect(ac.destination);
+
+        const makeup = ac.createGain(); makeup.gain.value = 1.4;
+        comp.connect(makeup); makeup.connect(tiltLow); tiltLow.connect(tiltHigh);
+
+        // Mid-side processing: mono-sum sub-bass in the sides.
+        // Bass voices are panned slightly off-centre; stereo reverb adds side energy below 100Hz
+        // which causes phase incoherence on mono systems. HPF on the side channel removes it.
+        const msSplit   = ac.createChannelSplitter(2);
+        const msEncML   = ac.createGain(); msEncML.gain.value =  0.5;  // L  ->  mid
+        const msEncMR   = ac.createGain(); msEncMR.gain.value =  0.5;  // R  ->  mid
+        const msEncSL   = ac.createGain(); msEncSL.gain.value =  0.5;  // L  ->  side
+        const msEncSR   = ac.createGain(); msEncSR.gain.value = -0.5;  // R  ->  side (negate)
+        const msMid     = ac.createGain(); msMid.gain.value   =  1.0;  // mid  summing node
+        const msSide    = ac.createGain(); msSide.gain.value  =  1.0;  // side summing node
+        const msSideHPF = ac.createBiquadFilter(); msSideHPF.type = "highpass"; msSideHPF.frequency.value = 100; msSideHPF.Q.value = 0.7;
+        const msDecLPos = ac.createGain(); msDecLPos.gain.value =  1.0;  // filtered side  ->  L (add)
+        const msDecRNeg = ac.createGain(); msDecRNeg.gain.value = -1.0;  // filtered side  ->  R (subtract)
+        const msDecL    = ac.createGain(); msDecL.gain.value   =  1.0;   // L output summing
+        const msDecR    = ac.createGain(); msDecR.gain.value   =  1.0;   // R output summing
+        const msMerge   = ac.createChannelMerger(2);
+
+        tiltHigh.connect(msSplit);
+        msSplit.connect(msEncML, 0); msSplit.connect(msEncMR, 1);  // encode mid
+        msSplit.connect(msEncSL, 0); msSplit.connect(msEncSR, 1);  // encode side
+        msEncML.connect(msMid);  msEncMR.connect(msMid);           // msMid = (L+R)/2
+        msEncSL.connect(msSide); msEncSR.connect(msSide);          // msSide = (L-R)/2
+        msSide.connect(msSideHPF);                                  // HPF: remove sub-100Hz from sides
+        msMid.connect(msDecL); msSideHPF.connect(msDecLPos); msDecLPos.connect(msDecL);  // L = mid + sideHP
+        msMid.connect(msDecR); msSideHPF.connect(msDecRNeg); msDecRNeg.connect(msDecR);  // R = mid - sideHP
+        msDecL.connect(msMerge, 0, 0); msDecR.connect(msMerge, 0, 1);  // merge back to stereo
+
+        // True peak limiter: brick-wall at -1 dBTP prevents inter-sample clipping
+        // when the output is resampled by streaming/playback systems.
+        const limiter = ac.createDynamicsCompressor();
+        limiter.threshold.value = -1; limiter.knee.value = 0; limiter.ratio.value = 20;
+        limiter.attack.value = 0.001; limiter.release.value = 0.05;
+        buses.limiter = limiter;
+
+        msMerge.connect(limiter);
+        limiter.connect(analyser); analyser.connect(master); master.connect(ac.destination);
 
         if (isMobile && ac.createMediaStreamDestination) {
           try {
@@ -781,6 +838,7 @@ registerProcessor("dss-processor", DSSProcessor);
           } catch (_) {}
         }
         runtimeStops.push(() => { try { dssNode.disconnect(); dssHP.disconnect(); lowShelf.disconnect(); lp.disconnect(); sat.disconnect(); } catch(_){} });
+        runtimeStops.push(() => { try { makeup.disconnect(); tiltLow.disconnect(); tiltHigh.disconnect(); msMerge.disconnect(); limiter.disconnect(); } catch(_){} });
       }
 
       function scheduleNoise() {
