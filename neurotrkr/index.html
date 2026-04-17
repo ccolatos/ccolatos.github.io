@@ -396,48 +396,45 @@ function App(){
 
   useEffect(()=>{const up=()=>{isPaint.current=false;paintCh_.current=-1;lastPCell.current=-1;};window.addEventListener('mouseup',up);return()=>window.removeEventListener('mouseup',up);},[]);
 
-  // Native touch handlers for mobile. Attached non-passive so we can preventDefault
-  // to (a) block iOS's scroll hijack when painting horizontally and (b) block the
-  // 300ms synthetic mousedown that otherwise fires after touchend on iOS and causes
-  // phantom painting. Gesture model: tap = toggle cell, long-press (450ms) on an
-  // existing note = open cell editor, horizontal drag = paint range, vertical drag =
-  // native scroll. The horizontal-vs-vertical decision is committed after 10px.
+  // Native touch handlers for mobile. touch-action:none means iOS does nothing with
+  // the gesture — we own it completely. Tap = toggle cell, long-press (450ms) on an
+  // existing note = open cell editor, horizontal drag = paint range, vertical drag
+  // = scroll (implemented manually). We preventDefault every touchmove while a
+  // gesture is active so iOS can't steal it mid-interaction.
   useEffect(()=>{
     const el=gsR.current;if(!el)return;
     const hitCell=(x,y)=>{const t=document.elementFromPoint(x,y);if(!t)return null;
-      // Walk up in case we hit an inner element that escaped pointer-events:none.
       let n=t;for(let i=0;i<4&&n;i++){if(n.dataset&&n.dataset.ci!==undefined)return{ci:+n.dataset.ci,r:+n.dataset.r};n=n.parentElement;}
       return null;};
     const ts=(e)=>{if(e.touches.length!==1){lpStart.current=null;if(lpTimer.current){clearTimeout(lpTimer.current);lpTimer.current=null;}return;}
       const t=e.touches[0];const c=hitCell(t.clientX,t.clientY);if(!c)return;
       const tp=c.r*cT;const existing=cR.current[c.ci]&&cR.current[c.ci].events[tp]?{...cR.current[c.ci].events[tp]}:null;
-      lpStart.current={x:t.clientX,y:t.clientY,ci:c.ci,r:c.r,tp,existing,moved:false,handled:false,mode:null};
+      lpStart.current={x:t.clientX,y:t.clientY,ci:c.ci,r:c.r,tp,existing,moved:false,handled:false,mode:null,lastY:t.clientY};
       if(lpTimer.current)clearTimeout(lpTimer.current);
       lpTimer.current=setTimeout(()=>{lpTimer.current=null;const s=lpStart.current;if(!s||s.moved||s.handled)return;
         if(s.existing){setCellEd({ch:s.ci,cell:s.r,tp:s.tp});s.handled=true;if(navigator.vibrate)try{navigator.vibrate(10);}catch(err){}}
       },450);};
     const tm=(e)=>{const s=lpStart.current;if(!s||e.touches.length!==1)return;
+      e.preventDefault(); // own the gesture, always
       const t=e.touches[0];const dx=t.clientX-s.x,dy=t.clientY-s.y;
-      if(!s.mode&&(Math.abs(dx)>10||Math.abs(dy)>10)){
-        if(lpTimer.current){clearTimeout(lpTimer.current);lpTimer.current=null;}
-        s.moved=true;
-        // Commit gesture mode. Horizontal = paint, vertical = let native scroll proceed.
-        s.mode=Math.abs(dx)>Math.abs(dy)?'paint':'scroll';
-        if(s.mode==='paint'){
-          // Initialize paint state based on starting cell.
-          paintAct.current=s.existing?'remove':'add';
-          paintCh_.current=s.ci;lastPCell.current=s.r;isPaint.current=true;
-          // For melodic channels with note placement, we'd want the picker, but
-          // drag-paint on melodic uses the current paintNote (sticky from last add).
-          if(!CH[s.ci].drum&&paintAct.current==='add'&&!s.existing){
-            // Empty melodic cell as drag start: place with current paint note.
-            applyP(s.ci,s.r);
-          }else{
+      if(!s.mode){
+        if(Math.abs(dx)>10||Math.abs(dy)>10){
+          if(lpTimer.current){clearTimeout(lpTimer.current);lpTimer.current=null;}
+          s.moved=true;
+          s.mode=Math.abs(dx)>Math.abs(dy)?'paint':'scroll';
+          if(s.mode==='paint'){
+            paintAct.current=s.existing?'remove':'add';
+            paintCh_.current=s.ci;lastPCell.current=s.r;isPaint.current=true;
             applyP(s.ci,s.r);
           }
+        }else{
+          return; // within dead zone, do nothing yet
         }
       }
-      if(s.mode==='paint'){e.preventDefault();
+      if(s.mode==='scroll'){
+        // Manual scroll: adjust scrollTop by the delta since last touchmove.
+        el.scrollTop-=(t.clientY-s.lastY);s.lastY=t.clientY;
+      }else if(s.mode==='paint'){
         const c=hitCell(t.clientX,t.clientY);
         if(c&&c.ci===s.ci&&c.r!==lastPCell.current){
           applyRange(s.ci,lastPCell.current,c.r);lastPCell.current=c.r;
@@ -446,15 +443,10 @@ function App(){
     const te=(e)=>{const s=lpStart.current;
       if(lpTimer.current){clearTimeout(lpTimer.current);lpTimer.current=null;}
       if(s&&!s.moved&&!s.handled){
-        // Tap: toggle the cell.
         paintAct.current=s.existing?'remove':'add';
-        if(!CH[s.ci].drum&&paintAct.current==='add'&&!s.existing){
-          setEN({ch:s.ci,cell:s.r});
-        }else{
-          applyP(s.ci,s.r);
-        }
-        e.preventDefault(); // block 300ms synthetic mousedown
-      }else if(s&&s.mode==='paint'){
+        applyP(s.ci,s.r);
+        e.preventDefault();
+      }else if(s&&(s.mode==='paint'||s.mode==='scroll')){
         e.preventDefault();
       }
       lpStart.current=null;isPaint.current=false;paintCh_.current=-1;lastPCell.current=-1;
@@ -560,7 +552,7 @@ function App(){
               </div>
               <div style={{flex:1,position:'relative',overflow:'hidden'}}>
               {playing&&<div style={{position:'absolute',left:0,right:0,top:'50%',height:RH,marginTop:-RH/2,background:'var(--gra)',borderTop:`1px solid var(--grab)`,borderBottom:`1px solid var(--grab)`,pointerEvents:'none',zIndex:10}}/>}
-              <div ref={gsR} style={{height:'100%',overflowY:'auto',overflowX:'auto',userSelect:'none',WebkitUserSelect:'none',WebkitTouchCallout:'none',touchAction:'pan-y',cursor:'crosshair'}} onMouseLeave={()=>{isPaint.current=false;lastPCell.current=-1;}}>
+              <div ref={gsR} style={{height:'100%',overflowY:'auto',overflowX:'auto',userSelect:'none',WebkitUserSelect:'none',WebkitTouchCallout:'none',touchAction:'none',cursor:'crosshair'}} onMouseLeave={()=>{isPaint.current=false;lastPCell.current=-1;}}>
                 {Array.from({length:totC},(_,r)=>{const tp=r*cT,barI=Math.floor(tp/Tpb_),inB=tp-barI*Tpb_,beatI=Math.floor(inB/tpBt),isBS=inB<cT,isBtS=!isBS&&Math.abs(inB-beatI*tpBt)<cT;const isAct=playing&&curTick>=tp&&curTick<tp+cT;const gs=Math.floor(r/4)%2===0;
                   return(<div key={r} style={{display:'flex',height:RH,minHeight:RH,borderTop:isBS?'var(--grbb)':isBtS?'var(--grbt)':'var(--grbd)',background:isAct?'var(--gra)':isBS?'var(--grb)':gs?'var(--gr1)':'var(--gr2)'}}>
                     <div style={{width:RNW,minWidth:RNW,display:'flex',alignItems:'center',justifyContent:'flex-end',paddingRight:5,fontSize:retro?10:7,borderRight:'var(--grbt)',color:isBS?'var(--grn)':isBtS?'var(--dim2)':'var(--dim)',fontWeight:isBS?700:400,gap:3}}>
@@ -605,7 +597,7 @@ function App(){
         {showHelp&&(()=>{const hS={fontSize:retro?14:10,fontWeight:700,letterSpacing:2,color:retro?'#000':'var(--acc)',marginBottom:6,marginTop:18,fontFamily:'var(--fontD)'};const bS={fontSize:retro?13:10,color:retro?'#111':'var(--fg)',lineHeight:1.6,marginBottom:4};const lbl={color:retro?'#000':'var(--dim2)',fontWeight:700,letterSpacing:1};const sec=(title,items)=><div><div style={hS}>{title}</div>{items.map((it,i)=><div key={i} style={bS}>{it}</div>)}</div>;return(<div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.65)',zIndex:201,display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:'var(--blur)',padding:10}} onClick={()=>setShowHelp(false)}><div onClick={e=>e.stopPropagation()} style={{background:'var(--modal)',border:'var(--modal-brd)',padding:'16px 20px 20px',maxWidth:620,width:'96%',maxHeight:'88vh',overflowY:'auto',borderRadius:'var(--r)',boxShadow:'var(--shadow)'}}><div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10,position:'sticky',top:-16,background:'var(--modal)',paddingTop:16,marginTop:-16,paddingBottom:8,borderBottom:`1px solid ${retro?'#555':'var(--brd)'}`,zIndex:1}}><div style={{fontSize:retro?20:13,fontWeight:800,letterSpacing:4,fontFamily:'var(--fontD)',background:retro?'none':'var(--accG)',backgroundClip:retro?'initial':'text',WebkitBackgroundClip:retro?'initial':'text',color:retro?'#333':'transparent',WebkitTextFillColor:retro?'#333':'transparent'}}>NEUROTRKR · REFERENCE</div><button onClick={()=>setShowHelp(false)} style={{background:'transparent',border:'1px solid var(--brd3)',color:'var(--dim2)',padding:'3px 10px',fontSize:retro?15:11,cursor:'pointer',fontFamily:'inherit',borderRadius:'var(--r)',lineHeight:1}}>×</button></div>
 {sec('GETTING AROUND',[
 <><b style={lbl}>Desktop:</b> click a cell to toggle it. Drag across cells to paint a range. Right-click a note to edit velocity, probability, and condition.</>,
-<><b style={lbl}>Mobile:</b> tap a cell to toggle it. Drag horizontally to paint a range. Drag vertically to scroll the grid. Tap-and-hold (about half a second) on any existing note to open the cell editor. Tap an empty melodic cell to open the note picker.</>,
+<><b style={lbl}>Mobile:</b> tap a cell to toggle it. Melodic channels use the current NOTE dropdown value. Drag horizontally to paint a range. Drag vertically to scroll the grid. Tap-and-hold (about half a second) on any existing note to open the cell editor.</>,
 <><b style={lbl}>Shift+click</b> an empty melodic cell (desktop) to open the octave picker directly.</>,
 <><b style={lbl}>Spacebar</b> plays and stops.</>,
 <>Click a channel name in the grid header (KCK, SNR, etc.) to pick its synth variant.</>,
