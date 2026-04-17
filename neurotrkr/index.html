@@ -173,7 +173,7 @@ function App(){
   const isPaint=useRef(false),paintAct=useRef('add'),paintCh_=useRef(-1),lastPCell=useRef(-1);
   const pR=useRef(false),tR=useRef(-1),tmR=useRef(null),cR=useRef([]),bR=useRef(133),swR=useRef(15),mR=useRef(Array(9).fill(false)),soR=useRef(Array(9).fill(false)),vrR=useRef(Array(9).fill(0)),tsR=useRef([4,4]),bsR=useRef(16),aR=useRef(null),gsR=useRef(null),velR=useRef(100/127),pnR=useRef('C-3'),wkR=useRef(null),aR2=useRef(null);
   // Variant refs (mirror state for scheduler access without re-renders), prev-fired tracking for PRE/!PRE conditions, long-press state for touch cell editor.
-  const vaR=useRef(null),avR=useRef(0),baR=useRef([]),prevFiredR=useRef(Array(9).fill(false)),lpTimer=useRef(null),lpStart=useRef(null);
+  const vaR=useRef(null),avR=useRef(0),baR=useRef([]),prevFiredR=useRef(Array(9).fill(false)),lpTimer=useRef(null),lpStart=useRef(null),recentTouch=useRef(false);
   useEffect(()=>{try{const src=`let t=null;onmessage=e=>{if(e.data.cmd==='wait'){if(t)clearTimeout(t);t=setTimeout(()=>postMessage('tick'),e.data.ms);}else if(e.data.cmd==='stop'){if(t)clearTimeout(t);t=null;}};`;const blob=new Blob([src],{type:'application/javascript'});wkR.current=new Worker(URL.createObjectURL(blob));}catch(e){wkR.current=null;}return()=>{if(wkR.current){wkR.current.terminate();wkR.current=null;}};},[]);
   // MIDI: GM program + note mapping
   // Drums on ch10 (index 9): kick=36, snare=38, chh=42, ohh=46, perc=39(clap)
@@ -387,7 +387,7 @@ function App(){
   const applyP=useCallback((ci,cellIdx)=>{const tp=cellIdx*cT;setChs(prev=>{const next=[...prev];const ch={...next[ci],events:{...next[ci].events}};if(paintAct.current==='add'){const cur=ch.events[tp];ch.events[tp]={...(cur||{}),vel:velR.current,note:CH[ci].drum?'':pnR.current};}else delete ch.events[tp];next[ci]=ch;cR.current=next;if(vaR.current){const vs=[...vaR.current];vs[avR.current]={...vs[avR.current],chs:next};vaR.current=vs;setVariants(vs);}return next;});},[cT]);
   const applyRange=useCallback((ci,from,to)=>{const lo=Math.min(from,to),hi=Math.max(from,to);setChs(prev=>{const next=[...prev];const ch={...next[ci],events:{...next[ci].events}};for(let r=lo;r<=hi;r++){const tp=r*cT;if(paintAct.current==='add'){const cur=ch.events[tp];ch.events[tp]={...(cur||{}),vel:velR.current,note:CH[ci].drum?'':pnR.current};}else delete ch.events[tp];}next[ci]=ch;cR.current=next;if(vaR.current){const vs=[...vaR.current];vs[avR.current]={...vs[avR.current],chs:next};vaR.current=vs;setVariants(vs);}return next;});},[cT]);
 
-  const cellDown=useCallback((ci,cellIdx,e)=>{e.preventDefault();const tp=cellIdx*cT;
+  const cellDown=useCallback((ci,cellIdx,e)=>{if(recentTouch.current)return;e.preventDefault();const tp=cellIdx*cT;
     if(!CH[ci].drum){const ch=cR.current[ci];if(ch.events[tp]){paintAct.current='remove';isPaint.current=true;paintCh_.current=ci;lastPCell.current=cellIdx;applyP(ci,cellIdx);}else if(e.shiftKey){setEN({ch:ci,cell:cellIdx});}else{paintAct.current='add';isPaint.current=true;paintCh_.current=ci;lastPCell.current=cellIdx;applyP(ci,cellIdx);}return;}
     const ch=cR.current[ci];paintAct.current=ch.events[tp]?'remove':'add';isPaint.current=true;paintCh_.current=ci;lastPCell.current=cellIdx;applyP(ci,cellIdx);},[cT,applyP]);
 
@@ -395,6 +395,79 @@ function App(){
     const last=lastPCell.current;if(last>=0&&last!==cellIdx){applyRange(ci,last,cellIdx);}else{applyP(ci,cellIdx);}lastPCell.current=cellIdx;},[applyP,applyRange]);
 
   useEffect(()=>{const up=()=>{isPaint.current=false;paintCh_.current=-1;lastPCell.current=-1;};window.addEventListener('mouseup',up);return()=>window.removeEventListener('mouseup',up);},[]);
+
+  // Native touch handlers for mobile. Attached non-passive so we can preventDefault
+  // to (a) block iOS's scroll hijack when painting horizontally and (b) block the
+  // 300ms synthetic mousedown that otherwise fires after touchend on iOS and causes
+  // phantom painting. Gesture model: tap = toggle cell, long-press (450ms) on an
+  // existing note = open cell editor, horizontal drag = paint range, vertical drag =
+  // native scroll. The horizontal-vs-vertical decision is committed after 10px.
+  useEffect(()=>{
+    const el=gsR.current;if(!el)return;
+    const hitCell=(x,y)=>{const t=document.elementFromPoint(x,y);if(!t)return null;
+      // Walk up in case we hit an inner element that escaped pointer-events:none.
+      let n=t;for(let i=0;i<4&&n;i++){if(n.dataset&&n.dataset.ci!==undefined)return{ci:+n.dataset.ci,r:+n.dataset.r};n=n.parentElement;}
+      return null;};
+    const ts=(e)=>{if(e.touches.length!==1){lpStart.current=null;if(lpTimer.current){clearTimeout(lpTimer.current);lpTimer.current=null;}return;}
+      const t=e.touches[0];const c=hitCell(t.clientX,t.clientY);if(!c)return;
+      const tp=c.r*cT;const existing=cR.current[c.ci]&&cR.current[c.ci].events[tp]?{...cR.current[c.ci].events[tp]}:null;
+      lpStart.current={x:t.clientX,y:t.clientY,ci:c.ci,r:c.r,tp,existing,moved:false,handled:false,mode:null};
+      if(lpTimer.current)clearTimeout(lpTimer.current);
+      lpTimer.current=setTimeout(()=>{lpTimer.current=null;const s=lpStart.current;if(!s||s.moved||s.handled)return;
+        if(s.existing){setCellEd({ch:s.ci,cell:s.r,tp:s.tp});s.handled=true;if(navigator.vibrate)try{navigator.vibrate(10);}catch(err){}}
+      },450);};
+    const tm=(e)=>{const s=lpStart.current;if(!s||e.touches.length!==1)return;
+      const t=e.touches[0];const dx=t.clientX-s.x,dy=t.clientY-s.y;
+      if(!s.mode&&(Math.abs(dx)>10||Math.abs(dy)>10)){
+        if(lpTimer.current){clearTimeout(lpTimer.current);lpTimer.current=null;}
+        s.moved=true;
+        // Commit gesture mode. Horizontal = paint, vertical = let native scroll proceed.
+        s.mode=Math.abs(dx)>Math.abs(dy)?'paint':'scroll';
+        if(s.mode==='paint'){
+          // Initialize paint state based on starting cell.
+          paintAct.current=s.existing?'remove':'add';
+          paintCh_.current=s.ci;lastPCell.current=s.r;isPaint.current=true;
+          // For melodic channels with note placement, we'd want the picker, but
+          // drag-paint on melodic uses the current paintNote (sticky from last add).
+          if(!CH[s.ci].drum&&paintAct.current==='add'&&!s.existing){
+            // Empty melodic cell as drag start: place with current paint note.
+            applyP(s.ci,s.r);
+          }else{
+            applyP(s.ci,s.r);
+          }
+        }
+      }
+      if(s.mode==='paint'){e.preventDefault();
+        const c=hitCell(t.clientX,t.clientY);
+        if(c&&c.ci===s.ci&&c.r!==lastPCell.current){
+          applyRange(s.ci,lastPCell.current,c.r);lastPCell.current=c.r;
+        }
+      }};
+    const te=(e)=>{const s=lpStart.current;
+      if(lpTimer.current){clearTimeout(lpTimer.current);lpTimer.current=null;}
+      if(s&&!s.moved&&!s.handled){
+        // Tap: toggle the cell.
+        paintAct.current=s.existing?'remove':'add';
+        if(!CH[s.ci].drum&&paintAct.current==='add'&&!s.existing){
+          setEN({ch:s.ci,cell:s.r});
+        }else{
+          applyP(s.ci,s.r);
+        }
+        e.preventDefault(); // block 300ms synthetic mousedown
+      }else if(s&&s.mode==='paint'){
+        e.preventDefault();
+      }
+      lpStart.current=null;isPaint.current=false;paintCh_.current=-1;lastPCell.current=-1;
+      recentTouch.current=true;setTimeout(()=>{recentTouch.current=false;},500);};
+    const tc=()=>{if(lpTimer.current){clearTimeout(lpTimer.current);lpTimer.current=null;}
+      lpStart.current=null;isPaint.current=false;paintCh_.current=-1;lastPCell.current=-1;};
+    el.addEventListener('touchstart',ts,{passive:false});
+    el.addEventListener('touchmove',tm,{passive:false});
+    el.addEventListener('touchend',te,{passive:false});
+    el.addEventListener('touchcancel',tc,{passive:false});
+    return()=>{el.removeEventListener('touchstart',ts);el.removeEventListener('touchmove',tm);el.removeEventListener('touchend',te);el.removeEventListener('touchcancel',tc);};
+  },[cT,applyP,applyRange]);
+
   const placeNote=useCallback((ci,cellIdx,note)=>{setPaintNote(note);pnR.current=note;paintAct.current='add';isPaint.current=true;paintCh_.current=ci;lastPCell.current=cellIdx;const tp=cellIdx*cT;setChs(prev=>{const next=[...prev];const ch={...next[ci],events:{...next[ci].events}};const cur=ch.events[tp];ch.events[tp]={...(cur||{}),vel:velR.current,note};next[ci]=ch;cR.current=next;if(vaR.current){const vs=[...vaR.current];vs[avR.current]={...vs[avR.current],chs:next};vaR.current=vs;setVariants(vs);}return next;});setEN(null);},[cT]);
   // Clear the variants system (used by preset load and clearAll).
   const clearVariants=useCallback(()=>{vaR.current=null;setVariants(null);avR.current=0;setActiveVar(0);baR.current=[];setBarAssign([]);},[]);
@@ -487,10 +560,7 @@ function App(){
               </div>
               <div style={{flex:1,position:'relative',overflow:'hidden'}}>
               {playing&&<div style={{position:'absolute',left:0,right:0,top:'50%',height:RH,marginTop:-RH/2,background:'var(--gra)',borderTop:`1px solid var(--grab)`,borderBottom:`1px solid var(--grab)`,pointerEvents:'none',zIndex:10}}/>}
-              <div ref={gsR} style={{height:'100%',overflowY:'auto',overflowX:'auto',userSelect:'none',WebkitUserSelect:'none',WebkitTouchCallout:'none',touchAction:'pan-y',cursor:'crosshair'}} onMouseLeave={()=>{isPaint.current=false;lastPCell.current=-1;}}
-              onTouchStart={e=>{const t=e.touches[0];const el=document.elementFromPoint(t.clientX,t.clientY);if(!el||el.dataset.ci===undefined)return;const ci=+el.dataset.ci,r=+el.dataset.r;lpStart.current={x:t.clientX,y:t.clientY,ci,r,tp:r*cT,moved:false,handled:false};if(lpTimer.current)clearTimeout(lpTimer.current);lpTimer.current=setTimeout(()=>{lpTimer.current=null;if(lpStart.current&&!lpStart.current.moved){const {ci,r,tp}=lpStart.current;if(cR.current[ci]&&cR.current[ci].events[tp]){setCellEd({ch:ci,cell:r,tp});lpStart.current.handled=true;if(navigator.vibrate)try{navigator.vibrate(10);}catch(err){}}}},450);}}
-              onTouchMove={e=>{const t=e.touches[0];if(!lpStart.current)return;const dx=t.clientX-lpStart.current.x,dy=t.clientY-lpStart.current.y;if(Math.sqrt(dx*dx+dy*dy)>10){lpStart.current.moved=true;if(lpTimer.current){clearTimeout(lpTimer.current);lpTimer.current=null;}}}}
-              onTouchEnd={e=>{if(lpTimer.current){clearTimeout(lpTimer.current);lpTimer.current=null;}if(lpStart.current&&!lpStart.current.moved&&!lpStart.current.handled){const {ci,r}=lpStart.current;paintAct.current=cR.current[ci]&&cR.current[ci].events[r*cT]?'remove':'add';if(!CH[ci].drum&&paintAct.current==='add'&&!cR.current[ci].events[r*cT]){setEN({ch:ci,cell:r});}else{applyP(ci,r);}}lpStart.current=null;isPaint.current=false;paintCh_.current=-1;lastPCell.current=-1;}}>
+              <div ref={gsR} style={{height:'100%',overflowY:'auto',overflowX:'auto',userSelect:'none',WebkitUserSelect:'none',WebkitTouchCallout:'none',touchAction:'pan-y',cursor:'crosshair'}} onMouseLeave={()=>{isPaint.current=false;lastPCell.current=-1;}}>
                 {Array.from({length:totC},(_,r)=>{const tp=r*cT,barI=Math.floor(tp/Tpb_),inB=tp-barI*Tpb_,beatI=Math.floor(inB/tpBt),isBS=inB<cT,isBtS=!isBS&&Math.abs(inB-beatI*tpBt)<cT;const isAct=playing&&curTick>=tp&&curTick<tp+cT;const gs=Math.floor(r/4)%2===0;
                   return(<div key={r} style={{display:'flex',height:RH,minHeight:RH,borderTop:isBS?'var(--grbb)':isBtS?'var(--grbt)':'var(--grbd)',background:isAct?'var(--gra)':isBS?'var(--grb)':gs?'var(--gr1)':'var(--gr2)'}}>
                     <div style={{width:RNW,minWidth:RNW,display:'flex',alignItems:'center',justifyContent:'flex-end',paddingRight:5,fontSize:retro?10:7,borderRight:'var(--grbt)',color:isBS?'var(--grn)':isBtS?'var(--dim2)':'var(--dim)',fontWeight:isBS?700:400,gap:3}}>
@@ -499,8 +569,8 @@ function App(){
                     </div>
                     {chs.map((ch,ci)=>{const ev=ch.events[tp];const ct=CH[ci];const hS=solos.some(s=>s);const iM=mutes[ci]||(hS&&!solos[ci]);const vp=ev?Math.round(ev.vel*100):0;
                       return(<div key={ci} data-ci={ci} data-r={r} onMouseDown={e=>cellDown(ci,r,e)} onMouseEnter={()=>cellEnter(ci,r)} onContextMenu={e=>{e.preventDefault();const tp2=r*cT;if(cR.current[ci]&&cR.current[ci].events[tp2])setCellEd({ch:ci,cell:r,tp:tp2});}} style={{width:colW,minWidth:colW,height:RH,borderRight:'var(--grbd)',display:'flex',alignItems:'center',justifyContent:'center',position:'relative',opacity:iM?0.2:1}}>
-                        {ev&&ct.drum&&<><div style={{position:'absolute',left:2,top:3,bottom:3,width:`${vp}%`,maxWidth:colW-4,background:retro?'#777':ct.color,opacity:0.3+ev.vel*0.4,borderRadius:retro?0:1}}/><div style={{position:'relative',zIndex:1,fontSize:retro?10:7,color:retro?'#aaa':ct.color,fontWeight:600,opacity:retro?1:0.8}}>{Math.round(ev.vel*99)}</div></>}
-                        {ev&&!ct.drum&&ev.note&&<><div style={{position:'absolute',left:2,top:3,bottom:3,width:`${vp}%`,maxWidth:colW-4,background:retro?'#555':ct.color,opacity:retro?0.3+ev.vel*0.3:0.15+ev.vel*0.25,borderRadius:retro?0:1}}/><span style={{position:'relative',zIndex:1,fontSize:retro?11:8,color:retro?'#ccc':ct.color,fontWeight:700}}>{ev.note.replace('-','')}</span></>}
+                        {ev&&ct.drum&&<><div style={{position:'absolute',left:2,top:3,bottom:3,width:`${vp}%`,maxWidth:colW-4,background:retro?'#777':ct.color,opacity:0.3+ev.vel*0.4,borderRadius:retro?0:1,pointerEvents:'none'}}/><div style={{position:'relative',zIndex:1,fontSize:retro?10:7,color:retro?'#aaa':ct.color,fontWeight:600,opacity:retro?1:0.8,pointerEvents:'none'}}>{Math.round(ev.vel*99)}</div></>}
+                        {ev&&!ct.drum&&ev.note&&<><div style={{position:'absolute',left:2,top:3,bottom:3,width:`${vp}%`,maxWidth:colW-4,background:retro?'#555':ct.color,opacity:retro?0.3+ev.vel*0.3:0.15+ev.vel*0.25,borderRadius:retro?0:1,pointerEvents:'none'}}/><span style={{position:'relative',zIndex:1,fontSize:retro?11:8,color:retro?'#ccc':ct.color,fontWeight:700,pointerEvents:'none'}}>{ev.note.replace('-','')}</span></>}
                         {ev&&((ev.prob!==undefined&&ev.prob<100)||ev.cond)&&<div title={`${ev.prob!==undefined&&ev.prob<100?`${ev.prob}% `:''}${ev.cond||''}`} style={{position:'absolute',top:1,right:1,width:4,height:4,borderRadius:retro?0:'50%',background:retro?'#fff':'var(--acc)',boxShadow:retro?'none':'0 0 3px var(--acc)',zIndex:2,pointerEvents:'none'}}/>}
                         {isAct&&<div style={{position:'absolute',inset:0,background:'var(--gra)',pointerEvents:'none'}}/>}
                       </div>);})}
@@ -535,7 +605,7 @@ function App(){
         {showHelp&&(()=>{const hS={fontSize:retro?14:10,fontWeight:700,letterSpacing:2,color:retro?'#000':'var(--acc)',marginBottom:6,marginTop:18,fontFamily:'var(--fontD)'};const bS={fontSize:retro?13:10,color:retro?'#111':'var(--fg)',lineHeight:1.6,marginBottom:4};const lbl={color:retro?'#000':'var(--dim2)',fontWeight:700,letterSpacing:1};const sec=(title,items)=><div><div style={hS}>{title}</div>{items.map((it,i)=><div key={i} style={bS}>{it}</div>)}</div>;return(<div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.65)',zIndex:201,display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:'var(--blur)',padding:10}} onClick={()=>setShowHelp(false)}><div onClick={e=>e.stopPropagation()} style={{background:'var(--modal)',border:'var(--modal-brd)',padding:'16px 20px 20px',maxWidth:620,width:'96%',maxHeight:'88vh',overflowY:'auto',borderRadius:'var(--r)',boxShadow:'var(--shadow)'}}><div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10,position:'sticky',top:-16,background:'var(--modal)',paddingTop:16,marginTop:-16,paddingBottom:8,borderBottom:`1px solid ${retro?'#555':'var(--brd)'}`,zIndex:1}}><div style={{fontSize:retro?20:13,fontWeight:800,letterSpacing:4,fontFamily:'var(--fontD)',background:retro?'none':'var(--accG)',backgroundClip:retro?'initial':'text',WebkitBackgroundClip:retro?'initial':'text',color:retro?'#333':'transparent',WebkitTextFillColor:retro?'#333':'transparent'}}>NEUROTRKR · REFERENCE</div><button onClick={()=>setShowHelp(false)} style={{background:'transparent',border:'1px solid var(--brd3)',color:'var(--dim2)',padding:'3px 10px',fontSize:retro?15:11,cursor:'pointer',fontFamily:'inherit',borderRadius:'var(--r)',lineHeight:1}}>×</button></div>
 {sec('GETTING AROUND',[
 <><b style={lbl}>Desktop:</b> click a cell to toggle it. Drag across cells to paint a range. Right-click a note to edit velocity, probability, and condition.</>,
-<><b style={lbl}>Mobile:</b> tap a drum cell to toggle. Tap an empty melodic cell to open the note picker. Tap-and-hold on any existing note to open the cell editor.</>,
+<><b style={lbl}>Mobile:</b> tap a cell to toggle it. Drag horizontally to paint a range. Drag vertically to scroll the grid. Tap-and-hold (about half a second) on any existing note to open the cell editor. Tap an empty melodic cell to open the note picker.</>,
 <><b style={lbl}>Shift+click</b> an empty melodic cell (desktop) to open the octave picker directly.</>,
 <><b style={lbl}>Spacebar</b> plays and stops.</>,
 <>Click a channel name in the grid header (KCK, SNR, etc.) to pick its synth variant.</>,
