@@ -470,7 +470,7 @@ function App(){
     el.addEventListener('touchend',te,{passive:false});
     el.addEventListener('touchcancel',tc,{passive:false});
     return()=>{el.removeEventListener('touchstart',ts);el.removeEventListener('touchmove',tm);el.removeEventListener('touchend',te);el.removeEventListener('touchcancel',tc);};
-  },[cT,applyP,applyRange]);
+  },[cT,applyP,applyRange,init]);
 
   const placeNote=useCallback((ci,cellIdx,note)=>{setPaintNote(note);pnR.current=note;paintAct.current='add';isPaint.current=true;paintCh_.current=ci;lastPCell.current=cellIdx;const tp=cellIdx*cT;setChs(prev=>{const next=[...prev];const ch={...next[ci],events:{...next[ci].events}};const cur=ch.events[tp];ch.events[tp]={...(cur||{}),vel:velR.current,note};next[ci]=ch;cR.current=next;if(vaR.current){const vs=[...vaR.current];vs[avR.current]={...vs[avR.current],chs:next};vaR.current=vs;setVariants(vs);}return next;});setEN(null);},[cT]);
   // Clear the variants system (used by preset load and clearAll).
