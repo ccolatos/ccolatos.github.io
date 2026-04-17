@@ -58,6 +58,7 @@ body.retro button[style*="ffdd44"]{background:#000!important;color:#fff!importan
 body.retro button{border-top:var(--bvt);border-right:var(--bvr);border-bottom:var(--bvb);border-left:var(--bvl);background:var(--btn);color:#000}
 body.retro button:active{border-top:var(--bvb);border-right:var(--bvl);border-bottom:var(--bvt);border-left:var(--bvr)}
 body.retro select,body.retro input[type="number"]{background:var(--inp)!important;color:var(--inp-c)!important;border:inset 2px #666!important}
+#grid-scroll, #grid-scroll *{touch-action:none}
 </style>
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -396,6 +397,11 @@ function App(){
 
   useEffect(()=>{const up=()=>{isPaint.current=false;paintCh_.current=-1;lastPCell.current=-1;};window.addEventListener('mouseup',up);return()=>window.removeEventListener('mouseup',up);},[]);
 
+  // Debug overlay for diagnosing mobile touch issues. Remove after diagnosis.
+  const[dbg,setDbg]=useState('');
+  const dbgLog=useRef([]);
+  const pushDbg=(msg)=>{dbgLog.current.push(msg);if(dbgLog.current.length>8)dbgLog.current.shift();setDbg(dbgLog.current.join('\n'));};
+
   // Native touch handlers for mobile. touch-action:none means iOS does nothing with
   // the gesture — we own it completely. Tap = toggle cell, long-press (450ms) on an
   // existing note = open cell editor, horizontal drag = paint range, vertical drag
@@ -406,33 +412,39 @@ function App(){
     const hitCell=(x,y)=>{const t=document.elementFromPoint(x,y);if(!t)return null;
       let n=t;for(let i=0;i<4&&n;i++){if(n.dataset&&n.dataset.ci!==undefined)return{ci:+n.dataset.ci,r:+n.dataset.r};n=n.parentElement;}
       return null;};
-    const ts=(e)=>{if(e.touches.length!==1){lpStart.current=null;if(lpTimer.current){clearTimeout(lpTimer.current);lpTimer.current=null;}return;}
-      const t=e.touches[0];const c=hitCell(t.clientX,t.clientY);if(!c)return;
+    let mvCount=0;
+    const ts=(e)=>{pushDbg('ts n='+e.touches.length);if(e.touches.length!==1){lpStart.current=null;if(lpTimer.current){clearTimeout(lpTimer.current);lpTimer.current=null;}return;}
+      const t=e.touches[0];const c=hitCell(t.clientX,t.clientY);if(!c){pushDbg('  no cell');return;}
+      pushDbg('  cell '+c.ci+','+c.r);
+      mvCount=0;
       const tp=c.r*cT;const existing=cR.current[c.ci]&&cR.current[c.ci].events[tp]?{...cR.current[c.ci].events[tp]}:null;
-      lpStart.current={x:t.clientX,y:t.clientY,ci:c.ci,r:c.r,tp,existing,moved:false,handled:false,mode:null,lastY:t.clientY};
+      const st={x:t.clientX,y:t.clientY,ci:c.ci,r:c.r,tp,existing,moved:false,handled:false,mode:null,lastY:t.clientY};
+      lpStart.current=st;
       if(lpTimer.current)clearTimeout(lpTimer.current);
-      lpTimer.current=setTimeout(()=>{lpTimer.current=null;const s=lpStart.current;if(!s||s.moved||s.handled)return;
-        if(s.existing){setCellEd({ch:s.ci,cell:s.r,tp:s.tp});s.handled=true;if(navigator.vibrate)try{navigator.vibrate(10);}catch(err){}}
+      lpTimer.current=setTimeout(()=>{lpTimer.current=null;pushDbg('tmr fire mv='+st.moved+' hd='+st.handled);if(st.moved||st.handled)return;
+        if(st.existing){pushDbg('  EDITOR OPEN');setCellEd({ch:st.ci,cell:st.r,tp:st.tp});st.handled=true;if(navigator.vibrate)try{navigator.vibrate(10);}catch(err){}}
+        else pushDbg('  no existing');
       },450);};
-    const tm=(e)=>{const s=lpStart.current;if(!s||e.touches.length!==1)return;
-      e.preventDefault(); // own the gesture, always
+    const tm=(e)=>{mvCount++;if(mvCount<=3||mvCount%5===0)pushDbg('tm #'+mvCount);
+      const s=lpStart.current;if(!s||e.touches.length!==1)return;
+      e.preventDefault();
       const t=e.touches[0];const dx=t.clientX-s.x,dy=t.clientY-s.y;
       if(!s.mode){
         if(Math.abs(dx)>10||Math.abs(dy)>10){
           if(lpTimer.current){clearTimeout(lpTimer.current);lpTimer.current=null;}
           s.moved=true;
           s.mode=Math.abs(dx)>Math.abs(dy)?'paint':'scroll';
+          pushDbg('MODE='+s.mode+' dx='+Math.round(dx)+' dy='+Math.round(dy));
           if(s.mode==='paint'){
             paintAct.current=s.existing?'remove':'add';
             paintCh_.current=s.ci;lastPCell.current=s.r;isPaint.current=true;
             applyP(s.ci,s.r);
           }
         }else{
-          return; // within dead zone, do nothing yet
+          return;
         }
       }
       if(s.mode==='scroll'){
-        // Manual scroll: adjust scrollTop by the delta since last touchmove.
         el.scrollTop-=(t.clientY-s.lastY);s.lastY=t.clientY;
       }else if(s.mode==='paint'){
         const c=hitCell(t.clientX,t.clientY);
@@ -440,7 +452,7 @@ function App(){
           applyRange(s.ci,lastPCell.current,c.r);lastPCell.current=c.r;
         }
       }};
-    const te=(e)=>{const s=lpStart.current;
+    const te=(e)=>{pushDbg('te mv='+mvCount);const s=lpStart.current;
       if(lpTimer.current){clearTimeout(lpTimer.current);lpTimer.current=null;}
       if(s&&!s.moved&&!s.handled){
         paintAct.current=s.existing?'remove':'add';
@@ -451,7 +463,7 @@ function App(){
       }
       lpStart.current=null;isPaint.current=false;paintCh_.current=-1;lastPCell.current=-1;
       recentTouch.current=true;setTimeout(()=>{recentTouch.current=false;},500);};
-    const tc=()=>{if(lpTimer.current){clearTimeout(lpTimer.current);lpTimer.current=null;}
+    const tc=()=>{pushDbg('tc CANCEL mv='+mvCount);if(lpTimer.current){clearTimeout(lpTimer.current);lpTimer.current=null;}
       lpStart.current=null;isPaint.current=false;paintCh_.current=-1;lastPCell.current=-1;};
     el.addEventListener('touchstart',ts,{passive:false});
     el.addEventListener('touchmove',tm,{passive:false});
@@ -552,7 +564,7 @@ function App(){
               </div>
               <div style={{flex:1,position:'relative',overflow:'hidden'}}>
               {playing&&<div style={{position:'absolute',left:0,right:0,top:'50%',height:RH,marginTop:-RH/2,background:'var(--gra)',borderTop:`1px solid var(--grab)`,borderBottom:`1px solid var(--grab)`,pointerEvents:'none',zIndex:10}}/>}
-              <div ref={gsR} style={{height:'100%',overflowY:'auto',overflowX:'auto',userSelect:'none',WebkitUserSelect:'none',WebkitTouchCallout:'none',touchAction:'none',cursor:'crosshair'}} onMouseLeave={()=>{isPaint.current=false;lastPCell.current=-1;}}>
+              <div ref={gsR} id="grid-scroll" style={{height:'100%',overflowY:'auto',overflowX:'auto',userSelect:'none',WebkitUserSelect:'none',WebkitTouchCallout:'none',touchAction:'none',cursor:'crosshair'}} onMouseLeave={()=>{isPaint.current=false;lastPCell.current=-1;}}>
                 {Array.from({length:totC},(_,r)=>{const tp=r*cT,barI=Math.floor(tp/Tpb_),inB=tp-barI*Tpb_,beatI=Math.floor(inB/tpBt),isBS=inB<cT,isBtS=!isBS&&Math.abs(inB-beatI*tpBt)<cT;const isAct=playing&&curTick>=tp&&curTick<tp+cT;const gs=Math.floor(r/4)%2===0;
                   return(<div key={r} style={{display:'flex',height:RH,minHeight:RH,borderTop:isBS?'var(--grbb)':isBtS?'var(--grbt)':'var(--grbd)',background:isAct?'var(--gra)':isBS?'var(--grb)':gs?'var(--gr1)':'var(--gr2)'}}>
                     <div style={{width:RNW,minWidth:RNW,display:'flex',alignItems:'center',justifyContent:'flex-end',paddingRight:5,fontSize:retro?10:7,borderRight:'var(--grbt)',color:isBS?'var(--grn)':isBtS?'var(--dim2)':'var(--dim)',fontWeight:isBS?700:400,gap:3}}>
@@ -594,6 +606,7 @@ function App(){
         {sV!==null&&<div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.6)',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:'var(--blur)'}} onClick={()=>setSV(null)}><div onClick={e=>e.stopPropagation()} style={{background:'var(--modal)',border:'var(--modal-brd)',padding:16,minWidth:220,borderRadius:'var(--r)',boxShadow:'var(--shadow)'}}><div style={{fontSize:retro?18:12,fontWeight:700,color:retro?'#333':CH[sV].color,marginBottom:12,letterSpacing:2,fontFamily:'var(--fontD)'}}>{CH[sV].name}</div>{VR[CH[sV].id].map((v,vi)=><button key={vi} onClick={()=>setVa(sV,vi)} style={{display:'block',width:'100%',marginBottom:3,background:vars[sV]===vi?(retro?'#ddd':`${CH[sV].color}18`):'var(--grid)',border:`1px solid ${vars[sV]===vi?(retro?'#888':CH[sV].color+'55'):'var(--brd)'}`,color:vars[sV]===vi?(retro?'#000':CH[sV].color):'var(--dim2)',padding:'7px 12px',fontSize:retro?16:10,cursor:'pointer',fontFamily:'inherit',textAlign:'left',borderRadius:'var(--r)'}}>{vi+1}. {v.name}</button>)}</div></div>}
         {eN&&<div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.6)',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:'var(--blur)'}} onClick={()=>setEN(null)}><div onClick={e=>e.stopPropagation()} style={{background:'var(--modal)',border:'var(--modal-brd)',padding:16,maxWidth:500,width:'92%',borderRadius:'var(--r)',boxShadow:'var(--shadow)'}}><div style={{fontSize:retro?16:11,fontWeight:700,color:'var(--acc)',marginBottom:4,fontFamily:'var(--fontD)'}}>SELECT NOTE</div><div style={{fontSize:retro?12:8,color:'var(--dim2)',marginBottom:10}}>Pick note then drag to paint. Row {eN.cell+1} / {CH[eN.ch].name}</div>{[1,2,3,4,5,6].map(oct=><div key={oct} style={{display:'flex',gap:2,marginBottom:2}}><span style={{width:16,fontSize:8,color:'#334',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700}}>{oct}</span>{NOTES.map(n=>{const full=n+oct,sh=n.includes('#');return<button key={full} onClick={()=>placeNote(eN.ch,eN.cell,full)} style={{background:sh?(retro?'#444':'#14182a'):(retro?'#666':'#0e1220'),color:sh?(retro?'#aaccff':'#88aaff'):(retro?'#fff':'#aab'),border:`1px solid ${sh?'var(--brd3)':'var(--brd2)'}`,padding:'5px 0',fontSize:retro?14:9,cursor:'pointer',fontFamily:'inherit',flex:1,minWidth:0,borderRadius:'var(--r)',fontWeight:500}}>{n.replace('-','')}</button>;})}</div>)}<button onClick={()=>setEN(null)} style={{marginTop:10,background:'var(--btn)',color:'var(--dim2)',border:'1px solid var(--brd3)',padding:'5px 14px',fontSize:retro?14:9,cursor:'pointer',fontFamily:'inherit',borderRadius:'var(--r)'}}>CANCEL</button></div></div>}
         {cellEd&&(()=>{const ev=chs[cellEd.ch]&&chs[cellEd.ch].events[cellEd.tp];if(!ev){return null;}const curProb=ev.prob!==undefined?ev.prob:100;const curCond=ev.cond||'';const curVel=Math.round(ev.vel*127);const conds=[['','ALW'],['1:2','1:2'],['2:2','2:2'],['1:3','1:3'],['2:3','2:3'],['3:3','3:3'],['1:4','1:4'],['2:4','2:4'],['3:4','3:4'],['4:4','4:4'],['pre','PRE'],['!pre','!PRE']];return(<div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.6)',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:'var(--blur)'}} onClick={()=>setCellEd(null)}><div onClick={e=>e.stopPropagation()} style={{background:'var(--modal)',border:'var(--modal-brd)',padding:16,maxWidth:440,width:'94%',borderRadius:'var(--r)',boxShadow:'var(--shadow)'}}><div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}><div style={{fontSize:retro?16:11,fontWeight:700,color:retro?'#333':CH[cellEd.ch].color,letterSpacing:2,fontFamily:'var(--fontD)'}}>{CH[cellEd.ch].name} · STEP {cellEd.cell+1}{ev.note?` · ${ev.note.replace('-','')}`:''}</div><button onClick={()=>setCellEd(null)} style={{background:'transparent',border:'1px solid var(--brd3)',color:'var(--dim2)',padding:'2px 8px',fontSize:retro?14:10,cursor:'pointer',fontFamily:'inherit',borderRadius:'var(--r)',lineHeight:1}}>×</button></div><div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}><span style={{color:retro?'#333':'#ffdd44',fontWeight:700,fontSize:retro?13:9,width:40,letterSpacing:1}}>VEL</span><Slider label="" color={retro?"#444":"#ffdd44"} value={curVel} min={1} max={127} width={220} onChange={v=>updateCell(cellEd.ch,cellEd.tp,{vel:v/127})}/></div><div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}><span style={{color:retro?'#333':'var(--acc)',fontWeight:700,fontSize:retro?13:9,width:40,letterSpacing:1}}>PROB</span><Slider label="" color={retro?"#444":"#00ff88"} value={curProb} min={0} max={100} width={220} onChange={v=>updateCell(cellEd.ch,cellEd.tp,{prob:v===100?undefined:v})}/><span style={{fontSize:retro?12:8,color:'var(--dim2)',minWidth:22}}>%</span></div><div style={{fontSize:retro?12:8,color:'var(--dim2)',letterSpacing:2,marginBottom:5,fontWeight:700}}>CONDITION</div><div style={{display:'flex',flexWrap:'wrap',gap:3,marginBottom:12}}>{conds.map(([val,lbl])=>{const active=curCond===val;return<button key={lbl} onClick={()=>updateCell(cellEd.ch,cellEd.tp,{cond:val||undefined})} style={{background:active?(retro?'#ddd':'#00ff8822'):'var(--grid)',border:`1px solid ${active?(retro?'#888':'#00ff8866'):'var(--brd)'}`,color:active?(retro?'#000':'var(--acc)'):'var(--dim2)',padding:'5px 8px',fontSize:retro?13:9,cursor:'pointer',fontFamily:'inherit',borderRadius:'var(--r)',fontWeight:active?700:500,letterSpacing:1,minWidth:34}}>{lbl}</button>;})}</div><div style={{fontSize:retro?11:7,color:'var(--dim)',marginBottom:12,lineHeight:1.5,letterSpacing:0.5}}><span style={{fontWeight:700,color:'var(--dim2)'}}>N:M</span> plays on bar N of every M within the pattern · <span style={{fontWeight:700,color:'var(--dim2)'}}>PRE</span> plays if the previous trigger on this channel fired · <span style={{fontWeight:700,color:'var(--dim2)'}}>!PRE</span> plays if it did not</div><div style={{display:'flex',gap:6,justifyContent:'space-between'}}><button onClick={()=>{updateCell(cellEd.ch,cellEd.tp,{_delete:true});setCellEd(null);}} style={{background:'transparent',border:`1px solid ${retro?'#444':'#ff2d4066'}`,color:'var(--stop)',padding:'5px 12px',fontSize:retro?13:9,cursor:'pointer',fontFamily:'inherit',borderRadius:'var(--r)',letterSpacing:1,fontWeight:700}}>DELETE</button><button onClick={()=>setCellEd(null)} style={{background:retro?'#666':'var(--acc)',border:'none',color:'#000',padding:'5px 18px',fontSize:retro?13:9,cursor:'pointer',fontFamily:'inherit',borderRadius:'var(--r)',letterSpacing:1,fontWeight:700}}>DONE</button></div></div></div>);})()}
+        {dbg&&<div style={{position:'fixed',top:6,right:6,background:'rgba(0,0,0,0.85)',color:'#0f0',fontFamily:'monospace',fontSize:9,padding:6,zIndex:999,maxWidth:180,whiteSpace:'pre-wrap',borderRadius:4,pointerEvents:'none',lineHeight:1.3}}>{dbg}</div>}
         {showHelp&&(()=>{const hS={fontSize:retro?14:10,fontWeight:700,letterSpacing:2,color:retro?'#000':'var(--acc)',marginBottom:6,marginTop:18,fontFamily:'var(--fontD)'};const bS={fontSize:retro?13:10,color:retro?'#111':'var(--fg)',lineHeight:1.6,marginBottom:4};const lbl={color:retro?'#000':'var(--dim2)',fontWeight:700,letterSpacing:1};const sec=(title,items)=><div><div style={hS}>{title}</div>{items.map((it,i)=><div key={i} style={bS}>{it}</div>)}</div>;return(<div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.65)',zIndex:201,display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:'var(--blur)',padding:10}} onClick={()=>setShowHelp(false)}><div onClick={e=>e.stopPropagation()} style={{background:'var(--modal)',border:'var(--modal-brd)',padding:'16px 20px 20px',maxWidth:620,width:'96%',maxHeight:'88vh',overflowY:'auto',borderRadius:'var(--r)',boxShadow:'var(--shadow)'}}><div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10,position:'sticky',top:-16,background:'var(--modal)',paddingTop:16,marginTop:-16,paddingBottom:8,borderBottom:`1px solid ${retro?'#555':'var(--brd)'}`,zIndex:1}}><div style={{fontSize:retro?20:13,fontWeight:800,letterSpacing:4,fontFamily:'var(--fontD)',background:retro?'none':'var(--accG)',backgroundClip:retro?'initial':'text',WebkitBackgroundClip:retro?'initial':'text',color:retro?'#333':'transparent',WebkitTextFillColor:retro?'#333':'transparent'}}>NEUROTRKR · REFERENCE</div><button onClick={()=>setShowHelp(false)} style={{background:'transparent',border:'1px solid var(--brd3)',color:'var(--dim2)',padding:'3px 10px',fontSize:retro?15:11,cursor:'pointer',fontFamily:'inherit',borderRadius:'var(--r)',lineHeight:1}}>×</button></div>
 {sec('GETTING AROUND',[
 <><b style={lbl}>Desktop:</b> click a cell to toggle it. Drag across cells to paint a range. Right-click a note to edit velocity, probability, and condition.</>,
