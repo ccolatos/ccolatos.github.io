@@ -175,6 +175,16 @@ function App(){
   const pR=useRef(false),tR=useRef(-1),tmR=useRef(null),cR=useRef([]),bR=useRef(133),swR=useRef(15),mR=useRef(Array(9).fill(false)),soR=useRef(Array(9).fill(false)),vrR=useRef(Array(9).fill(0)),tsR=useRef([4,4]),bsR=useRef(16),aR=useRef(null),gsR=useRef(null),velR=useRef(100/127),pnR=useRef('C-3'),wkR=useRef(null),aR2=useRef(null);
   // Variant refs (mirror state for scheduler access without re-renders), prev-fired tracking for PRE/!PRE conditions, long-press state for touch cell editor.
   const vaR=useRef(null),avR=useRef(0),baR=useRef([]),prevFiredR=useRef(Array(9).fill(false)),lpTimer=useRef(null),lpStart=useRef(null),recentTouch=useRef(false);
+  // Undo history — stores one previous state snapshot. Captured before any destructive action.
+  const histR=useRef(null);
+  // Bar clipboard — stores copied bar data for paste operations.
+  const clipR=useRef(null);
+  const[hasClip,setHasClip]=useState(false);
+  const[hasHist,setHasHist]=useState(false);
+  // Bar selection drag state and menu state.
+  const barDrag=useRef(null);
+  const[barSel,setBarSel]=useState(null); // {from, to} bar indices, inclusive
+  const[barMenu,setBarMenu]=useState(null); // {x, y, from, to} when menu open
   useEffect(()=>{try{const src=`let t=null;onmessage=e=>{if(e.data.cmd==='wait'){if(t)clearTimeout(t);t=setTimeout(()=>postMessage('tick'),e.data.ms);}else if(e.data.cmd==='stop'){if(t)clearTimeout(t);t=null;}};`;const blob=new Blob([src],{type:'application/javascript'});wkR.current=new Worker(URL.createObjectURL(blob));}catch(e){wkR.current=null;}return()=>{if(wkR.current){wkR.current.terminate();wkR.current=null;}};},[]);
   // MIDI: GM program + note mapping
   // Drums on ch10 (index 9): kick=36, snare=38, chh=42, ohh=46, perc=39(clap)
@@ -332,8 +342,8 @@ function App(){
     vaR.current=null;setVariants(null);avR.current=0;setActiveVar(0);baR.current=[];setBarAssign([]);
   },[preset]);
 
-  const clearAll=useCallback(()=>{setChs(prev=>{const n=prev.map(ch=>({...ch,events:{}}));cR.current=n;return n;});customSnap.current=null;vaR.current=null;setVariants(null);avR.current=0;setActiveVar(0);baR.current=[];setBarAssign([]);},[]);
-  const initA=useCallback(()=>{if(!eR.current)eR.current=new Eng();eR.current.init();eR.current.chime();setInit(true);loadP(preset,true);},[preset,loadP]);
+  const clearAll=useCallback(()=>{pushHist();setChs(prev=>{const n=prev.map(ch=>({...ch,events:{}}));cR.current=n;return n;});customSnap.current=null;vaR.current=null;setVariants(null);avR.current=0;setActiveVar(0);baR.current=[];setBarAssign([]);},[pushHist]);
+  const initA=useCallback(()=>{if(!eR.current)eR.current=new Eng();eR.current.init();eR.current.chime();setInit(true);if(!loadSaved())loadP(preset,true);},[preset,loadP,loadSaved]);
   useEffect(()=>{const draw=()=>{if(eR.current?.ana){setWave(eR.current.gW());setFreq(eR.current.gF());}aR.current=requestAnimationFrame(draw);};if(init)aR.current=requestAnimationFrame(draw);return()=>{if(aR.current)cancelAnimationFrame(aR.current);};},[init]);
   const trigT=useCallback((tick,when)=>{const e=eR.current;if(!e)return;const tb=TPB(tsR.current[0],tsR.current[1]);const vs=vaR.current,ba=baR.current;let cs;if(vs&&vs.length>0&&ba.length>0){const barI=Math.floor(tick/tb);const vi=ba[barI]!==undefined?ba[barI]:0;cs=(vs[vi]&&vs[vi].chs)||cR.current;}else cs=cR.current;if(!cs||!cs.length)return;const hS=soR.current.some(s=>s);const mout=midiOutR.current;cs.forEach((ch,i)=>{if(mR.current[i]||(hS&&!soR.current[i]))return;const ev=ch.events[tick];if(!ev||ev.vel<=0)return;if(ev.prob!==undefined&&ev.prob<100){if(Math.random()*100>ev.prob){prevFiredR.current[i]=false;return;}}if(ev.cond){if(!evalCondAt(ev.cond,tick,tb,prevFiredR.current[i])){prevFiredR.current[i]=false;return;}}prevFiredR.current[i]=true;const v=ev.vel,n=ev.note,p=VR[CH[i].id][vrR.current[i]];if(mout){const id=CH[i].id,drum=CH[i].drum,mCh=MIDI_CH[id],note=drum?MIDI_DRUM[id]:noteToMidi(n||'C-3'),mv=Math.max(1,Math.min(127,Math.round(v*127)));try{const nowP=performance.now(),delayMs=when?Math.max(0,(when-e.c.currentTime)*1000):0;mout.send([0x90|mCh,note,mv],nowP+delayMs);mout.send([0x80|mCh,note,0],nowP+delayMs+120);}catch(err){}}if(CH[i].id==='kick')e.kick(i,v,p,when);else if(CH[i].id==='snare')e.snare(i,v,p,when);else if(CH[i].id==='chh')e.hat(i,v,p,false,when);else if(CH[i].id==='ohh')e.hat(i,v,p,true,when);else if(CH[i].id==='perc')e.perc(i,v,p,when);else if(n){const m=n.match(/^([A-G][#-]?)(\d)$/);if(m){const fr=ntf(m[1],+m[2]);if(CH[i].id==='bass'||CH[i].id==='acid')e.bass(i,fr,v,p,when);else if(CH[i].id==='lead')e.lead(i,fr,v,p,when);else if(CH[i].id==='pad')e.pad(i,fr,v,p,when);}}});},[]);
   const schedR=useRef({next:0,tick:0,start:0,anchor:0});
@@ -384,18 +394,159 @@ function App(){
   },[trigT]);
   const stopP=useCallback(()=>{pR.current=false;setPlaying(false);setCurTick(-1);tR.current=-1;if(tmR.current){clearTimeout(tmR.current);tmR.current=null;}if(wkR.current){wkR.current.postMessage({cmd:'stop'});wkR.current.onmessage=null;}if(aR2.current){cancelAnimationFrame(aR2.current);aR2.current=null;}prevFiredR.current=Array(9).fill(false);},[]);
 
+  // Deep-snapshot current editable state (chs + variants + barAssign). Returned as a plain object.
+  const snapState=useCallback(()=>{
+    return{
+      chs:cR.current.map(ch=>({...ch,events:{...ch.events}})),
+      variants:vaR.current?vaR.current.map(v=>({chs:v.chs.map(ch=>({...ch,events:{...ch.events}}))})):null,
+      activeVar:avR.current,
+      barAssign:[...baR.current]
+    };
+  },[]);
+  // Push current state onto the undo ref. Called at the start of any destructive operation.
+  const pushHist=useCallback(()=>{histR.current=snapState();setHasHist(true);},[snapState]);
+  // Restore from undo snapshot.
+  const doUndo=useCallback(()=>{
+    const h=histR.current;if(!h)return;
+    histR.current=null;setHasHist(false);
+    setChs(h.chs);cR.current=h.chs;
+    if(h.variants){vaR.current=h.variants;setVariants(h.variants);avR.current=h.activeVar;setActiveVar(h.activeVar);baR.current=h.barAssign;setBarAssign(h.barAssign);}
+    else{vaR.current=null;setVariants(null);avR.current=0;setActiveVar(0);baR.current=[];setBarAssign([]);}
+  },[]);
+  // Shift the current pattern by delta steps (wraps at pattern boundary).
+  // Applies to all channels. Delta positive = shift events later; negative = earlier.
+  const shiftPattern=useCallback((delta)=>{
+    pushHist();
+    const totalTicks=bsR.current*Tpb_;
+    const shiftEvents=(events)=>{const ne={};for(const tp in events){const ntp=(((+tp+delta*cT)%totalTicks)+totalTicks)%totalTicks;ne[ntp]=events[tp];}return ne;};
+    setChs(prev=>{const next=prev.map(ch=>({...ch,events:shiftEvents(ch.events)}));cR.current=next;
+      if(vaR.current){const vs=vaR.current.map((v,i)=>i===avR.current?{chs:next}:{chs:v.chs.map(ch=>({...ch,events:shiftEvents(ch.events)}))});vaR.current=vs;setVariants(vs);}
+      return next;});
+  },[cT,Tpb_,pushHist]);
+  // Bar clipboard operations. A bar = the events within [barI*Tpb_, (barI+1)*Tpb_) ticks across all 9 channels.
+  const copyBars=useCallback((fromBar,toBar)=>{
+    const lo=Math.min(fromBar,toBar),hi=Math.max(fromBar,toBar);
+    const bars=[];
+    for(let b=lo;b<=hi;b++){
+      const bar={};
+      const start=b*Tpb_,end=(b+1)*Tpb_;
+      cR.current.forEach((ch,ci)=>{
+        const ev={};
+        for(const tp in ch.events){const t=+tp;if(t>=start&&t<end)ev[t-start]=ch.events[tp];}
+        bar[ci]=ev;
+      });
+      bars.push(bar);
+    }
+    clipR.current={bars,count:hi-lo+1};
+    setHasClip(true);
+  },[Tpb_]);
+  const cutBars=useCallback((fromBar,toBar)=>{
+    copyBars(fromBar,toBar);
+    pushHist();
+    const lo=Math.min(fromBar,toBar),hi=Math.max(fromBar,toBar);
+    const start=lo*Tpb_,end=(hi+1)*Tpb_;
+    setChs(prev=>{const next=prev.map(ch=>{const ne={};for(const tp in ch.events){const t=+tp;if(t<start||t>=end)ne[tp]=ch.events[tp];}return{...ch,events:ne};});cR.current=next;
+      if(vaR.current){const vs=vaR.current.map(v=>({chs:v.chs.map(ch=>{const ne={};for(const tp in ch.events){const t=+tp;if(t<start||t>=end)ne[tp]=ch.events[tp];}return{...ch,events:ne};})}));vaR.current=vs;setVariants(vs);}
+      return next;});
+  },[copyBars,Tpb_,pushHist]);
+  const pasteBars=useCallback((atBar)=>{
+    if(!clipR.current)return;
+    pushHist();
+    const{bars,count}=clipR.current;
+    setChs(prev=>{const next=prev.map((ch,ci)=>{
+      const ne={...ch.events};
+      for(let k=0;k<count;k++){
+        const destStart=(atBar+k)*Tpb_,destEnd=destStart+Tpb_;
+        // Clear existing events in target bar
+        for(const tp in ne){const t=+tp;if(t>=destStart&&t<destEnd)delete ne[tp];}
+        // Write clipboard events
+        const srcEv=bars[k][ci]||{};
+        for(const rel in srcEv){const t=destStart+(+rel);if(t<bsR.current*Tpb_)ne[t]=srcEv[rel];}
+      }
+      return{...ch,events:ne};
+    });cR.current=next;
+      if(vaR.current){const vs=[...vaR.current];vs[avR.current]={...vs[avR.current],chs:next};vaR.current=vs;setVariants(vs);}
+      return next;});
+  },[Tpb_,pushHist]);
+  const clearBars=useCallback((fromBar,toBar)=>{
+    pushHist();
+    const lo=Math.min(fromBar,toBar),hi=Math.max(fromBar,toBar);
+    const start=lo*Tpb_,end=(hi+1)*Tpb_;
+    setChs(prev=>{const next=prev.map(ch=>{const ne={};for(const tp in ch.events){const t=+tp;if(t<start||t>=end)ne[tp]=ch.events[tp];}return{...ch,events:ne};});cR.current=next;
+      if(vaR.current){const vs=vaR.current.map(v=>({chs:v.chs.map(ch=>{const ne={};for(const tp in ch.events){const t=+tp;if(t<start||t>=end)ne[tp]=ch.events[tp];}return{...ch,events:ne};})}));vaR.current=vs;setVariants(vs);}
+      return next;});
+  },[Tpb_,pushHist]);
+
   // Paint with gap interpolation
   const applyP=useCallback((ci,cellIdx)=>{const tp=cellIdx*cT;setChs(prev=>{const next=[...prev];const ch={...next[ci],events:{...next[ci].events}};if(paintAct.current==='add'){const cur=ch.events[tp];ch.events[tp]={...(cur||{}),vel:velR.current,note:CH[ci].drum?'':pnR.current};}else delete ch.events[tp];next[ci]=ch;cR.current=next;if(vaR.current){const vs=[...vaR.current];vs[avR.current]={...vs[avR.current],chs:next};vaR.current=vs;setVariants(vs);}return next;});},[cT]);
   const applyRange=useCallback((ci,from,to)=>{const lo=Math.min(from,to),hi=Math.max(from,to);setChs(prev=>{const next=[...prev];const ch={...next[ci],events:{...next[ci].events}};for(let r=lo;r<=hi;r++){const tp=r*cT;if(paintAct.current==='add'){const cur=ch.events[tp];ch.events[tp]={...(cur||{}),vel:velR.current,note:CH[ci].drum?'':pnR.current};}else delete ch.events[tp];}next[ci]=ch;cR.current=next;if(vaR.current){const vs=[...vaR.current];vs[avR.current]={...vs[avR.current],chs:next};vaR.current=vs;setVariants(vs);}return next;});},[cT]);
 
-  const cellDown=useCallback((ci,cellIdx,e)=>{if(recentTouch.current)return;e.preventDefault();const tp=cellIdx*cT;
+  const cellDown=useCallback((ci,cellIdx,e)=>{if(recentTouch.current)return;e.preventDefault();pushHist();const tp=cellIdx*cT;
     if(!CH[ci].drum){const ch=cR.current[ci];if(ch.events[tp]){paintAct.current='remove';isPaint.current=true;paintCh_.current=ci;lastPCell.current=cellIdx;applyP(ci,cellIdx);}else if(e.shiftKey){setEN({ch:ci,cell:cellIdx});}else{paintAct.current='add';isPaint.current=true;paintCh_.current=ci;lastPCell.current=cellIdx;applyP(ci,cellIdx);}return;}
-    const ch=cR.current[ci];paintAct.current=ch.events[tp]?'remove':'add';isPaint.current=true;paintCh_.current=ci;lastPCell.current=cellIdx;applyP(ci,cellIdx);},[cT,applyP]);
+    const ch=cR.current[ci];paintAct.current=ch.events[tp]?'remove':'add';isPaint.current=true;paintCh_.current=ci;lastPCell.current=cellIdx;applyP(ci,cellIdx);},[cT,applyP,pushHist]);
 
   const cellEnter=useCallback((ci,cellIdx)=>{if(!isPaint.current||paintCh_.current!==ci)return;
     const last=lastPCell.current;if(last>=0&&last!==cellIdx){applyRange(ci,last,cellIdx);}else{applyP(ci,cellIdx);}lastPCell.current=cellIdx;},[applyP,applyRange]);
 
-  useEffect(()=>{const up=()=>{isPaint.current=false;paintCh_.current=-1;lastPCell.current=-1;};window.addEventListener('mouseup',up);return()=>window.removeEventListener('mouseup',up);},[]);
+  useEffect(()=>{const up=(e)=>{isPaint.current=false;paintCh_.current=-1;lastPCell.current=-1;if(barDrag.current){const{from,to}=barDrag.current;barDrag.current=null;setBarMenu({x:e.clientX,y:e.clientY,from,to});}};window.addEventListener('mouseup',up);return()=>window.removeEventListener('mouseup',up);},[]);
+
+  // Undo keyboard shortcut: Ctrl/Cmd+Z. Ignores when a modal or input is focused.
+  useEffect(()=>{const kd=(e)=>{if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&(e.key==='z'||e.key==='Z')){const t=e.target;const tag=t&&t.tagName;if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT')return;e.preventDefault();doUndo();}};window.addEventListener('keydown',kd);return()=>window.removeEventListener('keydown',kd);},[doUndo]);
+
+  // Autosave the current workspace to localStorage. Debounced by 800ms so rapid edits
+  // collapse into one write. Restored on startup via loadSaved() called from initA.
+  const autosaveTimer=useRef(null);
+  useEffect(()=>{
+    if(!init)return; // don't save until audio is initialized (avoids overwriting at boot)
+    if(autosaveTimer.current)clearTimeout(autosaveTimer.current);
+    autosaveTimer.current=setTimeout(()=>{
+      try{
+        const state={
+          chs:chs.map(ch=>({events:ch.events})),
+          vars,vols,mutes,solos,
+          variants:variants?variants.map(v=>({chs:v.chs.map(ch=>({events:ch.events}))})):null,
+          activeVar,barAssign,
+          bpm,swing,bars,ts,gd,dA,rA,mV,preset,retro,
+          v:1 // format version for future migrations
+        };
+        localStorage.setItem('neurotrkr_state',JSON.stringify(state));
+      }catch(err){/* quota exceeded or disabled; silently fail */}
+    },800);
+    return()=>{if(autosaveTimer.current)clearTimeout(autosaveTimer.current);};
+  },[init,chs,vars,vols,mutes,solos,variants,activeVar,barAssign,bpm,swing,bars,ts,gd,dA,rA,mV,preset,retro]);
+
+  const loadSaved=useCallback(()=>{
+    try{
+      const raw=localStorage.getItem('neurotrkr_state');
+      if(!raw)return false;
+      const s=JSON.parse(raw);
+      if(!s||s.v!==1||!s.chs||s.chs.length!==9)return false;
+      // Rebuild channels with full structure; saved form only kept events. We still need
+      // the synth structure from CH, and vol/variant from saved arrays.
+      const savedVars=s.vars||Array(9).fill(0);
+      const savedVols=s.vols||Array(9).fill(0.7);
+      const channels=s.chs.map((saved,i)=>({vol:savedVols[i],variant:savedVars[i],events:saved.events||{}}));
+      setChs(channels);cR.current=channels;
+      setVars(savedVars);vrR.current=savedVars;
+      setVols(savedVols);
+      const mu=s.mutes||Array(9).fill(false);setMutes(mu);mR.current=mu;
+      const so=s.solos||Array(9).fill(false);setSolos(so);soR.current=so;
+      if(s.variants){const vs=s.variants.map(v=>({chs:v.chs.map((ch,i)=>({vol:savedVols[i],variant:savedVars[i],events:ch.events||{}}))}));vaR.current=vs;setVariants(vs);avR.current=s.activeVar||0;setActiveVar(s.activeVar||0);baR.current=s.barAssign||[];setBarAssign(s.barAssign||[]);}
+      else{vaR.current=null;setVariants(null);avR.current=0;setActiveVar(0);baR.current=[];setBarAssign([]);}
+      setBpm(s.bpm||133);bR.current=s.bpm||133;
+      setSwing(s.swing||15);swR.current=s.swing||15;
+      setBars(s.bars||16);bsR.current=s.bars||16;
+      if(s.ts){setTs(s.ts);tsR.current=s.ts;}
+      if(s.gd!==undefined)setGd(s.gd);
+      if(s.dA!==undefined)setDA(s.dA);
+      if(s.rA!==undefined)setRA(s.rA);
+      if(s.mV!==undefined)setMV(s.mV);
+      if(s.preset)setPreset(s.preset);
+      if(s.retro!==undefined)setRetro(s.retro);
+      if(eR.current){eR.current.sD(s.dA||0.25);eR.current.sR(s.rA||0.35);channels.forEach((c,i)=>eR.current.sCV(i,c.vol));}
+      return true;
+    }catch(err){return false;}
+  },[]);
 
   // Native touch handlers for mobile. touch-action:none means iOS does nothing with
   // the gesture — we own it completely. Tap = toggle cell, long-press (450ms) on an
@@ -429,6 +580,7 @@ function App(){
     const te=(e)=>{const s=lpStart.current;
       if(lpTimer.current){clearTimeout(lpTimer.current);lpTimer.current=null;}
       if(s&&!s.moved&&!s.handled){
+        pushHist();
         paintAct.current=s.existing?'remove':'add';
         applyP(s.ci,s.r);
         e.preventDefault();
@@ -444,13 +596,13 @@ function App(){
     el.addEventListener('touchend',te,{passive:false});
     el.addEventListener('touchcancel',tc,{passive:false});
     return()=>{el.removeEventListener('touchstart',ts);el.removeEventListener('touchmove',tm);el.removeEventListener('touchend',te);el.removeEventListener('touchcancel',tc);};
-  },[cT,applyP,applyRange,init]);
+  },[cT,applyP,applyRange,init,pushHist]);
 
-  const placeNote=useCallback((ci,cellIdx,note)=>{setPaintNote(note);pnR.current=note;paintAct.current='add';isPaint.current=true;paintCh_.current=ci;lastPCell.current=cellIdx;const tp=cellIdx*cT;setChs(prev=>{const next=[...prev];const ch={...next[ci],events:{...next[ci].events}};const cur=ch.events[tp];ch.events[tp]={...(cur||{}),vel:velR.current,note};next[ci]=ch;cR.current=next;if(vaR.current){const vs=[...vaR.current];vs[avR.current]={...vs[avR.current],chs:next};vaR.current=vs;setVariants(vs);}return next;});setEN(null);},[cT]);
+  const placeNote=useCallback((ci,cellIdx,note)=>{pushHist();setPaintNote(note);pnR.current=note;paintAct.current='add';isPaint.current=true;paintCh_.current=ci;lastPCell.current=cellIdx;const tp=cellIdx*cT;setChs(prev=>{const next=[...prev];const ch={...next[ci],events:{...next[ci].events}};const cur=ch.events[tp];ch.events[tp]={...(cur||{}),vel:velR.current,note};next[ci]=ch;cR.current=next;if(vaR.current){const vs=[...vaR.current];vs[avR.current]={...vs[avR.current],chs:next};vaR.current=vs;setVariants(vs);}return next;});setEN(null);},[cT,pushHist]);
   // Clear the variants system (used by preset load and clearAll).
   const clearVariants=useCallback(()=>{vaR.current=null;setVariants(null);avR.current=0;setActiveVar(0);baR.current=[];setBarAssign([]);},[]);
   // Edit a single cell event. `patch` merges over existing event; _delete:true removes. Auto-creates if empty (except when deleting).
-  const updateCell=useCallback((ci,tp,patch)=>{setChs(prev=>{const next=[...prev];const ch={...next[ci],events:{...next[ci].events}};const cur=ch.events[tp];if(patch._delete){if(cur)delete ch.events[tp];else return prev;}else if(cur){ch.events[tp]={...cur,...patch};}else{ch.events[tp]={vel:velR.current,note:CH[ci].drum?'':pnR.current,...patch};}next[ci]=ch;cR.current=next;if(vaR.current){const vs=[...vaR.current];vs[avR.current]={...vs[avR.current],chs:next};vaR.current=vs;setVariants(vs);}return next;});},[]);
+  const updateCell=useCallback((ci,tp,patch)=>{pushHist();setChs(prev=>{const next=[...prev];const ch={...next[ci],events:{...next[ci].events}};const cur=ch.events[tp];if(patch._delete){if(cur)delete ch.events[tp];else return prev;}else if(cur){ch.events[tp]={...cur,...patch};}else{ch.events[tp]={vel:velR.current,note:CH[ci].drum?'':pnR.current,...patch};}next[ci]=ch;cR.current=next;if(vaR.current){const vs=[...vaR.current];vs[avR.current]={...vs[avR.current],chs:next};vaR.current=vs;setVariants(vs);}return next;});},[pushHist]);
   // Capture current pattern state as a new variant slot (A/B/C/D). Variants store ONLY pattern data (channel events) — mixer/synths/mutes/solos remain global across variants. First capture splits bars 50/50 between A and B so the feature is audible immediately.
   const captureVar=useCallback(()=>{const snap=()=>({chs:cR.current.map(ch=>({...ch,events:{...ch.events}}))});if(!vaR.current){const a=snap();const b=snap();const vs=[a,b];vaR.current=vs;setVariants(vs);const half=Math.max(1,Math.floor(bsR.current/2));const ba=Array(bsR.current).fill(0).map((_,i)=>i<half?0:1);baR.current=ba;setBarAssign(ba);avR.current=1;setActiveVar(1);}else if(vaR.current.length<4){const vs=[...vaR.current,snap()];vaR.current=vs;setVariants(vs);avR.current=vs.length-1;setActiveVar(vs.length-1);}},[]);
   // Switch which variant is displayed/edited on the grid. Only swaps the pattern; session-level settings are preserved.
@@ -484,6 +636,7 @@ function App(){
           :<div style={{display:'flex',gap:3,alignItems:'center'}}>
             <button onClick={playing?stopP:startP} style={{background:playing?'var(--stop)':'var(--acc)',color:'#000',border:'none',padding:'6px 12px',fontSize:retro?15:11,fontWeight:700,letterSpacing:1,cursor:'pointer',fontFamily:'inherit',borderRadius:'var(--r)',display:'flex',alignItems:'center',gap:3}}>{playing?<><span>&#9632;</span> STOP</>:<><svg viewBox="0 0 10 12" width="9" height="11" fill="currentColor"><path d="M0 0L10 6L0 12z"/></svg>PLAY</>}</button>
             <button onClick={clearAll} style={{background:'transparent',border:`1px solid ${retro?'#cc220044':'#ff2d4044'}`,color:'var(--stop)',padding:'5px 6px',fontSize:retro?13:9,fontWeight:700,cursor:'pointer',fontFamily:'inherit',borderRadius:'var(--r)',letterSpacing:1}}>CLEAR</button>
+            <button onClick={doUndo} disabled={!hasHist} title="Undo last change (Ctrl/Cmd+Z)" style={{background:'transparent',border:`1px solid ${hasHist?(retro?'#666':'var(--acc)44'):(retro?'#44444433':'#14182455')}`,color:hasHist?(retro?'#000':'var(--dim2)'):'var(--dim)',padding:'5px 6px',fontSize:retro?13:9,fontWeight:700,cursor:hasHist?'pointer':'not-allowed',fontFamily:'inherit',borderRadius:'var(--r)',letterSpacing:1,opacity:hasHist?1:0.4}}>UNDO</button>
             <button onClick={()=>setShowMix(!showMix)} style={{background:showMix?'var(--btn)':'transparent',border:`1px solid ${showMix?'var(--acc)44':'var(--brd)'}`,color:showMix?'var(--acc)':'var(--dim2)',padding:'5px 6px',fontSize:retro?13:9,fontWeight:700,cursor:'pointer',fontFamily:'inherit',borderRadius:'var(--r)',letterSpacing:1}}>MIXER</button>
             <button onClick={()=>setRetro(!retro)} style={{background:retro?'#666':'transparent',border:retro?'outset 2px #aaa':`1px solid #141824`,color:retro?'#fff':'#445',padding:'5px 6px',fontSize:retro?13:9,fontWeight:700,cursor:'pointer',fontFamily:'inherit',borderRadius:retro?0:2,letterSpacing:1}}>{retro?'MED':'RETRO'}</button>
             <button onClick={exportMIDI} title="Export performance as General MIDI file" style={{background:'transparent',border:`1px solid ${retro?'#666':'var(--brd)'}`,color:'var(--dim2)',padding:'5px 6px',fontSize:retro?13:9,fontWeight:700,cursor:'pointer',fontFamily:'inherit',borderRadius:'var(--r)',letterSpacing:1}}>.MID</button>
@@ -516,6 +669,7 @@ function App(){
             <label style={{display:'flex',alignItems:'center',gap:4}}><span style={{color:'#40dda0',fontWeight:700,fontSize:8}}>BARS</span><input type="number" min={1} max={128} value={bars} onChange={e=>{const v=Math.max(1,Math.min(128,+e.target.value||1));setBars(v);bsR.current=v;}} style={{background:'#0e1018',color:'#aab',border:'1px solid #1a1e2a',padding:'2px 3px',width:36,fontFamily:'inherit',fontSize:9,borderRadius:2}}/></label>
             <label style={{display:'flex',alignItems:'center',gap:4}}><span style={{color:'#a0bb30',fontWeight:700,fontSize:8}}>GRID</span><select value={gd} onChange={e=>setGd(+e.target.value)} style={{background:'#0e1018',color:'#aab',border:'1px solid #1a1e2a',padding:'2px 3px',fontFamily:'inherit',fontSize:9,borderRadius:2}}>{GD.map((g,i)=><option key={i} value={i}>{g.l}</option>)}</select></label>
             <div style={{width:1,height:16,background:'var(--sep)'}}/>
+            <label title="Shift pattern one step earlier or later (wraps at loop boundary)" style={{display:'flex',alignItems:'center',gap:3}}><span style={{color:'#40bbff',fontWeight:700,fontSize:8}}>SHIFT</span><button onClick={()=>shiftPattern(-1)} title="Shift pattern earlier (one step up)" style={{background:'transparent',border:'1px solid #1a1e2a',color:'#aab',padding:'1px 4px',fontFamily:'inherit',fontSize:10,borderRadius:2,cursor:'pointer',lineHeight:1}}>▲</button><button onClick={()=>shiftPattern(1)} title="Shift pattern later (one step down)" style={{background:'transparent',border:'1px solid #1a1e2a',color:'#aab',padding:'1px 4px',fontFamily:'inherit',fontSize:10,borderRadius:2,cursor:'pointer',lineHeight:1}}>▼</button></label>
             <label title="Note painted on melodic channels. Shift+click an empty cell to open the full octave picker." style={{display:'flex',alignItems:'center',gap:4}}><span style={{color:'#ff88cc',fontWeight:700,fontSize:8}}>NOTE</span><select value={paintNote} onChange={e=>{setPaintNote(e.target.value);pnR.current=e.target.value;}} style={{background:'#0e1018',color:'#aab',border:'1px solid #1a1e2a',padding:'2px 3px',fontFamily:'inherit',fontSize:9,borderRadius:2}}>{[1,2,3,4,5,6].map(o=>NOTES.map(n=><option key={n+o} value={n+o}>{(n+o).replace('-','')}</option>))}</select></label>
             <label style={{display:'flex',alignItems:'center',gap:4}}><span style={{color:'#ffdd44',fontWeight:700,fontSize:8}}>VEL</span><select value={vel} onChange={e=>setVelW(+e.target.value)} style={{background:'#0e1018',color:'#aab',border:'1px solid #1a1e2a',padding:'2px 3px',fontFamily:'inherit',fontSize:9,borderRadius:2}}>{[24,42,60,80,100,127].map(v=><option key={v} value={v/127}>{v}</option>)}</select></label>
           </div>
@@ -541,9 +695,9 @@ function App(){
               <div ref={gsR} id="grid-scroll" style={{height:'100%',overflowY:'auto',overflowX:'auto',userSelect:'none',WebkitUserSelect:'none',WebkitTouchCallout:'none',touchAction:'none',cursor:'crosshair'}} onMouseLeave={()=>{isPaint.current=false;lastPCell.current=-1;}}>
                 {Array.from({length:totC},(_,r)=>{const tp=r*cT,barI=Math.floor(tp/Tpb_),inB=tp-barI*Tpb_,beatI=Math.floor(inB/tpBt),isBS=inB<cT,isBtS=!isBS&&Math.abs(inB-beatI*tpBt)<cT;const isAct=playing&&curTick>=tp&&curTick<tp+cT;const gs=Math.floor(r/4)%2===0;
                   return(<div key={r} style={{display:'flex',height:RH,minHeight:RH,borderTop:isBS?'var(--grbb)':isBtS?'var(--grbt)':'var(--grbd)',background:isAct?'var(--gra)':isBS?'var(--grb)':gs?'var(--gr1)':'var(--gr2)'}}>
-                    <div style={{width:RNW,minWidth:RNW,display:'flex',alignItems:'center',justifyContent:'flex-end',paddingRight:5,fontSize:retro?10:7,borderRight:'var(--grbt)',color:isBS?'var(--grn)':isBtS?'var(--dim2)':'var(--dim)',fontWeight:isBS?700:400,gap:3}}>
+                    <div onMouseDown={e=>{if(e.button!==0)return;e.preventDefault();barDrag.current={from:barI,to:barI};setBarSel({from:barI,to:barI});setBarMenu(null);}} onMouseEnter={()=>{if(barDrag.current){barDrag.current.to=barI;setBarSel({...barDrag.current});}}} onMouseUp={e=>{if(barDrag.current){e.preventDefault();e.stopPropagation();const{from,to}=barDrag.current;barDrag.current=null;setBarMenu({x:e.clientX,y:e.clientY,from,to});}}} onTouchStart={e=>{e.preventDefault();e.stopPropagation();setBarSel({from:barI,to:barI});const r=e.currentTarget.getBoundingClientRect();setBarMenu({x:r.right,y:r.bottom,from:barI,to:barI});}} style={{width:RNW,minWidth:RNW,display:'flex',alignItems:'center',justifyContent:'flex-end',paddingRight:5,fontSize:retro?10:7,borderRight:'var(--grbt)',color:isBS?'var(--grn)':isBtS?'var(--dim2)':'var(--dim)',fontWeight:isBS?700:400,gap:3,cursor:'pointer',background:barSel&&barI>=Math.min(barSel.from,barSel.to)&&barI<=Math.max(barSel.from,barSel.to)?(retro?'#888':'var(--acc)22'):'transparent'}}>
                       <span>{isBS?`${barI+1}.${beatI+1}`:isBtS?`.${beatI+1}`:r+1}</span>
-                      {isBS&&variants&&<span onClick={e=>{e.stopPropagation();cycleBar(barI);}} title={`Bar ${barI+1}: variant ${VAR_LETTERS[barAssign[barI]||0]} (click to cycle)`} style={{color:retro?'#000':VAR_COLORS[barAssign[barI]||0],background:retro?'#ccc':VAR_COLORS[barAssign[barI]||0]+'22',border:`1px solid ${retro?'#888':VAR_COLORS[barAssign[barI]||0]+'66'}`,padding:'0 2px',borderRadius:retro?0:2,cursor:'pointer',fontSize:retro?9:6,fontWeight:900,letterSpacing:0,lineHeight:'10px',minWidth:8,textAlign:'center'}}>{VAR_LETTERS[barAssign[barI]||0]}</span>}
+                      {isBS&&variants&&<span onClick={e=>{e.stopPropagation();cycleBar(barI);}} onMouseDown={e=>e.stopPropagation()} title={`Bar ${barI+1}: variant ${VAR_LETTERS[barAssign[barI]||0]} (click to cycle)`} style={{color:retro?'#000':VAR_COLORS[barAssign[barI]||0],background:retro?'#ccc':VAR_COLORS[barAssign[barI]||0]+'22',border:`1px solid ${retro?'#888':VAR_COLORS[barAssign[barI]||0]+'66'}`,padding:'0 2px',borderRadius:retro?0:2,cursor:'pointer',fontSize:retro?9:6,fontWeight:900,letterSpacing:0,lineHeight:'10px',minWidth:8,textAlign:'center'}}>{VAR_LETTERS[barAssign[barI]||0]}</span>}
                     </div>
                     {chs.map((ch,ci)=>{const ev=ch.events[tp];const ct=CH[ci];const hS=solos.some(s=>s);const iM=mutes[ci]||(hS&&!solos[ci]);const vp=ev?Math.round(ev.vel*100):0;
                       return(<div key={ci} data-ci={ci} data-r={r} onMouseDown={e=>cellDown(ci,r,e)} onMouseEnter={()=>cellEnter(ci,r)} onContextMenu={e=>{e.preventDefault();const tp2=r*cT;if(cR.current[ci]&&cR.current[ci].events[tp2])setCellEd({ch:ci,cell:r,tp:tp2});}} style={{width:colW,minWidth:colW,height:RH,borderRight:'var(--grbd)',display:'flex',alignItems:'center',justifyContent:'center',position:'relative',opacity:iM?0.2:1}}>
@@ -579,6 +733,7 @@ function App(){
         </>}
         {sV!==null&&<div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.6)',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:'var(--blur)'}} onClick={()=>setSV(null)}><div onClick={e=>e.stopPropagation()} style={{background:'var(--modal)',border:'var(--modal-brd)',padding:16,minWidth:220,borderRadius:'var(--r)',boxShadow:'var(--shadow)'}}><div style={{fontSize:retro?18:12,fontWeight:700,color:retro?'#333':CH[sV].color,marginBottom:12,letterSpacing:2,fontFamily:'var(--fontD)'}}>{CH[sV].name}</div>{VR[CH[sV].id].map((v,vi)=><button key={vi} onClick={()=>setVa(sV,vi)} style={{display:'block',width:'100%',marginBottom:3,background:vars[sV]===vi?(retro?'#ddd':`${CH[sV].color}18`):'var(--grid)',border:`1px solid ${vars[sV]===vi?(retro?'#888':CH[sV].color+'55'):'var(--brd)'}`,color:vars[sV]===vi?(retro?'#000':CH[sV].color):'var(--dim2)',padding:'7px 12px',fontSize:retro?16:10,cursor:'pointer',fontFamily:'inherit',textAlign:'left',borderRadius:'var(--r)'}}>{vi+1}. {v.name}</button>)}</div></div>}
         {eN&&<div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.6)',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:'var(--blur)'}} onClick={()=>setEN(null)}><div onClick={e=>e.stopPropagation()} style={{background:'var(--modal)',border:'var(--modal-brd)',padding:16,maxWidth:500,width:'92%',borderRadius:'var(--r)',boxShadow:'var(--shadow)'}}><div style={{fontSize:retro?16:11,fontWeight:700,color:'var(--acc)',marginBottom:4,fontFamily:'var(--fontD)'}}>SELECT NOTE</div><div style={{fontSize:retro?12:8,color:'var(--dim2)',marginBottom:10}}>Pick note then drag to paint. Row {eN.cell+1} / {CH[eN.ch].name}</div>{[1,2,3,4,5,6].map(oct=><div key={oct} style={{display:'flex',gap:2,marginBottom:2}}><span style={{width:16,fontSize:8,color:'#334',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700}}>{oct}</span>{NOTES.map(n=>{const full=n+oct,sh=n.includes('#');return<button key={full} onClick={()=>placeNote(eN.ch,eN.cell,full)} style={{background:sh?(retro?'#444':'#14182a'):(retro?'#666':'#0e1220'),color:sh?(retro?'#aaccff':'#88aaff'):(retro?'#fff':'#aab'),border:`1px solid ${sh?'var(--brd3)':'var(--brd2)'}`,padding:'5px 0',fontSize:retro?14:9,cursor:'pointer',fontFamily:'inherit',flex:1,minWidth:0,borderRadius:'var(--r)',fontWeight:500}}>{n.replace('-','')}</button>;})}</div>)}<button onClick={()=>setEN(null)} style={{marginTop:10,background:'var(--btn)',color:'var(--dim2)',border:'1px solid var(--brd3)',padding:'5px 14px',fontSize:retro?14:9,cursor:'pointer',fontFamily:'inherit',borderRadius:'var(--r)'}}>CANCEL</button></div></div>}
+        {barMenu&&(()=>{const{from,to,x,y}=barMenu;const lo=Math.min(from,to),hi=Math.max(from,to);const nBars=hi-lo+1;const label=lo===hi?`Bar ${lo+1}`:`Bars ${lo+1}–${hi+1}`;const btnS={background:'var(--grid)',border:'1px solid var(--brd)',color:retro?'#000':'var(--fg)',padding:'6px 12px',fontSize:retro?13:10,cursor:'pointer',fontFamily:'inherit',borderRadius:'var(--r)',fontWeight:700,letterSpacing:1,textAlign:'left'};const btnDisabled={...btnS,opacity:0.3,cursor:'not-allowed'};const close=()=>{setBarMenu(null);setBarSel(null);};return(<div style={{position:'fixed',top:0,left:0,right:0,bottom:0,zIndex:150}} onClick={close} onContextMenu={e=>{e.preventDefault();close();}}><div onClick={e=>e.stopPropagation()} style={{position:'absolute',left:Math.min(x,window.innerWidth-160),top:Math.min(y,window.innerHeight-220),background:'var(--modal)',border:'var(--modal-brd)',padding:8,borderRadius:'var(--r)',boxShadow:'var(--shadow)',display:'flex',flexDirection:'column',gap:3,minWidth:140}}><div style={{fontSize:retro?11:8,color:'var(--dim2)',letterSpacing:2,fontWeight:700,padding:'2px 4px',marginBottom:2}}>{label.toUpperCase()}</div><button style={btnS} onClick={()=>{cutBars(lo,hi);close();}}>CUT</button><button style={btnS} onClick={()=>{copyBars(lo,hi);close();}}>COPY</button><button style={hasClip?btnS:btnDisabled} disabled={!hasClip} onClick={()=>{if(hasClip){pasteBars(lo);close();}}} title={hasClip?`Paste ${clipR.current.count} bar(s) starting here`:'No bars copied'}>PASTE</button><button style={btnS} onClick={()=>{clearBars(lo,hi);close();}}>CLEAR</button></div></div>);})()}
         {cellEd&&(()=>{const ev=chs[cellEd.ch]&&chs[cellEd.ch].events[cellEd.tp];if(!ev){return null;}const curProb=ev.prob!==undefined?ev.prob:100;const curCond=ev.cond||'';const curVel=Math.round(ev.vel*127);const conds=[['','ALW'],['1:2','1:2'],['2:2','2:2'],['1:3','1:3'],['2:3','2:3'],['3:3','3:3'],['1:4','1:4'],['2:4','2:4'],['3:4','3:4'],['4:4','4:4'],['pre','PRE'],['!pre','!PRE']];return(<div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.6)',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:'var(--blur)'}} onClick={()=>setCellEd(null)}><div onClick={e=>e.stopPropagation()} style={{background:'var(--modal)',border:'var(--modal-brd)',padding:16,maxWidth:440,width:'94%',borderRadius:'var(--r)',boxShadow:'var(--shadow)'}}><div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}><div style={{fontSize:retro?16:11,fontWeight:700,color:retro?'#333':CH[cellEd.ch].color,letterSpacing:2,fontFamily:'var(--fontD)'}}>{CH[cellEd.ch].name} · STEP {cellEd.cell+1}{ev.note?` · ${ev.note.replace('-','')}`:''}</div><button onClick={()=>setCellEd(null)} style={{background:'transparent',border:'1px solid var(--brd3)',color:'var(--dim2)',padding:'2px 8px',fontSize:retro?14:10,cursor:'pointer',fontFamily:'inherit',borderRadius:'var(--r)',lineHeight:1}}>×</button></div><div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}><span style={{color:retro?'#333':'#ffdd44',fontWeight:700,fontSize:retro?13:9,width:40,letterSpacing:1}}>VEL</span><Slider label="" color={retro?"#444":"#ffdd44"} value={curVel} min={1} max={127} width={220} onChange={v=>updateCell(cellEd.ch,cellEd.tp,{vel:v/127})}/></div><div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}><span style={{color:retro?'#333':'var(--acc)',fontWeight:700,fontSize:retro?13:9,width:40,letterSpacing:1}}>PROB</span><Slider label="" color={retro?"#444":"#00ff88"} value={curProb} min={0} max={100} width={220} onChange={v=>updateCell(cellEd.ch,cellEd.tp,{prob:v===100?undefined:v})}/><span style={{fontSize:retro?12:8,color:'var(--dim2)',minWidth:22}}>%</span></div><div style={{fontSize:retro?12:8,color:'var(--dim2)',letterSpacing:2,marginBottom:5,fontWeight:700}}>CONDITION</div><div style={{display:'flex',flexWrap:'wrap',gap:3,marginBottom:12}}>{conds.map(([val,lbl])=>{const active=curCond===val;return<button key={lbl} onClick={()=>updateCell(cellEd.ch,cellEd.tp,{cond:val||undefined})} style={{background:active?(retro?'#ddd':'#00ff8822'):'var(--grid)',border:`1px solid ${active?(retro?'#888':'#00ff8866'):'var(--brd)'}`,color:active?(retro?'#000':'var(--acc)'):'var(--dim2)',padding:'5px 8px',fontSize:retro?13:9,cursor:'pointer',fontFamily:'inherit',borderRadius:'var(--r)',fontWeight:active?700:500,letterSpacing:1,minWidth:34}}>{lbl}</button>;})}</div><div style={{fontSize:retro?11:7,color:'var(--dim)',marginBottom:12,lineHeight:1.5,letterSpacing:0.5}}><span style={{fontWeight:700,color:'var(--dim2)'}}>N:M</span> plays on bar N of every M within the pattern · <span style={{fontWeight:700,color:'var(--dim2)'}}>PRE</span> plays if the previous trigger on this channel fired · <span style={{fontWeight:700,color:'var(--dim2)'}}>!PRE</span> plays if it did not</div><div style={{display:'flex',gap:6,justifyContent:'space-between'}}><button onClick={()=>{updateCell(cellEd.ch,cellEd.tp,{_delete:true});setCellEd(null);}} style={{background:'transparent',border:`1px solid ${retro?'#444':'#ff2d4066'}`,color:'var(--stop)',padding:'5px 12px',fontSize:retro?13:9,cursor:'pointer',fontFamily:'inherit',borderRadius:'var(--r)',letterSpacing:1,fontWeight:700}}>DELETE</button><button onClick={()=>setCellEd(null)} style={{background:retro?'#666':'var(--acc)',border:'none',color:'#000',padding:'5px 18px',fontSize:retro?13:9,cursor:'pointer',fontFamily:'inherit',borderRadius:'var(--r)',letterSpacing:1,fontWeight:700}}>DONE</button></div></div></div>);})()}
         {showHelp&&(()=>{const hS={fontSize:retro?14:10,fontWeight:700,letterSpacing:2,color:retro?'#000':'var(--acc)',marginBottom:6,marginTop:18,fontFamily:'var(--fontD)'};const bS={fontSize:retro?13:10,color:retro?'#111':'var(--fg)',lineHeight:1.6,marginBottom:4};const lbl={color:retro?'#000':'var(--dim2)',fontWeight:700,letterSpacing:1};const sec=(title,items)=><div><div style={hS}>{title}</div>{items.map((it,i)=><div key={i} style={bS}>{it}</div>)}</div>;return(<div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.65)',zIndex:201,display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:'var(--blur)',padding:10}} onClick={()=>setShowHelp(false)}><div onClick={e=>e.stopPropagation()} style={{background:'var(--modal)',border:'var(--modal-brd)',padding:'16px 20px 20px',maxWidth:620,width:'96%',maxHeight:'88vh',overflowY:'auto',borderRadius:'var(--r)',boxShadow:'var(--shadow)'}}><div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10,position:'sticky',top:-16,background:'var(--modal)',paddingTop:16,marginTop:-16,paddingBottom:8,borderBottom:`1px solid ${retro?'#555':'var(--brd)'}`,zIndex:1}}><div style={{fontSize:retro?20:13,fontWeight:800,letterSpacing:4,fontFamily:'var(--fontD)',background:retro?'none':'var(--accG)',backgroundClip:retro?'initial':'text',WebkitBackgroundClip:retro?'initial':'text',color:retro?'#333':'transparent',WebkitTextFillColor:retro?'#333':'transparent'}}>NEUROTRKR · REFERENCE</div><button onClick={()=>setShowHelp(false)} style={{background:'transparent',border:'1px solid var(--brd3)',color:'var(--dim2)',padding:'3px 10px',fontSize:retro?15:11,cursor:'pointer',fontFamily:'inherit',borderRadius:'var(--r)',lineHeight:1}}>×</button></div>
 {sec('GETTING AROUND',[
