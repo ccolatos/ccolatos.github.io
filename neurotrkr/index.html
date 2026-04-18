@@ -180,6 +180,7 @@ function App(){
   // Bar clipboard — stores copied bar data for paste operations.
   const clipR=useRef(null);
   const[hasClip,setHasClip]=useState(false);
+  const[shiftTarget,setShiftTarget]=useState(null); // null = ALL, 0-8 = specific channel
   const[hasHist,setHasHist]=useState(false);
   // Bar selection drag state and menu state.
   const barDrag=useRef(null);
@@ -413,14 +414,16 @@ function App(){
     if(h.variants){vaR.current=h.variants;setVariants(h.variants);avR.current=h.activeVar;setActiveVar(h.activeVar);baR.current=h.barAssign;setBarAssign(h.barAssign);}
     else{vaR.current=null;setVariants(null);avR.current=0;setActiveVar(0);baR.current=[];setBarAssign([]);}
   },[]);
-  // Shift the current pattern by delta steps (wraps at pattern boundary).
-  // Applies to all channels. Delta positive = shift events later; negative = earlier.
-  const shiftPattern=useCallback((delta)=>{
+  // Shift the pattern by delta steps (wraps at pattern boundary).
+  // chIdx: channel index 0-8 to shift only that channel, or null/undefined to shift all.
+  // Delta positive = shift events later; negative = earlier.
+  const shiftPattern=useCallback((delta,chIdx)=>{
     pushHist();
     const totalTicks=bsR.current*Tpb_;
     const shiftEvents=(events)=>{const ne={};for(const tp in events){const ntp=(((+tp+delta*cT)%totalTicks)+totalTicks)%totalTicks;ne[ntp]=events[tp];}return ne;};
-    setChs(prev=>{const next=prev.map(ch=>({...ch,events:shiftEvents(ch.events)}));cR.current=next;
-      if(vaR.current){const vs=vaR.current.map((v,i)=>i===avR.current?{chs:next}:{chs:v.chs.map(ch=>({...ch,events:shiftEvents(ch.events)}))});vaR.current=vs;setVariants(vs);}
+    const shiftChs=(arr)=>arr.map((ch,i)=>(chIdx==null||i===chIdx)?{...ch,events:shiftEvents(ch.events)}:ch);
+    setChs(prev=>{const next=shiftChs(prev);cR.current=next;
+      if(vaR.current){const vs=vaR.current.map((v,i)=>i===avR.current?{chs:next}:{chs:shiftChs(v.chs)});vaR.current=vs;setVariants(vs);}
       return next;});
   },[cT,Tpb_,pushHist]);
   // Bar clipboard operations. A bar = the events within [barI*Tpb_, (barI+1)*Tpb_) ticks across all 9 channels.
@@ -669,7 +672,7 @@ function App(){
             <label style={{display:'flex',alignItems:'center',gap:4}}><span style={{color:'#40dda0',fontWeight:700,fontSize:8}}>BARS</span><input type="number" min={1} max={128} value={bars} onChange={e=>{const v=Math.max(1,Math.min(128,+e.target.value||1));setBars(v);bsR.current=v;}} style={{background:'#0e1018',color:'#aab',border:'1px solid #1a1e2a',padding:'2px 3px',width:36,fontFamily:'inherit',fontSize:9,borderRadius:2}}/></label>
             <label style={{display:'flex',alignItems:'center',gap:4}}><span style={{color:'#a0bb30',fontWeight:700,fontSize:8}}>GRID</span><select value={gd} onChange={e=>setGd(+e.target.value)} style={{background:'#0e1018',color:'#aab',border:'1px solid #1a1e2a',padding:'2px 3px',fontFamily:'inherit',fontSize:9,borderRadius:2}}>{GD.map((g,i)=><option key={i} value={i}>{g.l}</option>)}</select></label>
             <div style={{width:1,height:16,background:'var(--sep)'}}/>
-            <label title="Shift pattern one step earlier or later (wraps at loop boundary)" style={{display:'flex',alignItems:'center',gap:3}}><span style={{color:'#40bbff',fontWeight:700,fontSize:8}}>SHIFT</span><button onClick={()=>shiftPattern(-1)} title="Shift pattern earlier (one step up)" style={{background:'transparent',border:'1px solid #1a1e2a',color:'#aab',padding:'1px 4px',fontFamily:'inherit',fontSize:10,borderRadius:2,cursor:'pointer',lineHeight:1}}>▲</button><button onClick={()=>shiftPattern(1)} title="Shift pattern later (one step down)" style={{background:'transparent',border:'1px solid #1a1e2a',color:'#aab',padding:'1px 4px',fontFamily:'inherit',fontSize:10,borderRadius:2,cursor:'pointer',lineHeight:1}}>▼</button></label>
+            <label title="Shift pattern one step earlier or later (wraps at loop boundary). Pick a channel to shift only that channel's hits." style={{display:'flex',alignItems:'center',gap:3}}><span style={{color:shiftTarget==null?'#40bbff':CH[shiftTarget].color,fontWeight:700,fontSize:8}}>SHIFT</span><select value={shiftTarget==null?'all':shiftTarget} onChange={e=>setShiftTarget(e.target.value==='all'?null:+e.target.value)} style={{background:'#0e1018',color:shiftTarget==null?'#aab':CH[shiftTarget].color,border:`1px solid ${shiftTarget==null?'#1a1e2a':CH[shiftTarget].color+'66'}`,padding:'2px 3px',fontFamily:'inherit',fontSize:9,borderRadius:2,fontWeight:700}}><option value="all">ALL</option>{CH.map((c,i)=><option key={i} value={i}>{c.name}</option>)}</select><button onClick={()=>shiftPattern(-1,shiftTarget)} title={shiftTarget==null?'Shift all channels earlier':`Shift ${CH[shiftTarget].name} earlier`} style={{background:'transparent',border:`1px solid ${shiftTarget==null?'#1a1e2a':CH[shiftTarget].color+'66'}`,color:shiftTarget==null?'#aab':CH[shiftTarget].color,padding:'1px 4px',fontFamily:'inherit',fontSize:10,borderRadius:2,cursor:'pointer',lineHeight:1}}>▲</button><button onClick={()=>shiftPattern(1,shiftTarget)} title={shiftTarget==null?'Shift all channels later':`Shift ${CH[shiftTarget].name} later`} style={{background:'transparent',border:`1px solid ${shiftTarget==null?'#1a1e2a':CH[shiftTarget].color+'66'}`,color:shiftTarget==null?'#aab':CH[shiftTarget].color,padding:'1px 4px',fontFamily:'inherit',fontSize:10,borderRadius:2,cursor:'pointer',lineHeight:1}}>▼</button></label>
             <label title="Note painted on melodic channels. Shift+click an empty cell to open the full octave picker." style={{display:'flex',alignItems:'center',gap:4}}><span style={{color:'#ff88cc',fontWeight:700,fontSize:8}}>NOTE</span><select value={paintNote} onChange={e=>{setPaintNote(e.target.value);pnR.current=e.target.value;}} style={{background:'#0e1018',color:'#aab',border:'1px solid #1a1e2a',padding:'2px 3px',fontFamily:'inherit',fontSize:9,borderRadius:2}}>{[1,2,3,4,5,6].map(o=>NOTES.map(n=><option key={n+o} value={n+o}>{(n+o).replace('-','')}</option>))}</select></label>
             <label style={{display:'flex',alignItems:'center',gap:4}}><span style={{color:'#ffdd44',fontWeight:700,fontSize:8}}>VEL</span><select value={vel} onChange={e=>setVelW(+e.target.value)} style={{background:'#0e1018',color:'#aab',border:'1px solid #1a1e2a',padding:'2px 3px',fontFamily:'inherit',fontSize:9,borderRadius:2}}>{[24,42,60,80,100,127].map(v=><option key={v} value={v/127}>{v}</option>)}</select></label>
           </div>
