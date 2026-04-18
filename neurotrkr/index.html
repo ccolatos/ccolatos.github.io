@@ -632,7 +632,7 @@ function App(){
         {/* HEADER */}
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',paddingBottom:6,marginBottom:6,borderBottom:'var(--hdr-brd)',flexShrink:0}}>
           <div style={{display:'flex',alignItems:'center',gap:8,minWidth:0}}>
-            <h1 onClick={()=>{if(init)setShowHelp(true);}} title={init?'Reference: features, shortcuts, MIDI routing':''} style={{margin:0,fontSize:retro?22:17,fontWeight:800,fontFamily:'var(--fontD)',letterSpacing:retro?5:(wW<500?3:5),background:'var(--accG)',backgroundClip:'text',WebkitBackgroundClip:'text',color:'transparent',WebkitTextFillColor:'transparent',cursor:init?'pointer':'default',userSelect:'none'}}>NEUROTRKR</h1>
+            <h1 onClick={()=>{if(init)setShowHelp(true);}} title={init?'Reference: features, shortcuts, MIDI routing':''} style={{margin:0,fontSize:retro?(wW<500?20:22):(wW<500?14:17),fontWeight:800,fontFamily:'var(--fontD)',letterSpacing:retro?(wW<500?3:5):(wW<500?2:5),background:'var(--accG)',backgroundClip:'text',WebkitBackgroundClip:'text',color:'transparent',WebkitTextFillColor:'transparent',cursor:init?'pointer':'default',userSelect:'none',flexShrink:0,whiteSpace:'nowrap'}}>NEUROTRKR</h1>
           </div>
           {!init?<button onClick={initA} style={{background:'var(--accB)',color:'#000',border:'none',padding:'7px 24px',fontSize:retro?16:12,fontWeight:700,letterSpacing:3,cursor:'pointer',fontFamily:'var(--fontD)',borderRadius:'var(--r)',display:'flex',alignItems:'center',gap:4}}><svg viewBox="0 0 10 12" width="10" height="12" fill="currentColor"><path d="M0 0L10 6L0 12z"/></svg>START</button>
           :<div style={{display:'flex',gap:3,alignItems:'center'}}>
