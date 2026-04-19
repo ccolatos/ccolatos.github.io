@@ -60,6 +60,11 @@
       let voiceGainsCurrent = new Float32Array(NV);
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
+      // --- visualizer state (persistent across frames, no per-frame allocations) ---
+      let _vFreq = null, _vTime = null, _vt = 0;
+      let _vBass = 0, _vMid = 0, _vHigh = 0, _vEnergy = 0;
+      let _vLastTs = 0;
+
       function resize() { canvas.width = innerWidth; canvas.height = innerHeight; }
       addEventListener("resize", resize); resize();
 
@@ -1092,46 +1097,8 @@ registerProcessor("dss-processor", DSSProcessor);
       // VISUALIZER
       // ================================================================
 
-      function drawViz() {
-        requestAnimationFrame(drawViz);
-        const w = canvas.width, h = canvas.height;
-        cx.fillStyle = "rgba(0,0,0,0.12)"; cx.fillRect(0,0,w,h);
-        if (!analyser) return;
-        const freq = new Uint8Array(analyser.frequencyBinCount);
-        const time = new Uint8Array(analyser.frequencyBinCount);
-        analyser.getByteFrequencyData(freq);
-        analyser.getByteTimeDomainData(time);
-        const logS = (i,n) => Math.log10(i+1)/Math.log10(n);
-        for (let i = 0; i < freq.length; i++) {
-          const v = freq[i]/255; if (v < 0.015) continue;
-          const x = logS(i,freq.length)*w;
-          cx.globalAlpha = v*v*0.55; cx.fillStyle = "#fff";
-          cx.fillRect(x, h*0.5 - v*h*0.275, 1.5, v*h*0.55);
-        }
-        cx.beginPath();
-        for (let i = 0; i < freq.length; i++) {
-          const v = freq[i]/255, x = logS(i,freq.length)*w, y = h*0.5 - v*h*0.45;
-          i===0 ? cx.moveTo(x,y) : cx.lineTo(x,y);
-        }
-        cx.strokeStyle = "rgba(255,255,255,0.26)"; cx.lineWidth = 1.2; cx.stroke();
-        cx.beginPath();
-        for (let i = 0; i < 200; i++) {
-          const v = freq[i]/255;
-          i===0 ? cx.moveTo(i/200*w, h-v*h*0.25) : cx.lineTo(i/200*w, h-v*h*0.25);
-        }
-        cx.strokeStyle = "rgba(255,255,255,0.14)"; cx.lineWidth = 2; cx.stroke();
-        for (let i = Math.floor(freq.length*0.6); i < freq.length; i++) {
-          const v = freq[i]/255; if (v < 0.01) continue;
-          cx.globalAlpha = v*0.1; cx.fillStyle = "#fff";
-          cx.fillRect(logS(i,freq.length)*w, Math.random()*h, 1, 1);
-        }
-        cx.beginPath();
-        for (let i = 0; i < time.length; i++) {
-          const v = (time[i]-128)/128, x = i/time.length*w, y = h*0.5+v*h*0.08;
-          i===0 ? cx.moveTo(x,y) : cx.lineTo(x,y);
-        }
-        cx.strokeStyle = "rgba(255,255,255,0.05)"; cx.lineWidth = 1; cx.stroke();
-        cx.globalAlpha = 1;
+      // Helper used only by the visualizer: update overlay text without drawing
+      function _vUpdateText() {
         if (playing && ac && currentInst) {
           const inst = INSTRUMENTS[currentInst];
           const dur = currentInst === "chi" ? CHI_DUR : currentInst === "erg" ? ERG_DUR : DUR;
@@ -1140,6 +1107,234 @@ registerProcessor("dss-processor", DSSProcessor);
           if (el >= dur) { phaseEl.textContent = "silence"; statusEl.textContent = "fading"; }
           else { phaseEl.textContent = inst.lerpSection(el).label; statusEl.textContent = "playing"; }
         }
+      }
+
+      function drawViz(ts) {
+        requestAnimationFrame(drawViz);
+
+        // dt-based clock (stable across refresh rates, pauses cleanly when tab hidden)
+        const now = ts || performance.now();
+        const dt = _vLastTs ? Math.min(0.05, (now - _vLastTs) / 1000) : 1/60;
+        _vLastTs = now;
+        _vt += dt;
+
+        const w = canvas.width, h = canvas.height;
+        const cy = h * 0.5;
+
+        // Soft persistent trail. Slightly slower decay than original so delicate
+        // strokes accumulate into a feathery field instead of disappearing instantly.
+        cx.fillStyle = "rgba(0,0,0,0.085)";
+        cx.fillRect(0, 0, w, h);
+
+        if (!analyser) { _vUpdateText(); return; }
+
+        // Reuse buffers across frames (avoids per-frame Uint8Array allocation)
+        if (!_vFreq || _vFreq.length !== analyser.frequencyBinCount) {
+          _vFreq = new Uint8Array(analyser.frequencyBinCount);
+          _vTime = new Uint8Array(analyser.frequencyBinCount);
+        }
+        analyser.getByteFrequencyData(_vFreq);
+        analyser.getByteTimeDomainData(_vTime);
+
+        const N = _vFreq.length, T = _vTime.length;
+
+        // ---- Energy bands (smoothed) ----
+        const bassEnd = Math.max(4, Math.floor(N * 0.04));
+        const midEnd  = Math.floor(N * 0.30);
+        let bs = 0, ms = 0, hs = 0;
+        for (let i = 0; i < bassEnd; i++) bs += _vFreq[i];
+        for (let i = bassEnd; i < midEnd; i++) ms += _vFreq[i];
+        // sample high band sparsely (it's the largest range)
+        const hiStride = 4;
+        let hCount = 0;
+        for (let i = midEnd; i < N; i += hiStride) { hs += _vFreq[i]; hCount++; }
+        const bN = bs / bassEnd / 255;
+        const mN = ms / Math.max(1, (midEnd - bassEnd)) / 255;
+        const hN = hs / Math.max(1, hCount) / 255;
+        // slow attack, slow release for organic feel
+        _vBass   = _vBass   * 0.78 + bN * 0.22;
+        _vMid    = _vMid    * 0.78 + mN * 0.22;
+        _vHigh   = _vHigh   * 0.85 + hN * 0.15;
+        _vEnergy = _vEnergy * 0.80 + ((bN + mN + hN) / 3) * 0.20;
+
+        // Focal point of the wave-packet — drifts slowly. On portrait/narrow
+        // viewports it sits a bit further right so the rightward fan doesn't crowd.
+        const isPortrait = h > w;
+        const baseFx = isPortrait ? 0.30 : 0.20;
+        const fxDrift = Math.sin(_vt * 0.13) * 0.018 + Math.sin(_vt * 0.071 + 1.2) * 0.012;
+        const focusX = w * (baseFx + fxDrift);
+        const focusY = cy + Math.sin(_vt * 0.09) * h * 0.008;
+        const span = w - focusX;
+
+        // Shared decay envelope used by every curve. Peaks at focusX, fades right.
+        // Returns 0..1 given a normalized distance d (0 at focus, 1 at right edge).
+        // Two-term form gives the "near-field bloom + long tail" look of image 2.
+        const env = (d) => Math.exp(-d * d * 2.4) * (0.55 + 0.45 * Math.exp(-d * 1.4));
+
+        // ============================================================
+        // LAYER A — Stippled cluster around the focal point
+        // Vertical "column" rendering creates the visible streaks that
+        // appear within the dense burst in the reference image.
+        // ============================================================
+        cx.fillStyle = "#fff";
+
+        const numCols   = isMobile ? 18 : 32;
+        const clusterW  = w * (isPortrait ? 0.30 : 0.22);
+        for (let c = 0; c < numCols; c++) {
+          const seed = c / (numCols - 1 || 1);
+          // Slowly oscillating column position — keeps streaks visible but alive
+          const colX = focusX + (seed - 0.5) * clusterW
+                              + Math.sin(_vt * 0.42 + c * 1.73) * w * 0.005;
+          // Each column draws intensity from a low/low-mid frequency bin
+          const binIdx = Math.min(N - 1, Math.floor(2 + seed * bassEnd * 3.2));
+          const intensity = (_vFreq[binIdx] || 0) / 255;
+          if (intensity < 0.04) continue;
+
+          const dotsInCol = isMobile
+            ? (8  + (intensity * 28) | 0)
+            : (15 + (intensity * 55) | 0);
+          const colSpread = h * 0.26 * (0.42 + intensity * 0.72);
+
+          for (let d = 0; d < dotsInCol; d++) {
+            // Triangular distribution → denser near the centerline
+            const u  = (Math.random() + Math.random()) - 1;
+            const py = focusY + u * colSpread;
+            const px = colX + (Math.random() - 0.5) * 1.6;
+            cx.globalAlpha = (0.05 + intensity * 0.30) * (0.30 + 0.70 * Math.random());
+            cx.fillRect(px, py, 1, 1);
+          }
+        }
+
+        // A handful of taller, sparser vertical "spikes" inside the cluster.
+        // These are the prominent dark vertical streaks visible in image 2.
+        const spikes = isMobile ? 4 : 8;
+        for (let c = 0; c < spikes; c++) {
+          const colX = focusX + (Math.random() - 0.5) * clusterW * 0.95;
+          const binIdx = (Math.random() * bassEnd * 3.5) | 0;
+          const peak = (_vFreq[binIdx] || 0) / 255;
+          if (peak < 0.18) continue;
+          const sh = peak * h * 0.42;
+          cx.globalAlpha = peak * 0.13;
+          cx.fillRect(colX, focusY - sh / 2, 0.6, sh);
+        }
+
+        // ============================================================
+        // LAYER B — Harmonic wave fan (the heart of image-2's look)
+        // The same time-domain waveform is rendered as MANY translucent
+        // dotted curves with slightly different amplitudes, vertical
+        // offsets, and phase shifts. Layered together they form the
+        // characteristic feathery overlapping sinusoids.
+        // ============================================================
+        const numLayers    = isMobile ? 8 : 13;
+        const sampleStride = isMobile ? 6 : 3;
+
+        for (let layer = 0; layer < numLayers; layer++) {
+          const lt = layer / (numLayers - 1 || 1);                    // 0..1
+          const ampScale  = h * (0.18 + lt * 0.16);                   // outer layers a bit taller
+          const yOff      = (lt - 0.5) * 7;                           // gentle vertical fan
+          // Time-evolving phase shift gives each curve its own life
+          const phaseShift = ((layer * 11) + Math.sin(_vt * 0.5 + layer * 0.9) * 6) | 0;
+          const baseAlpha  = (0.10 - lt * 0.055) * (0.45 + _vEnergy * 0.55);
+
+          cx.fillStyle = "#fff";
+          for (let i = 0; i < T; i += sampleStride) {
+            const xFrac = i / T;
+            const x = focusX + xFrac * span * 1.02;
+            if (x > w + 2) break;
+            const idx = (i + phaseShift) % T;
+            const v   = (_vTime[idx] - 128) / 128;
+            const d   = xFrac;            // 0 at focus → 1 at right edge
+            const e   = env(d);
+            const y   = focusY + yOff + v * ampScale * e;
+            const a   = baseAlpha * (0.30 + e * 0.70);
+            if (a < 0.005) continue;
+            cx.globalAlpha = a;
+            cx.fillRect(x, y, 1, 1);
+          }
+        }
+
+        // ============================================================
+        // LAYER C — Crisp primary trace
+        // A single thin solid stroke of the actual time-domain waveform,
+        // very low alpha. Provides a coherent "anchor" reading among the
+        // diffuse stipple, like a fine pen line through a wash.
+        // ============================================================
+        cx.beginPath();
+        let started = false;
+        for (let i = 0; i < T; i += 2) {
+          const xFrac = i / T;
+          const x = focusX + xFrac * span * 1.02;
+          if (x > w) break;
+          const v = (_vTime[i] - 128) / 128;
+          const e = env(xFrac);
+          const y = focusY + v * h * 0.16 * e;
+          if (!started) { cx.moveTo(x, y); started = true; }
+          else cx.lineTo(x, y);
+        }
+        cx.globalAlpha = 0.10 + _vEnergy * 0.16;
+        cx.strokeStyle = "#fff";
+        cx.lineWidth = 0.6;
+        cx.stroke();
+
+        // ============================================================
+        // LAYER D — Shoulder waves
+        // Two extra-faint mirror traces above and below the main fan,
+        // shifted further so the field has a soft "halo" to breathe in.
+        // ============================================================
+        for (let s = 0; s < 2; s++) {
+          const dir = s === 0 ? -1 : 1;
+          const off = dir * (10 + Math.sin(_vt * 0.21 + s) * 4);
+          const phase = ((s * 47) + Math.sin(_vt * 0.33 + s * 1.7) * 8) | 0;
+          cx.beginPath();
+          let st = false;
+          const stride = isMobile ? 6 : 3;
+          for (let i = 0; i < T; i += stride) {
+            const xFrac = i / T;
+            const x = focusX + xFrac * span * 1.02;
+            if (x > w) break;
+            const v = (_vTime[(i + phase) % T] - 128) / 128;
+            const e = env(xFrac);
+            const y = focusY + off + v * h * 0.12 * e;
+            if (!st) { cx.moveTo(x, y); st = true; }
+            else cx.lineTo(x, y);
+          }
+          cx.globalAlpha = 0.05 + _vMid * 0.07;
+          cx.strokeStyle = "#fff";
+          cx.lineWidth = 0.5;
+          cx.stroke();
+        }
+
+        // ============================================================
+        // LAYER E — High-frequency mist
+        // Sparse single-pixel grains scattered across the field, driven
+        // by the upper spectrum. Adds quiet "shimmer" without weight.
+        // ============================================================
+        const mistCount = isMobile ? 22 : 60;
+        cx.fillStyle = "#fff";
+        for (let i = 0; i < mistCount; i++) {
+          const bin = midEnd + ((Math.random() * (N - midEnd)) | 0);
+          const v = _vFreq[bin] / 255;
+          if (v < 0.07) continue;
+          const px = Math.random() * w;
+          // Bias mist vertically toward the centerline (gentle gaussian-ish)
+          const u = (Math.random() + Math.random() + Math.random() - 1.5);
+          const py = cy + u * h * 0.42;
+          cx.globalAlpha = v * 0.14;
+          cx.fillRect(px, py, 1, 1);
+        }
+
+        // ============================================================
+        // LAYER F — Whisper of a horizon
+        // A barely-there centerline that holds the composition together
+        // when the audio is very quiet, so the screen never reads as empty.
+        // ============================================================
+        cx.globalAlpha = 0.025 + _vEnergy * 0.02;
+        cx.fillStyle = "#fff";
+        cx.fillRect(focusX, cy, w - focusX, 0.5);
+
+        cx.globalAlpha = 1;
+
+        _vUpdateText();
       }
 
       // ================================================================
