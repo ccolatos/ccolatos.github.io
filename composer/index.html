@@ -63,6 +63,7 @@
       // --- visualizer state (persistent across frames, no per-frame allocations) ---
       let _vFreq = null, _vTime = null, _vt = 0;
       let _vBass = 0, _vMid = 0, _vHigh = 0, _vEnergy = 0;
+      let _vWfPeak = 0, _vWfRms = 0, _vPeakHold = 0;  // waveform-domain loudness w/ slow-release peak hold
       let _vLastTs = 0;
 
       function resize() { canvas.width = innerWidth; canvas.height = innerHeight; }
@@ -1157,6 +1158,28 @@ registerProcessor("dss-processor", DSSProcessor);
         _vHigh   = _vHigh   * 0.85 + hN * 0.15;
         _vEnergy = _vEnergy * 0.80 + ((bN + mN + hN) / 3) * 0.20;
 
+        // ---- Waveform-domain loudness (peak + RMS over the time buffer) ----
+        // Smoothed energy bands undershoot transients badly; this gives us
+        // an honest, sample-accurate amplitude reading per frame, plus a
+        // peak-hold envelope (fast attack, ~1s release) so eruptions punch
+        // and sustained loud sections expand the whole field.
+        let pk = 0, sq = 0, sc = 0;
+        const wfStride = isMobile ? 8 : 4;
+        for (let i = 0; i < T; i += wfStride) {
+          const v = (_vTime[i] - 128) / 128;
+          const av = v < 0 ? -v : v;
+          if (av > pk) pk = av;
+          sq += v * v; sc++;
+        }
+        _vWfPeak = pk;
+        _vWfRms  = Math.sqrt(sq / Math.max(1, sc));
+        _vPeakHold = pk > _vPeakHold ? pk : (_vPeakHold * 0.985 + pk * 0.015);
+
+        // Composite dynamic multiplier. Gamma-curved (^0.6) on smoothed
+        // energy so mid-loud sections brighten fast, plus peak-hold for
+        // transient punch. Range: ~0.55 (silence) → ~1.65 (eruption).
+        const dyn = 0.55 + Math.pow(_vEnergy, 0.6) * 0.55 + _vPeakHold * 0.55;
+
         // Focal point of the wave-packet — drifts slowly. On portrait/narrow
         // viewports it sits a bit further right so the rightward fan doesn't crowd.
         const isPortrait = h > w;
@@ -1185,36 +1208,42 @@ registerProcessor("dss-processor", DSSProcessor);
           // Slowly oscillating column position — keeps streaks visible but alive
           const colX = focusX + (seed - 0.5) * clusterW
                               + Math.sin(_vt * 0.42 + c * 1.73) * w * 0.005;
-          // Each column draws intensity from a low/low-mid frequency bin
+          // Each column draws intensity from a low/low-mid frequency bin.
+          // Gamma curve (^0.65) brightens midrange values without changing
+          // the ceiling — quiet bins stay quiet, busy bins really sing.
           const binIdx = Math.min(N - 1, Math.floor(2 + seed * bassEnd * 3.2));
-          const intensity = (_vFreq[binIdx] || 0) / 255;
+          const intensity = Math.pow((_vFreq[binIdx] || 0) / 255, 0.65);
           if (intensity < 0.04) continue;
 
           const dotsInCol = isMobile
-            ? (8  + (intensity * 28) | 0)
-            : (15 + (intensity * 55) | 0);
-          const colSpread = h * 0.26 * (0.42 + intensity * 0.72);
+            ? (8  + (intensity * 48) | 0)
+            : (12 + (intensity * 95) | 0);
+          // Cluster grows aggressively with bass — at peak intensity the
+          // column spreads to ~45% of canvas height (was 30%).
+          const colSpread = h * 0.32 * (0.32 + intensity * 1.10);
 
           for (let d = 0; d < dotsInCol; d++) {
             // Triangular distribution → denser near the centerline
             const u  = (Math.random() + Math.random()) - 1;
             const py = focusY + u * colSpread;
             const px = colX + (Math.random() - 0.5) * 1.6;
-            cx.globalAlpha = (0.05 + intensity * 0.30) * (0.30 + 0.70 * Math.random());
+            cx.globalAlpha = (0.06 + intensity * 0.36) * (0.30 + 0.70 * Math.random());
             cx.fillRect(px, py, 1, 1);
           }
         }
 
         // A handful of taller, sparser vertical "spikes" inside the cluster.
         // These are the prominent dark vertical streaks visible in image 2.
+        // Now scale dramatically with overall dynamic — at eruption they
+        // span ~60% of canvas height instead of ~36%.
         const spikes = isMobile ? 4 : 8;
         for (let c = 0; c < spikes; c++) {
           const colX = focusX + (Math.random() - 0.5) * clusterW * 0.95;
           const binIdx = (Math.random() * bassEnd * 3.5) | 0;
           const peak = (_vFreq[binIdx] || 0) / 255;
           if (peak < 0.18) continue;
-          const sh = peak * h * 0.42;
-          cx.globalAlpha = peak * 0.13;
+          const sh = peak * h * 0.55 * (0.7 + dyn * 0.45);
+          cx.globalAlpha = peak * 0.16 * (0.7 + dyn * 0.45);
           cx.fillRect(colX, focusY - sh / 2, 0.6, sh);
         }
 
@@ -1230,11 +1259,14 @@ registerProcessor("dss-processor", DSSProcessor);
 
         for (let layer = 0; layer < numLayers; layer++) {
           const lt = layer / (numLayers - 1 || 1);                    // 0..1
-          const ampScale  = h * (0.18 + lt * 0.16);                   // outer layers a bit taller
+          // Amplitude: bigger base AND multiplied by composite dynamic gain.
+          // Quiet (~dyn 0.7): max ~0.20 * 0.7 = 0.14h reach (delicate)
+          // Peak  (~dyn 1.65): max ~0.40 * 1.65 = 0.66h reach (eruption)
+          const ampScale  = h * (0.20 + lt * 0.20) * dyn;
           const yOff      = (lt - 0.5) * 7;                           // gentle vertical fan
           // Time-evolving phase shift gives each curve its own life
           const phaseShift = ((layer * 11) + Math.sin(_vt * 0.5 + layer * 0.9) * 6) | 0;
-          const baseAlpha  = (0.10 - lt * 0.055) * (0.45 + _vEnergy * 0.55);
+          const baseAlpha  = (0.10 - lt * 0.055) * (0.45 + Math.pow(_vEnergy, 0.6) * 0.65);
 
           cx.fillStyle = "#fff";
           for (let i = 0; i < T; i += sampleStride) {
@@ -1267,13 +1299,15 @@ registerProcessor("dss-processor", DSSProcessor);
           if (x > w) break;
           const v = (_vTime[i] - 128) / 128;
           const e = env(xFrac);
-          const y = focusY + v * h * 0.16 * e;
+          // Reach scales with dyn so the anchor line opens up at peak too,
+          // not just the surrounding fan.
+          const y = focusY + v * h * 0.18 * e * dyn;
           if (!started) { cx.moveTo(x, y); started = true; }
           else cx.lineTo(x, y);
         }
-        cx.globalAlpha = 0.10 + _vEnergy * 0.16;
+        cx.globalAlpha = 0.08 + _vEnergy * 0.18 + _vPeakHold * 0.18;
         cx.strokeStyle = "#fff";
-        cx.lineWidth = 0.6;
+        cx.lineWidth = 0.6 + _vPeakHold * 0.7;   // 0.6 quiet → 1.3 at peak
         cx.stroke();
 
         // ============================================================
@@ -1283,7 +1317,8 @@ registerProcessor("dss-processor", DSSProcessor);
         // ============================================================
         for (let s = 0; s < 2; s++) {
           const dir = s === 0 ? -1 : 1;
-          const off = dir * (10 + Math.sin(_vt * 0.21 + s) * 4);
+          // Offset grows with dyn so shoulders open up at peak
+          const off = dir * (10 + Math.sin(_vt * 0.21 + s) * 5) * (0.7 + dyn * 0.55);
           const phase = ((s * 47) + Math.sin(_vt * 0.33 + s * 1.7) * 8) | 0;
           cx.beginPath();
           let st = false;
@@ -1294,13 +1329,13 @@ registerProcessor("dss-processor", DSSProcessor);
             if (x > w) break;
             const v = (_vTime[(i + phase) % T] - 128) / 128;
             const e = env(xFrac);
-            const y = focusY + off + v * h * 0.12 * e;
+            const y = focusY + off + v * h * 0.13 * e * dyn;
             if (!st) { cx.moveTo(x, y); st = true; }
             else cx.lineTo(x, y);
           }
-          cx.globalAlpha = 0.05 + _vMid * 0.07;
+          cx.globalAlpha = (0.05 + _vMid * 0.07) * (0.65 + dyn * 0.55);
           cx.strokeStyle = "#fff";
-          cx.lineWidth = 0.5;
+          cx.lineWidth = 0.5 + _vPeakHold * 0.4;
           cx.stroke();
         }
 
@@ -1308,18 +1343,21 @@ registerProcessor("dss-processor", DSSProcessor);
         // LAYER E — High-frequency mist
         // Sparse single-pixel grains scattered across the field, driven
         // by the upper spectrum. Adds quiet "shimmer" without weight.
+        // Density scales with dyn so eruptions feel atmospheric, not sterile.
         // ============================================================
-        const mistCount = isMobile ? 22 : 60;
+        const baseMist  = isMobile ? 22 : 60;
+        const mistCount = (baseMist * (0.55 + dyn * 0.95)) | 0;
         cx.fillStyle = "#fff";
         for (let i = 0; i < mistCount; i++) {
           const bin = midEnd + ((Math.random() * (N - midEnd)) | 0);
           const v = _vFreq[bin] / 255;
           if (v < 0.07) continue;
           const px = Math.random() * w;
-          // Bias mist vertically toward the centerline (gentle gaussian-ish)
+          // Bias mist vertically toward the centerline (gentle gaussian-ish).
+          // At peak the spread widens so grains reach further from center.
           const u = (Math.random() + Math.random() + Math.random() - 1.5);
-          const py = cy + u * h * 0.42;
-          cx.globalAlpha = v * 0.14;
+          const py = cy + u * h * (0.40 + dyn * 0.10);
+          cx.globalAlpha = v * 0.14 * (0.6 + dyn * 0.5);
           cx.fillRect(px, py, 1, 1);
         }
 
@@ -1327,10 +1365,16 @@ registerProcessor("dss-processor", DSSProcessor);
         // LAYER F — Whisper of a horizon
         // A barely-there centerline that holds the composition together
         // when the audio is very quiet, so the screen never reads as empty.
+        // FADES OUT as energy rises — at peak the wave fan owns the screen,
+        // not a static beam. (Without this, frame-over-frame accumulation
+        // against the trail decay turned this into a bright bar at peak.)
         // ============================================================
-        cx.globalAlpha = 0.025 + _vEnergy * 0.02;
-        cx.fillStyle = "#fff";
-        cx.fillRect(focusX, cy, w - focusX, 0.5);
+        const horAlpha = Math.max(0, 0.030 - _vEnergy * 0.06 - _vPeakHold * 0.04);
+        if (horAlpha > 0.001) {
+          cx.globalAlpha = horAlpha;
+          cx.fillStyle = "#fff";
+          cx.fillRect(focusX, cy, w - focusX, 0.5);
+        }
 
         cx.globalAlpha = 1;
 
