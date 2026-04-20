@@ -64,6 +64,7 @@
       let _vFreq = null, _vTime = null, _vt = 0;
       let _vBass = 0, _vMid = 0, _vHigh = 0, _vEnergy = 0;
       let _vWfPeak = 0, _vWfRms = 0, _vPeakHold = 0;  // waveform-domain loudness w/ slow-release peak hold
+      let _vPeakSlow = 0.30;  // long-tail peak follower for AGC (~30s release)
       let _vLastTs = 0;
 
       function resize() { canvas.width = innerWidth; canvas.height = innerHeight; }
@@ -1091,6 +1092,17 @@ registerProcessor("dss-processor", DSSProcessor);
           const voices = inst.updateVoices(section, elapsed);
           dssNode.port.postMessage({ type: "update", updates: voices });
           inst.onUpdate(elapsed, section);
+
+          // Mirror voice gains into voiceGainsCurrent for the visualizer.
+          // Sparse instruments already maintain this above (with their own
+          // smoothing); non-sparse instruments need us to copy from the
+          // just-built voice params, smoothed for visual stability.
+          if (!inst.sparse) {
+            for (let i = 0; i < voices.length && i < NV; i++) {
+              const tg = voices[i].g || 0;
+              voiceGainsCurrent[i] += (tg - voiceGainsCurrent[i]) * 0.35;
+            }
+          }
         }, 200);
       }
 
@@ -1174,11 +1186,23 @@ registerProcessor("dss-processor", DSSProcessor);
         _vWfPeak = pk;
         _vWfRms  = Math.sqrt(sq / Math.max(1, sc));
         _vPeakHold = pk > _vPeakHold ? pk : (_vPeakHold * 0.985 + pk * 0.015);
+        // Slow-following peak ceiling — fast attack, ~30s release. This is
+        // the per-piece loudness reference the AGC normalizes against.
+        _vPeakSlow = pk > _vPeakSlow ? pk : (_vPeakSlow * 0.998 + pk * 0.002);
 
-        // Composite dynamic multiplier. Gamma-curved (^0.6) on smoothed
-        // energy so mid-loud sections brighten fast, plus peak-hold for
-        // transient punch. Range: ~0.55 (silence) → ~1.65 (eruption).
-        const dyn = 0.55 + Math.pow(_vEnergy, 0.6) * 0.55 + _vPeakHold * 0.55;
+        // AGC: target visual peak should reach ~0.85 of available reach.
+        // Floor of 0.10 prevents amplification of true silence into noise.
+        // Square-root softens the gain curve so loud pieces still look louder
+        // than quiet ones — full normalization would flatten dynamic range
+        // across pieces.
+        const agcRef  = Math.max(0.10, _vPeakSlow);
+        const agcGain = Math.min(4.5, Math.sqrt(0.85 / agcRef));
+
+        // Composite dynamic multiplier: smoothed energy (gamma'd) + transient
+        // peak hold, then scaled by AGC. Quiet pieces get lifted; loud pieces
+        // stay loud; silent moments within any piece stay quiet.
+        const dynBase = 0.40 + Math.pow(_vEnergy, 0.55) * 0.55 + _vPeakHold * 0.45;
+        const dyn = dynBase * agcGain;
 
         // Focal point of the wave-packet — drifts slowly. On portrait/narrow
         // viewports it sits a bit further right so the rightward fan doesn't crowd.
@@ -1193,6 +1217,56 @@ registerProcessor("dss-processor", DSSProcessor);
         // Returns 0..1 given a normalized distance d (0 at focus, 1 at right edge).
         // Two-term form gives the "near-field bloom + long tail" look of image 2.
         const env = (d) => Math.exp(-d * d * 2.4) * (0.55 + 0.45 * Math.exp(-d * 1.4));
+
+        // Resolve current instrument's voice definitions once (used by
+        // both the voice spine and the per-voice wave fan below).
+        const inst0 = currentInst ? INSTRUMENTS[currentInst] : null;
+        const vDefs = inst0 ? (inst0.voiceDefs || SHARED_VOICES) : SHARED_VOICES;
+
+        // ============================================================
+        // LAYER 0 — Voice spine (leftmost edge)
+        // The actual source-of-sound: one marker per voice, vertically
+        // positioned by that voice's center frequency on a log scale
+        // (low at bottom, high at top — like a spectrogram axis).
+        // Brightness tracks current voice gain. A short rightward tendril
+        // extends from each active voice with length ∝ gain, suggesting
+        // the flow from "voice presence" into the cluster + wave fan.
+        //
+        // Faint dots remain even for silent voices (seat markers), so the
+        // spine reads as a complete frequency column at all times.
+        // ============================================================
+        const spineX      = w * 0.012;
+        const spineMargin = h * 0.10;
+        const spineH      = h - 2 * spineMargin;
+        const fLogMin     = Math.log(18);
+        const fLogMax     = Math.log(14000);
+
+        for (let i = 0; i < NV; i++) {
+          if (!vDefs[i]) continue;
+          const def = vDefs[i];
+          // Geometric mean of voice's frequency range = its perceptual center
+          const fCenter = Math.sqrt(def.fLo * def.fHi);
+          const fNorm   = clamp((Math.log(fCenter) - fLogMin) / (fLogMax - fLogMin), 0, 1);
+          // High freq at TOP of canvas, low at bottom (spectrogram convention)
+          const y = (h - spineMargin) - fNorm * spineH;
+
+          const g = voiceGainsCurrent[i];
+          const gNorm = Math.min(1, g / 0.05);
+
+          // Seat marker (always present, even for silent voices) + active dot
+          cx.globalAlpha = 0.08 + gNorm * 0.55;
+          cx.fillStyle = "#fff";
+          cx.fillRect(spineX, y, 1.6, 1.4);
+
+          // Tendril extending rightward when voice is active
+          if (gNorm > 0.04) {
+            const tlen = Math.pow(gNorm, 0.7) * w * 0.07;
+            cx.globalAlpha = 0.05 + gNorm * 0.18;
+            cx.fillRect(spineX + 3, y + 0.3, tlen, 0.6);
+          }
+        }
+
+        cx.globalAlpha = 1;
 
         // ============================================================
         // LAYER A — Stippled cluster around the focal point
@@ -1219,8 +1293,8 @@ registerProcessor("dss-processor", DSSProcessor);
             ? (8  + (intensity * 48) | 0)
             : (12 + (intensity * 95) | 0);
           // Cluster grows aggressively with bass — at peak intensity the
-          // column spreads to ~45% of canvas height (was 30%).
-          const colSpread = h * 0.32 * (0.32 + intensity * 1.10);
+          // column spreads to ~60% of canvas height (was 30%).
+          const colSpread = h * 0.42 * (0.30 + intensity * 1.20) * (0.7 + Math.min(1.5, dyn) * 0.35);
 
           for (let d = 0; d < dotsInCol; d++) {
             // Triangular distribution → denser near the centerline
@@ -1235,48 +1309,76 @@ registerProcessor("dss-processor", DSSProcessor);
         // A handful of taller, sparser vertical "spikes" inside the cluster.
         // These are the prominent dark vertical streaks visible in image 2.
         // Now scale dramatically with overall dynamic — at eruption they
-        // span ~60% of canvas height instead of ~36%.
+        // span ~80% of canvas height instead of ~36%.
         const spikes = isMobile ? 4 : 8;
         for (let c = 0; c < spikes; c++) {
           const colX = focusX + (Math.random() - 0.5) * clusterW * 0.95;
           const binIdx = (Math.random() * bassEnd * 3.5) | 0;
           const peak = (_vFreq[binIdx] || 0) / 255;
           if (peak < 0.18) continue;
-          const sh = peak * h * 0.55 * (0.7 + dyn * 0.45);
-          cx.globalAlpha = peak * 0.16 * (0.7 + dyn * 0.45);
+          const sh = peak * h * 0.72 * (0.7 + Math.min(1.5, dyn) * 0.40);
+          cx.globalAlpha = peak * 0.16 * (0.7 + Math.min(1.5, dyn) * 0.40);
           cx.fillRect(colX, focusY - sh / 2, 0.6, sh);
         }
 
         // ============================================================
-        // LAYER B — Harmonic wave fan (the heart of image-2's look)
-        // The same time-domain waveform is rendered as MANY translucent
-        // dotted curves with slightly different amplitudes, vertical
-        // offsets, and phase shifts. Layered together they form the
-        // characteristic feathery overlapping sinusoids.
+        // LAYER B — Per-voice wave fan
+        // The number of curves drawn equals the number of currently-active
+        // voices. Each voice gets a unique vertical slot stratified by its
+        // index (which corresponds to frequency ordering in all instrument
+        // voice arrays — bass first, treble last). Per-voice alpha tracks
+        // that voice's current gain. So the visualizer is now reading the
+        // ACTUAL voicing state of the composition, not just the mixed audio.
+        //
+        // Sparse pieces (GENDY, ERGODIC) will show varying numbers of curves
+        // as voices come and go. Non-sparse pieces show all 20 voices at
+        // varying intensity as their gains evolve through the sections.
         // ============================================================
-        const numLayers    = isMobile ? 8 : 13;
+        // Per-voice rendering uses the vDefs the spine resolved above.
         const sampleStride = isMobile ? 6 : 3;
 
-        for (let layer = 0; layer < numLayers; layer++) {
-          const lt = layer / (numLayers - 1 || 1);                    // 0..1
-          // Amplitude: bigger base AND multiplied by composite dynamic gain.
-          // Quiet (~dyn 0.7): max ~0.20 * 0.7 = 0.14h reach (delicate)
-          // Peak  (~dyn 1.65): max ~0.40 * 1.65 = 0.66h reach (eruption)
-          const ampScale  = h * (0.20 + lt * 0.20) * dyn;
-          const yOff      = (lt - 0.5) * 7;                           // gentle vertical fan
-          // Time-evolving phase shift gives each curve its own life
-          const phaseShift = ((layer * 11) + Math.sin(_vt * 0.5 + layer * 0.9) * 6) | 0;
-          const baseAlpha  = (0.10 - lt * 0.055) * (0.45 + Math.pow(_vEnergy, 0.6) * 0.65);
+        // Vertical extent of the voice fan, dyn-scaled so eruptions
+        // open it dramatically.
+        const vSpan      = h * 0.50 * Math.min(2.2, dyn);
+        const slotSpacing = vSpan / (NV / 2 + 2);
+
+        // Count active voices for the voice-counter UI implication
+        let activeCount = 0;
+        for (let i = 0; i < NV; i++) if (voiceGainsCurrent[i] > 0.0008) activeCount++;
+
+        // Cap drawn voices on mobile for performance
+        const maxDraw = isMobile ? 14 : NV;
+        let drawn = 0;
+        for (let i = 0; i < NV && drawn < maxDraw; i++) {
+          const g = voiceGainsCurrent[i];
+          if (g < 0.0008) continue;        // truly silent voice → no curve
+          drawn++;
+
+          // Vertical slot: voices alternate above/below centerline,
+          // stepping outward by index. Voice 0,1 closest to center;
+          // voice 18,19 furthest.
+          const slotIdx   = ((i / 2) | 0) + 1;
+          const side      = (i & 1) === 0 ? -1 : 1;
+          const yOff      = side * slotIdx * slotSpacing;
+
+          // Normalize gain to typical range (~0.05 max for non-sparse,
+          // up to ~0.16 for sparse-mode bass voices)
+          const gNorm     = Math.min(1, g / 0.05);
+
+          // Per-voice phase shift so each curve reads differently even
+          // when they all sample the same time-domain buffer.
+          const phaseShift = (i * 23 + Math.sin(_vt * 0.5 + i * 0.7) * 7) | 0;
+          const ampScale   = h * (0.30 + gNorm * 0.18) * dyn;
+          const baseAlpha  = (0.07 + gNorm * 0.18) * (0.50 + Math.pow(_vEnergy, 0.55) * 0.55);
 
           cx.fillStyle = "#fff";
-          for (let i = 0; i < T; i += sampleStride) {
-            const xFrac = i / T;
+          for (let s = 0; s < T; s += sampleStride) {
+            const xFrac = s / T;
             const x = focusX + xFrac * span * 1.02;
             if (x > w + 2) break;
-            const idx = (i + phaseShift) % T;
+            const idx = (s + phaseShift) % T;
             const v   = (_vTime[idx] - 128) / 128;
-            const d   = xFrac;            // 0 at focus → 1 at right edge
-            const e   = env(d);
+            const e   = env(xFrac);
             const y   = focusY + yOff + v * ampScale * e;
             const a   = baseAlpha * (0.30 + e * 0.70);
             if (a < 0.005) continue;
@@ -1301,13 +1403,13 @@ registerProcessor("dss-processor", DSSProcessor);
           const e = env(xFrac);
           // Reach scales with dyn so the anchor line opens up at peak too,
           // not just the surrounding fan.
-          const y = focusY + v * h * 0.18 * e * dyn;
+          const y = focusY + v * h * 0.28 * e * dyn;
           if (!started) { cx.moveTo(x, y); started = true; }
           else cx.lineTo(x, y);
         }
-        cx.globalAlpha = 0.08 + _vEnergy * 0.18 + _vPeakHold * 0.18;
+        cx.globalAlpha = 0.10 + _vEnergy * 0.20 + _vPeakHold * 0.18;
         cx.strokeStyle = "#fff";
-        cx.lineWidth = 0.6 + _vPeakHold * 0.7;   // 0.6 quiet → 1.3 at peak
+        cx.lineWidth = 0.7 + _vPeakHold * 0.7;   // 0.7 quiet → 1.4 at peak
         cx.stroke();
 
         // ============================================================
@@ -1418,10 +1520,17 @@ registerProcessor("dss-processor", DSSProcessor);
         if (!dssNode) return;
         await ac.resume();
 
+        // Reset visualizer voice mirror for every piece (sparse pieces also
+        // reset it below; non-sparse pieces need it cleared so stale gains
+        // from a previous play don't leak into the spine/wave-fan).
+        voiceGainsCurrent = new Float32Array(NV);
+        activeVoices = new Set();
+        // Reset AGC slow-peak follower so the new piece's loudness character
+        // determines the auto-gain afresh.
+        _vPeakSlow = 0.30; _vPeakHold = 0;
+
         // Sparse instruments start with one random voice
         if (inst.sparse) {
-          activeVoices = new Set();
-          voiceGainsCurrent = new Float32Array(NV);
           const first = Math.floor(Math.random() * NV);
           activeVoices.add(first);
           voiceGainsCurrent[first] = baseGain((inst.voiceDefs || SHARED_VOICES)[first].n);
