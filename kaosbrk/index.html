@@ -197,11 +197,131 @@
   .fx-group{display:flex;flex-direction:column;gap:6px;}
   .fx-group h3{font-size:9px;letter-spacing:0.22em;text-transform:uppercase;color:var(--accent);margin:0 0 8px 0;border-bottom:1px solid var(--line);padding-bottom:5px;font-weight:normal;}
   .fx-group .ctrl-group{margin-bottom:6px;}
-  /* pattern canvas: make clickable */
-  #pattern-canvas{cursor:pointer;}
+  /* pattern canvas: make clickable. touch-action: manipulation disables iOS
+     double-tap-to-zoom delay so cell taps register immediately. */
+  #pattern-canvas{cursor:pointer;touch-action:manipulation;}
+
+  /* =============================================================
+     MOBILE LAYOUT — desktop CSS above is untouched. Everything in
+     this media query is scoped to small screens only (phone width).
+     ============================================================= */
+  @media (max-width: 600px) {
+    body { padding: 10px; padding-bottom: max(10px, env(safe-area-inset-bottom)); font-size: 12px; }
+    .brand { padding-bottom: 12px; margin-bottom: 12px; }
+    .brand h1 { font-size: 26px; }
+    .brand .tag { font-size: 9px; letter-spacing: 0.12em; }
+    main { gap: 10px; }
+    .panel { padding: 10px; }
+    /* The "Major Mono Display" font renders panel headers as decorative glyphs
+       (BR∆K SOU℞CE etc.) which is illegible on small screens. Swap to the
+       regular monospace on mobile only. */
+    .panel h2 { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.18em; margin-bottom: 10px; padding-bottom: 6px; }
+
+    /* Topbar: collapse the dense button rows into something thumb-friendly */
+    .export-bar { padding: 8px; gap: 6px; }
+    .export-bar button { padding: 8px 10px; font-size: 10px; flex: 1 1 calc(50% - 3px); min-width: 0; }
+    .export-bar .export-status { width: 100%; margin-left: 0; text-align: center; }
+    .midi-bar { padding: 8px; gap: 6px; }
+    .midi-label { width: 100%; }
+    .midi-bar select { flex: 1 1 100%; min-width: 0; max-width: none; }
+    .midi-bar button { padding: 8px 10px; font-size: 10px; }
+    .midi-bar .midi-status { width: 100%; margin-left: 0; text-align: center; }
+    .midi-bar button.transport-btn { flex: 1 1 calc(33.33% - 4px); padding: 10px 4px; font-size: 11px; }
+    /* PLAY needs to be obvious */
+    #play-btn { flex: 1 1 calc(50% - 3px) !important; }
+    #regen-btn, #clear-pattern-btn { flex: 1 1 calc(25% - 4px) !important; }
+
+    /* Recipe banner: tighter */
+    .preset-banner { padding: 8px 10px; font-size: 10px; margin-bottom: 8px; line-height: 1.5; }
+
+    /* Drop zone: half the vertical space */
+    .drop-zone { padding: 14px 10px; }
+    .drop-zone .drop-text { font-size: 11px; line-height: 1.55; }
+    .drop-zone .drop-text .dim { font-size: 10px; }
+
+    /* Recipe + generator: tighter forms */
+    .ctrl-group { margin-bottom: 10px; }
+    .ctrl-row { gap: 8px; margin-bottom: 10px; }
+    label { font-size: 9px; letter-spacing: 0.1em; margin-bottom: 4px; }
+    select, input[type="text"] { padding: 8px; font-size: 12px; }
+    input[type="range"] { height: 28px; }
+    input[type="range"]::-webkit-slider-thumb { width: 16px; height: 16px; margin-top: -7px; }
+    input[type="range"]::-moz-range-thumb { width: 16px; height: 16px; }
+    button { padding: 9px 10px; font-size: 11px; }
+
+    /* Cleverness block: shorter on mobile so faders are still draggable but
+       don't dominate the page. min-height keeps them tall enough to grab. */
+    .cleverness-block { min-height: 180px; }
+    .cleverness-row { gap: 4px; }
+    .cf-strip { padding: 6px 4px; }
+    .cf-name { font-size: 8px; }
+    .cf-area { min-height: 110px; }
+    .cf-val { font-size: 10px; }
+
+    /* Pattern canvas: shorter on mobile so it doesn't push everything off-screen.
+       Desktop uses JS-driven height sync; mobile uses a fixed sensible height. */
+    .right-col { height: auto !important; }
+    .right-col > .grid-wrap { height: 260px !important; padding: 8px; }
+    .right-col > .grid-wrap > .grid-help { font-size: 9px; padding-top: 6px; line-height: 1.45; }
+
+    /* Mixer: 4 columns on mobile (not 6) so faders are wide enough to grab.
+       Master gets its own row below. The master-divider is already hidden
+       via the existing 900px breakpoint. */
+    .mixer-row { grid-template-columns: repeat(4, 1fr) !important; gap: 5px !important; }
+    .mix-channel { padding: 6px 3px; gap: 4px; }
+    .mix-channel .mix-label { font-size: 12px; }
+    .mix-channel .mix-name { display: none; }  /* short labels already on top */
+    .mix-pan-knob { width: 22px; height: 22px; }
+    .mix-pan-val { font-size: 7px; }
+    .mix-buttons button { font-size: 8px; padding: 4px 0; }
+    .fader-wrap { min-height: 130px; padding: 4px 0; }
+    .fader-area { width: 36px; }  /* wider hit target on touch */
+    .fader-thumb { width: 28px; height: 18px; }
+    .fader-tick-label { display: none; }
+    .mix-gain { font-size: 9px; }
+
+    /* FX strip: stack groups vertically, two columns max */
+    .fx-row { grid-template-columns: 1fr 1fr !important; gap: 12px !important; }
+    .fx-group h3 { font-size: 8px; letter-spacing: 0.18em; padding-bottom: 4px; margin-bottom: 6px; }
+    /* sidechain group spans full width on mobile since it has only a checkbox */
+    .fx-group:first-child { grid-column: 1 / -1; }
+  }
+
+  /* Even narrower screens (iPhone SE, etc.): a couple of further nudges */
+  @media (max-width: 380px) {
+    .brand h1 { font-size: 22px; }
+    .mixer-row { grid-template-columns: repeat(3, 1fr) !important; }
+    .right-col > .grid-wrap { height: 220px !important; }
+  }
 </style>
 </head>
 <body>
+<script>
+/* iOS audio unlock: create and unlock an AudioContext on the first native touch
+   so that when initAudio() runs later it can resume cleanly. Fires in capture
+   phase so it beats any synthetic React/event-system handlers. The unlocked
+   context is stashed on window._kbAudioCtx and consumed by initAudio(). */
+(function(){
+  function unlock(){
+    try{
+      var c = new (window.AudioContext || window.webkitAudioContext)();
+      var b = c.createBuffer(1, 1, c.sampleRate);
+      var s = c.createBufferSource();
+      s.buffer = b;
+      s.connect(c.destination);
+      s.start(0);
+      c.resume();
+      window._kbAudioCtx = c;
+    } catch(e){}
+    document.removeEventListener('touchstart', unlock, true);
+    document.removeEventListener('touchend',   unlock, true);
+    document.removeEventListener('mousedown',  unlock, true);
+  }
+  document.addEventListener('touchstart', unlock, true);
+  document.addEventListener('touchend',   unlock, true);
+  document.addEventListener('mousedown',  unlock, true);
+})();
+</script>
 <header class="brand">
   <div>
     <h1>kaosbrk<span class="red">.</span></h1>
@@ -506,9 +626,16 @@ const irange=(rng,lo,hi)=>Math.floor(lo+rng()*(hi-lo+1));
 const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
 
 let ctx=null,masterGain=null,noiseBuf=null,padBus=null;const distShapers={};
+const _kbIsMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+let _kbIosAudio = null; // HTMLAudioElement keepalive for iOS audio session
 function initAudio(){
   if(ctx)return;
-  ctx=new(window.AudioContext||window.webkitAudioContext)();
+  // Reuse the pre-unlocked AudioContext from the body-level touch handler if present.
+  // This is critical on iOS Safari: a context created from a user gesture earlier
+  // in the page lifecycle keeps audio session privileges that a fresh context lacks.
+  if (window._kbAudioCtx) { ctx = window._kbAudioCtx; window._kbAudioCtx = null; }
+  else ctx=new(window.AudioContext||window.webkitAudioContext)();
+  if (ctx.state === 'suspended') ctx.resume();
   masterGain=ctx.createGain();masterGain.gain.value=isMuted?0.0001:UNMUTED_GAIN;
   // User-controllable master fader (separate from the mute toggle)
   masterMixGain=ctx.createGain();masterMixGain.gain.value=masterMixState.gain;
@@ -573,6 +700,26 @@ function initAudio(){
   const len=ctx.sampleRate*1.0;
   noiseBuf=ctx.createBuffer(1,len,ctx.sampleRate);
   const d=noiseBuf.getChannelData(0);for(let i=0;i<len;i++)d[i]=Math.random()*2-1;
+  // iOS Safari audio session keepalive: route the full audio graph through an
+  // HTMLAudioElement via a MediaStreamDestination. Web Audio alone often fails to
+  // fully activate the iOS audio session, but a real <audio> element playing the
+  // same stream forces iOS to treat this as a media-playing tab. Once started,
+  // this also survives background/foreground transitions much more reliably.
+  if (_kbIsMobile && ctx.createMediaStreamDestination && !_kbIosAudio) {
+    try {
+      const msDest = ctx.createMediaStreamDestination();
+      limiter.connect(msDest);
+      _kbIosAudio = document.createElement('audio');
+      _kbIosAudio.setAttribute('playsinline', '');
+      _kbIosAudio.setAttribute('webkit-playsinline', '');
+      _kbIosAudio.muted = false;
+      _kbIosAudio.srcObject = msDest.stream;
+      const tryPlay = () => { _kbIosAudio.play().catch(() => {}); };
+      tryPlay();
+      // Retry on next user gesture if iOS rejected first play
+      document.addEventListener('touchend', tryPlay, { once: true, capture: true });
+    } catch (e) {}
+  }
 }
 function makeReverb(seconds,decay){
   const rate=ctx.sampleRate;const len=rate*seconds;
@@ -2249,8 +2396,25 @@ function stopPlayback() {
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && ctx && ctx.state === 'suspended') {
     ctx.resume();
+    if (_kbIosAudio) { try { _kbIosAudio.play(); } catch(e){} }
   }
 });
+// Touch recovery: if iOS suspends the context mid-session (background, lock, call),
+// any subsequent touch should kick it back to life. Capture phase so it runs first.
+document.addEventListener('touchstart', () => {
+  if (ctx && ctx.state === 'suspended') {
+    ctx.resume();
+    if (_kbIosAudio && _kbIosAudio.paused) { try { _kbIosAudio.play(); } catch(e){} }
+  }
+}, { passive: true, capture: true });
+// Periodic watchdog for stubborn iOS cases. 750ms is enough to not waste CPU but
+// fast enough to catch a suspended context before the user notices silence.
+setInterval(() => {
+  if (ctx && scheduler.isPlaying && ctx.state === 'suspended') {
+    ctx.resume();
+    if (_kbIosAudio && _kbIosAudio.paused) { try { _kbIosAudio.play(); } catch(e){} }
+  }
+}, 750);
 
 /* ---------- VISUALIZATION ---------------------------------------------- */
 const canvas = document.getElementById('pattern-canvas');
@@ -3976,6 +4140,14 @@ const gridWrap = document.querySelector('.right-col > .grid-wrap');
 const mixerPanel = document.querySelector('.mixer-panel');
 if (leftCol && rightCol && gridWrap && mixerPanel) {
   const syncHeight = () => {
+    // On mobile (single-column layout) we let CSS control heights.
+    // Desktop locks the right column to the left column's height to fill space evenly.
+    if (window.innerWidth <= 600) {
+      rightCol.style.height = '';
+      gridWrap.style.height = '';
+      if (currentPattern) drawPattern();
+      return;
+    }
     const targetH = leftCol.getBoundingClientRect().height;
     if (targetH <= 0) return;
     rightCol.style.height = targetH + 'px';
