@@ -700,15 +700,23 @@ function initAudio(){
   const len=ctx.sampleRate*1.0;
   noiseBuf=ctx.createBuffer(1,len,ctx.sampleRate);
   const d=noiseBuf.getChannelData(0);for(let i=0;i<len;i++)d[i]=Math.random()*2-1;
-  // iOS Safari audio session keepalive: route the full audio graph through an
-  // HTMLAudioElement via a MediaStreamDestination. Web Audio alone often fails to
-  // fully activate the iOS audio session, but a real <audio> element playing the
-  // same stream forces iOS to treat this as a media-playing tab. Once started,
-  // this also survives background/foreground transitions much more reliably.
+  // iOS Safari audio session keepalive: a hidden <audio> element playing a
+  // MediaStream tricks iOS into treating this tab as a media tab so the audio
+  // session stays active through backgrounding, screen lock, etc.
+  // CRITICAL: the MediaStream carries ONLY a silent 1Hz oscillator at -60dB,
+  // NOT the actual audio output. Routing real audio through both ctx.destination
+  // AND the <audio> element causes a flam (the MediaStream path has ~20-100ms
+  // of buffering latency, so you'd hear every hit twice, slightly offset).
   if (_kbIsMobile && ctx.createMediaStreamDestination && !_kbIosAudio) {
     try {
       const msDest = ctx.createMediaStreamDestination();
-      limiter.connect(msDest);
+      const silOsc = ctx.createOscillator();
+      const silGain = ctx.createGain();
+      silOsc.frequency.value = 1;
+      silGain.gain.value = 0.001;
+      silOsc.connect(silGain);
+      silGain.connect(msDest);
+      silOsc.start();
       _kbIosAudio = document.createElement('audio');
       _kbIosAudio.setAttribute('playsinline', '');
       _kbIosAudio.setAttribute('webkit-playsinline', '');
