@@ -293,6 +293,168 @@
     .mixer-row { grid-template-columns: repeat(3, 1fr) !important; }
     .right-col > .grid-wrap { height: 220px !important; }
   }
+
+  /* ============================================================
+     USER REFERENCE MANUAL
+     Triggered by tapping the kaosbrk wordmark.
+     Visual language matches the rest of the app: dark panel, sharp
+     edges, hazard accents, JetBrains/Major Mono fonts.
+     ============================================================ */
+  .brand h1 { cursor: pointer; user-select: none; transition: opacity 0.12s; }
+  .brand h1:hover { opacity: 0.78; }
+  .manual-overlay {
+    position: fixed; inset: 0; z-index: 200;
+    background: rgba(0,0,0,0.84);
+    display: flex; align-items: flex-start; justify-content: center;
+    padding: 5vh 16px;
+    overflow-y: auto;
+    animation: manualFade 0.14s ease-out;
+  }
+  @keyframes manualFade { from { opacity: 0; } to { opacity: 1; } }
+  .manual {
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--hazard);
+    max-width: 760px;
+    width: 100%;
+    color: var(--fg);
+    font-size: 12px;
+    line-height: 1.55;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.6), 0 24px 60px rgba(0,0,0,0.6);
+    position: relative;
+  }
+  .manual-header {
+    padding: 18px 22px 14px;
+    border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0;
+    background: var(--bg-2);
+    z-index: 1;
+  }
+  .manual-header h2 {
+    font-family: 'Major Mono Display', monospace;
+    font-size: 22px;
+    letter-spacing: 0.04em;
+    color: var(--fg);
+    margin: 0;
+    text-transform: none;
+    border: none;
+    padding: 0;
+    display: block;
+  }
+  .manual-header h2 .red { color: var(--pulse); }
+  .manual-header h2 .sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: var(--fg-dim);
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    margin-left: 12px;
+    vertical-align: 4px;
+  }
+  .manual-close {
+    width: 30px; height: 30px; padding: 0;
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--fg-dim);
+    font-size: 18px; font-weight: bold;
+    line-height: 1;
+    cursor: pointer;
+    flex-shrink: 0;
+    letter-spacing: 0;
+  }
+  .manual-close:hover { color: var(--pulse); border-color: var(--pulse); background: transparent; }
+  .manual-body { padding: 18px 22px 22px; }
+  .manual-section { margin-bottom: 22px; }
+  .manual-section:last-child { margin-bottom: 0; }
+  .manual-section h3 {
+    font-family: 'Major Mono Display', monospace;
+    font-size: 11px;
+    color: var(--fg-dim);
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    margin: 0 0 10px 0;
+    padding-bottom: 6px;
+    border-bottom: 1px dotted var(--line);
+    display: flex; align-items: center; justify-content: space-between;
+    font-weight: normal;
+  }
+  .manual-section h3 .glyph { color: var(--hazard); }
+  .manual-section p { margin: 0 0 8px 0; color: var(--fg); }
+  .manual-section p:last-child { margin-bottom: 0; }
+  .manual-section .lead { color: var(--fg); }
+  .manual-section .dim { color: var(--fg-dim); }
+  .manual-section ul {
+    list-style: none; padding: 0; margin: 0 0 4px 0;
+  }
+  .manual-section li {
+    padding: 4px 0 4px 14px;
+    position: relative;
+    color: var(--fg);
+    border-bottom: 1px dotted var(--line);
+  }
+  .manual-section li:last-child { border-bottom: none; }
+  .manual-section li::before {
+    content: "▸";
+    position: absolute; left: 0; top: 4px;
+    color: var(--cool);
+    font-size: 10px;
+  }
+  .manual-section li b { color: var(--hazard); font-weight: 700; }
+  .manual-section li code, .manual-section p code, .manual-section .pill {
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--bg-3);
+    border: 1px solid var(--line);
+    padding: 0 5px;
+    font-size: 10px;
+    color: var(--cool);
+    letter-spacing: 0.04em;
+  }
+  .manual-routing {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+    margin-top: 4px;
+  }
+  .manual-routing th, .manual-routing td {
+    padding: 4px 8px;
+    border-bottom: 1px dotted var(--line);
+    text-align: left;
+  }
+  .manual-routing th {
+    font-size: 9px;
+    color: var(--fg-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-weight: normal;
+    padding-bottom: 6px;
+  }
+  .manual-routing td.voice { color: var(--fg); }
+  .manual-routing td.voice b { color: var(--hazard); font-weight: 700; }
+  .manual-routing td.ch { color: var(--cool); font-variant-numeric: tabular-nums; }
+  .manual-routing td.note { color: var(--fg-dim); font-variant-numeric: tabular-nums; }
+  .manual-footer {
+    padding: 12px 22px;
+    border-top: 1px solid var(--line);
+    font-size: 9px;
+    color: var(--fg-dim);
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    text-align: center;
+  }
+  .manual-footer .accent { color: var(--hazard); }
+  .manual-footer .cool { color: var(--cool); }
+  @media (max-width: 600px) {
+    .manual-overlay { padding: 12px; align-items: flex-start; }
+    .manual-header { padding: 14px 14px 10px; }
+    .manual-header h2 { font-size: 18px; }
+    .manual-header h2 .sub { display: none; }
+    .manual-body { padding: 14px; }
+    .manual-section h3 { font-size: 10px; letter-spacing: 0.18em; }
+    .manual-section { margin-bottom: 18px; }
+    .manual-routing th, .manual-routing td { padding: 3px 6px; font-size: 10px; }
+    .manual-footer { padding: 10px 14px; font-size: 8px; letter-spacing: 0.16em; }
+  }
 </style>
 </head>
 <body>
@@ -611,6 +773,131 @@
   </div>
 </aside>
 </main>
+
+<!-- ============================================================
+     USER REFERENCE MANUAL (opened by tapping the kaosbrk wordmark)
+     ============================================================ -->
+<div id="manual-overlay" class="manual-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="manual-title">
+  <div class="manual" id="manual-panel">
+    <div class="manual-header">
+      <h2 id="manual-title">kaosbrk<span class="red">.</span><span class="sub">user reference</span></h2>
+      <button class="manual-close" id="manual-close" aria-label="close manual">×</button>
+    </div>
+    <div class="manual-body">
+
+      <div class="manual-section">
+        <h3>break source <span class="glyph">⌘</span></h3>
+        <p>Drop or tap to upload audio. KAOSBRK runs onset detection and classifies each slice (kick, loud snare, ghost, closed hat, open hat). The waveform shows slice boundaries colored by class.</p>
+        <ul>
+          <li><b>tap</b> a slice to preview it.</li>
+          <li><b>shift+tap</b> a slice to cycle its class: kick, loud, ghost, closed-hat, open-hat, off, auto.</li>
+          <li><b>onset sensitivity</b> tightens or loosens detection. Higher catches more transients.</li>
+          <li><b>break pitch-up</b> multiplies all slice playback rates from <code>0.50×</code> to <code>2.00×</code>. Above <code>1.00×</code> raises pitch (faster, brighter), below lowers it.</li>
+          <li><b>re-detect</b> re-runs onset detection with the current sensitivity.</li>
+          <li><b>use slices for drums</b> routes the classified slices into the generator's drum voices. Off uses the built-in synth drums.</li>
+        </ul>
+      </div>
+
+      <div class="manual-section">
+        <h3>recipe + generator <span class="glyph">◉</span></h3>
+        <p>A <b>reference preset</b> loads a complete recipe (style, time sig, BPM, scale, faders, FX). <code>custom</code> keeps your current settings untouched.</p>
+        <ul>
+          <li><b>style</b> picks the rhythmic vocabulary: motifs, BPM range, micro-timing, accent profile.</li>
+          <li><b>time sig</b> sets bar length and step count (4/4 in 16 steps, 7/4 in 28, etc.).</li>
+          <li><b>phrase form</b> arranges bars across the loop. <code>AABA</code> repeats with a bridge, <code>ABAC'</code> climaxes at the end, and so on.</li>
+          <li><b>pitched snare</b>, <b>pad</b>, <b>sub</b> toggle the melodic voices.</li>
+          <li><b>seed</b> determines the RNG. Leave empty for a fresh roll on each generate. Save the seed pill if you want to reproduce a result.</li>
+          <li><b>generate break</b> rolls the full pattern. <b>re-roll</b> (top bar) regenerates only what isn't locked.</li>
+        </ul>
+      </div>
+
+      <div class="manual-section">
+        <h3>cleverness <span class="glyph">▲</span></h3>
+        <p>Three vertical faders shape generation behavior. Each runs 0 to 1.</p>
+        <ul>
+          <li><b>POLYMETER.</b> Chance of off-grid accents that cut across the 4/4 pulse. Higher means more displacement.</li>
+          <li><b>ORNAMENT.</b> Density of secondary hits between skeleton beats. <code>0</code> is the bare skeleton, <code>1</code> is maxed-out fill.</li>
+          <li><b>CHAOS.</b> Stutter, velocity jitter, pitch shift, step reordering. Past <code>0.5</code> the break starts eating itself.</li>
+        </ul>
+      </div>
+
+      <div class="manual-section">
+        <h3>pattern grid <span class="glyph">▦</span></h3>
+        <ul>
+          <li><b>tap</b> an empty cell to add a hit.</li>
+          <li><b>tap then drag vertically</b> on an existing hit to set velocity. <b>Drag horizontally</b> to erase along the path.</li>
+          <li><b>shift+tap</b> a hit to cycle which slice fires (kick, loud, ghost, closed, open, off, auto).</li>
+          <li><b>tap a voice label</b> on the left to lock that voice. Re-roll won't touch it.</li>
+          <li><b>tap a bar number</b> on top to lock that bar. Re-roll won't touch it.</li>
+          <li><b>clear</b> wipes the pattern. <b>re-roll</b> regenerates everything that isn't locked.</li>
+        </ul>
+      </div>
+
+      <div class="manual-section">
+        <h3>fx chain <span class="glyph">⚡</span></h3>
+        <ul>
+          <li><b>sidechain</b> ducks the pad on every kick.</li>
+          <li><b>comb filter</b> is a short-delay resonator. <code>wet</code> mixes it in, <code>delay</code> sets the period from 2 to 80 ms, <code>feedback</code> sets resonance (up to 0.92).</li>
+          <li><b>bitcrush</b> reduces bit depth from <code>14</code> down to <code>2</code>. Lower bits, cruder sound.</li>
+          <li><b>drive</b> is waveshaping distortion. <code>wet</code> mixes it in, <code>amount</code> sets curve hardness.</li>
+        </ul>
+      </div>
+
+      <div class="manual-section">
+        <h3>mixer <span class="glyph">▤</span></h3>
+        <p>Each voice has a vertical fader, pan knob, and <b>S</b>/<b>M</b> (solo/mute). Fader range is <code>−∞</code> to <code>+3 dB</code> with unity at <code>0</code>. The <b>MAST</b> strip on the right is the master output, with meter and master mute.</p>
+        <p class="dim">Note: the <b>LD</b> (lead) channel is muted by default. Unmute it if you want the melodic lead in your output.</p>
+      </div>
+
+      <div class="manual-section">
+        <h3>midi live out <span class="glyph">❖</span></h3>
+        <p><b>init</b> opens Web MIDI and lists outputs. Choose a port and KAOSBRK sends notes as the pattern plays. Routing is fixed and GM-compatible:</p>
+        <table class="manual-routing">
+          <thead>
+            <tr><th>voice</th><th>ch</th><th>note</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="voice"><b>KK</b> kick</td><td class="ch">10</td><td class="note">36</td></tr>
+            <tr><td class="voice"><b>SN</b> snare</td><td class="ch">10</td><td class="note">38</td></tr>
+            <tr><td class="voice"><b>CL</b> clap</td><td class="ch">10</td><td class="note">39</td></tr>
+            <tr><td class="voice"><b>CH</b> closed hat</td><td class="ch">10</td><td class="note">42</td></tr>
+            <tr><td class="voice"><b>OH</b> open hat</td><td class="ch">10</td><td class="note">46</td></tr>
+            <tr><td class="voice"><b>RM</b> rim</td><td class="ch">10</td><td class="note">37</td></tr>
+            <tr><td class="voice"><b>TM</b> tom</td><td class="ch">10</td><td class="note">41</td></tr>
+            <tr><td class="voice"><b>PC</b> perc</td><td class="ch">10</td><td class="note">56</td></tr>
+            <tr><td class="voice"><b>LD</b> lead</td><td class="ch">1</td><td class="note">melody</td></tr>
+            <tr><td class="voice"><b>PD</b> pad</td><td class="ch">2</td><td class="note">chord</td></tr>
+            <tr><td class="voice"><b>SB</b> sub</td><td class="ch">3</td><td class="note">bass</td></tr>
+          </tbody>
+        </table>
+        <p style="margin-top:10px;"><b>panic</b> sends all-notes-off across every channel. <b>mute audio</b> silences local Web Audio output while still sending MIDI, so you can drive Logic or a hardware synth without doubling.</p>
+      </div>
+
+      <div class="manual-section">
+        <h3>export <span class="glyph">⤓</span></h3>
+        <ul>
+          <li><b>save .json</b> captures the full state: pattern, recipe, FX, mixer, locks, break-source reference.</li>
+          <li><b>load .json</b> restores it.</li>
+          <li><b>render .wav</b> bounces the current loop to audio.</li>
+          <li><b>export .mid</b> writes a multi-track MIDI file using the routing above.</li>
+        </ul>
+      </div>
+
+      <div class="manual-section">
+        <h3>shortcuts <span class="glyph">⌨</span></h3>
+        <ul>
+          <li><b>spacebar.</b> toggle play.</li>
+          <li><b>tap the kaosbrk wordmark.</b> open this reference.</li>
+          <li><b>esc.</b> close this reference.</li>
+        </ul>
+      </div>
+
+    </div>
+    <div class="manual-footer">
+      <span class="accent">kaosbrk</span> · glitch break generator · <span class="cool">web audio + live midi</span>
+    </div>
+  </div>
+</div>
 
 <script>
 /* =========================================================================
@@ -4183,6 +4470,36 @@ if (leftCol && rightCol && gridWrap && mixerPanel) {
   }
 }
 });
+
+// === User reference manual (opened by tapping the kaosbrk wordmark) ===
+(function setupManual() {
+  const overlay = document.getElementById('manual-overlay');
+  const closeBtn = document.getElementById('manual-close');
+  const wordmark = document.querySelector('.brand h1');
+  if (!overlay || !closeBtn || !wordmark) return;
+
+  function openManual() {
+    overlay.style.display = 'flex';
+    overlay.scrollTop = 0;
+    const panel = document.getElementById('manual-panel');
+    if (panel) panel.scrollTop = 0;
+  }
+  function closeManual() { overlay.style.display = 'none'; }
+
+  wordmark.setAttribute('title', 'reference: features, shortcuts, midi routing');
+  wordmark.setAttribute('role', 'button');
+  wordmark.setAttribute('tabindex', '0');
+  wordmark.addEventListener('click', openManual);
+  wordmark.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openManual(); }
+  });
+
+  closeBtn.addEventListener('click', closeManual);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeManual(); });
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && overlay.style.display === 'flex') closeManual();
+  });
+})();
 </script>
 </body>
 </html>
