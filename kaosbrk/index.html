@@ -916,13 +916,15 @@
       <div class="manual-section">
         <h3>pattern grid <span class="glyph">▦</span></h3>
         <ul>
-          <li><b>tap</b> an empty cell to add a hit.</li>
+          <li><b>tap</b> an empty cell to add a hit. On melodic voices (LD, PD, SB) the note arrives on the tonic of the active scale and is recognized by both live MIDI and .mid export.</li>
           <li><b>tap then drag vertically</b> on an existing hit to set velocity. <b>Drag horizontally</b> to erase along the path.</li>
-          <li><b>shift+tap</b> a hit to cycle which slice fires (kick, loud, ghost, closed, open, off, auto).</li>
+          <li><b>shift+tap</b> a drum hit (with a loaded break and slices enabled) to cycle which slice fires (kick, loud, ghost, closed, open, off, auto).</li>
+          <li><b>shift+tap</b> a melodic hit (LD, PD, SB) to cycle up one scale degree. <b>shift+alt+tap</b> cycles down. Octaves wrap inside each voice's natural range. Microtonal scales (rast, sikah, etc.) cycle through their quarter-tone intervals exactly.</li>
           <li><b>tap a voice label</b> on the left to lock that voice. Re-roll won't touch it.</li>
           <li><b>tap a bar number</b> on top to lock that bar. Re-roll won't touch it.</li>
           <li><b>clear</b> wipes the pattern. <b>re-roll</b> regenerates everything that isn't locked.</li>
         </ul>
+        <p class="dim">Pitch labels: lead and pitched-snare cells show the semitone offset from middle C (with a decimal for quarter tones). Pad cells show the chord-root note name in the upper left. Sub cells show the note name only when pitched away from the default C2, keeping generated patterns visually clean.</p>
       </div>
 
       <div class="manual-section">
@@ -3562,6 +3564,19 @@ function drawPattern() {
         const nextPadIdx = (() => { for (let j = i + 1; j < totalSteps; j++) if (p.channels.PD[j]) return j; return totalSteps; })();
         const padW = (nextPadIdx - i) * cellW - 2;
         cctx.fillRect(x, y + 2, padW, fullH);
+        // Chord root note name, top-left of the pad cell. Visible at a glance
+        // so cycled pad chords announce themselves.
+        if (padW >= 22 && fullH >= 14) {
+          const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+          const root = Math.min(...ev.chord);
+          const r = Math.round(root);
+          const noteIdx = ((r % 12) + 12) % 12;
+          const isMicro = Math.abs(root - r) > 0.01;
+          cctx.fillStyle = 'rgba(0,0,0,0.75)';
+          cctx.font = "bold 9px 'JetBrains Mono', monospace";
+          cctx.textAlign = 'left';
+          cctx.fillText(NOTE_NAMES[noteIdx] + (isMicro ? '~' : ''), x + 4, y + 12);
+        }
       } else {
         // Anchors and ornaments: bar height = velocity, anchored to bottom
         cctx.fillRect(x, barY, w, barH);
@@ -3582,11 +3597,30 @@ function drawPattern() {
           cctx.textBaseline = 'middle';
         }
       }
-      if (ev.pitch && ev.pitch !== 0 && Math.abs(ev.pitch) >= 1 && barH >= 12) {
+      // Pitch label: shows the semitone offset on cells where the painted or
+      // generated pitch differs from the tonic. Handles fractional values
+      // produced by microtonal scales (rast, sikah, etc.). Previously these
+      // were misrounded by .toFixed(0), so a quarter-flat third showed as "+4".
+      if (ev.pitch && ev.pitch !== 0 && Math.abs(ev.pitch) >= 0.5 && barH >= 12) {
         cctx.fillStyle = '#fff';
         cctx.font = "8px 'JetBrains Mono', monospace";
         cctx.textAlign = 'center';
-        cctx.fillText((ev.pitch > 0 ? '+' : '') + ev.pitch.toFixed(0), x + w / 2, barY + 8);
+        const isInt = ev.pitch === Math.floor(ev.pitch);
+        const num = isInt ? ev.pitch.toFixed(0) : ev.pitch.toFixed(1);
+        cctx.fillText((ev.pitch > 0 ? '+' : '') + num, x + w / 2, barY + 8);
+      }
+      // Sub bass note label: only shown when the sub has been pitched away
+      // from its default (MIDI 36 = C2), to keep generated patterns visually clean.
+      if (v === 'SB' && ev.midiPitch !== undefined && ev.midiPitch !== null
+          && Math.abs(ev.midiPitch - 36) >= 0.5 && barH >= 12) {
+        const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+        const r = Math.round(ev.midiPitch);
+        const noteIdx = ((r % 12) + 12) % 12;
+        const isMicro = Math.abs(ev.midiPitch - r) > 0.01;
+        cctx.fillStyle = '#fff';
+        cctx.font = "8px 'JetBrains Mono', monospace";
+        cctx.textAlign = 'center';
+        cctx.fillText(NOTE_NAMES[noteIdx] + (isMicro ? '~' : ''), x + w / 2, barY + 8);
       }
     }
   }
@@ -3697,12 +3731,34 @@ function toggleCellHit(voice, step) {
   } else {
     const vel = beatStrength(step % currentPattern.barSteps, currentPattern.barSteps) * 0.85 + 0.15;
     const newEv = { vel, pitch: 0, microMs: 0, kind: 'anchor', stutter: null };
+
+    // Drum voices: optionally assign a break-classified slice.
     if (currentPattern.useSlices && loadedBreak && VOICES[voice].cls) {
       const targetCls = VOICES[voice].cls;
       const rng = makeRng(strToSeed('edit-' + Date.now() + '-' + voice + '-' + step));
       const slice = pickSlice(targetCls, rng, 0);
       if (slice) newEv.sliceData = { slice, reverse: false };
     }
+
+    // Melodic voices: scale-aware defaults. A fresh note arrives on the
+    // tonic of the active scale, sounding immediately coherent with what
+    // the generator produced. Shift+tap then cycles through scale degrees
+    // (see cyclePitchAtCell). The 'kind' field also makes MIDI export emit
+    // the painted note; previously, hand-painted leads were silently
+    // dropped from MIDI export because they had kind='anchor'.
+    if (voice === 'LD') {
+      const scale = SCALES[ui.scale.value] || SCALES.chromatic;
+      newEv.pitch = scale[0];
+      newEv.kind = 'melody';
+    } else if (voice === 'PD') {
+      newEv.chord = chordForScale(ui.scale.value, 48);
+      newEv.kind = 'pad';
+    } else if (voice === 'SB') {
+      const scale = SCALES[ui.scale.value] || SCALES.chromatic;
+      newEv.midiPitch = 36 + scale[0];
+      newEv.kind = 'sub';
+    }
+
     currentPattern.channels[voice][step] = newEv;
   }
   drawPattern();
@@ -3739,6 +3795,157 @@ function cycleSliceAtCell(voice, step) {
   initAudio();
   if (ctx.state === 'suspended') ctx.resume();
   fireSlice(ctx.currentTime + 0.02, ev.sliceData.slice, Math.max(0.7, ev.vel), ev.pitch || 0, ev.sliceData.reverse);
+}
+
+// === Pitch editing for melodic voices ====================================
+// Painted notes on LD/PD/SB start at the tonic of the active scale (set in
+// toggleCellHit). Shift+tap on a melodic cell cycles the note up by one
+// scale degree; shift+alt+tap cycles it down. Octaves wrap inside a sensible
+// per-voice range so repeated taps stay musical and never run away. All four
+// helpers below work with the current ui.scale.value and handle microtonal
+// scales (rast, sikah, etc.) since the synth path already accepts floats.
+
+// Snap a pitch class (semitones-within-octave, 0..12) to the nearest scale
+// degree. Used both when stepping a note and when interpreting legacy notes
+// painted under a different scale.
+function snapToScaleDeg(pitchClass, scale) {
+  let best = 0, bestDist = Infinity;
+  for (let d = 0; d < scale.length; d++) {
+    const dist = Math.abs(scale[d] - pitchClass);
+    if (dist < bestDist) { bestDist = dist; best = d; }
+  }
+  return best;
+}
+
+// Build a triad on a given scale degree using stacked thirds (every other
+// degree, modulo wrap). When the upper notes wrap past the top of the scale
+// we add 12 semitones per wrap so the triad stays stacked upward rather than
+// collapsing inside the root octave. Works for any scale length: pentatonics
+// stack 1-3-5 of the pent (every other), heptatonic scales stack 1-3-5 as
+// expected, Messiaen 7 (10-note) stacks at indices 0,2,4.
+function triadOnDegree(scale, deg, root) {
+  const n = scale.length;
+  const intervalAt = (offset) => {
+    const idx = (deg + offset) % n;
+    const wraps = Math.floor((deg + offset) / n);
+    return scale[idx] + wraps * 12;
+  };
+  const base = intervalAt(0);
+  return [root, root + (intervalAt(2) - base), root + (intervalAt(4) - base)];
+}
+
+// Audibly preview a single melodic-voice event. Called after a pitch cycle
+// so the edit is heard immediately, without waiting for the sequencer to
+// loop back around to that step.
+function previewMelodicNote(voice, step) {
+  if (!currentPattern) return;
+  initAudio();
+  if (ctx && ctx.state === 'suspended') { try { ctx.resume(); } catch (e) {} }
+  const ev = currentPattern.channels[voice][step];
+  if (!ev) return;
+  const t = ctx.currentTime + 0.02;
+  const vel = Math.max(0.7, ev.vel || 0.8);
+  const tone = currentPattern.tone || {};
+  if (voice === 'LD') VOICES.LD.fn(t, vel, 60 + (ev.pitch || 0), tone);
+  else if (voice === 'PD') VOICES.PD.fn(t, vel, ev.chord || [60, 63, 67], tone);
+  else if (voice === 'SB') VOICES.SB.fn(t, vel, ev.midiPitch || 36, tone);
+}
+
+// Human-readable status line for a melodic note. Microtonal pitches show with
+// a "~" suffix on the note name to indicate quarter-tone offset.
+function formatPitchStatus(voice, ev, scaleKey) {
+  const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+  const scale = SCALES[scaleKey] || SCALES.chromatic;
+  const noteLabel = (midi) => {
+    const isMicro = Math.abs(midi - Math.round(midi)) > 0.01;
+    const rounded = Math.round(midi);
+    const idx = ((rounded % 12) + 12) % 12;
+    const oct = Math.floor(rounded / 12) - 1; // MIDI 60 = C4
+    return NOTE_NAMES[idx] + oct + (isMicro ? '~' : '');
+  };
+  if (voice === 'LD') {
+    const midi = 60 + (ev.pitch || 0);
+    const pc = (((ev.pitch || 0) % 12) + 12) % 12;
+    const deg = snapToScaleDeg(pc, scale) + 1;
+    return `lead · ${noteLabel(midi)}, degree ${deg} of ${scaleKey}`;
+  }
+  if (voice === 'SB') {
+    const midi = ev.midiPitch || 36;
+    const pc = ((midi % 12) + 12) % 12;
+    const deg = snapToScaleDeg(pc, scale) + 1;
+    return `sub · ${noteLabel(midi)}, degree ${deg} of ${scaleKey}`;
+  }
+  if (voice === 'PD') {
+    const root = Math.min(...(ev.chord || [60]));
+    const pc = ((root % 12) + 12) % 12;
+    const deg = snapToScaleDeg(pc, scale) + 1;
+    return `pad · ${noteLabel(root)} chord, degree ${deg} of ${scaleKey}`;
+  }
+  return '';
+}
+
+// Cycle a painted melodic note by one scale degree.
+//   direction = +1  →  up
+//   direction = -1  →  down
+// Per-voice ranges (wraps modulo when pushed past either end):
+//   LD: ±1 octave around middle C  (pitch offset in [-12, +12])
+//   SB: ±1 octave around C2        (midiPitch in [24, 48])
+//   PD: chord root in C3..C5       (root MIDI in [48, 72])
+// The current pitch is snapped to its nearest scale tone before stepping,
+// so legacy notes (pitch was always 0) and notes painted under a previous
+// scale both cycle predictably. We work in "absolute scale-step indices"
+// (oct * scaleLen + deg) so the wrap math doesn't need separate clamps for
+// octave and degree.
+function cyclePitchAtCell(voice, step, direction) {
+  if (!currentPattern) {
+    setStatus('no pattern loaded · generate one first', 'error');
+    return;
+  }
+  const ev = currentPattern.channels[voice][step];
+  if (!ev) {
+    setStatus('shift+tap edits an existing note · click first to add one', 'error');
+    return;
+  }
+  const scaleKey = ui.scale.value;
+  const scale = SCALES[scaleKey] || SCALES.chromatic;
+  const n = scale.length;
+
+  // Translate an offset (semitones) into an absolute scale-step index and back.
+  const offsetToAbs = (off) => Math.floor(off / 12) * n + snapToScaleDeg(((off % 12) + 12) % 12, scale);
+  const absToOffset = (abs) => Math.floor(abs / n) * 12 + scale[((abs % n) + n) % n];
+
+  if (voice === 'LD') {
+    let abs = offsetToAbs(ev.pitch || 0) + direction;
+    const range = n * 2 + 1;                  // [-n, +n] inclusive = 2 octaves
+    while (abs > n) abs -= range;
+    while (abs < -n) abs += range;
+    ev.pitch = absToOffset(abs);
+    if (ev.kind !== 'melody') ev.kind = 'melody'; // ensure MIDI export emits it
+  } else if (voice === 'SB') {
+    // Anchor at C2 (MIDI 36). Relative offset = midiPitch - 36.
+    const cur = (ev.midiPitch !== undefined && ev.midiPitch !== null) ? ev.midiPitch : 36;
+    let abs = offsetToAbs(cur - 36) + direction;
+    const range = n * 2 + 1;                  // ±1 octave around C2 = MIDI 24..48
+    while (abs > n) abs -= range;
+    while (abs < -n) abs += range;
+    ev.midiPitch = 36 + absToOffset(abs);
+  } else if (voice === 'PD') {
+    if (!ev.chord || !ev.chord.length) ev.chord = chordForScale(scaleKey, 48);
+    const curRoot = Math.min(...ev.chord);
+    // Anchor at C3 (MIDI 48), range C3..C5 (MIDI 48..72) = +0 to +2 octaves
+    let abs = offsetToAbs(curRoot - 48) + direction;
+    const range = n * 2 + 1;                  // 0..+2 octaves but range still n*2+1 positions
+    while (abs > n * 2) abs -= range;
+    while (abs < 0) abs += range;
+    const root = 48 + absToOffset(abs);
+    const deg = ((abs % n) + n) % n;
+    ev.chord = triadOnDegree(scale, deg, root);
+  } else {
+    return;
+  }
+  drawPattern();
+  previewMelodicNote(voice, step);
+  setStatus(formatPitchStatus(voice, ev, scaleKey), 'success');
 }
 
 // Canvas pointer interaction model:
@@ -3814,7 +4021,13 @@ canvas.addEventListener('pointerdown', (e) => {
   }
   if (target.area === 'cell') {
     if (e.shiftKey) {
-      cycleSliceAtCell(target.voice, target.step);
+      // Melodic voices: cycle through scale degrees. alt for downward.
+      // Drum voices: cycle through assigned break slices (legacy behavior).
+      if (target.voice === 'LD' || target.voice === 'PD' || target.voice === 'SB') {
+        cyclePitchAtCell(target.voice, target.step, e.altKey ? -1 : 1);
+      } else {
+        cycleSliceAtCell(target.voice, target.step);
+      }
       return;
     }
     const existing = currentPattern.channels[target.voice][target.step];
