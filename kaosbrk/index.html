@@ -916,7 +916,7 @@
       <div class="manual-section">
         <h3>pattern grid <span class="glyph">▦</span></h3>
         <ul>
-          <li><b>tap</b> an empty cell to add a hit. On melodic voices (LD, PD, SB) the note arrives on the tonic of the active scale and is recognized by both live MIDI and .mid export.</li>
+          <li><b>tap</b> an empty cell to add a hit. On melodic voices (LD, PD, SB) the note inherits the last pitch you painted or cycled on that voice. The first paint after <b>clear</b> or a fresh JSON load is the scale tonic. Painted notes are recognized by both live MIDI and .mid export.</li>
           <li><b>tap then drag vertically</b> on an existing hit to set velocity. <b>Drag horizontally</b> to erase along the path.</li>
           <li><b>shift+tap</b> a drum hit (with a loaded break and slices enabled) to cycle which slice fires (kick, loud, ghost, closed, open, off, auto).</li>
           <li><b>shift+tap</b> a melodic hit (LD, PD, SB) to cycle up one scale degree. <b>shift+alt+tap</b> cycles down. Octaves wrap inside each voice's natural range. Microtonal scales (rast, sikah, etc.) cycle through their quarter-tone intervals exactly.</li>
@@ -3376,6 +3376,13 @@ const canvas = document.getElementById('pattern-canvas');
 const cctx = canvas.getContext('2d');
 const wfCanvas = document.getElementById('waveform-canvas');
 let currentPattern = null;
+// Active paint pitch per melodic voice. A fresh paint on LD/PD/SB inherits
+// this so you can lay down a repeated note or a stepwise line without
+// re-cycling each cell. Updated whenever you paint a melodic note or cycle
+// one with shift+tap. Reset to null on clear-pattern or load-JSON, so a new
+// editing session starts on the scale tonic. NOT reset on generate or
+// re-roll (preserves the user's "paint tool" state across regenerations).
+const lastPaintPitch = { LD: null, PD: null, SB: null };
 let livePlayhead = -1;
 let cachedWaveformBackground = null;
 
@@ -3752,22 +3759,27 @@ function toggleCellHit(voice, step) {
       if (slice) newEv.sliceData = { slice, reverse: false };
     }
 
-    // Melodic voices: scale-aware defaults. A fresh note arrives on the
-    // tonic of the active scale, sounding immediately coherent with what
-    // the generator produced. Shift+tap then cycles through scale degrees
-    // (see cyclePitchAtCell). The 'kind' field also makes MIDI export emit
-    // the painted note; previously, hand-painted leads were silently
-    // dropped from MIDI export because they had kind='anchor'.
+    // Melodic voices: paint inherits the last pitch used on this voice
+    // (whether from a previous paint or a shift+tap cycle). The first paint
+    // of a session falls back to the scale tonic. After assignment, the
+    // chosen pitch is written back to lastPaintPitch so subsequent paints
+    // pick it up. PD chord arrays are cloned both ways to avoid aliasing
+    // between cells.
     if (voice === 'LD') {
       const scale = SCALES[ui.scale.value] || SCALES.chromatic;
-      newEv.pitch = scale[0];
+      newEv.pitch = (lastPaintPitch.LD !== null) ? lastPaintPitch.LD : scale[0];
+      lastPaintPitch.LD = newEv.pitch;
       newEv.kind = 'melody';
     } else if (voice === 'PD') {
-      newEv.chord = chordForScale(ui.scale.value, 48);
+      newEv.chord = (lastPaintPitch.PD !== null)
+        ? lastPaintPitch.PD.slice()
+        : chordForScale(ui.scale.value, 48);
+      lastPaintPitch.PD = newEv.chord.slice();
       newEv.kind = 'pad';
     } else if (voice === 'SB') {
       const scale = SCALES[ui.scale.value] || SCALES.chromatic;
-      newEv.midiPitch = 36 + scale[0];
+      newEv.midiPitch = (lastPaintPitch.SB !== null) ? lastPaintPitch.SB : (36 + scale[0]);
+      lastPaintPitch.SB = newEv.midiPitch;
       newEv.kind = 'sub';
     }
 
@@ -3955,6 +3967,11 @@ function cyclePitchAtCell(voice, step, direction) {
   } else {
     return;
   }
+  // Update the active paint pitch so the next paint on this voice inherits
+  // what was just cycled to.
+  if (voice === 'LD') lastPaintPitch.LD = ev.pitch;
+  else if (voice === 'PD') lastPaintPitch.PD = ev.chord.slice();
+  else if (voice === 'SB') lastPaintPitch.SB = ev.midiPitch;
   drawPattern();
   previewMelodicNote(voice, step);
   setStatus(formatPitchStatus(voice, ev, scaleKey), 'success');
@@ -4301,6 +4318,11 @@ function loadStateJSON(file) {
       // Restore pattern
       const pat = deserializePattern(state.pattern);
       currentPattern = pat;
+      // A loaded JSON is a different editing context; clear the active paint
+      // pitch so the next melodic paint starts on the loaded scale's tonic.
+      lastPaintPitch.LD = null;
+      lastPaintPitch.PD = null;
+      lastPaintPitch.SB = null;
       scheduler.pattern = pat;
       const totalSteps = pat.barSteps * pat.bars;
       drawPattern();
@@ -4962,6 +4984,11 @@ ui.clearPatternBtn.addEventListener('click', () => {
     if (!ch) continue;
     for (let i = 0; i < ch.length; i++) ch[i] = null;
   }
+  // Reset the active paint pitch so the next melodic paint starts on the
+  // scale tonic again, matching the visual "blank slate" of the clear.
+  lastPaintPitch.LD = null;
+  lastPaintPitch.PD = null;
+  lastPaintPitch.SB = null;
   drawPattern();
   setStatus && setStatus('pattern cleared', 'success');
 });
