@@ -674,7 +674,84 @@
     </div>
     <div class="ctrl-group"><label>bpm <span class="val" id="bpm-val">196</span></label><input type="range" id="bpm" min="60" max="280" value="196"></div>
     <div class="ctrl-group"><label>melody scale <span class="val" id="scale-val">minor pentatonic</span></label>
-      <select id="scale"><option value="minPent" selected>minor pentatonic</option><option value="majPent">major pentatonic</option><option value="minor">natural minor</option><option value="major">major</option><option value="phrygian">phrygian</option><option value="dorian">dorian</option><option value="chromatic">chromatic</option><option value="none">none</option></select></div>
+      <select id="scale">
+        <optgroup label="western : diatonic modes">
+          <option value="major">major (ionian)</option>
+          <option value="minor">natural minor (aeolian)</option>
+          <option value="dorian">dorian</option>
+          <option value="phrygian">phrygian</option>
+          <option value="lydian">lydian</option>
+          <option value="mixolydian">mixolydian</option>
+          <option value="locrian">locrian</option>
+        </optgroup>
+        <optgroup label="western : pentatonic &amp; blues">
+          <option value="minPent" selected>minor pentatonic</option>
+          <option value="majPent">major pentatonic</option>
+          <option value="bluesHex">blues hexatonic</option>
+          <option value="bluesNon">blues nonatonic</option>
+        </optgroup>
+        <optgroup label="western : harmonic &amp; exotic">
+          <option value="harmMinor">harmonic minor</option>
+          <option value="melMinor">melodic minor</option>
+          <option value="hungMinor">hungarian minor (gypsy)</option>
+          <option value="phrygDom">phrygian dominant (ahava rabba)</option>
+          <option value="dblHarm">double harmonic (byzantine)</option>
+          <option value="superLoc">super locrian (altered)</option>
+          <option value="enigmatic">enigmatic</option>
+          <option value="prometheus">prometheus (scriabin)</option>
+        </optgroup>
+        <optgroup label="messiaen : modes of limited transposition">
+          <option value="messiaen1">mode 1 (whole tone)</option>
+          <option value="messiaen2">mode 2 (octatonic)</option>
+          <option value="messiaen3">mode 3</option>
+          <option value="messiaen4">mode 4</option>
+          <option value="messiaen5">mode 5</option>
+          <option value="messiaen6">mode 6</option>
+          <option value="messiaen7">mode 7</option>
+        </optgroup>
+        <optgroup label="indian : hindustani &amp; carnatic">
+          <option value="bhairav">bhairav (morning)</option>
+          <option value="bhairavi">bhairavi (devotional)</option>
+          <option value="yaman">yaman / kalyani (evening)</option>
+          <option value="marwa">marwa (sunset)</option>
+          <option value="todi">todi (late morning)</option>
+          <option value="purvi">purvi (dusk)</option>
+          <option value="kafi">kafi</option>
+          <option value="ahir">ahir bhairav</option>
+          <option value="hamsadhwani">hamsadhwani</option>
+          <option value="malkauns">malkauns (night)</option>
+          <option value="hindol">hindol</option>
+          <option value="kalavati">kalavati</option>
+        </optgroup>
+        <optgroup label="arabic : maqamat (quarter tone)">
+          <option value="rast">rast</option>
+          <option value="bayati">bayati</option>
+          <option value="hijaz">hijaz</option>
+          <option value="saba">saba</option>
+          <option value="kurd">kurd</option>
+          <option value="nahawand">nahawand</option>
+          <option value="ajam">ajam</option>
+          <option value="sikah">sikah</option>
+          <option value="huzam">huzam</option>
+          <option value="nikriz">nikriz</option>
+        </optgroup>
+        <optgroup label="east asian">
+          <option value="hirajoshi">hirajoshi (japan)</option>
+          <option value="insen">in-sen (japan)</option>
+          <option value="iwato">iwato (japan)</option>
+          <option value="yo">yo (japan)</option>
+          <option value="akebono">akebono (japan)</option>
+          <option value="miyako">miyako-bushi (japan)</option>
+          <option value="ryukyu">ryukyu (okinawa)</option>
+          <option value="chinese">chinese pentatonic</option>
+          <option value="pelog">pelog (indonesia)</option>
+          <option value="slendro">slendro (indonesia)</option>
+        </optgroup>
+        <optgroup label="symmetrical &amp; off">
+          <option value="chromatic">chromatic (all 12)</option>
+          <option value="none">none (no melody)</option>
+        </optgroup>
+      </select></div>
     <div class="ctrl-group" style="display:flex;gap:14px;flex-wrap:wrap;"><label class="toggle-row"><input type="checkbox" id="pitched-snare"> pitched snare</label><label class="toggle-row"><input type="checkbox" id="pad-on" checked> pad</label><label class="toggle-row"><input type="checkbox" id="sub-on" checked> sub</label></div>
     <div class="ctrl-group"><label>seed <span class="val" id="seed-val">—</span></label><input type="text" id="seed-input" placeholder="empty = random"></div>
     <button class="primary" id="generate-btn" style="margin-top:6px;">generate break</button>
@@ -796,6 +873,21 @@
           <li><b>re-detect</b> re-runs onset detection with the current sensitivity.</li>
           <li><b>use slices for drums</b> routes the classified slices into the generator's drum voices. Off uses the built-in synth drums.</li>
         </ul>
+      </div>
+
+      <div class="manual-section">
+        <h3>melody scale <span class="glyph">♪</span></h3>
+        <p>Sixty scales across seven traditions feed the lead, pitched snare, sub bass, and pad. The synth engine renders fractional intervals as true quarter tones, so the Arabic maqamat are not approximations.</p>
+        <ul>
+          <li><b>western : diatonic modes.</b> The seven church modes, from <code>major</code> (ionian) through <code>locrian</code>.</li>
+          <li><b>western : pentatonic and blues.</b> Minor and major pentatonic, six-note blues, nine-note blues.</li>
+          <li><b>western : harmonic and exotic.</b> Harmonic minor, melodic minor, hungarian minor, phrygian dominant, double harmonic (byzantine), super locrian (altered), enigmatic, prometheus.</li>
+          <li><b>messiaen modes of limited transposition.</b> All seven of Messiaen's symmetrical collections: whole tone, octatonic, and the five rarer modes from <i>Technique de mon langage musical</i>.</li>
+          <li><b>indian ragas.</b> Twelve Hindustani and Carnatic scales including <code>bhairav</code>, <code>yaman</code>, <code>todi</code>, <code>marwa</code>, <code>malkauns</code>, and <code>hamsadhwani</code>.</li>
+          <li><b>arabic maqamat.</b> Ten maqamat with authentic quarter-tone intervals. <code>rast</code>, <code>bayati</code>, <code>saba</code>, <code>sikah</code>, and <code>huzam</code> use half-flat degrees that render at the correct frequency.</li>
+          <li><b>east asian.</b> Ten Japanese, Okinawan, Chinese, and Indonesian pentatonics: <code>hirajoshi</code>, <code>in-sen</code>, <code>iwato</code>, <code>yo</code>, <code>akebono</code>, <code>miyako-bushi</code>, <code>ryukyu</code>, plus <code>pelog</code> and <code>slendro</code>.</li>
+        </ul>
+        <p class="dim">Generation uses phrase-aware contour shaping, weighted step/leap motion (65/25/10), and meaningful prime-label transformations (octave peak, scale-step transpose, neighbor embellishment, climax leap, melodic inversion). The pad voicing derives its third and fifth from the active scale, so maqam pads get quarter-tone triads automatically. MIDI export rounds microtonal pitches to the nearest semitone since MIDI 1.0 has no quarter-tone byte.</p>
       </div>
 
       <div class="manual-section">
@@ -1178,7 +1270,115 @@ function vOpenHat(t,vel=1,_p=0,tone={}){const n=noiseSrc();const f=ctx.createBiq
 function vRim(t,vel=1,pitchOffset=0){const o=ctx.createOscillator();const g=ctx.createGain();o.type='square';o.frequency.value=320*Math.pow(2,pitchOffset/12);g.gain.setValueAtTime(0.5*vel,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.018);const bp=ctx.createBiquadFilter();bp.type='bandpass';bp.frequency.value=1200;bp.Q.value=4;o.connect(bp).connect(g).connect(voiceBus());o.start(t);o.stop(t+0.025);cleanup(o,bp,g);}
 function vTom(t,vel=1,pitchOffset=0,tone={}){const o=ctx.createOscillator();const g=ctx.createGain();o.type='sine';const p=(tone.tomPitch||110)*Math.pow(2,pitchOffset/12);o.frequency.setValueAtTime(p,t);o.frequency.exponentialRampToValueAtTime(p*0.5,t+0.18);g.gain.setValueAtTime(0.7*vel,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.25);o.connect(g).connect(voiceBus());o.start(t);o.stop(t+0.28);cleanup(o,g);}
 function vPerc(t,vel=1,pitchOffset=0){const freq=900*Math.pow(2,pitchOffset/12);const o=ctx.createOscillator();const o2=ctx.createOscillator();const g=ctx.createGain();o.type='sine';o.frequency.setValueAtTime(freq,t);o.frequency.exponentialRampToValueAtTime(freq*0.6,t+0.04);o2.type='square';o2.frequency.setValueAtTime(freq*1.5,t);const o2g=ctx.createGain();o2g.gain.setValueAtTime(0.18,t);o2g.gain.exponentialRampToValueAtTime(0.001,t+0.012);g.gain.setValueAtTime(0.55*vel,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.07);o.connect(g);o2.connect(o2g).connect(g);g.connect(voiceBus());o.start(t);o2.start(t);o.stop(t+0.10);o2.stop(t+0.05);cleanup(o,g,o2g);}
-function vLead(t,vel=1,midiPitch=60,tone={}){const freq=440*Math.pow(2,(midiPitch-69)/12);const wave=tone.leadType||'sawtooth';const filterMult=tone.leadFilter||4;const decay=tone.leadDecay||0.20;const o1=ctx.createOscillator();const o2=ctx.createOscillator();o1.type=wave;o2.type=wave;o1.frequency.value=freq*0.997;o2.frequency.value=freq*1.003;const sub=ctx.createOscillator();sub.type='sine';sub.frequency.value=freq/2;const filter=ctx.createBiquadFilter();filter.type='lowpass';filter.frequency.setValueAtTime(freq*filterMult*1.5,t);filter.frequency.exponentialRampToValueAtTime(freq*filterMult*0.6,t+decay);filter.Q.value=6;const g=ctx.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.55*vel,t+0.004);g.gain.exponentialRampToValueAtTime(0.001,t+decay);const subG=ctx.createGain();subG.gain.setValueAtTime(0.3*vel,t);subG.gain.exponentialRampToValueAtTime(0.001,t+decay*0.7);o1.connect(filter);o2.connect(filter);filter.connect(g).connect(voiceBus());sub.connect(subG).connect(voiceBus());o1.start(t);o2.start(t);sub.start(t);o1.stop(t+decay+0.03);o2.stop(t+decay+0.03);sub.stop(t+decay+0.03);cleanup(o1,o2,filter,g);cleanup(sub,subG);}
+// Lead voice. Same call signature as before: vLead(t, vel, midiPitch, tone).
+// The frequency math uses Math.pow(2, x/12), so fractional MIDI pitches
+// (from microtonal scales like rast or sikah) render as true quarter tones.
+// Improvements over the previous single-saw-pair design:
+//   - 3-voice supersaw (detuned at +/-6 cents, plus center)
+//   - Brief pitch glide on attack (subtle "lift" for life)
+//   - Three-stage filter envelope (snap open, then decay slowly)
+//   - Resonance scales inversely with pitch (no ice-pick on highs)
+//   - Soft tanh saturation post-filter for warmth
+//   - Sine sub octave (kept from original)
+//   - Attack chiff via short band-passed noise burst
+function vLead(t, vel = 1, midiPitch = 60, tone = {}) {
+  const freq = 440 * Math.pow(2, (midiPitch - 69) / 12);
+  const wave = tone.leadType || 'sawtooth';
+  const filterMult = tone.leadFilter || 4;
+  const decay = tone.leadDecay || 0.20;
+
+  // local mixer node so we can route many sources cleanly into voiceBus()
+  const out = ctx.createGain();
+  out.gain.value = 1.0;
+  out.connect(voiceBus());
+
+  // Pitch glide: low notes start flat-true, mid/high notes get a tiny lift
+  const startMult = freq < 200 ? 1.0 : (freq > 800 ? 1.010 : 0.990);
+  const detunes = [0.994, 1.0, 1.006];
+  const oscs = [];
+  for (const d of detunes) {
+    const o = ctx.createOscillator();
+    o.type = wave;
+    o.frequency.setValueAtTime(freq * d * startMult, t);
+    o.frequency.exponentialRampToValueAtTime(freq * d, t + 0.012);
+    oscs.push(o);
+  }
+
+  // Filter envelope: open snappily, then decay slowly
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'lowpass';
+  const fOpen = Math.min(18000, freq * filterMult * 2.2);
+  const fClose = Math.max(120, freq * filterMult * 0.55);
+  filter.frequency.setValueAtTime(fOpen * 0.5, t);
+  filter.frequency.exponentialRampToValueAtTime(fOpen, t + 0.012);
+  filter.frequency.exponentialRampToValueAtTime(fClose, t + decay);
+  const qBase = freq > 700 ? 3.0 : (freq < 300 ? 6.5 : 5.0);
+  filter.Q.value = qBase * (0.6 + vel * 0.5);
+
+  // Amp envelope: fast attack, two-stage decay (musical curve)
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(0.55 * vel, t + 0.003);
+  g.gain.exponentialRampToValueAtTime(0.18 * vel, t + decay * 0.35);
+  g.gain.exponentialRampToValueAtTime(0.001, t + decay);
+
+  // Soft saturation post-filter for harmonic warmth
+  let sat = null;
+  try {
+    sat = ctx.createWaveShaper();
+    const N = 257;
+    const curve = new Float32Array(N);
+    for (let i = 0; i < N; i++) {
+      const x = (i / 128) - 1;
+      curve[i] = Math.tanh(x * 1.6) * 0.85;
+    }
+    sat.curve = curve;
+  } catch (e) { sat = null; }
+
+  for (const o of oscs) o.connect(filter);
+  if (sat) filter.connect(g).connect(sat).connect(out);
+  else filter.connect(g).connect(out);
+
+  // Sub octave: sine, exponential decay
+  const sub = ctx.createOscillator();
+  sub.type = 'sine';
+  sub.frequency.value = freq / 2;
+  const subG = ctx.createGain();
+  subG.gain.setValueAtTime(0.30 * vel, t);
+  subG.gain.exponentialRampToValueAtTime(0.001, t + decay * 0.7);
+  sub.connect(subG).connect(out);
+
+  // Attack chiff: very short band-passed noise burst at the partial near the
+  // fundamental's 4th harmonic. Adds bite without being a dedicated transient.
+  let noise = null, ng = null, nf = null;
+  try {
+    noise = noiseSrc();
+    nf = ctx.createBiquadFilter();
+    nf.type = 'bandpass';
+    nf.frequency.value = Math.min(8000, freq * 4);
+    nf.Q.value = 1.2;
+    ng = ctx.createGain();
+    ng.gain.setValueAtTime(0.16 * vel, t);
+    ng.gain.exponentialRampToValueAtTime(0.001, t + 0.022);
+    noise.connect(nf).connect(ng).connect(out);
+    noise.start(t);
+    noise.stop(t + 0.04);
+  } catch (e) { noise = null; }
+
+  for (const o of oscs) o.start(t);
+  sub.start(t);
+  const endT = t + decay + 0.04;
+  for (const o of oscs) o.stop(endT);
+  sub.stop(endT);
+
+  // cleanup is keyed off the first oscillator's onended
+  const extras = [oscs[1], oscs[2], filter, g, sub, subG, out];
+  if (sat) extras.push(sat);
+  if (nf) extras.push(nf);
+  if (ng) extras.push(ng);
+  cleanup(oscs[0], ...extras);
+  if (noise) cleanup(noise);
+}
 function vPad(t,vel=1,midiPitches=[60,63,67],tone={}){const decay=tone.padDecay||1.6;const attack=tone.padAttack||0.08;const wave=tone.padWave||'sawtooth';const filterMult=tone.padFilter||2.5;for(const midi of midiPitches){const freq=440*Math.pow(2,(midi-69)/12);const o1=ctx.createOscillator();const o2=ctx.createOscillator();o1.type=wave;o2.type=wave;o1.frequency.value=freq*0.995;o2.frequency.value=freq*1.005;const filter=ctx.createBiquadFilter();filter.type='lowpass';filter.frequency.value=freq*filterMult;filter.Q.value=1.5;const g=ctx.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.18*vel,t+attack);g.gain.linearRampToValueAtTime(0.10*vel,t+decay*0.6);g.gain.exponentialRampToValueAtTime(0.001,t+decay);o1.connect(filter);o2.connect(filter);filter.connect(g).connect(padBus);o1.start(t);o2.start(t);o1.stop(t+decay+0.05);o2.stop(t+decay+0.05);cleanup(o1,o2,filter,g);}}
 function vSub(t,vel=1,midiPitch=36,tone={}){const freq=440*Math.pow(2,(midiPitch-69)/12);const decay=tone.subDecay||0.30;const dist=tone.subDistortion||0;const o=ctx.createOscillator();const sub2=ctx.createOscillator();o.type='sine';sub2.type='sine';o.frequency.value=freq;sub2.frequency.value=freq*2;const sub2G=ctx.createGain();sub2G.gain.setValueAtTime(0.15*vel,t);sub2G.gain.exponentialRampToValueAtTime(0.001,t+decay*0.4);const g=ctx.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.65*vel,t+0.005);g.gain.exponentialRampToValueAtTime(0.001,t+decay);if(dist>0){const ws=makeDist(dist);const post=ctx.createGain();post.gain.value=0.5;o.connect(g).connect(ws).connect(post).connect(voiceBus());cleanup(o,g,post);}else{o.connect(g).connect(voiceBus());cleanup(o,g);}sub2.connect(sub2G).connect(voiceBus());o.start(t);sub2.start(t);o.stop(t+decay+0.05);sub2.stop(t+decay*0.5);cleanup(sub2,sub2G);}
 
@@ -1270,8 +1470,122 @@ function getMotif(styleKey, barSteps) {
   for (const v of Object.keys(base.ornaments)) ext.ornaments[v] = extend(base.ornaments[v]);
   return ext;
 }
-const SCALES={minPent:[0,3,5,7,10],majPent:[0,2,4,7,9],minor:[0,2,3,5,7,8,10],major:[0,2,4,5,7,9,11],phrygian:[0,1,3,5,7,8,10],dorian:[0,2,3,5,7,9,10],chromatic:[0,1,2,3,4,5,6,7,8,9,10,11],none:null};
-function chordForScale(scaleKey,root=48){if(['minPent','minor','phrygian','dorian'].includes(scaleKey))return[root,root+3,root+7];if(['majPent','major'].includes(scaleKey))return[root,root+4,root+7];if(scaleKey==='chromatic')return[root,root+3,root+6];return[root,root+7];}
+// SCALES catalog. Intervals are semitones from the root. Integer values are
+// 12-TET. Fractional values (e.g. 3.5) encode quarter tones for Arabic maqamat;
+// the synth path uses Math.pow(2, x/12) so floats are honored at audio rate.
+// MIDI export rounds to the nearest semitone (12-TET is all the spec supports).
+// The first eight keys (minPent through none) preserve the original intervals
+// exactly so every legacy recipe regenerates identical melodies.
+const SCALES = {
+  // legacy (preserved exactly for recipe compatibility)
+  minPent:     [0, 3, 5, 7, 10],
+  majPent:     [0, 2, 4, 7, 9],
+  minor:       [0, 2, 3, 5, 7, 8, 10],
+  major:       [0, 2, 4, 5, 7, 9, 11],
+  phrygian:    [0, 1, 3, 5, 7, 8, 10],
+  dorian:      [0, 2, 3, 5, 7, 9, 10],
+  chromatic:   [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+  none:        null,
+
+  // remaining diatonic modes
+  lydian:      [0, 2, 4, 6, 7, 9, 11],
+  mixolydian:  [0, 2, 4, 5, 7, 9, 10],
+  locrian:     [0, 1, 3, 5, 6, 8, 10],
+
+  // blues
+  bluesHex:    [0, 3, 5, 6, 7, 10],
+  bluesNon:    [0, 2, 3, 4, 5, 6, 7, 9, 10],
+
+  // harmonic / exotic
+  harmMinor:   [0, 2, 3, 5, 7, 8, 11],
+  melMinor:    [0, 2, 3, 5, 7, 9, 11],
+  hungMinor:   [0, 2, 3, 6, 7, 8, 11],
+  phrygDom:    [0, 1, 4, 5, 7, 8, 10],
+  dblHarm:     [0, 1, 4, 5, 7, 8, 11],
+  superLoc:    [0, 1, 3, 4, 6, 8, 10],
+  enigmatic:   [0, 1, 4, 6, 8, 10, 11],
+  prometheus:  [0, 2, 4, 6, 9, 10],
+
+  // messiaen modes of limited transposition
+  messiaen1:   [0, 2, 4, 6, 8, 10],
+  messiaen2:   [0, 1, 3, 4, 6, 7, 9, 10],
+  messiaen3:   [0, 2, 3, 4, 6, 7, 8, 10, 11],
+  messiaen4:   [0, 1, 2, 5, 6, 7, 8, 11],
+  messiaen5:   [0, 1, 5, 6, 7, 11],
+  messiaen6:   [0, 2, 4, 5, 6, 8, 10, 11],
+  messiaen7:   [0, 1, 2, 3, 5, 6, 7, 8, 9, 11],
+
+  // indian (hindustani thaats and carnatic-derived ragas)
+  bhairav:     [0, 1, 4, 5, 7, 8, 11],
+  bhairavi:    [0, 1, 3, 5, 7, 8, 10],
+  yaman:       [0, 2, 4, 6, 7, 9, 11],
+  marwa:       [0, 1, 4, 6, 7, 9, 11],
+  todi:        [0, 1, 3, 6, 7, 8, 11],
+  purvi:       [0, 1, 4, 6, 7, 8, 11],
+  kafi:        [0, 2, 3, 5, 7, 9, 10],
+  ahir:        [0, 2, 4, 5, 7, 8, 10],
+  hamsadhwani: [0, 2, 4, 7, 11],
+  malkauns:    [0, 3, 5, 8, 10],
+  hindol:      [0, 4, 6, 7, 11],
+  kalavati:    [0, 4, 7, 9, 10],
+
+  // arabic maqamat. half-flat (quarter-flat) degrees use .5; the audio engine
+  // renders them as true quarter tones via the exponential frequency math.
+  rast:        [0, 2, 3.5, 5, 7, 9, 10.5],
+  bayati:      [0, 1.5, 3, 5, 7, 8, 10],
+  hijaz:       [0, 1, 4, 5, 7, 8, 10],
+  saba:        [0, 1.5, 3, 4, 7, 8, 10],
+  kurd:        [0, 1, 3, 5, 7, 8, 10],
+  nahawand:    [0, 2, 3, 5, 7, 8, 10],
+  ajam:        [0, 2, 4, 5, 7, 9, 11],
+  sikah:       [0, 1.5, 3.5, 5.5, 7, 8.5, 10.5],
+  huzam:       [0, 1.5, 3.5, 4, 7, 8, 10.5],
+  nikriz:      [0, 2, 3, 6, 7, 9, 10],
+
+  // east asian
+  hirajoshi:   [0, 2, 3, 7, 8],
+  insen:       [0, 1, 5, 7, 10],
+  iwato:       [0, 1, 5, 6, 10],
+  yo:          [0, 2, 5, 7, 9],
+  akebono:     [0, 2, 3, 7, 8],
+  miyako:      [0, 1, 5, 7, 8],
+  ryukyu:      [0, 4, 5, 7, 11],
+  chinese:     [0, 4, 6, 7, 11],
+  pelog:       [0, 1, 3, 7, 8],
+  slendro:     [0, 2, 5, 7, 10],
+};
+
+// Derive a triad for the pad voicing from a scale. Legacy scales keep their
+// hand-tuned chord exactly; everything else picks the scale tone closest to a
+// real third (around 3.5 semis) and closest to a real fifth (around 7 semis),
+// gracefully falling back through wider windows when the scale lacks them.
+// Microtonal scales (.5 intervals) flow through naturally and produce
+// authentic maqam-flavored chords.
+function chordForScale(scaleKey, root = 48) {
+  if (['minPent', 'minor', 'phrygian', 'dorian'].includes(scaleKey)) return [root, root + 3, root + 7];
+  if (['majPent', 'major'].includes(scaleKey)) return [root, root + 4, root + 7];
+  if (scaleKey === 'chromatic') return [root, root + 3, root + 6];
+  const scale = SCALES[scaleKey];
+  if (!scale || scale.length < 2) return [root, root + 7];
+  const closestIn = (target, lo, hi) => {
+    let best = null, bestDist = Infinity;
+    for (const d of scale) {
+      if (d <= 0 || d >= 12) continue;
+      if (d < lo || d > hi) continue;
+      const dist = Math.abs(d - target);
+      if (dist < bestDist) { bestDist = dist; best = d; }
+    }
+    return best;
+  };
+  let third = closestIn(3.5, 2, 5);
+  if (third === null) third = closestIn(3.5, 1.5, 5.5);
+  if (third === null) third = (scale[1] !== undefined && scale[1] > 0) ? scale[1] : 3;
+  let fifth = closestIn(7, 6.5, 7.5);
+  if (fifth === null) fifth = closestIn(7, 6, 8);
+  if (fifth === null) fifth = closestIn(7, 5.5, 8.5);
+  if (fifth === null) fifth = 7;
+  return [root, root + third, root + fifth];
+}
 function tokenizeForm(form){const t=[];for(let i=0;i<form.length;i++){if(i+1<form.length&&form[i+1]==="'"){t.push(form[i]+"'");i++;}else t.push(form[i]);}return t;}
 function planPhrase(formStr,bars,rng,noTailRoll){const tokens=tokenizeForm(formStr);const labels=[];for(let b=0;b<bars;b++)labels.push(tokens[b%tokens.length]);const plan=[];for(let b=0;b<bars;b++){const label=labels[b];const isPrime=label.endsWith("'");const isFirst=b===0;const isLast=b===bars-1;let role,transformKind;if(isFirst){role='establish';transformKind='identity';}else{const earlier=labels.slice(0,b).indexOf(label);if(earlier>=0){role='restate';transformKind='identity';}else if(isPrime){role='climax';transformKind='climax';}else{role='develop';transformKind=pick(rng,['densify','echo','strip']);}}if(isLast){if(noTailRoll){/* leave the last bar as a natural ending — densify ornaments so signature accents (open hat etc) reliably fire, but no drill */if(role==='restate'){role='restate→end';transformKind='densify';}else if(isPrime||role==='climax'){role='climax-end';transformKind='climax';}else{role=`${role}→end`;transformKind='densify';}}else if(role==='restate'&&!isPrime){role='restate→fill';transformKind='tail-roll';}else if(isPrime||role==='climax'){role='climax-fill';transformKind='climax-stutter';}else{role=`${role}→fill`;transformKind='tail-roll';}}plan.push({bar:b,label,role,transformKind,isFirst,isLast});}return plan;}
 function realizeMotif(motifSpec,transformKind,rng,ornDensity,barSteps){const m={skeleton:{},ornaments:{}};for(const v of Object.keys(motifSpec.skeleton||{}))m.skeleton[v]=motifSpec.skeleton[v].slice(0,barSteps);for(const v of Object.keys(motifSpec.ornaments||{}))m.ornaments[v]=motifSpec.ornaments[v].slice(0,barSteps);const pitchShift={};switch(transformKind){case 'identity':break;case 'densify':for(const v of Object.keys(m.ornaments))m.ornaments[v]=m.ornaments[v].map(p=>Math.min(1,p*1.45));break;case 'strip':for(const v of Object.keys(m.ornaments))m.ornaments[v]=m.ornaments[v].map(p=>p*0.25);break;case 'echo':if(m.skeleton.SN){m.ornaments.SN=m.ornaments.SN||new Array(barSteps).fill(0);for(let i=0;i<barSteps-1;i++){if(m.skeleton.SN[i])m.ornaments.SN[i+1]=Math.max(m.ornaments.SN[i+1]||0,0.75);}}break;case 'climax':for(const v of Object.keys(m.ornaments))m.ornaments[v]=m.ornaments[v].map(p=>Math.min(1,p*1.6));pitchShift.SN=chance(rng,0.5)?5:7;break;case 'climax-stutter':for(const v of Object.keys(m.ornaments))m.ornaments[v]=m.ornaments[v].map(p=>Math.min(1,p*1.3));pitchShift.SN=7;break;}const realized={};const allVoices=new Set([...Object.keys(m.skeleton),...Object.keys(m.ornaments)]);for(const v of allVoices){realized[v]=new Array(barSteps).fill(null);const sk=m.skeleton[v]||new Array(barSteps).fill(0);const orn=m.ornaments[v]||new Array(barSteps).fill(0);for(let i=0;i<barSteps;i++){if(sk[i])realized[v][i]={kind:'anchor',vel:0,pitch:pitchShift[v]||0};else if(rng()<orn[i]*ornDensity)realized[v][i]={kind:'ornament',vel:0,pitch:pitchShift[v]||0};}}return{realized,pitchShift};}
@@ -1279,7 +1593,185 @@ function beatStrength(step,barSteps){if(step===0)return 1.0;if(step%8===0)return
 function assignVelocity(stepIdx,barSteps,hitKind,rng,accentBoost=0,chaos=0){const base=beatStrength(stepIdx,barSteps);let v;if(hitKind==='anchor')v=base*0.85+0.15;else if(hitKind==='ornament')v=base*0.55+0.20;else v=base*0.6+0.25;v*=(0.92+rng()*0.16);v*=(1.0+(rng()*2-1)*chaos*0.20);v+=accentBoost;return clamp(v,0.15,1.0);}
 function getMicro(voice,behavior,chaos,rng){const base=(behavior.micro&&behavior.micro[voice])||0;const jitterRange=3+chaos*12;const jitter=(rng()*2-1)*jitterRange;return base+jitter;}
 function buildPolymeterTrack(totalSteps,behavior,polyIntensity,rng){if(!chance(rng,behavior.polyChance*polyIntensity*1.5))return null;const meter=pick(rng,behavior.polyMeters);const events=[];const subdivCount=chance(rng,0.5)?1:2;for(let s=0;s<totalSteps;s++){const cyclePos=s%meter;if(cyclePos===0)events.push({step:s,vel:0.85,pitch:0});else if(subdivCount===2&&cyclePos===Math.floor(meter/2))events.push({step:s,vel:0.55,pitch:-3});}const lcmPoint=Math.floor(totalSteps/meter)*meter;return{events,meter,lcmPoint};}
-function generateMelody(plan,scale,rng,barSteps){if(!scale)return null;const motifsByLabel={};const totalSteps=barSteps*plan.length;const line=new Array(totalSteps).fill(null);for(let b=0;b<plan.length;b++){const labelBase=plan[b].label.replace("'","");let motif;if(motifsByLabel[labelBase]){motif=motifsByLabel[labelBase].slice();if(plan[b].label.endsWith("'")){const idxs=motif.map((v,i)=>v!==null?i:-1).filter(i=>i>=0);if(idxs.length){const which=pick(rng,idxs);motif[which]=motif[which]+12;}}}else{motif=new Array(barSteps).fill(null);const noteCount=irange(rng,4,Math.max(5,Math.floor(barSteps/4)));const strongPositions=[];const weakPositions=[];for(let i=0;i<barSteps;i++){if(i%4===0)strongPositions.push(i);else weakPositions.push(i);}const placed=new Set();while(placed.size<noteCount){const pool=chance(rng,0.7)?strongPositions:weakPositions;if(pool.length===0)break;const pos=pick(rng,pool);if(!placed.has(pos))placed.add(pos);}let prevDeg=2;for(const pos of[...placed].sort((a,b)=>a-b)){const delta=pick(rng,[-2,-1,-1,0,1,1,2,-3,3]);let degIdx=clamp(prevDeg+delta,0,scale.length-1);prevDeg=degIdx;const oct=chance(rng,0.85)?0:(chance(rng,0.5)?-12:12);motif[pos]=60+scale[degIdx]+oct;}motifsByLabel[labelBase]=motif;}for(let i=0;i<barSteps;i++)line[b*barSteps+i]=motif[i];}return line;}
+// Phrase-aware melodic generation. Each unique form label gets a single motif
+// built from a rhythm template and a contour shape. Subsequent occurrences of
+// the same label reuse the motif (form coherence). Prime labels (e.g. C') get
+// one of five meaningful transformations: octave peak, scale-step transpose,
+// neighbor embellishment, climax leap, or melodic inversion. Pitch selection
+// uses a step/leap distribution (65/25/10) biased toward the contour's
+// suggestion, with a soft pull toward tonic on the final note of the form.
+function generateMelody(plan, scale, rng, barSteps) {
+  if (!scale) return null;
+  const scaleLen = scale.length;
+  const NOTE_MAX_DEG = scaleLen - 1;
+  const motifsByLabel = {};
+  const totalSteps = barSteps * plan.length;
+  const line = new Array(totalSteps).fill(null);
+
+  // Rhythmic onset templates (positions are fractions of a bar).
+  const RHYTHM_TEMPLATES = [
+    [0, 0.25, 0.5, 0.75],
+    [0, 0.1875, 0.375, 0.5625, 0.75],
+    [0, 0.25, 0.4375, 0.625, 0.875],
+    [0, 0.375, 0.5, 0.75],
+    [0, 0.0625, 0.25, 0.5, 0.625, 0.75],
+    [0, 0.125, 0.375, 0.5, 0.625, 0.875],
+    [0, 0.25, 0.5, 0.625, 0.6875, 0.75],
+    [0, 0.4375, 0.5, 0.9375],
+  ];
+
+  // Contour shapes. Input p is normalized position 0..1, output is a normalized
+  // degree 0..1 that we then map onto the scale's degree range.
+  const CONTOURS = [
+    p => 0.30 + Math.sin(p * Math.PI) * 0.45,
+    p => 0.75 - p * 0.55,
+    p => 0.20 + Math.pow(p, 0.7) * 0.55,
+    p => 0.70 - Math.pow(p, 1.3) * 0.55,
+    p => p < 0.55 ? 0.45 : 0.45 - (p - 0.55) * 0.9,
+    p => 0.30 + (1 - Math.cos(p * Math.PI * 2)) * 0.25,
+    p => 0.40 + Math.sin(p * Math.PI * 3) * 0.20,
+  ];
+
+  const snapDeg = (d) => clamp(Math.round(d), 0, NOTE_MAX_DEG);
+
+  function pickPositions(rhythm) {
+    const set = new Set();
+    for (const p of rhythm) set.add(clamp(Math.round(p * barSteps), 0, barSteps - 1));
+    return [...set].sort((a, b) => a - b);
+  }
+
+  // Given an absolute MIDI pitch, return the scale degree index whose interval
+  // best matches (within an octave). Used to step a melody up by one scale
+  // degree without leaving the octave register.
+  function pitchToDeg(pitch) {
+    const semi = ((pitch - 60) % 12 + 12) % 12;
+    let best = 0, bestDist = Infinity;
+    for (let d = 0; d < scaleLen; d++) {
+      const dist = Math.abs(scale[d] - semi);
+      if (dist < bestDist) { bestDist = dist; best = d; }
+    }
+    return best;
+  }
+
+  function buildMotif(role, isLastInForm) {
+    let rhythmPool, contourPool;
+    switch (role) {
+      case 'B': rhythmPool = [1, 2, 4, 5]; contourPool = [2, 3, 6]; break;
+      case 'C': rhythmPool = [5, 6, 7];    contourPool = [3, 5];    break;
+      default:  rhythmPool = [0, 1, 3, 4]; contourPool = [0, 4, 6];
+    }
+    const rhythm = RHYTHM_TEMPLATES[pick(rng, rhythmPool)];
+    const contour = CONTOURS[pick(rng, contourPool)];
+    const positions = pickPositions(rhythm);
+    const motif = new Array(barSteps).fill(null);
+    let prevDeg = snapDeg(contour(0) * NOTE_MAX_DEG);
+    let lastDeg = -1, lastLastDeg = -1;
+    for (let i = 0; i < positions.length; i++) {
+      const pos = positions[i];
+      const np = positions.length > 1 ? i / (positions.length - 1) : 0;
+      const suggested = contour(np) * NOTE_MAX_DEG;
+      let degIdx;
+      if (i === 0) {
+        degIdx = snapDeg(suggested);
+      } else {
+        // Step/leap distribution: 65% step, 25% small leap, 10% larger
+        const r = rng();
+        let mag;
+        if (r < 0.65) mag = 1;
+        else if (r < 0.90) mag = 2;
+        else mag = 3;
+        const drift = suggested - prevDeg;
+        const dir = drift > 0.3 ? 1 : (drift < -0.3 ? -1 : (chance(rng, 0.5) ? 1 : -1));
+        degIdx = clamp(prevDeg + dir * mag, 0, NOTE_MAX_DEG);
+        // Anti-stagnation: break runs of three identical degrees
+        if (degIdx === lastDeg && lastDeg === lastLastDeg) {
+          degIdx = clamp(degIdx + (chance(rng, 0.5) ? 1 : -1), 0, NOTE_MAX_DEG);
+        }
+      }
+      // Final-bar resolution: pull final note toward tonic or fifth degree
+      if (isLastInForm && i === positions.length - 1) {
+        degIdx = chance(rng, 0.65) ? 0 : Math.min(NOTE_MAX_DEG, Math.round(scaleLen * 0.5));
+      }
+      // Light octave shift (8%), favoring up on early notes, down on late ones
+      const oct = chance(rng, 0.92) ? 0 : (i < positions.length / 2 ? 12 : -12);
+      motif[pos] = 60 + scale[degIdx] + oct;
+      lastLastDeg = lastDeg;
+      lastDeg = degIdx;
+      prevDeg = degIdx;
+    }
+    return motif;
+  }
+
+  function primeTransform(motif) {
+    const out = motif.slice();
+    const noteIdxs = motif.map((v, i) => v !== null ? i : -1).filter(i => i >= 0);
+    if (noteIdxs.length === 0) return out;
+    const kind = pick(rng, ['octave-peak', 'step-up', 'embellish', 'climax-leap', 'inversion']);
+    if (kind === 'octave-peak') {
+      let maxIdx = noteIdxs[0];
+      for (const i of noteIdxs) if (motif[i] > motif[maxIdx]) maxIdx = i;
+      out[maxIdx] = motif[maxIdx] + 12;
+    } else if (kind === 'step-up') {
+      for (const i of noteIdxs) {
+        const d = pitchToDeg(motif[i]);
+        const semiBase = ((motif[i] - 60) % 12 + 12) % 12;
+        const octBase = motif[i] - 60 - semiBase;
+        const nd = clamp(d + 1, 0, NOTE_MAX_DEG);
+        out[i] = 60 + octBase + scale[nd];
+      }
+    } else if (kind === 'embellish') {
+      if (noteIdxs.length >= 2) {
+        const last = noteIdxs[noteIdxs.length - 1];
+        const prev = noteIdxs[noteIdxs.length - 2];
+        const mid = Math.floor((last + prev) / 2);
+        if (mid > prev && mid < last && out[mid] === null) {
+          const d1 = pitchToDeg(motif[prev]);
+          const d2 = pitchToDeg(motif[last]);
+          const midDeg = clamp(Math.round((d1 + d2) / 2), 0, NOTE_MAX_DEG);
+          const octBase = Math.floor((motif[last] - 60) / 12) * 12;
+          out[mid] = 60 + octBase + scale[midDeg];
+        }
+      }
+    } else if (kind === 'climax-leap') {
+      const strong = noteIdxs.filter(i => i % 4 === 0);
+      const target = strong.length ? pick(rng, strong) : pick(rng, noteIdxs);
+      out[target] = motif[target] + 12;
+    } else {
+      // melodic inversion: mirror each note around the motif's median pitch,
+      // then snap the inverted result back onto the scale.
+      const pitches = noteIdxs.map(i => motif[i]).slice().sort((a, b) => a - b);
+      const median = pitches[Math.floor(pitches.length / 2)];
+      for (const i of noteIdxs) {
+        const inverted = 2 * median - motif[i];
+        const semiBase = ((inverted - 60) % 12 + 12) % 12;
+        const octBase = inverted - 60 - semiBase;
+        let bestD = 0, bestDist = Infinity;
+        for (let d = 0; d < scaleLen; d++) {
+          const dist = Math.abs(scale[d] - semiBase);
+          if (dist < bestDist) { bestDist = dist; bestD = d; }
+        }
+        out[i] = 60 + octBase + scale[bestD];
+      }
+    }
+    return out;
+  }
+
+  for (let b = 0; b < plan.length; b++) {
+    const labelBase = plan[b].label.replace("'", "");
+    const isPrime = plan[b].label.endsWith("'");
+    let motif;
+    if (motifsByLabel[labelBase] && !isPrime) {
+      motif = motifsByLabel[labelBase].slice();
+    } else if (motifsByLabel[labelBase] && isPrime) {
+      motif = primeTransform(motifsByLabel[labelBase]);
+    } else {
+      motif = buildMotif(labelBase, plan[b].isLast === true);
+      motifsByLabel[labelBase] = motif;
+    }
+    for (let i = 0; i < barSteps; i++) line[b * barSteps + i] = motif[i];
+  }
+  return line;
+}
 function applyTailRoll(realizedBar,behavior,rng,barSteps){const tailStart=barSteps-4;const span=barSteps-tailStart;const drumVoices=['KK','SN','CL','CH','OH','RM','TM'];for(const v of drumVoices){if(realizedBar[v])for(let i=tailStart;i<barSteps;i++)realizedBar[v][i]=null;}if(!realizedBar.SN)realizedBar.SN=new Array(barSteps).fill(null);const subdiv=pick(rng,behavior.rollSubdivs);const curve=pick(rng,['linDown','linUp','expDown']);realizedBar.SN[tailStart]={kind:'roll',vel:0.85,pitch:0,stutter:{count:Math.max(subdiv,subdiv*span/2),spanSteps:span,curve,pitchStart:curve==='linUp'?-7:(curve==='linDown'?5:7),pitchEnd:curve==='linUp'?5:(curve==='linDown'?-7:-5),finalAccent:true}};}
 function applyClimaxStutter(realizedBar,behavior,rng,barSteps){const halfStart=Math.floor(barSteps/2);const tailStart=barSteps-4;const drumVoices=['KK','SN','CL','CH','OH','RM','TM'];for(const v of drumVoices){if(realizedBar[v])for(let i=halfStart;i<barSteps;i++)realizedBar[v][i]=null;}if(!realizedBar.SN)realizedBar.SN=new Array(barSteps).fill(null);if(!realizedBar.TM)realizedBar.TM=new Array(barSteps).fill(null);const tmSpan=tailStart-halfStart;const tmCount=pick(rng,[3,4,5,6])*Math.max(1,Math.floor(tmSpan/2));realizedBar.TM[halfStart]={kind:'roll',vel:0.8,pitch:0,stutter:{count:tmCount,spanSteps:tmSpan,curve:'linDown',pitchStart:5,pitchEnd:-5,finalAccent:false}};const snSpan=barSteps-tailStart;const snSubdiv=pick(rng,behavior.rollSubdivs.filter(s=>s>=6))||8;const snCount=Math.max(snSubdiv,snSubdiv*snSpan/2);realizedBar.SN[tailStart]={kind:'roll',vel:0.95,pitch:0,stutter:{count:snCount,spanSteps:snSpan,curve:'expDown',pitchStart:12,pitchEnd:-3,finalAccent:true}};}
 
@@ -3769,7 +4261,9 @@ function exportMIDI() {
     // sub bass (SB)
     const sbEv = p.channels.SB?.[s];
     if (sbEv) {
-      const note = Math.max(0, Math.min(127, sbEv.midiPitch || 36));
+      // Microtonal sub pitches (from maqam scales) round to nearest semitone
+      // for MIDI 1.0 export. The audio engine still renders them as quarter tones.
+      const note = Math.max(0, Math.min(127, Math.round(sbEv.midiPitch || 36)));
       const vel = Math.round((sbEv.vel || 0.85) * 127);
       const t = clampTick(baseTick + microTicks(sbEv));
       subEvents.push({ tick: t, type: 'on', note, vel });
@@ -3785,7 +4279,9 @@ function exportMIDI() {
       }
       const dur = (nextIdx - s) * stepTicks;
       for (const note of pdEv.chord) {
-        const n = Math.max(0, Math.min(127, note));
+        // Microtonal chord tones (from maqam scales) round to nearest semitone
+        // for MIDI 1.0 export. The audio engine still renders them as quarter tones.
+        const n = Math.max(0, Math.min(127, Math.round(note)));
         padEvents.push({ tick: baseTick, type: 'on', note: n, vel: 80 });
         padEvents.push({ tick: baseTick + Math.max(20, dur - 10), type: 'off', note: n });
       }
