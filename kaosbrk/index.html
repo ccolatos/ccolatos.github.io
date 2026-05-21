@@ -165,15 +165,14 @@
   .seg-btn:hover{border-color:var(--hazard);color:var(--hazard);}
   .seg-btn.on{background:var(--hazard);color:#050505;border-color:var(--hazard);font-weight:700;}
   .seg-btn.on.cool-on{background:var(--cool);border-color:var(--cool);}
-  /* Toggle-mode seg group (currently the dotted modifier on the RATE row). Lights
-     cool/cyan instead of hazard/yellow to signal that this button does not pick
-     a value out of a mutex set — it modifies whichever rate is currently chosen.
-     Padding tuned so total button height matches the rate buttons next to it
-     (10px font + 10px padding = 14px font + 6px padding, both ≈ 22px total). */
-  .seg-btns.is-toggle .seg-btn.on{background:var(--cool);color:#050505;border-color:var(--cool);}
-  .seg-btns.is-toggle .seg-btn:hover{border-color:var(--cool);color:var(--cool);}
-  .seg-btns.is-toggle .seg-btn:hover.on{color:#050505;}
-  .seg-btns.is-toggle .seg-btn{font-size:14px;line-height:1;font-weight:700;padding:3px 2px;}
+  /* A seg-modifier button sits inside a regular mutex seg-btns group but does
+     not participate in the mutex — it toggles its own on/off state and modifies
+     whichever value is currently selected in the same group. Lights cool/cyan
+     when active to signal the different role. Currently used by the swing
+     button on the RATE row. */
+  .seg-btn.seg-modifier.on{background:var(--cool);color:#050505;border-color:var(--cool);}
+  .seg-btn.seg-modifier:hover{border-color:var(--cool);color:var(--cool);}
+  .seg-btn.seg-modifier:hover.on{color:#050505;}
   .mel-divider{width:1px;align-self:stretch;background:var(--line);margin:0 2px;flex-shrink:0;}
   /* Mobile (≤600px): OCT row stacks SPREAD onto its own line so the OCT buttons
      get the full row width to themselves. Fixes the -2/-1 label clipping on
@@ -824,15 +823,13 @@
       </div>
       <div class="mel-row">
         <div class="mel-label">RATE</div>
-        <div class="seg-btns" data-seg="arpRate" title="arpeggiator subdivision" style="flex:5 1 0;">
+        <div class="seg-btns" data-seg="arpRate" data-modifier="arpSwing" title="arpeggiator subdivision; swing adds 2:1 triplet feel">
           <button type="button" class="seg-btn" data-val="8" title="eighth notes — 8 per bar">1/8</button>
           <button type="button" class="seg-btn" data-val="12" title="quarter triplets — 12 per bar, J Dilla feel">1/12</button>
           <button type="button" class="seg-btn on" data-val="16" title="sixteenth notes — 16 per bar">1/16</button>
           <button type="button" class="seg-btn" data-val="24" title="eighth triplets — 24 per bar, drill/footwork feel">1/24</button>
           <button type="button" class="seg-btn" data-val="32" title="thirty-second notes — 32 per bar">1/32</button>
-        </div>
-        <div class="seg-btns is-toggle" data-seg="arpDotted" title="dotted: each note lasts 1.5× as long, producing shuffle/dotted-eighth feel" style="flex:1 1 0;">
-          <button type="button" class="seg-btn" data-val="on" aria-label="dotted toggle">·</button>
+          <button type="button" class="seg-btn seg-modifier" data-mod-val="on" title="swing: delay every second arp note by 1/3 of a subdivision (2:1 triplet swing, classic shuffle feel)">swing</button>
         </div>
       </div>
     </div>
@@ -979,7 +976,7 @@
           <li><b>SPREAD</b> opens up the melodic register. <code>1</code> keeps the lead in roughly one octave (the original behavior). <code>2</code> doubles the available range; <code>3</code> triples it. Step/leap distribution adapts: wider spread permits occasional five- and seven-degree leaps so the contour actually traverses the larger space rather than crawling. The first note recenters to the middle of the extended range, giving the contour room on both sides.</li>
           <li><b>ARP</b> turns each melody note into a scale-degree burst that lasts until the next melody note. Five patterns: <code>↑</code> climbs, <code>↓</code> falls, <code>↕</code> goes up then back down, <code>oct</code> jumps the same pitch class through octaves, and <code>rnd</code> walks randomly through the scale window. The window width follows SPREAD: spread 2 climbs through two octaves, spread 3 through three. Arp pitches snap to the active scale, so maqam arpeggios are quarter-tone accurate. Velocity alternates strong/weak inside each burst for groove rather than a robotic stream.</li>
           <li><b>RATE</b> sets arp subdivision. <code>1/8</code> is one note per two steps, <code>1/12</code> is quarter triplets (twelve per bar, J Dilla / halftime swing), <code>1/16</code> is one per step, <code>1/24</code> is eighth triplets (drill / footwork feel), <code>1/32</code> doubles up to two notes per step. The actual note count of each burst is rate times span length, so longer gaps in the melody fill with more arp notes automatically.</li>
-          <li><b>·</b> (dotted) is a modifier that composes with any rate. When lit (cool/cyan to signal it is not a mutex peer), each arp sub-note lasts 1.5× as long — the same dotted-eighth / shuffle / dotted-sixteenth feel you hear in Daft Punk filter sweeps, classic UK garage, and Deadmau5 plucks. Combined with the five rate values it gives ten effective subdivisions without crowding the panel.</li>
+          <li><b>swing</b> is a modifier that composes with any rate. When lit (cool/cyan to signal it is not a mutex peer), every second arp sub-note is delayed by 1/3 of a subdivision — the canonical 2:1 triplet-swing ratio. Pairs play long-short-long-short, giving jazz / shuffle / Dilla feel without changing the note count. Crucially, swing is a timing displacement, not a rate scaling: it composes cleanly with all five rate values and never duplicates a straight setting. (An earlier attempt at this used a "dotted" modifier that scaled the rate by 2/3, which made 1/12 dotted identical to 1/8 straight and 1/24 dotted identical to 1/16 straight — a genuine redundancy. Swing has none.)</li>
         </ul>
         <p class="dim">All four controls feed live MIDI out and the .mid export. Microtonal arp pitches round to the nearest semitone for MIDI, same convention as the rest of the file. Defaults (OCT 0, SPREAD 1, ARP off) reproduce the prior generator behavior bit-for-bit on the same seed.</p>
       </div>
@@ -2846,14 +2843,18 @@ function sendMidiForEvent(v, t, ev, p, stepIdx, totalSteps, stepDur) {
       // Arp burst: emit each sub-note as its own on/off pair. MIDI rounds
       // microtonal pitches to the nearest semitone since MIDI 1.0 has no
       // quarter-tone byte — same convention used elsewhere in the file.
+      // When the burst has swing, odd-indexed notes are delayed by subDur/3
+      // (2:1 triplet-swing ratio) to match the audio engine.
       const span = ev.arp.spanSteps || 1;
       const count = ev.arp.notes.length;
       const subDur = (stepDur * span) / count;
+      const swingShift = ev.arp.swing ? (subDur / 3) : 0;
       for (let k = 0; k < count; k++) {
         const note = Math.max(0, Math.min(127, Math.round(ev.arp.notes[k])));
         let vScale = (k === 0) ? 1.0 : (k % 2 === 0 ? 0.92 : 0.74);
         const vel = Math.max(1, Math.round(baseVel * vScale * 127));
-        const tk = t + k * subDur;
+        const swung = (k % 2 === 1) ? swingShift : 0;
+        const tk = t + k * subDur + swung;
         sendMidi(0x90 | ch, note, vel, tk);
         sendMidi(0x80 | ch, note, 0, tk + Math.max(0.01, subDur * 0.85));
       }
@@ -3249,15 +3250,11 @@ function buildArpBurst(rootMidi, scale, arpConfig, spanSteps, barSteps, rng) {
 
   // How many notes fit in this span at the chosen rate (rate = subdivisions per bar
   // of length barSteps). e.g. rate=16, barSteps=16 ⇒ 1 note per step. rate=24 ⇒
-  // triplet feel. rate=8 ⇒ 1 note per 2 steps.
-  //
-  // Dotted modifier: a dotted note lasts 1.5× as long, so at the same nominal
-  // rate label the actual subdivision is 2/3 as dense. e.g. "1/16 dotted" pulses
-  // every 3 thirty-seconds rather than every 2 sixteenths, giving the classic
-  // dotted-eighth / shuffle / J Dilla galloping feel. We just multiply the rate
-  // by 2/3 before deriving the burst count.
-  const effRate = arpConfig.dotted ? (rate * 2 / 3) : rate;
-  const notesPerStep = effRate / barSteps;
+  // triplet feel. rate=8 ⇒ 1 note per 2 steps. Swing does NOT change the count —
+  // it only displaces odd-indexed sub-notes at fire time. This avoids the
+  // collision that a rate-scaling "dotted" modifier would have caused (since
+  // dotted-1/12 × 2/3 = 1/8 straight, dotted-1/24 = 1/16 straight, etc.).
+  const notesPerStep = rate / barSteps;
   let count = Math.round(spanSteps * notesPerStep);
   count = Math.max(2, Math.min(32, count));
 
@@ -3316,7 +3313,7 @@ function buildArpBurst(rootMidi, scale, arpConfig, spanSteps, barSteps, rng) {
     }
   }
   if (notes.length < 2) return null;
-  return { notes, spanSteps, mode, rate, dotted: !!arpConfig.dotted };
+  return { notes, spanSteps, mode, rate, swing: !!arpConfig.swing };
 }
 
 
@@ -3494,21 +3491,29 @@ function fireStutter(v, t, ev, tone, stepDur, pattern) {
 // MIDI pitch (true pitches, not pitch offsets — so microtonal scale arps render
 // at the right frequencies via vLead's exponential math). Alternating velocity
 // gives a strong/weak feel without sounding mechanical; the first note keeps
-// the original melody velocity for emphasis.
+// the original melody velocity for emphasis. When a.swing is true, every
+// second sub-note is displaced by subDur/3 — the canonical 2:1 triplet swing
+// ratio. This produces long-short-long-short pairs (jazz / shuffle / Dilla
+// feel) without changing the total note count, so it never duplicates a
+// straight rate setting.
 function fireArp(t, ev, tone, stepDur, pattern) {
   const a = ev.arp;
   const span = a.spanSteps || 1;
   const count = a.notes.length;
   const subDur = (stepDur * span) / count;
   const baseVel = ev.vel != null ? ev.vel : 0.8;
+  const swingShift = a.swing ? (subDur / 3) : 0;
   for (let k = 0; k < count; k++) {
     const midi = a.notes[k];
     // Velocity contour: peak on first note, accent every other, slight dip mid-burst
     let v = baseVel;
     if (k > 0) v *= (k % 2 === 0 ? 0.92 : 0.74);
-    // Tiny micro-timing alternation for groove (~1.5 ms swing on weak notes)
-    const microShift = (k % 2 === 1) ? 0.0015 : 0;
-    VOICES.LD.fn(t + k * subDur + microShift, v, midi, tone);
+    // Tiny micro-timing alternation for groove (~1.5 ms swing on weak notes
+    // when swing is OFF — adds a touch of life). When swing is ON, this is
+    // replaced by the explicit triplet-swing displacement below.
+    const microShift = a.swing ? 0 : ((k % 2 === 1) ? 0.0015 : 0);
+    const swung = (k % 2 === 1) ? swingShift : 0;
+    VOICES.LD.fn(t + k * subDur + swung + microShift, v, midi, tone);
   }
 }
 function scheduleStep(stepIdx, when) {
@@ -4438,7 +4443,7 @@ function serializePattern(pattern) {
       const e2 = { vel: ev.vel, pitch: ev.pitch, microMs: ev.microMs, kind: ev.kind, stutter: ev.stutter };
       if (ev.chord) e2.chord = ev.chord;
       if (ev.midiPitch !== undefined) e2.midiPitch = ev.midiPitch;
-      if (ev.arp) e2.arp = { notes: ev.arp.notes.slice(), spanSteps: ev.arp.spanSteps, mode: ev.arp.mode, rate: ev.arp.rate, dotted: !!ev.arp.dotted };
+      if (ev.arp) e2.arp = { notes: ev.arp.notes.slice(), spanSteps: ev.arp.spanSteps, mode: ev.arp.mode, rate: ev.arp.rate, swing: !!ev.arp.swing };
       if (ev.sliceData && loadedBreak) {
         const idx = loadedBreak.slices.indexOf(ev.sliceData.slice);
         if (idx >= 0) e2.sliceData = { sliceIdx: idx, reverse: !!ev.sliceData.reverse };
@@ -4478,7 +4483,11 @@ function deserializePattern(s) {
       if (ev.chord) e2.chord = ev.chord;
       if (ev.midiPitch !== undefined) e2.midiPitch = ev.midiPitch;
       if (ev.arp && Array.isArray(ev.arp.notes) && ev.arp.notes.length > 1) {
-        e2.arp = { notes: ev.arp.notes.slice(), spanSteps: ev.arp.spanSteps, mode: ev.arp.mode, rate: ev.arp.rate, dotted: !!ev.arp.dotted };
+        // Backward-compat: an older save file may carry `dotted` on the arp
+        // object. Read it as `swing` since that's the closest analog — both
+        // produce a non-square groove against the underlying grid.
+        const swung = !!(ev.arp.swing != null ? ev.arp.swing : ev.arp.dotted);
+        e2.arp = { notes: ev.arp.notes.slice(), spanSteps: ev.arp.spanSteps, mode: ev.arp.mode, rate: ev.arp.rate, swing: swung };
       }
       if (ev.sliceData && loadedBreak && ev.sliceData.sliceIdx >= 0) {
         const slice = loadedBreak.slices[ev.sliceData.sliceIdx];
@@ -4527,7 +4536,7 @@ function saveStateJSON() {
       octSpread: melodyMotion.octSpread,
       arpMode: melodyMotion.arpMode,
       arpRate: melodyMotion.arpRate,
-      arpDotted: melodyMotion.arpDotted
+      arpSwing: melodyMotion.arpSwing
     },
     fx: { ...fxState },
     voiceMix: JSON.parse(JSON.stringify(voiceMix)),
@@ -4570,7 +4579,10 @@ function loadStateJSON(file) {
         if (u.octSpread !== undefined) setSegValue('octSpread', u.octSpread);
         if (u.arpMode !== undefined) setSegValue('arpMode', u.arpMode);
         if (u.arpRate !== undefined) setSegValue('arpRate', u.arpRate);
-        if (u.arpDotted !== undefined) setSegValue('arpDotted', u.arpDotted);
+        // Backward-compat: older saves may have arpDotted instead of arpSwing.
+        // Both produce a non-square groove; map them to the same modifier.
+        if (u.arpSwing !== undefined) setSegValue('arpSwing', u.arpSwing);
+        else if (u.arpDotted !== undefined) setSegValue('arpSwing', u.arpDotted);
         updateLabels();
         // Refresh cleverness fader visuals to match loaded values
         if (typeof updateCfVisuals === 'function') {
@@ -4793,11 +4805,13 @@ function exportMIDI() {
         const span = ldEv.arp.spanSteps || 1;
         const count = ldEv.arp.notes.length;
         const subTicks = (stepTicks * span) / count;
+        const swingTicks = ldEv.arp.swing ? (subTicks / 3) : 0;
         for (let k = 0; k < count; k++) {
           const note = Math.max(0, Math.min(127, Math.round(ldEv.arp.notes[k])));
           const vScale = (k === 0) ? 1.0 : (k % 2 === 0 ? 0.92 : 0.74);
           const vel = Math.max(1, Math.round(baseVel * vScale * 127));
-          const t = tBase + Math.floor(k * subTicks);
+          const swung = (k % 2 === 1) ? swingTicks : 0;
+          const t = tBase + Math.floor(k * subTicks + swung);
           leadEvents.push({ tick: t, type: 'on', note, vel });
           leadEvents.push({ tick: t + Math.max(1, Math.floor(subTicks * 0.85)), type: 'off', note });
         }
@@ -5076,39 +5090,49 @@ const RECIPES={
 /* ---------- UI WIRING --------------------------------------------------- */
 const ui={recipe:document.getElementById('recipe'),style:document.getElementById('style'),tsig:document.getElementById('tsig'),form:document.getElementById('form'),bars:document.getElementById('bars'),bpm:document.getElementById('bpm'),scale:document.getElementById('scale'),poly:document.getElementById('poly'),orn:document.getElementById('orn'),chaos:document.getElementById('chaos'),seedInput:document.getElementById('seed-input'),pitchedSnare:document.getElementById('pitched-snare'),padOn:document.getElementById('pad-on'),subOn:document.getElementById('sub-on'),generateBtn:document.getElementById('generate-btn'),playBtn:document.getElementById('play-btn'),regenBtn:document.getElementById('regen-btn'),styleVal:document.getElementById('style-val'),tsigVal:document.getElementById('tsig-val'),formVal:document.getElementById('form-val'),barsVal:document.getElementById('bars-val'),bpmVal:document.getElementById('bpm-val'),scaleVal:document.getElementById('scale-val'),polyVal:document.getElementById('poly-val'),ornVal:document.getElementById('orn-val'),chaosVal:document.getElementById('chaos-val'),seedVal:document.getElementById('seed-val'),recipeBanner:document.getElementById('recipe-banner'),dropZone:document.getElementById('drop-zone'),fileInput:document.getElementById('file-input'),breakInfo:document.getElementById('break-info'),breakName:document.getElementById('break-name'),breakDuration:document.getElementById('break-duration'),breakSlices:document.getElementById('break-slices'),breakClassification:document.getElementById('break-classification'),sensitivity:document.getElementById('sensitivity'),sensVal:document.getElementById('sens-val'),pitchup:document.getElementById('pitchup'),pitchupVal:document.getElementById('pitchup-val'),redetectBtn:document.getElementById('redetect-btn'),useSlices:document.getElementById('use-slices'),previewBtn:document.getElementById('preview-btn'),clearBreakBtn:document.getElementById('clear-break-btn'),saveJsonBtn:document.getElementById('save-json-btn'),loadJsonBtn:document.getElementById('load-json-btn'),loadJsonInput:document.getElementById('load-json-input'),renderWavBtn:document.getElementById('render-wav-btn'),exportMidiBtn:document.getElementById('export-midi-btn'),fxSidechain:document.getElementById('fx-sidechain'),combWet:document.getElementById('comb-wet'),combWetVal:document.getElementById('comb-wet-val'),combDelay:document.getElementById('comb-delay'),combDelayVal:document.getElementById('comb-delay-val'),combFb:document.getElementById('comb-fb'),combFbVal:document.getElementById('comb-fb-val'),crushWet:document.getElementById('crush-wet'),crushWetVal:document.getElementById('crush-wet-val'),crushBits:document.getElementById('crush-bits'),crushBitsVal:document.getElementById('crush-bits-val'),driveWet:document.getElementById('drive-wet'),driveWetVal:document.getElementById('drive-wet-val'),driveAmt:document.getElementById('drive-amt'),driveAmtVal:document.getElementById('drive-amt-val'),midiOutSel:document.getElementById('midi-out-sel'),midiInitBtn:document.getElementById('midi-init-btn'),midiPanicBtn:document.getElementById('midi-panic-btn'),audioMuteBtn:document.getElementById('audio-mute-btn'),clearPatternBtn:document.getElementById('clear-pattern-btn')};
 
-// Melody motion state: OCT (octave base + spread) and ARP (mode + rate + dotted).
+// Melody motion state: OCT (octave base + spread) and ARP (mode + rate + swing).
 // Defaults reproduce the original behavior exactly (octBase 0, spread 1, arp off,
-// dotted off). The arp 'range' is bound to spread so the two controls move
+// swing off). The arp 'range' is bound to spread so the two controls move
 // together — a wider melodic register implies a wider arp window, keeping the
-// UI minimal. The 'dotted' modifier is independent of rate: when on, each arp
-// sub-note lasts 1.5× as long (effective rate × 2/3), producing dotted/shuffle
-// feels that compose with any of the five base rate values.
-const melodyMotion = { octBase: 0, octSpread: 1, arpMode: 'off', arpRate: 16, arpDotted: false };
+// UI minimal. The 'swing' modifier is independent of rate: when on, every
+// second arp sub-note is delayed by 1/3 of a subdivision, producing the
+// classic 2:1 triplet-swing / shuffle feel. This composes with all five rate
+// values without ever duplicating any of them (an earlier "dotted" idea that
+// scaled the rate by 2/3 would have made 1/12 dotted = 1/8 straight and
+// 1/24 dotted = 1/16 straight; swing as a timing offset avoids that collision).
+const melodyMotion = { octBase: 0, octSpread: 1, arpMode: 'off', arpRate: 16, arpSwing: false };
 
 function getOctConfig() { return { base: melodyMotion.octBase, spread: melodyMotion.octSpread }; }
-function getArpConfig() { return { mode: melodyMotion.arpMode, rate: melodyMotion.arpRate, range: melodyMotion.octSpread, dotted: melodyMotion.arpDotted }; }
+function getArpConfig() { return { mode: melodyMotion.arpMode, rate: melodyMotion.arpRate, range: melodyMotion.octSpread, swing: melodyMotion.arpSwing }; }
 
 // Apply a value to a segmented-button group (data-seg attribute on the wrapper,
 // data-val on each .seg-btn). Updates the visual 'on' state and the melodyMotion
 // store. Two semantics:
-//   - mutex: only the button matching `val` lights up (default for rate/mode/oct/spread)
-//   - toggle: the wrapper has class .is-toggle; `val` is truthy/falsy and the
-//     single button inside lights up or unlights. Used for the dotted modifier.
+//   - mutex (default): only the button matching `val` lights up; modifier
+//     buttons in the same wrapper are not affected
+//   - modifier: a button with class .seg-modifier toggles its own state
+//     independently of the mutex set. Passing segKey='arpSwing' targets the
+//     modifier living inside the arpRate wrapper.
 // Does NOT trigger customize() — callers do that.
 function setSegValue(segKey, val) {
-  const wrap = document.querySelector(`.seg-btns[data-seg="${segKey}"]`);
-  if (!wrap) return;
-  if (wrap.classList.contains('is-toggle')) {
+  // Modifier path: arpSwing lives inside the arpRate wrapper, identified by
+  // data-modifier on the wrapper plus .seg-modifier on the button.
+  const modWrap = document.querySelector(`.seg-btns[data-modifier="${segKey}"]`);
+  if (modWrap) {
     const on = val === true || val === 'true' || val === 'on' || val === 1 || val === '1';
-    wrap.querySelectorAll('.seg-btn').forEach(btn => btn.classList.toggle('on', on));
-    if (segKey === 'arpDotted') melodyMotion.arpDotted = on;
+    const modBtn = modWrap.querySelector('.seg-btn.seg-modifier');
+    if (modBtn) modBtn.classList.toggle('on', on);
+    if (segKey === 'arpSwing') melodyMotion.arpSwing = on;
     return;
   }
+  // Mutex path: only non-modifier buttons in the matching wrapper participate.
+  const wrap = document.querySelector(`.seg-btns[data-seg="${segKey}"]`);
+  if (!wrap) return;
   const sval = String(val);
   wrap.querySelectorAll('.seg-btn').forEach(btn => {
+    if (btn.classList.contains('seg-modifier')) return;
     btn.classList.toggle('on', btn.dataset.val === sval);
   });
-  // Coerce numeric fields to numbers for downstream math
   if (segKey === 'octBase') melodyMotion.octBase = parseInt(val, 10) || 0;
   else if (segKey === 'octSpread') melodyMotion.octSpread = parseInt(val, 10) || 1;
   else if (segKey === 'arpRate') melodyMotion.arpRate = parseInt(val, 10) || 16;
@@ -5125,16 +5149,15 @@ function initSegBtns() {
     if (!btn) return;
     const wrap = btn.parentElement;
     if (!wrap || !wrap.dataset.seg) return;
-    const segKey = wrap.dataset.seg;
-    if (wrap.classList.contains('is-toggle')) {
-      // Toggle this button's on/off state, then dispatch via setSegValue so
-      // melodyMotion stays in sync.
+    if (btn.classList.contains('seg-modifier')) {
+      // Toggle the modifier independently of the mutex set in this wrapper.
+      const modKey = wrap.dataset.modifier;
+      if (!modKey) return;
       const newOn = !btn.classList.contains('on');
-      setSegValue(segKey, newOn);
+      setSegValue(modKey, newOn);
     } else {
-      setSegValue(segKey, btn.dataset.val);
+      setSegValue(wrap.dataset.seg, btn.dataset.val);
     }
-    // Any change kicks the recipe to 'custom' (consistent with other controls)
     if (typeof customize === 'function') customize();
   });
 }
