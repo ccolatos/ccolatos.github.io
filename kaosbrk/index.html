@@ -2557,8 +2557,8 @@ const UNMUTED_GAIN = 0.70;
 // Per-voice mixer state: gain (0..1.5), pan (-1..+1), mute, solo
 const voiceMix = {};
 for (const v of ['KK','SN','CL','CH','OH','RM','TM','PC','LD','PD','SB']) {
-  // LD (lead/melody) muted by default — melodies are present but you decide when to bring them in.
-  voiceMix[v] = { gain: 1.0, pan: 0, mute: (v === 'LD'), solo: false };
+  // LD (lead/melody) muted by default at 0.5 gain. Melodies are present but you decide when to bring them in.
+  voiceMix[v] = { gain: (v === 'LD' ? 0.5 : 1.0), pan: 0, mute: (v === 'LD'), solo: false };
 }
 const voiceMixerGains = {};   // populated in initAudio
 const voicePanners = {};      // populated in initAudio
