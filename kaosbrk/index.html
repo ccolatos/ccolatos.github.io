@@ -600,6 +600,7 @@
         <option value="amenBreak">amen</option>
         <option value="szerencsetlen">szerencsétlen</option>
         <option value="hajnal">hajnal</option>
+        <option value="boysBeTough">boys be tough</option>
         <option value="hospitality">hospitality</option>
         <option value="frictional">frictional nevada</option>
         <option value="weakling">to cure a weakling child</option>
@@ -608,6 +609,7 @@
         <option value="circlont" selected>CIRCLONT6A</option>
         <option value="selector">come on my selector</option>
         <option value="rhombus">port rhombus</option>
+        <option value="verbal">verbal</option>
         <option value="beepstreet">beep street</option>
         <option value="terminal">terminal slam</option>
       </select>
@@ -5073,6 +5075,7 @@ function renderLineage(p) {
 const RECIPES={
   szerencsetlen:{name:'szerencsétlen',blurb:'7/4 hungarian breakcore. orchestral pad in d minor, pitched snares, dramatic density. drop your amen.',style:'breakcore',barSteps:28,form:"ABAC'",bars:4,bpm:175,scale:'minor',polyIntensity:0.4,ornDensity:0.85,chaos:0.5,pitchedSnare:true,padOn:true,subOn:true,pitchUpFactor:1.30,fx:{sidechain:false,combWet:0,driveWet:0,crushWet:0}},
   hajnal:{name:'hajnal',blurb:'frantic 4/4 breakcore at 210. dense ornaments, distorted kicks, hi-velocity rolls. heavy drive.',style:'breakcore',barSteps:16,form:"ABAC'",bars:4,bpm:210,scale:'minor',polyIntensity:0.55,ornDensity:0.95,chaos:0.65,pitchedSnare:true,padOn:true,subOn:true,pitchUpFactor:1.45,fx:{sidechain:false,combWet:0,driveWet:0.35,driveAmount:25,crushWet:0}},
+  boysBeTough:{name:'boys be tough',blurb:"bogdan raczynski's samurai math beats territory. 188 BPM breakcore in phrygian. blown-out kicks, pitched-snare rolls, 12-bit sampler grit. drums-and-sub only (no pad). drop your amen and ride chaos.",style:'breakcore',barSteps:16,form:"ABAC'",bars:4,bpm:188,scale:'phrygian',polyIntensity:0.50,ornDensity:0.90,chaos:0.60,pitchedSnare:true,padOn:false,subOn:true,pitchUpFactor:1.40,fx:{sidechain:false,combWet:0,driveWet:0.42,driveAmount:28,crushWet:0.22,crushBits:7}},
   hospitality:{name:'hospitality',blurb:'AABA at 175 with melodic pitched snares. orchestral pad. controlled, less chaos.',style:'breakcore',barSteps:16,form:'AABA',bars:4,bpm:175,scale:'minor',polyIntensity:0.25,ornDensity:0.70,chaos:0.30,pitchedSnare:true,padOn:true,subOn:true,pitchUpFactor:1.30,fx:{sidechain:true,combWet:0,driveWet:0,crushWet:0}},
   frictional:{name:'frictional nevada',blurb:'dense industrial breakcore at ~195. distorted kick + sub. heavy drive.',style:'breakcore',barSteps:16,form:"ABAC'",bars:4,bpm:195,scale:'phrygian',polyIntensity:0.3,ornDensity:1.0,chaos:0.55,pitchedSnare:false,padOn:false,subOn:true,pitchUpFactor:1.40,fx:{sidechain:false,combWet:0,driveWet:0.5,driveAmount:35,crushWet:0.15,crushBits:8}},
   weakling:{name:'to cure a weakling child',blurb:'precise melodic IDM at ~145. sweet major pad and pitched snare. surgical not violent.',style:'breakcore',barSteps:16,form:'AABA',bars:4,bpm:145,scale:'major',polyIntensity:0.15,ornDensity:0.75,chaos:0.20,pitchedSnare:true,padOn:true,subOn:true,pitchUpFactor:1.20,fx:{sidechain:true,combWet:0,driveWet:0,crushWet:0}},
@@ -5081,6 +5084,7 @@ const RECIPES={
   circlont:{name:'CIRCLONT6A',blurb:'techno-IDM at 142. fast hats, sparse snare, prominent acid sub.',style:'idmHalf',barSteps:16,form:'AABA',bars:4,bpm:142,scale:'minPent',polyIntensity:0.25,ornDensity:0.70,chaos:0.25,pitchedSnare:false,padOn:true,subOn:true,pitchUpFactor:1.20,fx:{sidechain:false,combWet:0,driveWet:0,crushWet:0}},
   selector:{name:'come on my selector',blurb:'jungle at 170 with acid sub. drop an amen.',style:'jungle',barSteps:16,form:'ABAB',bars:4,bpm:170,scale:'minPent',polyIntensity:0.2,ornDensity:0.85,chaos:0.35,pitchedSnare:false,padOn:false,subOn:true,pitchUpFactor:1.20,fx:{sidechain:false,combWet:0,driveWet:0.2,driveAmount:18,crushWet:0}},
   rhombus:{name:'port rhombus',blurb:'jazzy d&b at 170. melodic sub bass, gentle pad, minimal chaos.',style:'atmosDnb',barSteps:16,form:'AABA',bars:4,bpm:170,scale:'dorian',polyIntensity:0.1,ornDensity:0.65,chaos:0.10,pitchedSnare:false,padOn:true,subOn:true,pitchUpFactor:1.15,fx:{sidechain:true,combWet:0,driveWet:0,crushWet:0}},
+  verbal:{name:'verbal',blurb:"amon tobin's supermodified territory. cinematic halftime jazz-break at 146 in dorian. comb-filtered space, ducked pad, deep clean sub, light tape warmth. surgical, not chaotic.",style:'idmHalf',barSteps:16,form:"ABAC'",bars:4,bpm:146,scale:'dorian',polyIntensity:0.45,ornDensity:0.85,chaos:0.32,pitchedSnare:false,padOn:true,subOn:true,pitchUpFactor:1.10,fx:{sidechain:true,combWet:0.22,combDelayMs:38,combFeedback:0.55,driveWet:0.15,driveAmount:12,crushWet:0}},
   beepstreet:{name:'beep street',blurb:'jungle d&b at 175 driven by sub bass. ABAB form, no pad, just kicks/snares/sub.',style:'jungle',barSteps:16,form:'ABAB',bars:4,bpm:175,scale:'minor',polyIntensity:0.20,ornDensity:0.85,chaos:0.30,pitchedSnare:false,padOn:false,subOn:true,pitchUpFactor:1.25,fx:{sidechain:false,combWet:0,driveWet:0.25,driveAmount:20,crushWet:0}},
   terminal:{name:'terminal slam',blurb:'slower industrial-electro at ~130. distorted, mechanical.',style:'idmHalf',barSteps:16,form:"ABAC'",bars:4,bpm:130,scale:'phrygian',polyIntensity:0.4,ornDensity:0.55,chaos:0.50,pitchedSnare:false,padOn:false,subOn:true,pitchUpFactor:1.10,fx:{sidechain:false,combWet:0,driveWet:0.4,driveAmount:30,crushWet:0.2,crushBits:6}},
   bongoRock:{name:'Apache — Incredible Bongo Band',blurb:'the most-sampled break in hip-hop history. Jim Gordon\'s tight snare, King Errisson\'s congas. ~116 BPM, AABA, drums-forward, ghost notes before each backbeat, iconic open hat on the "ah" of 4. tape warmth.',style:'apache',barSteps:16,form:'AABA',bars:4,bpm:116,scale:'minPent',polyIntensity:0.05,ornDensity:0.85,chaos:0.15,pitchedSnare:false,padOn:false,subOn:false,pitchUpFactor:1.0,fx:{sidechain:false,combWet:0,driveWet:0.20,driveAmount:12,crushWet:0.12,crushBits:12}},
@@ -5193,6 +5197,8 @@ function applyRecipe(key){
   if(r.fx){
     fxState.sidechain=!!r.fx.sidechain;
     fxState.combWet=r.fx.combWet||0;
+    if(r.fx.combDelayMs!==undefined)fxState.combDelayMs=r.fx.combDelayMs;
+    if(r.fx.combFeedback!==undefined)fxState.combFeedback=r.fx.combFeedback;
     fxState.crushWet=r.fx.crushWet||0;
     if(r.fx.crushBits!==undefined)fxState.crushBits=r.fx.crushBits;
     fxState.driveWet=r.fx.driveWet||0;
