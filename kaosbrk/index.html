@@ -498,26 +498,39 @@
 /* iOS audio unlock: create and unlock an AudioContext on the first native touch
    so that when initAudio() runs later it can resume cleanly. Fires in capture
    phase so it beats any synthetic React/event-system handlers. The unlocked
-   context is stashed on window._kbAudioCtx and consumed by initAudio(). */
+   context is stashed on window._kbAudioCtx and consumed by initAudio().
+   Listeners are kept alive until the context is confirmed running, so a
+   failed first attempt (Safari desktop occasionally rejects the gesture tie)
+   gets another shot on the next interaction. */
 (function(){
-  function unlock(){
-    try{
-      var c = new (window.AudioContext || window.webkitAudioContext)();
-      var b = c.createBuffer(1, 1, c.sampleRate);
-      var s = c.createBufferSource();
-      s.buffer = b;
-      s.connect(c.destination);
-      s.start(0);
-      c.resume();
-      window._kbAudioCtx = c;
-    } catch(e){}
-    document.removeEventListener('touchstart', unlock, true);
-    document.removeEventListener('touchend',   unlock, true);
-    document.removeEventListener('mousedown',  unlock, true);
+  var events = ['touchstart','touchend','mousedown','pointerdown','click'];
+  function teardown(){
+    events.forEach(function(ev){ document.removeEventListener(ev, unlock, true); });
   }
-  document.addEventListener('touchstart', unlock, true);
-  document.addEventListener('touchend',   unlock, true);
-  document.addEventListener('mousedown',  unlock, true);
+  function unlock(){
+    if (window._kbAudioCtx && window._kbAudioCtx.state === 'running') { teardown(); return; }
+    try{
+      var c = window._kbAudioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      if (!window._kbAudioCtx) {
+        var b = c.createBuffer(1, 1, c.sampleRate);
+        var s = c.createBufferSource();
+        s.buffer = b;
+        s.connect(c.destination);
+        s.start(0);
+        window._kbAudioCtx = c;
+      }
+      var p = c.resume();
+      if (p && typeof p.then === 'function') {
+        p.then(function(){ if (c.state === 'running') teardown(); })
+         .catch(function(err){ console.warn('kbrk audio unlock resume rejected:', err); });
+      } else if (c.state === 'running') {
+        teardown();
+      }
+    } catch(err){
+      console.warn('kbrk audio unlock failed:', err);
+    }
+  }
+  events.forEach(function(ev){ document.addEventListener(ev, unlock, true); });
 })();
 </script>
 <header class="brand">
@@ -5077,7 +5090,7 @@ function renderLineage(p) {
 const RECIPES={
   szerencsetlen:{name:'szerencsétlen',blurb:'7/4 hungarian breakcore. orchestral pad in d minor, pitched snares, dramatic density. drop your amen.',style:'breakcore',barSteps:28,form:"ABAC'",bars:4,bpm:175,scale:'minor',polyIntensity:0.4,ornDensity:0.85,chaos:0.5,pitchedSnare:true,padOn:true,subOn:true,pitchUpFactor:1.30,fx:{sidechain:false,combWet:0,driveWet:0,crushWet:0}},
   hajnal:{name:'hajnal',blurb:'frantic 4/4 breakcore at 210. dense ornaments, distorted kicks, hi-velocity rolls. heavy drive.',style:'breakcore',barSteps:16,form:"ABAC'",bars:4,bpm:210,scale:'minor',polyIntensity:0.55,ornDensity:0.95,chaos:0.65,pitchedSnare:true,padOn:true,subOn:true,pitchUpFactor:1.45,fx:{sidechain:false,combWet:0,driveWet:0.35,driveAmount:25,crushWet:0}},
-  boysBeTough:{name:'boys be tough',blurb:"bogdan raczynski's samurai math beats territory. custom samurai math style: prime-number polymeters (5/7/9/11/13) at 0.85 chance, odd-subdivision rolls (5/7/9/11/13), aggressive micro-timing (SN/CH pushed 2 sub-steps forward). 7/8 bar at 196 in hirajoshi (japanese pentatonic, the literal samurai mode). custom motif with peak-density ornaments (KK and SN both reach 0.95). max drive 0.60/4.0, 5-bit crush, chaos 0.18, pitchUp 1.55. auto-loads the amen kit on select. random arpeggio at 1/8 from two octaves below, single-octave spread.",style:'samuraimath',barSteps:14,form:'ABCB',bars:4,bpm:196,scale:'hirajoshi',polyIntensity:0.80,ornDensity:1.00,chaos:0.18,pitchedSnare:true,padOn:false,subOn:true,pitchUpFactor:1.55,useBuiltinAmen:true,melodyMotion:{octBase:-2,octSpread:1,arpMode:'random',arpRate:8,arpSwing:false},fx:{sidechain:false,combWet:0,driveWet:0.60,driveAmount:40,crushWet:0.35,crushBits:5}},
+  boysBeTough:{name:'boys be tough',blurb:"bogdan raczynski's samurai math beats territory. custom samurai math style: prime-number polymeters (5/7/9/11/13) at 0.85 chance, odd-subdivision rolls (5/7/9/11/13), aggressive micro-timing (SN/CH pushed 2 sub-steps forward). 7/4 bar at 196 in hirajoshi (japanese pentatonic, the literal samurai mode). custom motif with peak-density ornaments (KK and SN both reach 0.95). max drive 0.60/4.0, 5-bit crush, chaos 0.18, pitchUp 1.55. auto-loads the amen kit on select. random arpeggio at 1/8 from two octaves below, single-octave spread.",style:'samuraimath',barSteps:28,form:'ABCB',bars:4,bpm:196,scale:'hirajoshi',polyIntensity:1.00,ornDensity:1.00,chaos:0.18,pitchedSnare:true,padOn:false,subOn:true,pitchUpFactor:1.55,useBuiltinAmen:true,melodyMotion:{octBase:-2,octSpread:1,arpMode:'random',arpRate:8,arpSwing:false},fx:{sidechain:false,combWet:0,driveWet:0.60,driveAmount:40,crushWet:0.35,crushBits:5}},
   hospitality:{name:'hospitality',blurb:'AABA at 175 with melodic pitched snares. orchestral pad. controlled, less chaos.',style:'breakcore',barSteps:16,form:'AABA',bars:4,bpm:175,scale:'minor',polyIntensity:0.25,ornDensity:0.70,chaos:0.30,pitchedSnare:true,padOn:true,subOn:true,pitchUpFactor:1.30,fx:{sidechain:true,combWet:0,driveWet:0,crushWet:0}},
   frictional:{name:'frictional nevada',blurb:'dense industrial breakcore at ~195. distorted kick + sub. heavy drive.',style:'breakcore',barSteps:16,form:"ABAC'",bars:4,bpm:195,scale:'phrygian',polyIntensity:0.3,ornDensity:1.0,chaos:0.55,pitchedSnare:false,padOn:false,subOn:true,pitchUpFactor:1.40,fx:{sidechain:false,combWet:0,driveWet:0.5,driveAmount:35,crushWet:0.15,crushBits:8}},
   weakling:{name:'to cure a weakling child',blurb:'precise melodic IDM at ~145. sweet major pad and pitched snare. surgical not violent.',style:'breakcore',barSteps:16,form:'AABA',bars:4,bpm:145,scale:'major',polyIntensity:0.15,ornDensity:0.75,chaos:0.20,pitchedSnare:true,padOn:true,subOn:true,pitchUpFactor:1.20,fx:{sidechain:true,combWet:0,driveWet:0,crushWet:0}},
