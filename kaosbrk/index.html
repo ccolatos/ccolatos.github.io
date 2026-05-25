@@ -725,7 +725,10 @@
       <div class="ctrl-group"><label>bars <span class="val" id="bars-val">4</span></label>
         <select id="bars"><option>2</option><option selected>4</option><option>8</option></select></div>
     </div>
-    <div class="ctrl-group"><label>bpm <span class="val" id="bpm-val">196</span></label><input type="range" id="bpm" min="60" max="280" value="196"></div>
+    <div class="ctrl-row">
+      <div class="ctrl-group"><label>bpm <span class="val" id="bpm-val">196</span></label><input type="range" id="bpm" min="60" max="280" value="196"></div>
+      <div class="ctrl-group"><label>swing <span class="val" id="swing-val">0%</span></label><input type="range" id="swing" min="0" max="100" value="0"></div>
+    </div>
     <div class="ctrl-group"><label>melody scale <span class="val" id="scale-val">minor pentatonic</span></label>
       <select id="scale">
         <optgroup label="western : diatonic modes">
@@ -3532,6 +3535,24 @@ function generate(opts) {
 /* ---------- SCHEDULER --------------------------------------------------- */
 let scheduler = { pattern: null, isPlaying: false, currentStep: 0, nextNoteTime: 0, lookahead: 25, scheduleAhead: 0.10, intervalId: null };
 function stepDuration(bpm) { return 60 / bpm / 4; }
+
+// Swing is live runtime state, like fxState. The scheduler reads it directly
+// so the user can dial swing in while playing without regenerating the pattern.
+// At 0% the pair is straight (each 1/16 = stepDur); at 100% the pair becomes
+// triplet swing (on-beat = 2/3 of pair, off-beat starts at 2/3, i.e. delayed
+// by stepDur/3). Linear in between. Even step indices are on-beats; odd are
+// off-beats. All recipes use even barSteps so parity is stable across bars.
+let swingState = { pct: 0 };
+function swingOffsetSec(stepIdx, stepDur) {
+  if (!swingState.pct || swingState.pct <= 0) return 0;
+  if ((stepIdx & 1) === 0) return 0;
+  return (swingState.pct / 100) * (stepDur / 3);
+}
+function swingOffsetTicks(stepIdx, stepTicks) {
+  if (!swingState.pct || swingState.pct <= 0) return 0;
+  if ((stepIdx & 1) === 0) return 0;
+  return Math.round((swingState.pct / 100) * (stepTicks / 3));
+}
 function fireVoice(v, t, ev, tone, pattern) {
   if (ev.sliceData && pattern.useSlices) { fireSlice(t, ev.sliceData.slice, ev.vel, ev.pitch, ev.sliceData.reverse); return; }
   const fn = VOICES[v].fn;
@@ -3645,8 +3666,13 @@ function tick() {
   const dur = stepDuration(scheduler.pattern.bpm);
   const isHidden = (typeof document !== 'undefined') && document.visibilityState === 'hidden';
   while (scheduler.nextNoteTime < ctx.currentTime + scheduler.scheduleAhead) {
-    scheduleStep(scheduler.currentStep, scheduler.nextNoteTime);
-    if (!isHidden) visualQueue.push({ step: scheduler.currentStep, when: scheduler.nextNoteTime });
+    // Swing offset: off-beat 16ths are pushed later. The grid pulse (nextNoteTime)
+    // doesn't change; only the scheduled fire-time of odd steps shifts. Both the
+    // audio engine and live MIDI out receive this offset because scheduleStep
+    // forwards `when` to fireVoice and sendMidiForEvent unchanged.
+    const swingOff = swingOffsetSec(scheduler.currentStep, dur);
+    scheduleStep(scheduler.currentStep, scheduler.nextNoteTime + swingOff);
+    if (!isHidden) visualQueue.push({ step: scheduler.currentStep, when: scheduler.nextNoteTime + swingOff });
     scheduler.nextNoteTime += dur;
     scheduler.currentStep++;
   }
@@ -4592,6 +4618,7 @@ function saveStateJSON() {
       form: ui.form.value,
       bars: ui.bars.value,
       bpm: ui.bpm.value,
+      swing: ui.swing.value,
       scale: ui.scale.value,
       poly: ui.poly.value,
       orn: ui.orn.value,
@@ -4632,6 +4659,7 @@ function loadStateJSON(file) {
         if (u.form !== undefined) ui.form.value = u.form;
         if (u.bars !== undefined) ui.bars.value = u.bars;
         if (u.bpm !== undefined) ui.bpm.value = u.bpm;
+        if (u.swing !== undefined) { ui.swing.value = u.swing; swingState.pct = parseInt(u.swing) || 0; }
         if (u.scale !== undefined) ui.scale.value = u.scale;
         if (u.poly !== undefined) ui.poly.value = u.poly;
         if (u.orn !== undefined) ui.orn.value = u.orn;
@@ -4816,6 +4844,9 @@ function exportMIDI() {
   // ticksPerMs = PPQ * bpm / 60000.
   const ticksPerMs = (PPQ * p.bpm) / 60000;
   const microTicks = (ev) => Math.round((ev.microMs || 0) * ticksPerMs);
+  // Swing in exported MIDI mirrors live playback: odd-indexed 1/16 steps are
+  // delayed in ticks by the same proportional formula used by the scheduler.
+  const swingTk = (s) => swingOffsetTicks(s, stepTicks);
   const clampTick = (t) => Math.max(0, t);
 
   // GM drum kit map (channel 10 / index 9)
@@ -4827,7 +4858,7 @@ function exportMIDI() {
   const subEvents = [];
 
   for (let s = 0; s < totalSteps; s++) {
-    const baseTick = s * stepTicks;
+    const baseTick = s * stepTicks + swingTk(s);
     // drum/perc voices
     for (const v of ['KK','SN','CL','CH','OH','RM','TM','PC']) {
       const ev = p.channels[v]?.[s];
@@ -5155,12 +5186,12 @@ const RECIPES={
   mantis:{name:'4 ton mantis',blurb:"amon tobin's halftime menace from supermodified (2000). 94 BPM, snare on 3, dense chopped jazz-breaks over a walking 1/16 sub. tape-saturated, pitched down for weight.",style:'halftime',barSteps:16,form:'ABCB',bars:8,bpm:94,scale:'dorian',polyIntensity:0.20,ornDensity:0.92,chaos:0.45,pitchedSnare:false,padOn:true,subOn:true,pitchUpFactor:0.85,melodyMotion:{octBase:-1,octSpread:2,arpMode:'random',arpRate:16},fx:{sidechain:false,combWet:0.15,combDelayMs:38,combFeedback:0.45,driveWet:0.32,driveAmount:22,crushWet:0.10,crushBits:11}},
   beepstreet:{name:'beep street',blurb:'jungle d&b at 175 driven by sub bass. ABAB form, no pad, just kicks/snares/sub.',style:'jungle',barSteps:16,form:'ABAB',bars:4,bpm:175,scale:'minor',polyIntensity:0.20,ornDensity:0.85,chaos:0.30,pitchedSnare:false,padOn:false,subOn:true,pitchUpFactor:1.25,fx:{sidechain:false,combWet:0,driveWet:0.25,driveAmount:20,crushWet:0}},
   terminal:{name:'terminal slam',blurb:'slower industrial-electro at ~130. distorted, mechanical.',style:'idmHalf',barSteps:16,form:"ABAC'",bars:4,bpm:130,scale:'phrygian',polyIntensity:0.4,ornDensity:0.55,chaos:0.50,pitchedSnare:false,padOn:false,subOn:true,pitchUpFactor:1.10,fx:{sidechain:false,combWet:0,driveWet:0.4,driveAmount:30,crushWet:0.2,crushBits:6}},
-  bongoRock:{name:'Apache — Incredible Bongo Band',blurb:'the most-sampled break in hip-hop history. Jim Gordon\'s tight snare, King Errisson\'s congas. ~116 BPM, AABA, drums-forward, ghost notes before each backbeat, iconic open hat on the "ah" of 4. tape warmth.',style:'apache',barSteps:16,form:'AABA',bars:4,bpm:116,scale:'minPent',polyIntensity:0.05,ornDensity:0.85,chaos:0.15,pitchedSnare:false,padOn:false,subOn:false,pitchUpFactor:1.0,fx:{sidechain:false,combWet:0,driveWet:0.20,driveAmount:12,crushWet:0.12,crushBits:12}},
+  bongoRock:{name:'Apache — Incredible Bongo Band',blurb:'the most-sampled break in hip-hop history. Jim Gordon\'s tight snare, King Errisson\'s congas. ~116 BPM, AABA, drums-forward, ghost notes before each backbeat, iconic open hat on the "ah" of 4. tape warmth.',style:'apache',barSteps:16,form:'AABA',bars:4,bpm:116,scale:'minPent',polyIntensity:0.05,ornDensity:0.85,chaos:0.15,pitchedSnare:false,padOn:false,subOn:false,pitchUpFactor:1.0,swing:55,fx:{sidechain:false,combWet:0,driveWet:0.20,driveAmount:12,crushWet:0.12,crushBits:12}},
   amenBreak:{name:'Amen, Brother — The Winstons (1969)',blurb:'the most influential drum break in music. Greg Coleman\'s 1969 performance, sliced into 46 authentic one-shots. clean break at low chaos; push chaos past 0.5 for Venetian Snares — stutters, pitch shifts, step reordering, density spikes.',style:'amen',barSteps:16,form:'AABA',bars:8,bpm:180,scale:'minPent',polyIntensity:1.00,ornDensity:1.00,chaos:0.18,pitchedSnare:false,padOn:false,subOn:false,noMelody:true,noTailRoll:true,pitchUpFactor:1.20,useBuiltinAmen:true,fx:{sidechain:false,combWet:0,driveWet:0,crushWet:0}}
 };
 
 /* ---------- UI WIRING --------------------------------------------------- */
-const ui={recipe:document.getElementById('recipe'),style:document.getElementById('style'),tsig:document.getElementById('tsig'),form:document.getElementById('form'),bars:document.getElementById('bars'),bpm:document.getElementById('bpm'),scale:document.getElementById('scale'),poly:document.getElementById('poly'),orn:document.getElementById('orn'),chaos:document.getElementById('chaos'),seedInput:document.getElementById('seed-input'),pitchedSnare:document.getElementById('pitched-snare'),padOn:document.getElementById('pad-on'),subOn:document.getElementById('sub-on'),generateBtn:document.getElementById('generate-btn'),playBtn:document.getElementById('play-btn'),regenBtn:document.getElementById('regen-btn'),styleVal:document.getElementById('style-val'),tsigVal:document.getElementById('tsig-val'),formVal:document.getElementById('form-val'),barsVal:document.getElementById('bars-val'),bpmVal:document.getElementById('bpm-val'),scaleVal:document.getElementById('scale-val'),polyVal:document.getElementById('poly-val'),ornVal:document.getElementById('orn-val'),chaosVal:document.getElementById('chaos-val'),seedVal:document.getElementById('seed-val'),recipeBanner:document.getElementById('recipe-banner'),dropZone:document.getElementById('drop-zone'),fileInput:document.getElementById('file-input'),breakInfo:document.getElementById('break-info'),breakName:document.getElementById('break-name'),breakDuration:document.getElementById('break-duration'),breakSlices:document.getElementById('break-slices'),breakClassification:document.getElementById('break-classification'),sensitivity:document.getElementById('sensitivity'),sensVal:document.getElementById('sens-val'),pitchup:document.getElementById('pitchup'),pitchupVal:document.getElementById('pitchup-val'),redetectBtn:document.getElementById('redetect-btn'),useSlices:document.getElementById('use-slices'),previewBtn:document.getElementById('preview-btn'),clearBreakBtn:document.getElementById('clear-break-btn'),saveJsonBtn:document.getElementById('save-json-btn'),loadJsonBtn:document.getElementById('load-json-btn'),loadJsonInput:document.getElementById('load-json-input'),renderWavBtn:document.getElementById('render-wav-btn'),exportMidiBtn:document.getElementById('export-midi-btn'),fxSidechain:document.getElementById('fx-sidechain'),combWet:document.getElementById('comb-wet'),combWetVal:document.getElementById('comb-wet-val'),combDelay:document.getElementById('comb-delay'),combDelayVal:document.getElementById('comb-delay-val'),combFb:document.getElementById('comb-fb'),combFbVal:document.getElementById('comb-fb-val'),crushWet:document.getElementById('crush-wet'),crushWetVal:document.getElementById('crush-wet-val'),crushBits:document.getElementById('crush-bits'),crushBitsVal:document.getElementById('crush-bits-val'),driveWet:document.getElementById('drive-wet'),driveWetVal:document.getElementById('drive-wet-val'),driveAmt:document.getElementById('drive-amt'),driveAmtVal:document.getElementById('drive-amt-val'),midiOutSel:document.getElementById('midi-out-sel'),midiInitBtn:document.getElementById('midi-init-btn'),midiPanicBtn:document.getElementById('midi-panic-btn'),audioMuteBtn:document.getElementById('audio-mute-btn'),clearPatternBtn:document.getElementById('clear-pattern-btn')};
+const ui={recipe:document.getElementById('recipe'),style:document.getElementById('style'),tsig:document.getElementById('tsig'),form:document.getElementById('form'),bars:document.getElementById('bars'),bpm:document.getElementById('bpm'),swing:document.getElementById('swing'),scale:document.getElementById('scale'),poly:document.getElementById('poly'),orn:document.getElementById('orn'),chaos:document.getElementById('chaos'),seedInput:document.getElementById('seed-input'),pitchedSnare:document.getElementById('pitched-snare'),padOn:document.getElementById('pad-on'),subOn:document.getElementById('sub-on'),generateBtn:document.getElementById('generate-btn'),playBtn:document.getElementById('play-btn'),regenBtn:document.getElementById('regen-btn'),styleVal:document.getElementById('style-val'),tsigVal:document.getElementById('tsig-val'),formVal:document.getElementById('form-val'),barsVal:document.getElementById('bars-val'),bpmVal:document.getElementById('bpm-val'),swingVal:document.getElementById('swing-val'),scaleVal:document.getElementById('scale-val'),polyVal:document.getElementById('poly-val'),ornVal:document.getElementById('orn-val'),chaosVal:document.getElementById('chaos-val'),seedVal:document.getElementById('seed-val'),recipeBanner:document.getElementById('recipe-banner'),dropZone:document.getElementById('drop-zone'),fileInput:document.getElementById('file-input'),breakInfo:document.getElementById('break-info'),breakName:document.getElementById('break-name'),breakDuration:document.getElementById('break-duration'),breakSlices:document.getElementById('break-slices'),breakClassification:document.getElementById('break-classification'),sensitivity:document.getElementById('sensitivity'),sensVal:document.getElementById('sens-val'),pitchup:document.getElementById('pitchup'),pitchupVal:document.getElementById('pitchup-val'),redetectBtn:document.getElementById('redetect-btn'),useSlices:document.getElementById('use-slices'),previewBtn:document.getElementById('preview-btn'),clearBreakBtn:document.getElementById('clear-break-btn'),saveJsonBtn:document.getElementById('save-json-btn'),loadJsonBtn:document.getElementById('load-json-btn'),loadJsonInput:document.getElementById('load-json-input'),renderWavBtn:document.getElementById('render-wav-btn'),exportMidiBtn:document.getElementById('export-midi-btn'),fxSidechain:document.getElementById('fx-sidechain'),combWet:document.getElementById('comb-wet'),combWetVal:document.getElementById('comb-wet-val'),combDelay:document.getElementById('comb-delay'),combDelayVal:document.getElementById('comb-delay-val'),combFb:document.getElementById('comb-fb'),combFbVal:document.getElementById('comb-fb-val'),crushWet:document.getElementById('crush-wet'),crushWetVal:document.getElementById('crush-wet-val'),crushBits:document.getElementById('crush-bits'),crushBitsVal:document.getElementById('crush-bits-val'),driveWet:document.getElementById('drive-wet'),driveWetVal:document.getElementById('drive-wet-val'),driveAmt:document.getElementById('drive-amt'),driveAmtVal:document.getElementById('drive-amt-val'),midiOutSel:document.getElementById('midi-out-sel'),midiInitBtn:document.getElementById('midi-init-btn'),midiPanicBtn:document.getElementById('midi-panic-btn'),audioMuteBtn:document.getElementById('audio-mute-btn'),clearPatternBtn:document.getElementById('clear-pattern-btn')};
 
 // Melody motion state: OCT (octave base + spread) and ARP (mode + rate).
 // Defaults reproduce the original behavior exactly (octBase 0, spread 1, arp
@@ -5249,13 +5280,17 @@ function syncFxUI() {
   ui.driveAmt.value = Math.round(fxState.driveAmount * 10);
   updateLabels();
 }
-function updateLabels(){ui.styleVal.textContent=STYLE_BEHAVIOR[ui.style.value].name;ui.tsigVal.textContent=getMeter();ui.formVal.textContent=ui.form.value;ui.barsVal.textContent=ui.bars.value;ui.bpmVal.textContent=ui.bpm.value;ui.scaleVal.textContent=ui.scale.value;ui.polyVal.textContent=(ui.poly.value/100).toFixed(2);ui.ornVal.textContent=(ui.orn.value/100).toFixed(2);ui.chaosVal.textContent=(ui.chaos.value/100).toFixed(2);ui.sensVal.textContent=(ui.sensitivity.value/100).toFixed(2);if(ui.pitchupVal)ui.pitchupVal.textContent=(parseInt(ui.pitchup.value)/100).toFixed(2)+'×';if(ui.combWetVal){ui.combWetVal.textContent=(parseInt(ui.combWet.value)/100).toFixed(2);ui.combDelayVal.textContent=ui.combDelay.value+'ms';ui.combFbVal.textContent=(parseInt(ui.combFb.value)/100).toFixed(2);ui.crushWetVal.textContent=(parseInt(ui.crushWet.value)/100).toFixed(2);ui.crushBitsVal.textContent=ui.crushBits.value;ui.driveWetVal.textContent=(parseInt(ui.driveWet.value)/100).toFixed(2);ui.driveAmtVal.textContent=(parseInt(ui.driveAmt.value)/10).toFixed(1);}}
+function updateLabels(){ui.styleVal.textContent=STYLE_BEHAVIOR[ui.style.value].name;ui.tsigVal.textContent=getMeter();ui.formVal.textContent=ui.form.value;ui.barsVal.textContent=ui.bars.value;ui.bpmVal.textContent=ui.bpm.value;ui.swingVal.textContent=ui.swing.value+'%';ui.scaleVal.textContent=ui.scale.value;ui.polyVal.textContent=(ui.poly.value/100).toFixed(2);ui.ornVal.textContent=(ui.orn.value/100).toFixed(2);ui.chaosVal.textContent=(ui.chaos.value/100).toFixed(2);ui.sensVal.textContent=(ui.sensitivity.value/100).toFixed(2);if(ui.pitchupVal)ui.pitchupVal.textContent=(parseInt(ui.pitchup.value)/100).toFixed(2)+'×';if(ui.combWetVal){ui.combWetVal.textContent=(parseInt(ui.combWet.value)/100).toFixed(2);ui.combDelayVal.textContent=ui.combDelay.value+'ms';ui.combFbVal.textContent=(parseInt(ui.combFb.value)/100).toFixed(2);ui.crushWetVal.textContent=(parseInt(ui.crushWet.value)/100).toFixed(2);ui.crushBitsVal.textContent=ui.crushBits.value;ui.driveWetVal.textContent=(parseInt(ui.driveWet.value)/100).toFixed(2);ui.driveAmtVal.textContent=(parseInt(ui.driveAmt.value)/10).toFixed(1);}}
 function applyRecipe(key){
   if(key==='custom'){ui.recipeBanner.style.display='none';return;}
   const r=RECIPES[key];if(!r)return;
   ui.style.value=r.style;setTsigValue(r.barSteps);
   ui.form.value=r.form;ui.bars.value=r.bars.toString();
   ui.bpm.value=r.bpm;ui.scale.value=r.scale;
+  // Swing travels with the recipe like BPM. Missing field = straight (0%).
+  const recipeSwing = (r.swing !== undefined) ? r.swing : 0;
+  ui.swing.value = recipeSwing;
+  swingState.pct = recipeSwing;
   ui.poly.value=Math.round(r.polyIntensity*100);
   ui.orn.value=Math.round(r.ornDensity*100);
   ui.chaos.value=Math.round(r.chaos*100);
@@ -5439,6 +5474,7 @@ ui.tsig.addEventListener('change',()=>{updateLabels();customize();});
 ui.form.addEventListener('change',()=>{updateLabels();customize();});
 ui.bars.addEventListener('change',updateLabels);
 ui.bpm.addEventListener('input',()=>{updateLabels();customize();});
+ui.swing.addEventListener('input',()=>{swingState.pct=parseInt(ui.swing.value)||0;updateLabels();customize();});
 ui.scale.addEventListener('change',()=>{updateLabels();customize();});
 ui.poly.addEventListener('input',updateLabels);
 ui.orn.addEventListener('input',updateLabels);
