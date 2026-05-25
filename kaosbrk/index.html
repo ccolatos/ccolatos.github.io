@@ -166,10 +166,10 @@
   .seg-btn.on{background:var(--hazard);color:#050505;border-color:var(--hazard);font-weight:700;}
   .seg-btn.on.cool-on{background:var(--cool);border-color:var(--cool);}
   /* A seg-modifier button sits inside a regular mutex seg-btns group but does
-     not participate in the mutex — it toggles its own on/off state and modifies
+     not participate in the mutex. It toggles its own on/off state and modifies
      whichever value is currently selected in the same group. Lights cool/cyan
-     when active to signal the different role. Currently used by the swing
-     button on the RATE row. */
+     when active to signal the different role. Framework retained for future
+     use; no active modifier consumers at present. */
   .seg-btn.seg-modifier.on{background:var(--cool);color:#050505;border-color:var(--cool);}
   .seg-btn.seg-modifier:hover{border-color:var(--cool);color:var(--cool);}
   .seg-btn.seg-modifier:hover.on{color:#050505;}
@@ -853,13 +853,13 @@
       </div>
       <div class="mel-row">
         <div class="mel-label">RATE</div>
-        <div class="seg-btns" data-seg="arpRate" data-modifier="arpSwing" title="arpeggiator subdivision; swing adds 2:1 triplet feel">
+        <div class="seg-btns" data-seg="arpRate" title="arpeggiator subdivision; rnd picks a random rate for each arp burst">
           <button type="button" class="seg-btn" data-val="8" title="eighth notes — 8 per bar">1/8</button>
           <button type="button" class="seg-btn" data-val="12" title="quarter triplets — 12 per bar, J Dilla feel">1/12</button>
           <button type="button" class="seg-btn on" data-val="16" title="sixteenth notes — 16 per bar">1/16</button>
           <button type="button" class="seg-btn" data-val="24" title="eighth triplets — 24 per bar, drill/footwork feel">1/24</button>
           <button type="button" class="seg-btn" data-val="32" title="thirty-second notes — 32 per bar">1/32</button>
-          <button type="button" class="seg-btn seg-modifier" data-mod-val="on" title="swing: delay every second arp note by 1/3 of a subdivision (2:1 triplet swing, classic shuffle feel)">swing</button>
+          <button type="button" class="seg-btn" data-val="random" title="random rate per arp burst: each melody note's burst rolls a new subdivision from the five rates above">rnd</button>
         </div>
       </div>
     </div>
@@ -1007,8 +1007,7 @@
           <li><b>OCT</b> shifts the entire melody up or down by full octaves. <code>0</code> is C4-centered (current default). <code>+1</code> or <code>+2</code> lifts the lead into a piercing register; <code>-1</code> or <code>-2</code> drops it into a brooding one. The sub bass stays locked to C2 to B2 regardless, so it never drifts out of bass range when the lead climbs.</li>
           <li><b>SPREAD</b> opens up the melodic register. <code>1</code> keeps the lead in roughly one octave (the original behavior). <code>2</code> doubles the available range; <code>3</code> triples it. Step/leap distribution adapts: wider spread permits occasional five- and seven-degree leaps so the contour actually traverses the larger space rather than crawling. The first note recenters to the middle of the extended range, giving the contour room on both sides.</li>
           <li><b>ARP</b> turns each melody note into a scale-degree burst that lasts until the next melody note. Five patterns: <code>↑</code> climbs, <code>↓</code> falls, <code>↕</code> goes up then back down, <code>oct</code> jumps the same pitch class through octaves, and <code>rnd</code> walks randomly through the scale window. The window width follows SPREAD: spread 2 climbs through two octaves, spread 3 through three. Arp pitches snap to the active scale, so maqam arpeggios are quarter-tone accurate. Velocity alternates strong/weak inside each burst for groove rather than a robotic stream.</li>
-          <li><b>RATE</b> sets arp subdivision. <code>1/8</code> is one note per two steps, <code>1/12</code> is quarter triplets (twelve per bar, J Dilla / halftime swing), <code>1/16</code> is one per step, <code>1/24</code> is eighth triplets (drill / footwork feel), <code>1/32</code> doubles up to two notes per step. The actual note count of each burst is rate times span length, so longer gaps in the melody fill with more arp notes automatically.</li>
-          <li><b>swing</b> is a modifier that composes with any rate. When lit (cool/cyan to signal it is not a mutex peer), every second arp sub-note is delayed by 1/3 of a subdivision — the canonical 2:1 triplet-swing ratio. Pairs play long-short-long-short, giving jazz / shuffle / Dilla feel without changing the note count. Crucially, swing is a timing displacement, not a rate scaling: it composes cleanly with all five rate values and never duplicates a straight setting. (An earlier attempt at this used a "dotted" modifier that scaled the rate by 2/3, which made 1/12 dotted identical to 1/8 straight and 1/24 dotted identical to 1/16 straight — a genuine redundancy. Swing has none.)</li>
+          <li><b>RATE</b> sets arp subdivision. <code>1/8</code> is one note per two steps, <code>1/12</code> is quarter triplets (twelve per bar, J Dilla / halftime swing), <code>1/16</code> is one per step, <code>1/24</code> is eighth triplets (drill / footwork feel), <code>1/32</code> doubles up to two notes per step, and <code>rnd</code> picks a fresh random rate for each arp burst (per melody note). The actual note count of each burst is rate times span length, so longer gaps in the melody fill with more arp notes automatically. With <code>rnd</code> active, the rate stays consistent within a burst and only changes between bursts, so each melody note triggers a rhythmically coherent run at a different subdivision; the seeded RNG keeps this reproducible per seed. This pairs especially well with <code>rnd</code> direction: each burst gets a fresh pitch sequence at a fresh tempo, ideal for breakcore and glitch contexts.</li>
         </ul>
         <p class="dim">All four controls feed live MIDI out and the .mid export. Microtonal arp pitches round to the nearest semitone for MIDI, same convention as the rest of the file. Defaults (OCT 0, SPREAD 1, ARP off) reproduce the prior generator behavior bit-for-bit on the same seed.</p>
       </div>
@@ -3306,7 +3305,18 @@ function buildArpBurst(rootMidi, scale, arpConfig, spanSteps, barSteps, rng) {
   if (!scale || !arpConfig) return null;
   const mode = arpConfig.mode;
   if (!mode || mode === 'off') return null;
-  const rate = arpConfig.rate || 16;
+  // Rate resolution: numeric values (8/12/16/24/32) used directly; the special
+  // value 'random' rolls a fresh subdivision per arp burst from the five
+  // straight rates, using the supplied RNG so the choice is seed-deterministic.
+  // The rate is held constant within the burst (per-note random rate would
+  // smear all rhythmic structure into noise); only the choice changes between
+  // bursts, so each melody note can trigger a coherent run at a fresh tempo.
+  let rate = arpConfig.rate;
+  if (rate === 'random') {
+    const rateChoices = [8, 12, 16, 24, 32];
+    rate = rateChoices[Math.floor(rng() * rateChoices.length)];
+  }
+  if (typeof rate !== 'number' || !rate) rate = 16;
   const range = Math.max(1, Math.min(3, arpConfig.range || 1));
   const scaleLen = scale.length;
 
@@ -4597,8 +4607,7 @@ function saveStateJSON() {
       octBase: melodyMotion.octBase,
       octSpread: melodyMotion.octSpread,
       arpMode: melodyMotion.arpMode,
-      arpRate: melodyMotion.arpRate,
-      arpSwing: melodyMotion.arpSwing
+      arpRate: melodyMotion.arpRate
     },
     fx: { ...fxState },
     voiceMix: JSON.parse(JSON.stringify(voiceMix)),
@@ -4641,10 +4650,9 @@ function loadStateJSON(file) {
         if (u.octSpread !== undefined) setSegValue('octSpread', u.octSpread);
         if (u.arpMode !== undefined) setSegValue('arpMode', u.arpMode);
         if (u.arpRate !== undefined) setSegValue('arpRate', u.arpRate);
-        // Backward-compat: older saves may have arpDotted instead of arpSwing.
-        // Both produce a non-square groove; map them to the same modifier.
-        if (u.arpSwing !== undefined) setSegValue('arpSwing', u.arpSwing);
-        else if (u.arpDotted !== undefined) setSegValue('arpSwing', u.arpDotted);
+        // arpSwing field is no longer used (swing modifier removed in favor
+        // of rnd rate). Older saves that include arpSwing or arpDotted are
+        // silently ignored.
         updateLabels();
         // Refresh cleverness fader visuals to match loaded values
         if (typeof updateCfVisuals === 'function') {
@@ -5135,7 +5143,7 @@ function renderLineage(p) {
 const RECIPES={
   szerencsetlen:{name:'szerencsétlen',blurb:'7/4 hungarian breakcore. orchestral pad in d minor, pitched snares, dramatic density. drop your amen.',style:'breakcore',barSteps:28,form:"ABAC'",bars:4,bpm:175,scale:'minor',polyIntensity:0.4,ornDensity:0.85,chaos:0.5,pitchedSnare:true,padOn:true,subOn:true,pitchUpFactor:1.30,fx:{sidechain:false,combWet:0,driveWet:0,crushWet:0}},
   hajnal:{name:'hajnal',blurb:'frantic 4/4 breakcore at 210. dense ornaments, distorted kicks, hi-velocity rolls. heavy drive.',style:'breakcore',barSteps:16,form:"ABAC'",bars:4,bpm:210,scale:'minor',polyIntensity:0.55,ornDensity:0.95,chaos:0.65,pitchedSnare:true,padOn:true,subOn:true,pitchUpFactor:1.45,fx:{sidechain:false,combWet:0,driveWet:0.35,driveAmount:25,crushWet:0}},
-  boysBeTough:{name:'boys be tough',blurb:"bogdan raczynski's samurai math beats territory. custom samurai math style: prime-number polymeters (5/7/9/11/13) at 0.85 chance, odd-subdivision rolls (5/7/9/11/13), aggressive micro-timing (SN/CH pushed 2 sub-steps forward). 7/4 bar at 196 in hirajoshi (japanese pentatonic, the literal samurai mode). custom motif with peak-density ornaments (KK and SN both reach 0.95). max drive 0.60/4.0, 5-bit crush, chaos 0.18, pitchUp 1.55. auto-loads the amen kit on select. random arpeggio at 1/8 from two octaves below, single-octave spread.",style:'samuraimath',barSteps:28,form:'ABCB',bars:8,bpm:196,scale:'hirajoshi',polyIntensity:1.00,ornDensity:1.00,chaos:0.18,pitchedSnare:true,padOn:false,subOn:true,pitchUpFactor:1.55,useBuiltinAmen:true,melodyMotion:{octBase:-2,octSpread:1,arpMode:'random',arpRate:8,arpSwing:false},fx:{sidechain:false,combWet:0,driveWet:0.60,driveAmount:40,crushWet:0,crushBits:5}},
+  boysBeTough:{name:'boys be tough',blurb:"bogdan raczynski's samurai math beats territory. custom samurai math style: prime-number polymeters (5/7/9/11/13) at 0.85 chance, odd-subdivision rolls (5/7/9/11/13), aggressive micro-timing (SN/CH pushed 2 sub-steps forward). 7/4 bar at 196 in hirajoshi (japanese pentatonic, the literal samurai mode). custom motif with peak-density ornaments (KK and SN both reach 0.95). max drive 0.60/4.0, 5-bit crush, chaos 0.18, pitchUp 1.55. auto-loads the amen kit on select. random arpeggio at 1/8 from two octaves below, single-octave spread.",style:'samuraimath',barSteps:28,form:'ABCB',bars:8,bpm:196,scale:'hirajoshi',polyIntensity:1.00,ornDensity:1.00,chaos:0.18,pitchedSnare:true,padOn:false,subOn:true,pitchUpFactor:1.55,useBuiltinAmen:true,melodyMotion:{octBase:-2,octSpread:1,arpMode:'random',arpRate:8},fx:{sidechain:false,combWet:0,driveWet:0.60,driveAmount:40,crushWet:0,crushBits:5}},
   hospitality:{name:'hospitality',blurb:'AABA at 175 with melodic pitched snares. orchestral pad. controlled, less chaos.',style:'breakcore',barSteps:16,form:'AABA',bars:4,bpm:175,scale:'minor',polyIntensity:0.25,ornDensity:0.70,chaos:0.30,pitchedSnare:true,padOn:true,subOn:true,pitchUpFactor:1.30,fx:{sidechain:true,combWet:0,driveWet:0,crushWet:0}},
   frictional:{name:'frictional nevada',blurb:'dense industrial breakcore at ~195. distorted kick + sub. heavy drive.',style:'breakcore',barSteps:16,form:"ABAC'",bars:4,bpm:195,scale:'phrygian',polyIntensity:0.3,ornDensity:1.0,chaos:0.55,pitchedSnare:false,padOn:false,subOn:true,pitchUpFactor:1.40,fx:{sidechain:false,combWet:0,driveWet:0.5,driveAmount:35,crushWet:0.15,crushBits:8}},
   weakling:{name:'to cure a weakling child',blurb:'precise melodic IDM at ~145. sweet major pad and pitched snare. surgical not violent.',style:'breakcore',barSteps:16,form:'AABA',bars:4,bpm:145,scale:'major',polyIntensity:0.15,ornDensity:0.75,chaos:0.20,pitchedSnare:true,padOn:true,subOn:true,pitchUpFactor:1.20,fx:{sidechain:true,combWet:0,driveWet:0,crushWet:0}},
@@ -5144,7 +5152,7 @@ const RECIPES={
   circlont:{name:'CIRCLONT6A',blurb:'techno-IDM at 142. fast hats, sparse snare, prominent acid sub.',style:'idmHalf',barSteps:16,form:'AABA',bars:4,bpm:142,scale:'minPent',polyIntensity:0.25,ornDensity:0.70,chaos:0.25,pitchedSnare:false,padOn:true,subOn:true,pitchUpFactor:1.20,fx:{sidechain:false,combWet:0,driveWet:0,crushWet:0}},
   selector:{name:'come on my selector',blurb:'jungle at 170 with acid sub. drop an amen.',style:'jungle',barSteps:16,form:'ABAB',bars:4,bpm:170,scale:'minPent',polyIntensity:0.2,ornDensity:0.85,chaos:0.35,pitchedSnare:false,padOn:false,subOn:true,pitchUpFactor:1.20,fx:{sidechain:false,combWet:0,driveWet:0.2,driveAmount:18,crushWet:0}},
   rhombus:{name:'port rhombus',blurb:'jazzy d&b at 170. melodic sub bass, gentle pad, minimal chaos.',style:'atmosDnb',barSteps:16,form:'AABA',bars:4,bpm:170,scale:'dorian',polyIntensity:0.1,ornDensity:0.65,chaos:0.10,pitchedSnare:false,padOn:true,subOn:true,pitchUpFactor:1.15,fx:{sidechain:true,combWet:0,driveWet:0,crushWet:0}},
-  mantis:{name:'4 ton mantis',blurb:"amon tobin's supermodified menace. custom cinedub style: jazz-tuplet rolls (3/5/6/8), polymeter chance 0.55 with even-meter overlays (12/14/18/20/24), brushed-jazz micro-timing (SN/CH 2-3 sub-steps behind the beat). slowest preset in the system at 96 BPM, 8-bar arc in ABCB. only preset that pitches DOWN (0.85x, ~2.7 semitones lower) for subterranean weight. custom motif with strong-weak-medium-weak swung ride pattern on CH, brushed ghost-snares, shaker PC. deep comb cavern (wet 0.35, 52ms, 0.62fb) over dorian. j dilla feel on the sub-bass: updown arpeggio at 1/12 quarter triplets with swing on, octave-down base, 3-octave spread. hi-fi cinema, surgical.",style:'cinedub',barSteps:16,form:'ABCB',bars:8,bpm:96,scale:'dorian',polyIntensity:0.55,ornDensity:0.78,chaos:0.22,pitchedSnare:false,padOn:true,subOn:true,pitchUpFactor:0.85,melodyMotion:{octBase:-1,octSpread:3,arpMode:'updown',arpRate:12,arpSwing:true},fx:{sidechain:true,combWet:0.35,combDelayMs:52,combFeedback:0.62,driveWet:0.18,driveAmount:13,crushWet:0}},
+  mantis:{name:'4 ton mantis',blurb:"amon tobin's supermodified menace. custom cinedub style: jazz-tuplet rolls (3/5/6/8), polymeter chance 0.55 with even-meter overlays (12/14/18/20/24), brushed-jazz micro-timing (SN/CH 2-3 sub-steps behind the beat). slowest preset in the system at 96 BPM, 8-bar arc in ABCB. only preset that pitches DOWN (0.85x, ~2.7 semitones lower) for subterranean weight. custom motif with strong-weak-medium-weak swung ride pattern on CH, brushed ghost-snares, shaker PC. deep comb cavern (wet 0.35, 52ms, 0.62fb) over dorian. j dilla feel on the sub-bass: updown arpeggio at 1/12 quarter triplets, octave-down base, 3-octave spread. hi-fi cinema, surgical.",style:'cinedub',barSteps:16,form:'ABCB',bars:8,bpm:96,scale:'dorian',polyIntensity:0.55,ornDensity:0.78,chaos:0.22,pitchedSnare:false,padOn:true,subOn:true,pitchUpFactor:0.85,melodyMotion:{octBase:-1,octSpread:3,arpMode:'updown',arpRate:12},fx:{sidechain:true,combWet:0.35,combDelayMs:52,combFeedback:0.62,driveWet:0.18,driveAmount:13,crushWet:0}},
   beepstreet:{name:'beep street',blurb:'jungle d&b at 175 driven by sub bass. ABAB form, no pad, just kicks/snares/sub.',style:'jungle',barSteps:16,form:'ABAB',bars:4,bpm:175,scale:'minor',polyIntensity:0.20,ornDensity:0.85,chaos:0.30,pitchedSnare:false,padOn:false,subOn:true,pitchUpFactor:1.25,fx:{sidechain:false,combWet:0,driveWet:0.25,driveAmount:20,crushWet:0}},
   terminal:{name:'terminal slam',blurb:'slower industrial-electro at ~130. distorted, mechanical.',style:'idmHalf',barSteps:16,form:"ABAC'",bars:4,bpm:130,scale:'phrygian',polyIntensity:0.4,ornDensity:0.55,chaos:0.50,pitchedSnare:false,padOn:false,subOn:true,pitchUpFactor:1.10,fx:{sidechain:false,combWet:0,driveWet:0.4,driveAmount:30,crushWet:0.2,crushBits:6}},
   bongoRock:{name:'Apache — Incredible Bongo Band',blurb:'the most-sampled break in hip-hop history. Jim Gordon\'s tight snare, King Errisson\'s congas. ~116 BPM, AABA, drums-forward, ghost notes before each backbeat, iconic open hat on the "ah" of 4. tape warmth.',style:'apache',barSteps:16,form:'AABA',bars:4,bpm:116,scale:'minPent',polyIntensity:0.05,ornDensity:0.85,chaos:0.15,pitchedSnare:false,padOn:false,subOn:false,pitchUpFactor:1.0,fx:{sidechain:false,combWet:0,driveWet:0.20,driveAmount:12,crushWet:0.12,crushBits:12}},
@@ -5154,20 +5162,19 @@ const RECIPES={
 /* ---------- UI WIRING --------------------------------------------------- */
 const ui={recipe:document.getElementById('recipe'),style:document.getElementById('style'),tsig:document.getElementById('tsig'),form:document.getElementById('form'),bars:document.getElementById('bars'),bpm:document.getElementById('bpm'),scale:document.getElementById('scale'),poly:document.getElementById('poly'),orn:document.getElementById('orn'),chaos:document.getElementById('chaos'),seedInput:document.getElementById('seed-input'),pitchedSnare:document.getElementById('pitched-snare'),padOn:document.getElementById('pad-on'),subOn:document.getElementById('sub-on'),generateBtn:document.getElementById('generate-btn'),playBtn:document.getElementById('play-btn'),regenBtn:document.getElementById('regen-btn'),styleVal:document.getElementById('style-val'),tsigVal:document.getElementById('tsig-val'),formVal:document.getElementById('form-val'),barsVal:document.getElementById('bars-val'),bpmVal:document.getElementById('bpm-val'),scaleVal:document.getElementById('scale-val'),polyVal:document.getElementById('poly-val'),ornVal:document.getElementById('orn-val'),chaosVal:document.getElementById('chaos-val'),seedVal:document.getElementById('seed-val'),recipeBanner:document.getElementById('recipe-banner'),dropZone:document.getElementById('drop-zone'),fileInput:document.getElementById('file-input'),breakInfo:document.getElementById('break-info'),breakName:document.getElementById('break-name'),breakDuration:document.getElementById('break-duration'),breakSlices:document.getElementById('break-slices'),breakClassification:document.getElementById('break-classification'),sensitivity:document.getElementById('sensitivity'),sensVal:document.getElementById('sens-val'),pitchup:document.getElementById('pitchup'),pitchupVal:document.getElementById('pitchup-val'),redetectBtn:document.getElementById('redetect-btn'),useSlices:document.getElementById('use-slices'),previewBtn:document.getElementById('preview-btn'),clearBreakBtn:document.getElementById('clear-break-btn'),saveJsonBtn:document.getElementById('save-json-btn'),loadJsonBtn:document.getElementById('load-json-btn'),loadJsonInput:document.getElementById('load-json-input'),renderWavBtn:document.getElementById('render-wav-btn'),exportMidiBtn:document.getElementById('export-midi-btn'),fxSidechain:document.getElementById('fx-sidechain'),combWet:document.getElementById('comb-wet'),combWetVal:document.getElementById('comb-wet-val'),combDelay:document.getElementById('comb-delay'),combDelayVal:document.getElementById('comb-delay-val'),combFb:document.getElementById('comb-fb'),combFbVal:document.getElementById('comb-fb-val'),crushWet:document.getElementById('crush-wet'),crushWetVal:document.getElementById('crush-wet-val'),crushBits:document.getElementById('crush-bits'),crushBitsVal:document.getElementById('crush-bits-val'),driveWet:document.getElementById('drive-wet'),driveWetVal:document.getElementById('drive-wet-val'),driveAmt:document.getElementById('drive-amt'),driveAmtVal:document.getElementById('drive-amt-val'),midiOutSel:document.getElementById('midi-out-sel'),midiInitBtn:document.getElementById('midi-init-btn'),midiPanicBtn:document.getElementById('midi-panic-btn'),audioMuteBtn:document.getElementById('audio-mute-btn'),clearPatternBtn:document.getElementById('clear-pattern-btn')};
 
-// Melody motion state: OCT (octave base + spread) and ARP (mode + rate + swing).
-// Defaults reproduce the original behavior exactly (octBase 0, spread 1, arp off,
-// swing off). The arp 'range' is bound to spread so the two controls move
-// together — a wider melodic register implies a wider arp window, keeping the
-// UI minimal. The 'swing' modifier is independent of rate: when on, every
-// second arp sub-note is delayed by 1/3 of a subdivision, producing the
-// classic 2:1 triplet-swing / shuffle feel. This composes with all five rate
-// values without ever duplicating any of them (an earlier "dotted" idea that
-// scaled the rate by 2/3 would have made 1/12 dotted = 1/8 straight and
-// 1/24 dotted = 1/16 straight; swing as a timing offset avoids that collision).
-const melodyMotion = { octBase: 0, octSpread: 1, arpMode: 'off', arpRate: 16, arpSwing: false };
+// Melody motion state: OCT (octave base + spread) and ARP (mode + rate).
+// Defaults reproduce the original behavior exactly (octBase 0, spread 1, arp
+// off, rate 1/16). The arp 'range' is bound to spread so the two controls move
+// together: a wider melodic register implies a wider arp window, keeping the
+// UI minimal. arpRate can be a number (8/12/16/24/32) or the string 'random';
+// the 'random' value tells buildArpBurst to roll a fresh subdivision per arp
+// burst from the five numeric rates, using the seeded RNG. The rate is held
+// constant within each burst (per-note random would smear all rhythmic
+// structure into noise); only the choice changes between bursts.
+const melodyMotion = { octBase: 0, octSpread: 1, arpMode: 'off', arpRate: 16 };
 
 function getOctConfig() { return { base: melodyMotion.octBase, spread: melodyMotion.octSpread }; }
-function getArpConfig() { return { mode: melodyMotion.arpMode, rate: melodyMotion.arpRate, range: melodyMotion.octSpread, swing: melodyMotion.arpSwing }; }
+function getArpConfig() { return { mode: melodyMotion.arpMode, rate: melodyMotion.arpRate, range: melodyMotion.octSpread }; }
 
 // Apply a value to a segmented-button group (data-seg attribute on the wrapper,
 // data-val on each .seg-btn). Updates the visual 'on' state and the melodyMotion
@@ -5175,18 +5182,18 @@ function getArpConfig() { return { mode: melodyMotion.arpMode, rate: melodyMotio
 //   - mutex (default): only the button matching `val` lights up; modifier
 //     buttons in the same wrapper are not affected
 //   - modifier: a button with class .seg-modifier toggles its own state
-//     independently of the mutex set. Passing segKey='arpSwing' targets the
-//     modifier living inside the arpRate wrapper.
-// Does NOT trigger customize() — callers do that.
+//     independently of the mutex set. Framework retained for future use; no
+//     active modifier consumers at present (arpSwing was removed in favor of
+//     the rnd rate option).
+// Does NOT trigger customize(); callers do that.
 function setSegValue(segKey, val) {
-  // Modifier path: arpSwing lives inside the arpRate wrapper, identified by
-  // data-modifier on the wrapper plus .seg-modifier on the button.
+  // Modifier path: dormant framework. A wrapper carrying data-modifier="X"
+  // routes setSegValue('X', val) here. Currently no wrappers declare this.
   const modWrap = document.querySelector(`.seg-btns[data-modifier="${segKey}"]`);
   if (modWrap) {
     const on = val === true || val === 'true' || val === 'on' || val === 1 || val === '1';
     const modBtn = modWrap.querySelector('.seg-btn.seg-modifier');
     if (modBtn) modBtn.classList.toggle('on', on);
-    if (segKey === 'arpSwing') melodyMotion.arpSwing = on;
     return;
   }
   // Mutex path: only non-modifier buttons in the matching wrapper participate.
@@ -5199,7 +5206,11 @@ function setSegValue(segKey, val) {
   });
   if (segKey === 'octBase') melodyMotion.octBase = parseInt(val, 10) || 0;
   else if (segKey === 'octSpread') melodyMotion.octSpread = parseInt(val, 10) || 1;
-  else if (segKey === 'arpRate') melodyMotion.arpRate = parseInt(val, 10) || 16;
+  else if (segKey === 'arpRate') {
+    // arpRate accepts a number (8/12/16/24/32) or the special string 'random'.
+    // buildArpBurst resolves 'random' to a numeric rate per burst.
+    melodyMotion.arpRate = (sval === 'random') ? 'random' : (parseInt(val, 10) || 16);
+  }
   else if (segKey === 'arpMode') melodyMotion.arpMode = String(val);
 }
 
@@ -5268,12 +5279,11 @@ function applyRecipe(key){
   }
   // Apply melodyMotion (arp + oct) or reset to defaults. Presets without the field
   // get a clean baseline so state doesn't leak from a previous preset that did set it.
-  const mm=Object.assign({octBase:0,octSpread:1,arpMode:'off',arpRate:16,arpSwing:false},r.melodyMotion||{});
+  const mm=Object.assign({octBase:0,octSpread:1,arpMode:'off',arpRate:16},r.melodyMotion||{});
   setSegValue('octBase',mm.octBase);
   setSegValue('octSpread',mm.octSpread);
   setSegValue('arpMode',mm.arpMode);
   setSegValue('arpRate',mm.arpRate);
-  setSegValue('arpSwing',mm.arpSwing);
   ui.recipeBanner.style.display='block';
   ui.recipeBanner.innerHTML=`<b>${r.name}</b> — <em>${r.blurb}</em>`;
   updateLabels();
