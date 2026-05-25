@@ -314,16 +314,14 @@
   }
 
   // ===== DSS WORKLET CODE =====
-  // Period-locked Dynamic Stochastic Synthesis. Each pitched voice locks
-  // its segment durations to a target period derived from mouseX, while
-  // amplitudes walk via Gaussian (or Cauchy at high mouseY) random walk
-  // with reflecting barriers. Pitch is stable; timbre evolves at sample
-  // rate. A free-mode chaos voice fades in with mouseY for pure Xenakian
-  // wandering. No samples, no oscillators. Every sound is arithmetic on
-  // breakpoint arrays. Fundamental at Bb1 (58.27 Hz), matching In
-  // Suspended Harmony. mouseX walks the root voice through partials 2-8
-  // of the overtone series; companion voices ride a fifth and octave
-  // above with slight detune for warmth.
+  // Period-locked Dynamic Stochastic Synthesis with three-zone mouseY
+  // response. Bottom: pristine pitched tones. Middle: evolving timbres
+  // with chaos voice underneath. Top: pitch lock unravels via
+  // freeAmount perturbation, chaos voice dominates the mix, tanh drive
+  // saturates into harmonic distortion, Cauchy bursts cause violent
+  // amplitude jumps. Fundamental at Bb1 (58.27 Hz), matching In
+  // Suspended Harmony. mouseX walks root through partials 2 to 8 of the
+  // overtone series; companion voices ride a fifth and octave above.
   var dssWorkletCode = [
     'class DSSVoice {',
     '  constructor(N, sampleRate, targetFreq, mode) {',
@@ -342,11 +340,12 @@
     '    this.currentSeg = 0;',
     '    this.segPos = 0;',
     '    this.maxAmp = 0.5;',
-    '    this.minDur = sampleRate / 12000;',
-    '    this.maxDur = sampleRate / 25;',
+    '    this.minDur = sampleRate / 14000;',
+    '    this.maxDur = sampleRate / 22;',
     '    this.ampStep = 0.02;',
     '    this.durStep = 0.04;',
     '    this.cauchyMix = 0.0;',
+    '    this.freeAmount = 0.0;',
     '    this.gain = 0.0;',
     '    this.targetGain = 0.0;',
     '  }',
@@ -361,7 +360,7 @@
     '  }',
     '  cauchy() {',
     '    var v = Math.tan(Math.PI * (Math.random() - 0.5));',
-    '    if (v > 6) v = 6; if (v < -6) v = -6;',
+    '    if (v > 8) v = 8; if (v < -8) v = -8;',
     '    return v;',
     '  }',
     '  walk() {',
@@ -385,7 +384,16 @@
     '    var newAmp = this.amps[i] + this.walk() * this.ampStep;',
     '    this.amps[i] = this.reflect(newAmp, -this.maxAmp, this.maxAmp);',
     '    if (this.mode === "pitched") {',
-    '      this.durs[i] = this.smoothedPeriod / this.N;',
+    '      var lockedDur = this.smoothedPeriod / this.N;',
+    '      if (this.freeAmount < 0.001) {',
+    '        this.durs[i] = lockedDur;',
+    '      } else {',
+    '        var pert = this.walk() * this.freeAmount * 0.6;',
+    '        var d = lockedDur * (1 + pert);',
+    '        if (d < this.minDur) d = this.minDur;',
+    '        if (d > this.maxDur) d = this.maxDur;',
+    '        this.durs[i] = d;',
+    '      }',
     '    } else {',
     '      var newDur = this.durs[i] + this.walk() * this.durStep * 80;',
     '      this.durs[i] = this.reflect(newDur, this.minDur, this.maxDur);',
@@ -419,8 +427,6 @@
     '    super();',
     '    this.fundamental = 58.27;',
     '    this.bass = new DSSVoice(10, sampleRate, this.fundamental, "pitched");',
-    '    this.bass.ampStep = 0.0015;',
-    '    this.bass.maxAmp = 0.55;',
     '    this.chord = [',
     '      new DSSVoice(9, sampleRate, this.fundamental * 5, "pitched"),',
     '      new DSSVoice(11, sampleRate, this.fundamental * 7.5, "pitched"),',
@@ -432,6 +438,8 @@
     '    this.partialOffset = 0;',
     '    this.eventEnv = 0;',
     '    this._decayCounter = 0;',
+    '    this.drive = 1.0;',
+    '    this.smoothedDrive = 1.0;',
     '    this.port.onmessage = function(e) {',
     '      var d = e.data;',
     '      if (d.type === "params") {',
@@ -469,25 +477,41 @@
     '    var p = this.params;',
     '    var my = p.mouseY, sd = p.scrollDepth;',
     '    this.computeChordFreqs();',
-    '    var walkBase = 0.003 + my * my * 0.08;',
-    '    var cauchy = my > 0.5 ? (my - 0.5) * 0.8 : 0;',
-    '    this.bass.ampStep = walkBase * 0.3;',
-    '    this.chord[0].ampStep = walkBase;',
-    '    this.chord[1].ampStep = walkBase * 0.9;',
-    '    this.chord[2].ampStep = walkBase * 0.8;',
-    '    this.chord[0].cauchyMix = cauchy;',
-    '    this.chord[1].cauchyMix = cauchy;',
-    '    this.chord[2].cauchyMix = cauchy;',
-    '    this.chaos.ampStep = 0.015 + my * 0.15;',
-    '    this.chaos.durStep = 0.015 + my * 0.18;',
-    '    this.chaos.cauchyMix = cauchy * 1.3 > 0.4 ? 0.4 : cauchy * 1.3;',
+    '    // Aggressive three-zone mouseY response.',
+    '    var walkBase = 0.0005 + Math.pow(my, 1.8) * 0.45;',
+    '    var cauchy = my > 0.3 ? Math.pow((my - 0.3) / 0.7, 1.2) * 0.85 : 0;',
+    '    var freeAmount = my > 0.65 ? Math.pow((my - 0.65) / 0.35, 1.5) * 1.0 : 0;',
+    '    var ampScale = 0.5 + Math.pow(my, 1.4) * 0.6;',
+    '    var chordFade = 1.0 - Math.pow(my, 2.2) * 0.75;',
+    '    var chaosGain = Math.pow(my, 1.6) * 1.9;',
+    '    this.drive = 1.0 + my * my * 1.3;',
+    '    // Bass: more controlled but gets significant heat at the top.',
+    '    this.bass.ampStep = walkBase * 0.4;',
+    '    this.bass.maxAmp = 0.55 + Math.pow(my, 2) * 0.4;',
+    '    this.bass.cauchyMix = cauchy * 0.5;',
+    '    this.bass.freeAmount = freeAmount * 0.4;',
+    '    // Chord voices: full mouseY response on every parameter.',
+    '    for (var i = 0; i < this.chord.length; i++) {',
+    '      var v = this.chord[i];',
+    '      v.ampStep = walkBase * (1 - i * 0.05);',
+    '      v.maxAmp = ampScale;',
+    '      v.cauchyMix = cauchy;',
+    '      v.freeAmount = freeAmount;',
+    '    }',
+    '    // Chaos voice: aggressive at the top.',
+    '    this.chaos.ampStep = 0.015 + Math.pow(my, 1.5) * 0.55;',
+    '    this.chaos.durStep = 0.015 + Math.pow(my, 1.5) * 0.5;',
+    '    this.chaos.maxAmp = 0.6 + my * 0.8;',
+    '    var chaosCauchy = cauchy * 1.2;',
+    '    this.chaos.cauchyMix = chaosCauchy > 0.92 ? 0.92 : chaosCauchy;',
+    '    // Voice gains. Chord fades hard, chaos dominates at the top.',
     '    var scrollGate = sd < 0.85 ? 1.0 : Math.max(0, 1 - (sd - 0.85) * 6.5);',
-    '    var voiceMix = scrollGate * 0.85;',
-    '    this.bass.targetGain = voiceMix * 0.95;',
-    '    this.chord[0].targetGain = voiceMix * 0.85;',
-    '    this.chord[1].targetGain = voiceMix * 0.7;',
-    '    this.chord[2].targetGain = voiceMix * 0.55;',
-    '    this.chaos.targetGain = voiceMix * my * my * 0.6;',
+    '    var voiceMix = scrollGate;',
+    '    this.bass.targetGain = voiceMix * 0.9 * (1 - my * 0.25);',
+    '    this.chord[0].targetGain = voiceMix * 0.85 * chordFade;',
+    '    this.chord[1].targetGain = voiceMix * 0.7 * chordFade;',
+    '    this.chord[2].targetGain = voiceMix * 0.55 * chordFade;',
+    '    this.chaos.targetGain = voiceMix * chaosGain;',
     '  }',
     '  process(inputs, outputs) {',
     '    var output = outputs[0];',
@@ -506,6 +530,7 @@
     '      this.computeChordFreqs();',
     '    }',
     '    for (var i = 0; i < L.length; i++) {',
+    '      this.smoothedDrive += (this.drive - this.smoothedDrive) * 0.0001;',
     '      var sumL = 0, sumR = 0;',
     '      var b = this.bass.step();',
     '      sumL += b * 0.85;',
@@ -527,8 +552,8 @@
     '        sumR *= boost;',
     '        this.eventEnv *= 0.9994;',
     '      }',
-    '      L[i] = Math.tanh(sumL * 1.0) * 0.55;',
-    '      if (stereo) R[i] = Math.tanh(sumR * 1.0) * 0.55;',
+    '      L[i] = Math.tanh(sumL * this.smoothedDrive) * 0.55;',
+    '      if (stereo) R[i] = Math.tanh(sumR * this.smoothedDrive) * 0.55;',
     '    }',
     '    return true;',
     '  }',
@@ -658,10 +683,33 @@
     var sd = scrollDepth;
 
     if (dssNode && dssReady) {
+      // Mouse Y: drives walk magnitude (how chaotic the breakpoint motion is)
+      // and the Cauchy mix (heavy-tailed jumps appear toward the top of screen).
+      var walkAmt = 0.08 + mouseY * mouseY * 0.92;
+      var cauchy = mouseY > 0.55 ? (mouseY - 0.55) * 1.2 : 0;
+      if (cauchy > 0.4) cauchy = 0.4;
+
+      // Scroll modulates the relationship between anchor and upper voices.
+      // Low scroll: anchor prominent, voices subtle. Mid scroll: full mix.
+      // Near bottom: fade out (preserves original behavior).
+      var voiceMix = sd < 0.4 ? 0.22 + sd * 0.35 :
+                     sd < 0.85 ? 0.36 + (sd - 0.4) * 0.18 :
+                     0.44 - (sd - 0.85) * 1.6;
+      if (voiceMix < 0.05) voiceMix = 0.05;
+
+      var anchorGain = 0.6 - sd * 0.25;
+      if (anchorGain < 0.15) anchorGain = 0.15;
+
       try {
         dssNode.port.postMessage({
           type: 'params',
-          value: { mouseX: mouseX, mouseY: mouseY, scrollDepth: sd }
+          value: {
+            freqCentroid: mouseX,
+            walkAmount: walkAmt,
+            cauchyMix: cauchy,
+            voiceMix: voiceMix,
+            anchorGain: anchorGain
+          }
         });
       } catch (e) {}
     }
@@ -670,9 +718,9 @@
     var masterVol = sd > 0.9 ? 0.4 * (1 - (sd - 0.9) * 6) : 0.4;
     masterGain.gain.linearRampToValueAtTime(Math.max(masterVol, 0.05), now + 0.5);
 
-    // Reverb wet amount: grows gently with scroll for dissolution feel.
+    // Reverb wet amount: more reverb as the page descends, dissolution feel.
     if (wetGain) {
-      var wet = 0.28 + sd * 0.32;
+      var wet = 0.28 + sd * 0.35;
       wetGain.gain.linearRampToValueAtTime(wet, now + 0.5);
     }
 
@@ -686,10 +734,10 @@
     if (!audioActive) return;
     var scrollBoost = scrollDepth > 0.65 && scrollDepth < 0.9 ? 1 + (scrollDepth - 0.65) * 4 : 1;
     var scrollDampen = scrollDepth > 0.9 ? Math.max(0.1, 1 - (scrollDepth - 0.9) * 8) : 1;
-    // Events are now musical gestures (timbre reseed or partial-jump). Lower
-    // base rate gives them room to breathe and be heard.
-    var rate = (0.08 + mouseX * mouseX * 1.4) * scrollBoost * scrollDampen;
-    var interval = Math.max(400, -Math.log(Math.random()) / rate * 1000);
+    // Lower base rate than the original noise-pluck stream; events are now
+    // structural and meaningful, not percussive decoration.
+    var rate = (0.15 + mouseX * mouseX * 2.6) * scrollBoost * scrollDampen;
+    var interval = Math.max(180, -Math.log(Math.random()) / rate * 1000);
     stochasticTimer = setTimeout(function() { triggerPluck(); scheduleStochastic(); }, interval);
   }
 
