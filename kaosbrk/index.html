@@ -1022,6 +1022,7 @@
           <li><b>style</b> picks the rhythmic vocabulary: motifs, BPM range, micro-timing, accent profile.</li>
           <li><b>time sig</b> sets bar length and step count (4/4 in 16 steps, 7/4 in 28, etc.).</li>
           <li><b>phrase form</b> arranges bars across the loop. <code>AABA</code> repeats with a bridge, <code>ABAC'</code> climaxes at the end, and so on.</li>
+          <li><b>bpm</b> and <b>swing</b> are <em>live</em>. Drag during playback and the tempo or pocket changes within ~125ms, no regenerate. Swing runs 0% (straight 16ths) to 100% (full triplet, the classic MPC bounce). 50% is a half-shuffle. Most recipes set it to 0; the Apache break ships at 55.</li>
           <li><b>pitched snare</b>, <b>pad</b>, <b>sub</b> toggle the melodic voices.</li>
           <li><b>seed</b> determines the RNG. Leave empty for a fresh roll on each generate. Save the seed pill if you want to reproduce a result.</li>
           <li><b>generate break</b> rolls the full pattern. <b>re-roll</b> (top bar) regenerates only what isn't locked.</li>
@@ -1094,6 +1095,7 @@
 
       <div class="manual-section">
         <h3>export <span class="glyph">⤓</span></h3>
+        <p class="dim">Exports always reflect what you're currently hearing. Drag BPM or swing before rendering and the .wav, .mid, and live MIDI output all match.</p>
         <ul>
           <li><b>save .json</b> captures the full state: pattern, recipe, FX, mixer, locks, break-source reference.</li>
           <li><b>load .json</b> restores it.</li>
@@ -3553,6 +3555,19 @@ function swingOffsetTicks(stepIdx, stepTicks) {
   if ((stepIdx & 1) === 0) return 0;
   return Math.round((swingState.pct / 100) * (stepTicks / 3));
 }
+
+// Live BPM: read from the slider each tick rather than from the frozen pattern,
+// so dragging the slider during playback retempos immediately (no regenerate).
+// Falls back to the pattern's generation-time bpm if the input is invalid, and
+// to 175 if nothing has been generated yet. Latency from drag to audible change
+// is one scheduler tick (25ms) plus the scheduleAhead window (100ms), same as
+// any DAW with a similar lookahead.
+function liveBpm() {
+  const v = parseInt(ui.bpm.value);
+  if (isFinite(v) && v > 0) return v;
+  if (currentPattern && currentPattern.bpm) return currentPattern.bpm;
+  return 175;
+}
 function fireVoice(v, t, ev, tone, pattern) {
   if (ev.sliceData && pattern.useSlices) { fireSlice(t, ev.sliceData.slice, ev.vel, ev.pitch, ev.sliceData.reverse); return; }
   const fn = VOICES[v].fn;
@@ -3615,7 +3630,7 @@ function scheduleStep(stepIdx, when) {
   if (!p) return;
   const totalSteps = p.barSteps * p.bars;
   const i = stepIdx % totalSteps;
-  const stepDur = stepDuration(p.bpm);
+  const stepDur = stepDuration(liveBpm());
   for (const v of VOICE_ORDER) {
     const ev = p.channels[v][i];
     if (!ev) continue;
@@ -3663,7 +3678,7 @@ function ensureScheduleWorker() {
 
 function tick() {
   if (!scheduler.isPlaying || !ctx || !scheduler.pattern) return;
-  const dur = stepDuration(scheduler.pattern.bpm);
+  const dur = stepDuration(liveBpm());
   const isHidden = (typeof document !== 'undefined') && document.visibilityState === 'hidden';
   while (scheduler.nextNoteTime < ctx.currentTime + scheduler.scheduleAhead) {
     // Swing offset: off-beat 16ths are pushed later. The grid pulse (nextNoteTime)
@@ -4836,13 +4851,16 @@ function buildMetaTrack(tempo, numerator, denominator, name) {
 function exportMIDI() {
   if (!currentPattern) { setStatus('nothing to export', 'error'); return; }
   const p = currentPattern;
+  // Snapshot the live BPM at export time so the .mid reflects what the user
+  // is currently hearing, not the value frozen on the pattern at generate.
+  const exportBpm = liveBpm();
   const PPQ = 480;
   const stepTicks = PPQ / 4;
-  const tempo = Math.round(60000000 / p.bpm);
+  const tempo = Math.round(60000000 / exportBpm);
   const totalSteps = p.barSteps * p.bars;
   // microMs offset → tick offset. 1 quarter note = 60000/bpm ms → PPQ ticks.
   // ticksPerMs = PPQ * bpm / 60000.
-  const ticksPerMs = (PPQ * p.bpm) / 60000;
+  const ticksPerMs = (PPQ * exportBpm) / 60000;
   const microTicks = (ev) => Math.round((ev.microMs || 0) * ticksPerMs);
   // Swing in exported MIDI mirrors live playback: odd-indexed 1/16 steps are
   // delayed in ticks by the same proportional formula used by the scheduler.
@@ -5037,7 +5055,10 @@ async function renderToWAV() {
   await new Promise(r => setTimeout(r, 30));
   const p = currentPattern;
   const totalSteps = p.barSteps * p.bars;
-  const stepDur = 60 / p.bpm / 4;
+  // Snapshot live BPM at render time so the rendered WAV matches what the
+  // user is hearing in the live scheduler, not the pattern's birth BPM.
+  const renderBpm = liveBpm();
+  const stepDur = 60 / renderBpm / 4;
   const tail = 1.5;
   const sampleRate = 44100;
   const totalDur = totalSteps * stepDur + tail;
@@ -5120,7 +5141,10 @@ async function renderToWAV() {
     // Schedule all events
     const startT = 0.10;
     for (let s = 0; s < totalSteps; s++) {
-      const baseT = startT + s * stepDur;
+      // Swing offset mirrors the live scheduler: odd-indexed 1/16 steps are
+      // delayed by (swingPct/100) * (stepDur/3). This keeps the rendered WAV
+      // identical to what the user hears in real-time playback.
+      const baseT = startT + s * stepDur + swingOffsetSec(s, stepDur);
       for (const v of VOICE_ORDER) {
         const ev = p.channels[v][s];
         if (!ev) continue;
