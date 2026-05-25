@@ -5064,10 +5064,15 @@ async function renderToWAV() {
   // user is hearing in the live scheduler, not the pattern's birth BPM.
   const renderBpm = liveBpm();
   const stepDur = 60 / renderBpm / 4;
-  const tail = 1.5;
   const sampleRate = 44100;
-  const totalDur = totalSteps * stepDur + tail;
-  const offline = new OfflineAudioContext(2, Math.ceil(totalDur * sampleRate), sampleRate);
+  // Exact bar-length render: no leading silence, no trailing tail. The output
+  // is exactly totalSteps * stepDur seconds so a DAW can loop it sample-accurately
+  // at the same tempo. Math.round (not Math.ceil) keeps the sample count as close
+  // as possible to the mathematical loop length; any sub-sample drift across
+  // many loops is handled by the DAW's own warp/sync on import.
+  const totalSamples = Math.round(totalSteps * stepDur * sampleRate);
+  const totalDur = totalSamples / sampleRate;
+  const offline = new OfflineAudioContext(2, totalSamples, sampleRate);
 
   // Save live audio state
   const live = { ctx, masterGain, padBus, noiseBuf, fxBus, voiceMixerGains: {...voiceMixerGains}, voicePanners: {...voicePanners}, masterMixGain, activeSliceVoices: { ...activeSliceVoices } };
@@ -5143,17 +5148,20 @@ async function renderToWAV() {
       }
     }
 
-    // Schedule all events
-    const startT = 0.10;
+    // Schedule all events. Events start at t=0 with no leading silence so the
+    // first beat lands on sample 0 of the WAV. Negative micro-timing jitter on
+    // step 0 is clamped to 0 to avoid scheduling before the offline context
+    // begins; up to ~20ms of negative jitter on bar 1 step 0 can be lost this
+    // way, which is inaudible in a looped context and only affects bar 1.
     for (let s = 0; s < totalSteps; s++) {
       // Swing offset mirrors the live scheduler: odd-indexed 1/16 steps are
       // delayed by (swingPct/100) * (stepDur/3). This keeps the rendered WAV
       // identical to what the user hears in real-time playback.
-      const baseT = startT + s * stepDur + swingOffsetSec(s, stepDur);
+      const baseT = s * stepDur + swingOffsetSec(s, stepDur);
       for (const v of VOICE_ORDER) {
         const ev = p.channels[v][s];
         if (!ev) continue;
-        const evT = baseT + (ev.microMs || 0) / 1000;
+        const evT = Math.max(0, baseT + (ev.microMs || 0) / 1000);
         currentVoice = v;
         if (v === 'LD' && ev.arp && ev.kind === 'melody') fireArp(evT, ev, p.tone, stepDur, p);
         else if (ev.stutter) fireStutter(v, evT, ev, p.tone, stepDur, p);
