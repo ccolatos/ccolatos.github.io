@@ -254,10 +254,10 @@
   var lastInputTime = performance.now();
   var particles = [], NUM_P = 40;
   var audioCtx = null, analyser = null, masterGain = null, audioActive = false;
-  var fmCarrier, fmMod, fmModGain, fmCarrierGain;
-  var fmCarrier2, fmMod2, fmModGain2, fmCarrierGain2;
-  var subOsc, subGain;
-  var shimmerOscs = [], shimmerGains = [];
+  // DSS engine nodes (replaces the FM/sub/shimmer chain)
+  var dssNode = null, dssReady = false;
+  var convolver = null, dryGain = null, wetGain = null;
+  var keepaliveOsc = null, keepaliveGain = null;
   var noiseBuffer, freqData, timeData;
   var stochasticEvents = [], stochasticTimer = null;
   var PHI = (1 + Math.sqrt(5)) / 2;
@@ -313,6 +313,236 @@
     };
   }
 
+  // ===== DSS WORKLET CODE =====
+  // Sample-rate Dynamic Stochastic Synthesis a la Xenakis. Each voice maintains
+  // an array of breakpoints (amplitude + duration). The waveform is the linear
+  // interpolation between consecutive breakpoints. After each segment completes,
+  // the corresponding breakpoint's amplitude and duration are updated via a
+  // random walk (Gaussian by default, optionally Cauchy for heavy tails), with
+  // reflecting barriers keeping values in bounds. No samples. No oscillators.
+  // Every sound is arithmetic on breakpoint arrays.
+  var dssWorkletCode = [
+    'class DSSVoice {',
+    '  constructor(N, sampleRate, baseFreq, ampMax) {',
+    '    this.N = N;',
+    '    this.sampleRate = sampleRate;',
+    '    this.amps = new Float32Array(N);',
+    '    this.durs = new Float32Array(N);',
+    '    var periodSamples = sampleRate / baseFreq;',
+    '    var segSamples = periodSamples / N;',
+    '    for (var i = 0; i < N; i++) {',
+    '      this.amps[i] = Math.sin(2 * Math.PI * i / N + Math.random() * 0.4) * 0.4;',
+    '      this.durs[i] = segSamples * (0.85 + Math.random() * 0.3);',
+    '    }',
+    '    this.currentSeg = 0;',
+    '    this.segPos = 0;',
+    '    this.maxAmp = ampMax || 0.5;',
+    '    this.minDur = sampleRate / 8000;',
+    '    this.maxDur = sampleRate / 30;',
+    '    this.ampStep = 0.04;',
+    '    this.durStep = 0.04;',
+    '    this.cauchyMix = 0.0;',
+    '    this.gain = 1.0;',
+    '  }',
+    '  gaussian() {',
+    '    var u1 = Math.random(); if (u1 < 1e-10) u1 = 1e-10;',
+    '    var u2 = Math.random();',
+    '    return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);',
+    '  }',
+    '  cauchy() {',
+    '    var v = Math.tan(Math.PI * (Math.random() - 0.5));',
+    '    if (v > 8) v = 8; if (v < -8) v = -8;',
+    '    return v;',
+    '  }',
+    '  walk() {',
+    '    if (Math.random() < this.cauchyMix) return this.cauchy() * 0.4;',
+    '    return this.gaussian();',
+    '  }',
+    '  reflect(v, min, max) {',
+    '    if (!isFinite(v)) return (min + max) * 0.5;',
+    '    if (max <= min) return min;',
+    '    var safety = 0;',
+    '    while ((v < min || v > max) && safety < 8) {',
+    '      if (v < min) v = min + (min - v);',
+    '      if (v > max) v = max - (v - max);',
+    '      safety++;',
+    '    }',
+    '    if (v < min) v = min;',
+    '    if (v > max) v = max;',
+    '    return v;',
+    '  }',
+    '  updateBreakpoint(i) {',
+    '    var newAmp = this.amps[i] + this.walk() * this.ampStep;',
+    '    this.amps[i] = this.reflect(newAmp, -this.maxAmp, this.maxAmp);',
+    '    var newDur = this.durs[i] + this.walk() * this.durStep * 80;',
+    '    this.durs[i] = this.reflect(newDur, this.minDur, this.maxDur);',
+    '  }',
+    '  reseed() {',
+    '    for (var i = 0; i < this.N; i++) {',
+    '      this.amps[i] = (Math.random() - 0.5) * this.maxAmp * 1.7;',
+    '    }',
+    '  }',
+    '  step() {',
+    '    var segDur = this.durs[this.currentSeg];',
+    '    if (segDur < 1) segDur = 1;',
+    '    var a0 = this.amps[this.currentSeg];',
+    '    var a1 = this.amps[(this.currentSeg + 1) % this.N];',
+    '    var t = this.segPos / segDur;',
+    '    var out = a0 + (a1 - a0) * t;',
+    '    this.segPos++;',
+    '    if (this.segPos >= segDur) {',
+    '      this.segPos = 0;',
+    '      this.updateBreakpoint(this.currentSeg);',
+    '      this.currentSeg = (this.currentSeg + 1) % this.N;',
+    '    }',
+    '    return out * this.gain;',
+    '  }',
+    '}',
+    'class DSSProcessor extends AudioWorkletProcessor {',
+    '  constructor() {',
+    '    super();',
+    '    this.voices = [];',
+    '    // Six voices across the spectrum, each with a different breakpoint count.',
+    '    // Pan positions spread the voices across the stereo field.',
+    '    this.pans = [-0.65, -0.35, -0.1, 0.15, 0.4, 0.7];',
+    '    var voiceNs = [8, 9, 11, 10, 12, 9];',
+    '    for (var i = 0; i < 6; i++) {',
+    '      var baseF = 55 * Math.pow(2, i * 0.45);',
+    '      this.voices.push(new DSSVoice(voiceNs[i], sampleRate, baseF, 0.5));',
+    '    }',
+    '    // Anchor voice: slow, quiet drone around the fundamental. Provides a',
+    '    // perceptual center of gravity even when upper voices walk wildly.',
+    '    this.anchor = new DSSVoice(12, sampleRate, 55, 0.32);',
+    '    this.anchor.ampStep = 0.005;',
+    '    this.anchor.durStep = 0.005;',
+    '    this.params = {',
+    '      walkAmount: 0.25,',
+    '      cauchyMix: 0.0,',
+    '      freqCentroid: 0.5,',
+    '      voiceMix: 0.32,',
+    '      anchorGain: 0.55',
+    '    };',
+    '    this.eventEnv = 0;',
+    '    this.port.onmessage = function(e) {',
+    '      var d = e.data;',
+    '      if (d.type === "params") {',
+    '        for (var k in d.value) this.params[k] = d.value[k];',
+    '        this.applyParams();',
+    '      } else if (d.type === "event") {',
+    '        var idx = Math.floor(Math.random() * this.voices.length);',
+    '        this.voices[idx].reseed();',
+    '        this.eventEnv = 1.0;',
+    '      } else if (d.type === "shift") {',
+    '        for (var i = 0; i < this.voices.length; i++) {',
+    '          var v = this.voices[i];',
+    '          var newF = 40 + Math.random() * 400 * (1 + this.params.freqCentroid);',
+    '          var newDur = sampleRate / newF / v.N;',
+    '          for (var j = 0; j < v.N; j++) v.durs[j] = newDur;',
+    '        }',
+    '        this.eventEnv = 0.7;',
+    '      }',
+    '    }.bind(this);',
+    '    this.applyParams();',
+    '  }',
+    '  applyParams() {',
+    '    var p = this.params;',
+    '    for (var i = 0; i < this.voices.length; i++) {',
+    '      var v = this.voices[i];',
+    '      v.ampStep = 0.004 + p.walkAmount * 0.14;',
+    '      v.durStep = 0.004 + p.walkAmount * 0.18;',
+    '      v.cauchyMix = p.cauchyMix;',
+    '      // Per-voice frequency range, offset upward by voice index.',
+    '      var shift = Math.pow(2, i * 0.5);',
+    '      var lowF = (32 + p.freqCentroid * 70) * shift;',
+    '      var highF = (160 + p.freqCentroid * 2800) * shift;',
+    '      if (highF > 12000) highF = 12000;',
+    '      if (lowF < 25) lowF = 25;',
+    '      v.minDur = sampleRate / highF;',
+    '      v.maxDur = sampleRate / lowF;',
+    '      v.gain = p.voiceMix * (0.95 - i * 0.07);',
+    '    }',
+    '    this.anchor.gain = p.anchorGain;',
+    '  }',
+    '  process(inputs, outputs) {',
+    '    var output = outputs[0];',
+    '    var L = output[0];',
+    '    var R = output.length > 1 ? output[1] : L;',
+    '    var stereo = (R !== L);',
+    '    for (var i = 0; i < L.length; i++) {',
+    '      var sumL = 0, sumR = 0;',
+    '      for (var vi = 0; vi < this.voices.length; vi++) {',
+    '        var s = this.voices[vi].step();',
+    '        var pan = this.pans[vi];',
+    '        var pL = (pan < 0) ? 1.0 : 1.0 - pan;',
+    '        var pR = (pan > 0) ? 1.0 : 1.0 + pan;',
+    '        sumL += s * pL;',
+    '        sumR += s * pR;',
+    '      }',
+    '      var anc = this.anchor.step();',
+    '      sumL += anc * 0.5;',
+    '      sumR += anc * 0.5;',
+    '      if (this.eventEnv > 0.001) {',
+    '        var boost = 1 + this.eventEnv * 0.55;',
+    '        sumL *= boost;',
+    '        sumR *= boost;',
+    '        this.eventEnv *= 0.9994;',
+    '      }',
+    '      L[i] = Math.tanh(sumL * 1.3) * 0.65;',
+    '      if (stereo) R[i] = Math.tanh(sumR * 1.3) * 0.65;',
+    '    }',
+    '    return true;',
+    '  }',
+    '}',
+    'registerProcessor("dss-processor", DSSProcessor);'
+  ].join('\n');
+
+  // Procedural convolution reverb impulse response. Decaying noise with a
+  // gentle early-reflection cluster. Avoids shipping an external IR file.
+  function makeReverbIR(ctx, duration, decay) {
+    var sr = ctx.sampleRate;
+    var len = Math.floor(sr * duration);
+    var buf = ctx.createBuffer(2, len, sr);
+    for (var ch = 0; ch < 2; ch++) {
+      var data = buf.getChannelData(ch);
+      // Early reflections: a few discrete taps in the first 80 ms
+      var taps = [0.005, 0.013, 0.023, 0.041, 0.062, 0.079];
+      for (var t = 0; t < taps.length; t++) {
+        var idx = Math.floor(taps[t] * sr);
+        if (idx < len) data[idx] += (Math.random() * 2 - 1) * 0.4 * Math.pow(0.7, t);
+      }
+      // Diffuse tail
+      for (var i = 0; i < len; i++) {
+        var env = Math.pow(1 - i / len, decay);
+        data[i] += (Math.random() * 2 - 1) * env * 0.55;
+      }
+    }
+    return buf;
+  }
+
+  function loadDSSWorklet() {
+    if (!audioCtx.audioWorklet) {
+      console.warn('AudioWorklet not supported in this browser; DSS engine disabled.');
+      return;
+    }
+    var blob = new Blob([dssWorkletCode], { type: 'application/javascript' });
+    var url = URL.createObjectURL(blob);
+    audioCtx.audioWorklet.addModule(url).then(function() {
+      try {
+        dssNode = new AudioWorkletNode(audioCtx, 'dss-processor', {
+          outputChannelCount: [2]
+        });
+        dssNode.connect(dryGain);
+        dssNode.connect(convolver);
+        dssReady = true;
+      } catch (err) {
+        console.warn('DSS node creation failed:', err);
+      }
+      URL.revokeObjectURL(url);
+    }).catch(function(err) {
+      console.warn('DSS worklet module failed to load:', err);
+    });
+  }
+
   // ===== AUDIO =====
   function initAudio() {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -340,38 +570,32 @@
     var nd = noiseBuffer.getChannelData(0);
     for (var i = 0; i < bufSz; i++) nd[i] = Math.random() * 2 - 1;
 
-    // FM Voice 1 (Chowning: 1:phi ratio)
-    fmMod = audioCtx.createOscillator(); fmMod.type = 'sine'; fmMod.frequency.value = 55 * PHI;
-    fmModGain = audioCtx.createGain(); fmModGain.gain.value = 30;
-    fmCarrier = audioCtx.createOscillator(); fmCarrier.type = 'sine'; fmCarrier.frequency.value = 55;
-    fmCarrierGain = audioCtx.createGain(); fmCarrierGain.gain.value = 0.18;
-    fmMod.connect(fmModGain); fmModGain.connect(fmCarrier.frequency);
-    fmCarrier.connect(fmCarrierGain); fmCarrierGain.connect(masterGain);
-    fmMod.start(); fmCarrier.start();
+    // Procedural convolution reverb (2.8 s decay)
+    convolver = audioCtx.createConvolver();
+    convolver.buffer = makeReverbIR(audioCtx, 2.8, 2.6);
 
-    // FM Voice 2 (detuned, beating)
-    fmMod2 = audioCtx.createOscillator(); fmMod2.type = 'sine'; fmMod2.frequency.value = 55 * PHI * 1.004;
-    fmModGain2 = audioCtx.createGain(); fmModGain2.gain.value = 25;
-    fmCarrier2 = audioCtx.createOscillator(); fmCarrier2.type = 'sine'; fmCarrier2.frequency.value = 55.7;
-    fmCarrierGain2 = audioCtx.createGain(); fmCarrierGain2.gain.value = 0.13;
-    fmMod2.connect(fmModGain2); fmModGain2.connect(fmCarrier2.frequency);
-    fmCarrier2.connect(fmCarrierGain2); fmCarrierGain2.connect(masterGain);
-    fmMod2.start(); fmCarrier2.start();
+    dryGain = audioCtx.createGain(); dryGain.gain.value = 0.7;
+    wetGain = audioCtx.createGain(); wetGain.gain.value = 0.35;
+    dryGain.connect(masterGain);
+    convolver.connect(wetGain);
+    wetGain.connect(masterGain);
 
-    // Sub
-    subOsc = audioCtx.createOscillator(); subOsc.type = 'sine'; subOsc.frequency.value = 27.5;
-    subGain = audioCtx.createGain(); subGain.gain.value = 0.1;
-    subOsc.connect(subGain); subGain.connect(masterGain); subOsc.start();
+    // Silent keepalive oscillator. Guarantees signal flow into the analyser
+    // and MediaStream destination from the moment the user gesture happens,
+    // even before the DSS worklet finishes loading. Critical for iOS audio
+    // session activation.
+    keepaliveOsc = audioCtx.createOscillator();
+    keepaliveOsc.type = 'sine';
+    keepaliveOsc.frequency.value = 18;
+    keepaliveGain = audioCtx.createGain();
+    keepaliveGain.gain.value = 0.00001;
+    keepaliveOsc.connect(keepaliveGain);
+    keepaliveGain.connect(masterGain);
+    keepaliveOsc.start();
 
-    // Risset shimmer
-    var harmonics = [1, 2, 3, 4, 5, 6, 7, 8];
-    var drifts = [0, 0.17, -0.13, 0.23, -0.19, 0.29, -0.11, 0.07];
-    for (var i = 0; i < harmonics.length; i++) {
-      var o = audioCtx.createOscillator(); o.type = 'sine'; o.frequency.value = 110 * harmonics[i] + drifts[i];
-      var g = audioCtx.createGain(); g.gain.value = 0.012 / (i + 1);
-      o.connect(g); g.connect(masterGain); o.start();
-      shimmerOscs.push(o); shimmerGains.push(g);
-    }
+    // Load the DSS worklet (async). Until it resolves, the keepalive provides
+    // signal flow but no audible output.
+    loadDSSWorklet();
 
     // iOS: route the full audio graph through an HTML <audio> element
     // This is the definitive iOS Safari fix: Web Audio alone doesn't fully activate
@@ -392,77 +616,92 @@
     if (!audioActive || !audioCtx) return;
     var now = audioCtx.currentTime;
     var sd = scrollDepth;
-    var scrollOctaveShift = 1.0 - sd * 0.3;
-    var scale = [55, 61.875, 68.75, 82.5, 91.667, 110, 123.75, 137.5, 165, 183.333, 220];
-    var idx = mouseX * (scale.length - 1);
-    var lo = Math.floor(idx), hi = Math.min(lo + 1, scale.length - 1);
-    var baseFreq = (scale[lo] + (scale[hi] - scale[lo]) * (idx - lo)) * scrollOctaveShift;
-    var modCeiling = 500 * (1 - sd * 0.6);
-    var modIdx = 8 + mouseY * mouseY * modCeiling;
 
-    fmCarrier.frequency.linearRampToValueAtTime(baseFreq, now + 0.12);
-    fmMod.frequency.linearRampToValueAtTime(baseFreq * PHI, now + 0.12);
-    fmModGain.gain.linearRampToValueAtTime(modIdx, now + 0.12);
-    var fmVol = sd < 0.4 ? 0.18 : sd < 0.65 ? 0.18 - (sd - 0.4) * 0.4 : sd < 0.9 ? 0.08 + (sd - 0.65) * 0.16 : 0.12 - (sd - 0.9) * 0.8;
-    fmVol = Math.max(fmVol, 0.02);
-    fmCarrierGain.gain.linearRampToValueAtTime(fmVol, now + 0.3);
+    if (dssNode && dssReady) {
+      // Mouse Y: drives walk magnitude (how chaotic the breakpoint motion is)
+      // and the Cauchy mix (heavy-tailed jumps appear toward the top of screen).
+      var walkAmt = 0.08 + mouseY * mouseY * 0.92;
+      var cauchy = mouseY > 0.55 ? (mouseY - 0.55) * 1.2 : 0;
+      if (cauchy > 0.4) cauchy = 0.4;
 
-    fmCarrier2.frequency.linearRampToValueAtTime(baseFreq * 1.003, now + 0.12);
-    fmMod2.frequency.linearRampToValueAtTime(baseFreq * PHI * 1.006, now + 0.12);
-    fmModGain2.gain.linearRampToValueAtTime(modIdx * 0.85, now + 0.12);
-    fmCarrierGain2.gain.linearRampToValueAtTime(fmVol * 0.7, now + 0.3);
+      // Scroll modulates the relationship between anchor and upper voices.
+      // Low scroll: anchor prominent, voices subtle. Mid scroll: full mix.
+      // Near bottom: fade out (preserves original behavior).
+      var voiceMix = sd < 0.4 ? 0.22 + sd * 0.35 :
+                     sd < 0.85 ? 0.36 + (sd - 0.4) * 0.18 :
+                     0.44 - (sd - 0.85) * 1.6;
+      if (voiceMix < 0.05) voiceMix = 0.05;
 
-    subOsc.frequency.linearRampToValueAtTime(baseFreq * 0.5, now + 0.2);
-    subGain.gain.linearRampToValueAtTime(0.1 + sd * 0.08, now + 0.3);
+      var anchorGain = 0.6 - sd * 0.25;
+      if (anchorGain < 0.15) anchorGain = 0.15;
 
-    var shimmerMult = sd < 0.15 ? 0.5 + sd * 3 : sd < 0.65 ? 1.0 + (sd - 0.15) * 1.5 : 1.8 - (sd - 0.65) * 2;
-    shimmerMult = Math.max(shimmerMult, 0.3);
-    var harmonics = [1, 2, 3, 4, 5, 6, 7, 8];
-    var drifts = [0, 0.17, -0.13, 0.23, -0.19, 0.29, -0.11, 0.07];
-    for (var i = 0; i < shimmerOscs.length; i++) {
-      shimmerOscs[i].frequency.linearRampToValueAtTime(baseFreq * 2 * harmonics[i] + drifts[i], now + 0.3);
-      shimmerGains[i].gain.linearRampToValueAtTime((0.012 / (i + 1)) * shimmerMult, now + 0.3);
+      try {
+        dssNode.port.postMessage({
+          type: 'params',
+          value: {
+            freqCentroid: mouseX,
+            walkAmount: walkAmt,
+            cauchyMix: cauchy,
+            voiceMix: voiceMix,
+            anchorGain: anchorGain
+          }
+        });
+      } catch (e) {}
     }
 
+    // Master volume: full level except near bottom of page, where it fades.
     var masterVol = sd > 0.9 ? 0.4 * (1 - (sd - 0.9) * 6) : 0.4;
     masterGain.gain.linearRampToValueAtTime(Math.max(masterVol, 0.05), now + 0.5);
+
+    // Reverb wet amount: more reverb as the page descends, dissolution feel.
+    if (wetGain) {
+      var wet = 0.28 + sd * 0.35;
+      wetGain.gain.linearRampToValueAtTime(wet, now + 0.5);
+    }
 
     requestAnimationFrame(updateAudioParams);
   }
 
-  // Stochastic percussion (Xenakis Poisson process)
+  // Stochastic structural events (Xenakis Poisson process). Each event triggers
+  // a meaningful change in the DSS engine: a voice reseeds its breakpoints, or
+  // all voices shift their frequency centers. Rare and audible, not decorative.
   function scheduleStochastic() {
     if (!audioActive) return;
     var scrollBoost = scrollDepth > 0.65 && scrollDepth < 0.9 ? 1 + (scrollDepth - 0.65) * 4 : 1;
     var scrollDampen = scrollDepth > 0.9 ? Math.max(0.1, 1 - (scrollDepth - 0.9) * 8) : 1;
-    var rate = (0.3 + mouseX * mouseX * 14) * scrollBoost * scrollDampen;
-    var interval = Math.max(20, -Math.log(Math.random()) / rate * 1000);
+    // Lower base rate than the original noise-pluck stream; events are now
+    // structural and meaningful, not percussive decoration.
+    var rate = (0.15 + mouseX * mouseX * 2.6) * scrollBoost * scrollDampen;
+    var interval = Math.max(180, -Math.log(Math.random()) / rate * 1000);
     stochasticTimer = setTimeout(function() { triggerPluck(); scheduleStochastic(); }, interval);
   }
 
   function triggerPluck() {
     if (!audioCtx || !audioActive) return;
-    var now = audioCtx.currentTime;
+
+    // Send structural event to DSS engine. 75% of events reseed a single voice
+    // (localized character change), 25% shift all voice frequency centers
+    // (global tonal shift). Both produce audible discontinuity in the texture.
+    if (dssNode && dssReady) {
+      try {
+        if (Math.random() < 0.75) {
+          dssNode.port.postMessage({ type: 'event' });
+        } else {
+          dssNode.port.postMessage({ type: 'shift' });
+        }
+      } catch (e) {}
+    }
+
+    // Visual ring (preserved). Each ring now corresponds to a real structural
+    // change in the synth rather than a decorative noise blip.
+    var amp = 0.18 + Math.random() * 0.3;
     var scale = [55, 61.875, 68.75, 82.5, 91.667, 110, 123.75, 137.5, 165, 183.333, 220];
     var idx = mouseX * (scale.length - 1);
     var baseFreq = scale[Math.min(Math.floor(idx), scale.length - 1)];
-    var ratios = [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 16];
+    var ratios = [0.5, 1, 1.5, 2, 3, 4, 6, 8];
     var freq = baseFreq * ratios[Math.floor(Math.random() * ratios.length)];
     while (freq > 12000) freq *= 0.5;
     while (freq < 30) freq *= 2;
-
-    var amp = 0.1 + Math.random() * 0.3;
-    var decay = 0.04 + Math.random() * 0.35;
-    var Q = 30 + Math.random() * 120;
-
-    var src = audioCtx.createBufferSource(); src.buffer = noiseBuffer;
-    var bp = audioCtx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = freq; bp.Q.value = Q;
-    var env = audioCtx.createGain();
-    env.gain.setValueAtTime(amp, now);
-    env.gain.exponentialRampToValueAtTime(0.0001, now + decay);
-    src.connect(bp); bp.connect(env); env.connect(masterGain);
-    src.start(now, Math.random() * 0.8, 0.05);
-    setTimeout(function() { try { src.disconnect(); bp.disconnect(); env.disconnect(); } catch(e) {} }, (decay + 0.3) * 1000);
 
     stochasticEvents.push({ x: logFreqToX(freq), y: h * (0.2 + Math.random() * 0.55), birth: performance.now(), amp: amp });
   }
