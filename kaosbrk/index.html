@@ -1767,8 +1767,6 @@ const MELODY_CELLS = [
   { name: 'neighbor-lower',   offsets: [0, -1, 0],         shape: 'valley', family: 'step' },
   { name: 'turn',             offsets: [1, 0, -1, 0],      shape: 'wave',   family: 'step' },
   { name: 'inverted-turn',    offsets: [-1, 0, 1, 0],      shape: 'wave',   family: 'step' },
-  { name: 'scalar-run-up',    offsets: [0, 1, 2, 3, 4],    shape: 'rise',   family: 'step' },
-  { name: 'scalar-run-down',  offsets: [4, 3, 2, 1, 0],    shape: 'fall',   family: 'step' },
   // Enclosures (Barry Harris bebop language; on bebop scales these are
   // genuine chromatic approach, on diatonic scales they read as turns
   // around a target tone, both musical)
@@ -1793,7 +1791,6 @@ const MELODY_CELLS = [
   { name: 'leap-fourth-fall', offsets: [0, 3, 2, 1],       shape: 'arch',   family: 'leap' },
   { name: 'leap-fifth-fall',  offsets: [0, 4, 3, 2, 1],    shape: 'arch',   family: 'leap' },
   { name: 'cambiata',         offsets: [0, 2, -1, 0],      shape: 'wave',   family: 'leap' },
-  { name: 'gap-fill',         offsets: [4, 3, 2, 1, 0],    shape: 'fall',   family: 'leap' },
   { name: 'sigh',             offsets: [2, 0],             shape: 'fall',   family: 'leap' },
   // Climactic / sequential (for C role and prime bars)
   { name: 'octave-peak',      offsets: [0, 7, 0],          shape: 'arch',   family: 'climax' },
@@ -1958,13 +1955,17 @@ function generateMelody(plan, scale, rng, barSteps, octConfig) {
     // fit in remainingPositions.
     const families = ROLE_FAMILIES[role] || ROLE_FAMILIES.A;
     const pickCell = (slopeClass, remainingPositions) => {
+      // Cap cell length to 4 so no single cell can dominate a bar. With
+      // typical 5-6 onset bars this guarantees at least two cells per bar,
+      // which is what makes the output sound composed rather than walked.
+      const maxLen = Math.min(remainingPositions, 4);
       const familyMatch = MELODY_CELLS.filter(c =>
-        families.includes(c.family) && c.offsets.length <= remainingPositions
+        families.includes(c.family) && c.offsets.length <= maxLen
       );
       if (familyMatch.length === 0) {
         // Fallback: any cell short enough, otherwise the shortest cell
         // (placement loop will truncate to fit remaining positions).
-        const anyShort = MELODY_CELLS.filter(c => c.offsets.length <= remainingPositions);
+        const anyShort = MELODY_CELLS.filter(c => c.offsets.length <= maxLen);
         if (anyShort.length > 0) return pick(rng, anyShort);
         return MELODY_CELLS.reduce((a, b) => a.offsets.length < b.offsets.length ? a : b);
       }
