@@ -2161,7 +2161,9 @@ function detectOnsetsFromSTFT(stft, sensitivity, audioData) {
 
 // Pre-render each slice into its own AudioBuffer with:
 //   - DC offset removed
-//   - 0.5ms equal-power fade-in (anti-click only)
+//   - 2ms equal-power fade-in (anti-click; below the natural attack envelope
+//     of kicks/snares so it's audibly transparent, but long enough to mask
+//     any non-zero starting sample value at the slice boundary)
 //   - 5ms equal-power fade-out at slice's natural end
 // Slice spans onset to next onset exactly — no tail extension.
 function preRenderSlice(audioBuffer, slice) {
@@ -2171,7 +2173,10 @@ function preRenderSlice(audioBuffer, slice) {
   const length = Math.max(8, endSample - startSample);
   const channels = audioBuffer.numberOfChannels;
 
-  const fadeInSamples = Math.max(4, Math.floor(0.0005 * sampleRate));
+  const fadeInSamples = Math.min(
+    Math.floor(0.002 * sampleRate),
+    Math.floor(length * 0.20)
+  );
   const fadeOutSamples = Math.min(
     Math.floor(0.005 * sampleRate),
     Math.floor(length * 0.20)
