@@ -800,6 +800,19 @@
           <option value="pelog">pelog (indonesia)</option>
           <option value="slendro">slendro (indonesia)</option>
         </optgroup>
+        <optgroup label="jazz : bebop language">
+          <option value="bebopDom">bebop dominant</option>
+          <option value="bebopMaj">bebop major</option>
+          <option value="bebopDor">bebop dorian</option>
+          <option value="bebopMelMin">bebop melodic minor</option>
+        </optgroup>
+        <optgroup label="jazz : barry harris &amp; symmetrical">
+          <option value="barryMaj6">major 6 diminished (barry harris)</option>
+          <option value="barryMin6">minor 6 diminished (barry harris)</option>
+          <option value="augmented">augmented (coltrane / slonimsky)</option>
+          <option value="symDim">symmetric diminished (whole-half)</option>
+          <option value="lateefSym">lateef synthetic (tritone-symmetric)</option>
+        </optgroup>
         <optgroup label="symmetrical &amp; off">
           <option value="chromatic">chromatic (all 12)</option>
           <option value="none">none (no melody)</option>
@@ -975,7 +988,7 @@
 
       <div class="manual-section">
         <h3>melody scale <span class="glyph">♪</span></h3>
-        <p>Sixty scales across seven traditions feed the lead, pitched snare, sub bass, and pad. The synth engine renders fractional intervals as true quarter tones, so the Arabic maqamat are not approximations.</p>
+        <p>Sixty-nine scales across eight traditions feed the lead, pitched snare, sub bass, and pad. The synth engine renders fractional intervals as true quarter tones, so the Arabic maqamat are not approximations.</p>
         <ul>
           <li><b>western : diatonic modes.</b> The seven church modes, from <code>major</code> (ionian) through <code>locrian</code>.</li>
           <li><b>western : pentatonic and blues.</b> Minor and major pentatonic, six-note blues, nine-note blues.</li>
@@ -984,6 +997,8 @@
           <li><b>indian ragas.</b> Twelve Hindustani and Carnatic scales including <code>bhairav</code>, <code>yaman</code>, <code>todi</code>, <code>marwa</code>, <code>malkauns</code>, and <code>hamsadhwani</code>.</li>
           <li><b>arabic maqamat.</b> Ten maqamat with authentic quarter-tone intervals. <code>rast</code>, <code>bayati</code>, <code>saba</code>, <code>sikah</code>, and <code>huzam</code> use half-flat degrees that render at the correct frequency.</li>
           <li><b>east asian.</b> Ten Japanese, Okinawan, Chinese, and Indonesian pentatonics: <code>hirajoshi</code>, <code>in-sen</code>, <code>iwato</code>, <code>yo</code>, <code>akebono</code>, <code>miyako-bushi</code>, <code>ryukyu</code>, plus <code>pelog</code> and <code>slendro</code>.</li>
+          <li><b>jazz : bebop language.</b> Four eight-note scales whose chromatic passing tone places chord tones on downbeats during eighth-note improvisation: <code>bebop dominant</code> (mixolydian with added natural 7), <code>bebop major</code> (major with added ♭6), <code>bebop dorian</code> (dorian with added natural 3), and <code>bebop melodic minor</code> (melodic minor with added ♭6). This chromatic-passing convention is the genuine bebop invention, codified later by Barry Harris.</li>
+          <li><b>jazz : barry harris and symmetrical systems.</b> <code>major 6 diminished</code> and <code>minor 6 diminished</code> share pitch content with bebop major and bebop melodic minor but serve as Harris's scale-of-chords system, alternating tonic 6th harmony with diminished 7th harmony on adjacent scale degrees. <code>augmented</code> is the six-note Slonimsky / Coltrane cycle scale (two augmented triads a semitone apart) that maps cleanly onto the "Giant Steps" major-third key centers. <code>symmetric diminished</code> is the whole-half octatonic used over dim7 chords. <code>lateef synthetic</code> is the tritone-symmetric eight-note collection from Yusef Lateef's Repository of Scales and Melodic Patterns, useful over dominant-seven harmony. The altered scale jazz musicians call the "diminished whole-tone" is already in this catalog as <code>super locrian</code> (same pitches, same function).</li>
         </ul>
         <p class="dim">Generation uses phrase-aware contour shaping, weighted step/leap motion (65/25/10), and meaningful prime-label transformations (octave peak, scale-step transpose, neighbor embellishment, climax leap, melodic inversion). The pad voicing derives its third and fifth from the active scale, so maqam pads get quarter-tone triads automatically. MIDI export rounds microtonal pitches to the nearest semitone since MIDI 1.0 has no quarter-tone byte.</p>
         <h4 style="font-family:'Major Mono Display',monospace;font-size:10px;color:var(--cool);letter-spacing:0.2em;margin-top:14px;margin-bottom:6px;text-transform:uppercase;">oct + spread + arp</h4>
@@ -1663,6 +1678,36 @@ const SCALES = {
   chinese:     [0, 4, 6, 7, 11],
   pelog:       [0, 1, 3, 7, 8],
   slendro:     [0, 2, 5, 7, 10],
+
+  // jazz : bebop language. Eight-note scales whose extra chromatic passing
+  // tone lets chord tones land on downbeats during eighth-note improvisation.
+  // The bebop musicians (Parker, Gillespie, Powell, later codified by Barry
+  // Harris) are the actual originators of this chromatic-passing convention.
+  bebopDom:    [0, 2, 4, 5, 7, 9, 10, 11],
+  bebopMaj:    [0, 2, 4, 5, 7, 8, 9, 11],
+  bebopDor:    [0, 2, 3, 4, 5, 7, 9, 10],
+  bebopMelMin: [0, 2, 3, 5, 7, 8, 9, 11],
+
+  // jazz : barry harris sixth-diminished. Same pitch content as the bebop
+  // major / bebop melodic minor sets above, but functionally distinct: Harris
+  // treats them as a "scale of chords" alternating tonic 6th harmony with
+  // diminished 7th harmony on adjacent scale degrees.
+  barryMaj6:   [0, 2, 4, 5, 7, 8, 9, 11],
+  barryMin6:   [0, 2, 3, 5, 7, 8, 9, 11],
+
+  // jazz : symmetrical systems. Octave-dividing collections used by Slonimsky
+  // (Thesaurus, 1947) and codified into jazz by Coltrane (major-third cycle,
+  // "Giant Steps") and bebop / post-bop players (whole-half diminished over
+  // dim7 chords). Note: the altered scale / super locrian lives above under
+  // "harmonic & exotic" as superLoc, same pitches and same function.
+  augmented:   [0, 3, 4, 7, 8, 11],
+  symDim:      [0, 2, 3, 5, 6, 8, 9, 11],
+
+  // jazz : synthetic. Yusef Lateef documented this tritone-symmetric eight-
+  // note set for dominant-seven improvisation in his Repository of Scales and
+  // Melodic Patterns. Bottom tetrachord [0,1,2,3] equals upper tetrachord
+  // [6,7,8,9] transposed up a tritone, giving the scale its symmetry.
+  lateefSym:   [0, 1, 2, 3, 6, 7, 8, 9],
 };
 
 // Derive a triad for the pad voicing from a scale. Legacy scales keep their
@@ -5090,7 +5135,7 @@ function renderLineage(p) {
 const RECIPES={
   szerencsetlen:{name:'szerencsétlen',blurb:'7/4 hungarian breakcore. orchestral pad in d minor, pitched snares, dramatic density. drop your amen.',style:'breakcore',barSteps:28,form:"ABAC'",bars:4,bpm:175,scale:'minor',polyIntensity:0.4,ornDensity:0.85,chaos:0.5,pitchedSnare:true,padOn:true,subOn:true,pitchUpFactor:1.30,fx:{sidechain:false,combWet:0,driveWet:0,crushWet:0}},
   hajnal:{name:'hajnal',blurb:'frantic 4/4 breakcore at 210. dense ornaments, distorted kicks, hi-velocity rolls. heavy drive.',style:'breakcore',barSteps:16,form:"ABAC'",bars:4,bpm:210,scale:'minor',polyIntensity:0.55,ornDensity:0.95,chaos:0.65,pitchedSnare:true,padOn:true,subOn:true,pitchUpFactor:1.45,fx:{sidechain:false,combWet:0,driveWet:0.35,driveAmount:25,crushWet:0}},
-  boysBeTough:{name:'boys be tough',blurb:"bogdan raczynski's samurai math beats territory. custom samurai math style: prime-number polymeters (5/7/9/11/13) at 0.85 chance, odd-subdivision rolls (5/7/9/11/13), aggressive micro-timing (SN/CH pushed 2 sub-steps forward). 7/4 bar at 196 in hirajoshi (japanese pentatonic, the literal samurai mode). custom motif with peak-density ornaments (KK and SN both reach 0.95). max drive 0.60/4.0, 5-bit crush, chaos 0.18, pitchUp 1.55. auto-loads the amen kit on select. random arpeggio at 1/8 from two octaves below, single-octave spread.",style:'samuraimath',barSteps:28,form:'ABCB',bars:4,bpm:196,scale:'hirajoshi',polyIntensity:1.00,ornDensity:1.00,chaos:0.18,pitchedSnare:true,padOn:false,subOn:true,pitchUpFactor:1.55,useBuiltinAmen:true,melodyMotion:{octBase:-2,octSpread:1,arpMode:'random',arpRate:8,arpSwing:false},fx:{sidechain:false,combWet:0,driveWet:0.60,driveAmount:40,crushWet:0.35,crushBits:5}},
+  boysBeTough:{name:'boys be tough',blurb:"bogdan raczynski's samurai math beats territory. custom samurai math style: prime-number polymeters (5/7/9/11/13) at 0.85 chance, odd-subdivision rolls (5/7/9/11/13), aggressive micro-timing (SN/CH pushed 2 sub-steps forward). 7/4 bar at 196 in hirajoshi (japanese pentatonic, the literal samurai mode). custom motif with peak-density ornaments (KK and SN both reach 0.95). max drive 0.60/4.0, 5-bit crush, chaos 0.18, pitchUp 1.55. auto-loads the amen kit on select. random arpeggio at 1/8 from two octaves below, single-octave spread.",style:'samuraimath',barSteps:28,form:'ABCB',bars:8,bpm:196,scale:'hirajoshi',polyIntensity:1.00,ornDensity:1.00,chaos:0.18,pitchedSnare:true,padOn:false,subOn:true,pitchUpFactor:1.55,useBuiltinAmen:true,melodyMotion:{octBase:-2,octSpread:1,arpMode:'random',arpRate:8,arpSwing:false},fx:{sidechain:false,combWet:0,driveWet:0.60,driveAmount:40,crushWet:0,crushBits:5}},
   hospitality:{name:'hospitality',blurb:'AABA at 175 with melodic pitched snares. orchestral pad. controlled, less chaos.',style:'breakcore',barSteps:16,form:'AABA',bars:4,bpm:175,scale:'minor',polyIntensity:0.25,ornDensity:0.70,chaos:0.30,pitchedSnare:true,padOn:true,subOn:true,pitchUpFactor:1.30,fx:{sidechain:true,combWet:0,driveWet:0,crushWet:0}},
   frictional:{name:'frictional nevada',blurb:'dense industrial breakcore at ~195. distorted kick + sub. heavy drive.',style:'breakcore',barSteps:16,form:"ABAC'",bars:4,bpm:195,scale:'phrygian',polyIntensity:0.3,ornDensity:1.0,chaos:0.55,pitchedSnare:false,padOn:false,subOn:true,pitchUpFactor:1.40,fx:{sidechain:false,combWet:0,driveWet:0.5,driveAmount:35,crushWet:0.15,crushBits:8}},
   weakling:{name:'to cure a weakling child',blurb:'precise melodic IDM at ~145. sweet major pad and pitched snare. surgical not violent.',style:'breakcore',barSteps:16,form:'AABA',bars:4,bpm:145,scale:'major',polyIntensity:0.15,ornDensity:0.75,chaos:0.20,pitchedSnare:true,padOn:true,subOn:true,pitchUpFactor:1.20,fx:{sidechain:true,combWet:0,driveWet:0,crushWet:0}},
@@ -5103,7 +5148,7 @@ const RECIPES={
   beepstreet:{name:'beep street',blurb:'jungle d&b at 175 driven by sub bass. ABAB form, no pad, just kicks/snares/sub.',style:'jungle',barSteps:16,form:'ABAB',bars:4,bpm:175,scale:'minor',polyIntensity:0.20,ornDensity:0.85,chaos:0.30,pitchedSnare:false,padOn:false,subOn:true,pitchUpFactor:1.25,fx:{sidechain:false,combWet:0,driveWet:0.25,driveAmount:20,crushWet:0}},
   terminal:{name:'terminal slam',blurb:'slower industrial-electro at ~130. distorted, mechanical.',style:'idmHalf',barSteps:16,form:"ABAC'",bars:4,bpm:130,scale:'phrygian',polyIntensity:0.4,ornDensity:0.55,chaos:0.50,pitchedSnare:false,padOn:false,subOn:true,pitchUpFactor:1.10,fx:{sidechain:false,combWet:0,driveWet:0.4,driveAmount:30,crushWet:0.2,crushBits:6}},
   bongoRock:{name:'Apache — Incredible Bongo Band',blurb:'the most-sampled break in hip-hop history. Jim Gordon\'s tight snare, King Errisson\'s congas. ~116 BPM, AABA, drums-forward, ghost notes before each backbeat, iconic open hat on the "ah" of 4. tape warmth.',style:'apache',barSteps:16,form:'AABA',bars:4,bpm:116,scale:'minPent',polyIntensity:0.05,ornDensity:0.85,chaos:0.15,pitchedSnare:false,padOn:false,subOn:false,pitchUpFactor:1.0,fx:{sidechain:false,combWet:0,driveWet:0.20,driveAmount:12,crushWet:0.12,crushBits:12}},
-  amenBreak:{name:'Amen, Brother — The Winstons (1969)',blurb:'the most influential drum break in music. Greg Coleman\'s 1969 performance, sliced into 46 authentic one-shots. clean break at low chaos; push chaos past 0.5 for Venetian Snares — stutters, pitch shifts, step reordering, density spikes.',style:'amen',barSteps:16,form:'AABA',bars:8,bpm:180,scale:'minPent',polyIntensity:1.00,ornDensity:1.00,chaos:0.44,pitchedSnare:false,padOn:false,subOn:false,noMelody:true,noTailRoll:true,pitchUpFactor:1.20,useBuiltinAmen:true,fx:{sidechain:false,combWet:0,driveWet:0,crushWet:0}}
+  amenBreak:{name:'Amen, Brother — The Winstons (1969)',blurb:'the most influential drum break in music. Greg Coleman\'s 1969 performance, sliced into 46 authentic one-shots. clean break at low chaos; push chaos past 0.5 for Venetian Snares — stutters, pitch shifts, step reordering, density spikes.',style:'amen',barSteps:16,form:'AABA',bars:8,bpm:180,scale:'minPent',polyIntensity:1.00,ornDensity:1.00,chaos:0.18,pitchedSnare:false,padOn:false,subOn:false,noMelody:true,noTailRoll:true,pitchUpFactor:1.20,useBuiltinAmen:true,fx:{sidechain:false,combWet:0,driveWet:0,crushWet:0}}
 };
 
 /* ---------- UI WIRING --------------------------------------------------- */
