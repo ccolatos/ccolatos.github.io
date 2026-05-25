@@ -1752,13 +1752,106 @@ function beatStrength(step,barSteps){if(step===0)return 1.0;if(step%8===0)return
 function assignVelocity(stepIdx,barSteps,hitKind,rng,accentBoost=0,chaos=0){const base=beatStrength(stepIdx,barSteps);let v;if(hitKind==='anchor')v=base*0.85+0.15;else if(hitKind==='ornament')v=base*0.55+0.20;else v=base*0.6+0.25;v*=(0.92+rng()*0.16);v*=(1.0+(rng()*2-1)*chaos*0.20);v+=accentBoost;return clamp(v,0.15,1.0);}
 function getMicro(voice,behavior,chaos,rng){const base=(behavior.micro&&behavior.micro[voice])||0;const jitterRange=3+chaos*12;const jitter=(rng()*2-1)*jitterRange;return base+jitter;}
 function buildPolymeterTrack(totalSteps,behavior,polyIntensity,rng){if(!chance(rng,behavior.polyChance*polyIntensity*1.5))return null;const meter=pick(rng,behavior.polyMeters);const events=[];const subdivCount=chance(rng,0.5)?1:2;for(let s=0;s<totalSteps;s++){const cyclePos=s%meter;if(cyclePos===0)events.push({step:s,vel:0.85,pitch:0});else if(subdivCount===2&&cyclePos===Math.floor(meter/2))events.push({step:s,vel:0.55,pitch:-3});}const lcmPoint=Math.floor(totalSteps/meter)*meter;return{events,meter,lcmPoint};}
-// Phrase-aware melodic generation. Each unique form label gets a single motif
-// built from a rhythm template and a contour shape. Subsequent occurrences of
-// the same label reuse the motif (form coherence). Prime labels (e.g. C') get
-// one of five meaningful transformations: octave peak, scale-step transpose,
-// neighbor embellishment, climax leap, or melodic inversion. Pitch selection
-// uses a step/leap distribution (65/25/10) biased toward the contour's
-// suggestion, with a soft pull toward tonic on the final note of the form.
+// Melodic cell library. Each cell is a sequence of scale-degree offsets from
+// an anchor. 'shape' classifies the cell's internal contour for matching
+// against the bar-level contour curve. 'family' groups cells by character
+// for role-conditional selection (A=statement, B=development, C=climax).
+// Cells stay in scale-degree space, so microtonal scales (rast, sikah) get
+// quarter-tone-accurate cells automatically and bebop scales get genuine
+// chromatic passing-tone treatment without special-casing.
+const MELODY_CELLS = [
+  // Stepwise (Schenker passing/neighbor; the connective tissue)
+  { name: 'passing-up',       offsets: [0, 1, 2],          shape: 'rise',   family: 'step' },
+  { name: 'passing-down',     offsets: [0, -1, -2],        shape: 'fall',   family: 'step' },
+  { name: 'neighbor-upper',   offsets: [0, 1, 0],          shape: 'arch',   family: 'step' },
+  { name: 'neighbor-lower',   offsets: [0, -1, 0],         shape: 'valley', family: 'step' },
+  { name: 'turn',             offsets: [1, 0, -1, 0],      shape: 'wave',   family: 'step' },
+  { name: 'inverted-turn',    offsets: [-1, 0, 1, 0],      shape: 'wave',   family: 'step' },
+  { name: 'scalar-run-up',    offsets: [0, 1, 2, 3, 4],    shape: 'rise',   family: 'step' },
+  { name: 'scalar-run-down',  offsets: [4, 3, 2, 1, 0],    shape: 'fall',   family: 'step' },
+  // Enclosures (Barry Harris bebop language; on bebop scales these are
+  // genuine chromatic approach, on diatonic scales they read as turns
+  // around a target tone, both musical)
+  { name: 'enclosure-above-below', offsets: [1, -1, 0],    shape: 'valley', family: 'bebop' },
+  { name: 'enclosure-below-above', offsets: [-1, 1, 0],    shape: 'arch',   family: 'bebop' },
+  { name: 'double-enclosure',      offsets: [2, -1, 1, 0], shape: 'valley', family: 'bebop' },
+  { name: 'chromatic-approach',    offsets: [-1, 0],       shape: 'rise',   family: 'bebop' },
+  // Arpeggio fragments (chord-tone outlining; targets strong beats)
+  { name: 'triad-up',         offsets: [0, 2, 4],          shape: 'rise',   family: 'arp' },
+  { name: 'triad-down',       offsets: [4, 2, 0],          shape: 'fall',   family: 'arp' },
+  { name: 'triad-up-down',    offsets: [0, 2, 4, 2],       shape: 'arch',   family: 'arp' },
+  { name: 'seventh-up',       offsets: [0, 2, 4, 6],       shape: 'rise',   family: 'arp' },
+  { name: 'open-fifth-leap',  offsets: [0, 4, 2],          shape: 'arch',   family: 'arp' },
+  // Pentatonic / blues cells (the bread and butter for IDM and breakcore;
+  // on pent scales these map to genuine blues licks, on diatonic scales
+  // they still read as wide stepwise arches)
+  { name: 'penta-rise',       offsets: [0, 1, 2, 3],       shape: 'rise',   family: 'penta' },
+  { name: 'penta-arch',       offsets: [0, 1, 2, 1],       shape: 'arch',   family: 'penta' },
+  { name: 'blues-bend',       offsets: [2, 1, 2, 1, 0],    shape: 'fall',   family: 'penta' },
+  { name: 'penta-bounce',     offsets: [0, 2, 1, 2],       shape: 'wave',   family: 'penta' },
+  // Leap-and-recover (the gestures that give a melody profile)
+  { name: 'leap-fourth-fall', offsets: [0, 3, 2, 1],       shape: 'arch',   family: 'leap' },
+  { name: 'leap-fifth-fall',  offsets: [0, 4, 3, 2, 1],    shape: 'arch',   family: 'leap' },
+  { name: 'cambiata',         offsets: [0, 2, -1, 0],      shape: 'wave',   family: 'leap' },
+  { name: 'gap-fill',         offsets: [4, 3, 2, 1, 0],    shape: 'fall',   family: 'leap' },
+  { name: 'sigh',             offsets: [2, 0],             shape: 'fall',   family: 'leap' },
+  // Climactic / sequential (for C role and prime bars)
+  { name: 'octave-peak',      offsets: [0, 7, 0],          shape: 'arch',   family: 'climax' },
+  { name: 'sequence-up',      offsets: [0, 1, 1, 2, 2, 3], shape: 'rise',   family: 'climax' },
+  { name: 'sequence-down',    offsets: [3, 2, 2, 1, 1, 0], shape: 'fall',   family: 'climax' },
+  { name: 'leap-and-perch',   offsets: [0, 5, 5, 4],       shape: 'arch',   family: 'climax' },
+];
+
+// Role-biased family pools. A bars state the idea (arp, leap, penta, step).
+// B bars develop it (step, bebop, penta, leap). C bars push toward climax.
+// Mirrors the existing role-to-contour-pool logic for consistency.
+const ROLE_FAMILIES = {
+  A: ['arp', 'leap', 'penta', 'step'],
+  B: ['step', 'bebop', 'penta', 'leap'],
+  C: ['climax', 'leap', 'arp', 'bebop'],
+};
+
+// Find the scale degree closest to a given pitch's semitone class. Used by
+// both the bar generator (to step a degree off a known pitch) and the paint
+// system (to anchor a new cell off the last painted pitch). Handles
+// microtonal scales correctly because floats survive the mod.
+function pitchToDegInScale(pitch, scale) {
+  const semi = ((pitch % 12) + 12) % 12;
+  let best = 0, bestDist = Infinity;
+  for (let d = 0; d < scale.length; d++) {
+    const dist = Math.abs(scale[d] - semi);
+    if (dist < bestDist) { bestDist = dist; best = d; }
+  }
+  return best;
+}
+
+// Snap a scale-degree index to the nearest chord-tone degree (0/2/4 mod
+// scaleLen). Preserves the octave block. Used on strong beats to give
+// melodic anchors harmonic gravity without an explicit chord track.
+function snapToChordToneInScale(deg, scaleLen) {
+  const inOct = ((deg % scaleLen) + scaleLen) % scaleLen;
+  const octBase = deg - inOct;
+  const chordToneDegs = [0, 2 % scaleLen, 4 % scaleLen].filter((v, i, a) => a.indexOf(v) === i);
+  let best = chordToneDegs[0], bestDist = Infinity;
+  for (const ct of chordToneDegs) {
+    const d = Math.min(Math.abs(ct - inOct), scaleLen - Math.abs(ct - inOct));
+    if (d < bestDist) { bestDist = d; best = ct; }
+  }
+  return octBase + best;
+}
+
+// Phrase-aware melodic generation. Each unique form label gets a single
+// motif built from a rhythm template and a contour shape. Subsequent
+// occurrences of the same label reuse the motif (form coherence). Prime
+// labels (e.g. C') get one of five meaningful transformations: octave
+// peak, scale-step transpose, neighbor embellishment, climax leap, or
+// melodic inversion. Pitch selection is cell-based: each rhythm template
+// is filled by selecting and placing cells from MELODY_CELLS, biased
+// toward cells whose shape matches the local contour slope. Strong beats
+// (positions near 0, 1/4, 1/2, 3/4 of the bar) get chord-tone anchor
+// snapping at probability 0.7 so harmonic resolution is reliable but not
+// rigid. A soft pull toward tonic on the final note of the form survives
+// from the previous logic.
 function generateMelody(plan, scale, rng, barSteps, octConfig) {
   if (!scale) return null;
   const oct = octConfig || { base: 0, spread: 1 };
@@ -1840,48 +1933,95 @@ function generateMelody(plan, scale, rng, barSteps, octConfig) {
     // Center the contour: spread > 1 starts the melody nearer the middle of the
     // extended register so the contour has room to climb and fall.
     const contourCenter = spread === 1 ? 0 : (spread - 1) * scaleLen * 0.5;
+
+    // Strong-beat positions on the bar grid. Onsets within 1 step of these
+    // get probabilistic chord-tone anchor snapping. Works on any barSteps
+    // value (16 for 4/4, 28 for 7/4, 20 for 5/4, etc).
+    const strongBeats = [0, Math.floor(barSteps / 4), Math.floor(barSteps / 2), Math.floor(3 * barSteps / 4)];
+    const isStrong = (pos) => strongBeats.some(sb => Math.abs(pos - sb) <= 1);
+
+    // Classify a contour slope over a span using start/mid/end samples.
+    // Drives shape-matched cell selection so cells flow with the bar arc.
+    const classifySlope = (np0, np1) => {
+      const npm = (np0 + np1) / 2;
+      const a = contour(np0), b = contour(npm), c = contour(np1);
+      const tol = 0.05;
+      if (b > a + tol && b > c + tol) return 'arch';
+      if (b < a - tol && b < c - tol) return 'valley';
+      if (c > a + tol) return 'rise';
+      if (c < a - tol) return 'fall';
+      return 'wave';
+    };
+
+    // Pick a cell. Filter by allowed families for this role, then by
+    // matching shape if any match exists. Length constraint: cell must
+    // fit in remainingPositions.
+    const families = ROLE_FAMILIES[role] || ROLE_FAMILIES.A;
+    const pickCell = (slopeClass, remainingPositions) => {
+      const familyMatch = MELODY_CELLS.filter(c =>
+        families.includes(c.family) && c.offsets.length <= remainingPositions
+      );
+      if (familyMatch.length === 0) {
+        // Fallback: any cell short enough, otherwise the shortest cell
+        // (placement loop will truncate to fit remaining positions).
+        const anyShort = MELODY_CELLS.filter(c => c.offsets.length <= remainingPositions);
+        if (anyShort.length > 0) return pick(rng, anyShort);
+        return MELODY_CELLS.reduce((a, b) => a.offsets.length < b.offsets.length ? a : b);
+      }
+      const shapeMatch = familyMatch.filter(c => c.shape === slopeClass);
+      return pick(rng, shapeMatch.length > 0 ? shapeMatch : familyMatch);
+    };
+
+    // Walk through onset positions, placing cells. At each placement we
+    // either ANCHOR FRESH from the contour suggestion (strong beats, start
+    // of bar, or 35% chance elsewhere) or CONTINUE from the previous
+    // cell's last note (off-beats, for melodic continuity).
+    let i = 0;
     let prevDeg = snapDeg(contour(0) * NOTE_MAX_DEG + contourCenter);
-    let lastDeg = -1, lastLastDeg = -1;
-    // Step/leap distribution scales with spread: wider register gets more leap-prone.
-    const magOptions = spread === 1 ? [1, 2, 3] : (spread === 2 ? [1, 2, 3, 5] : [1, 2, 3, 5, 7]);
-    const magCutoffs = spread === 1 ? [0.65, 0.90, 1.00] : (spread === 2 ? [0.55, 0.78, 0.92, 1.00] : [0.45, 0.68, 0.84, 0.94, 1.00]);
-    for (let i = 0; i < positions.length; i++) {
+    while (i < positions.length) {
       const pos = positions[i];
-      const np = positions.length > 1 ? i / (positions.length - 1) : 0;
-      const suggested = contour(np) * NOTE_MAX_DEG + contourCenter;
-      let degIdx;
-      if (i === 0) {
-        degIdx = snapDeg(suggested);
+      const np0 = positions.length > 1 ? i / (positions.length - 1) : 0;
+      const remaining = positions.length - i;
+      const slopeEnd = Math.min(i + 3, positions.length - 1);
+      const np1 = positions.length > 1 ? slopeEnd / (positions.length - 1) : 1;
+      const slope = classifySlope(np0, np1);
+      const cell = pickCell(slope, remaining);
+
+      // Decide anchor: fresh contour-driven (strong beats, start of bar,
+      // or random 35% of the time elsewhere) vs continue from prev.
+      const anchorFresh = (i === 0) || isStrong(pos) || chance(rng, 0.35);
+      let anchor;
+      if (anchorFresh) {
+        anchor = snapDeg(contour(np0) * NOTE_MAX_DEG + contourCenter);
+        // Probabilistic strong-beat chord-tone snap. At 0.7 most strong
+        // beats land on 1/3/5 (tonal gravity), with occasional "wrong"
+        // strong beats reading as deliberate tension rather than chaos.
+        if (isStrong(pos) && chance(rng, 0.7)) {
+          anchor = clamp(snapToChordToneInScale(anchor, scaleLen), 0, EXT_MAX_DEG);
+        }
       } else {
-        // Step/leap pick (weighted random magnitude).
-        const r = rng();
-        let mag = magOptions[magOptions.length - 1];
-        for (let mi = 0; mi < magCutoffs.length; mi++) {
-          if (r < magCutoffs[mi]) { mag = magOptions[mi]; break; }
-        }
-        const drift = suggested - prevDeg;
-        const dir = drift > 0.3 ? 1 : (drift < -0.3 ? -1 : (chance(rng, 0.5) ? 1 : -1));
-        degIdx = clamp(prevDeg + dir * mag, 0, EXT_MAX_DEG);
-        // Anti-stagnation: break runs of three identical degrees
-        if (degIdx === lastDeg && lastDeg === lastLastDeg) {
-          degIdx = clamp(degIdx + (chance(rng, 0.5) ? 1 : -1), 0, EXT_MAX_DEG);
-        }
+        const suggested = contour(np0) * NOTE_MAX_DEG + contourCenter;
+        const drift = Math.sign(suggested - prevDeg);
+        anchor = clamp(prevDeg + drift, 0, EXT_MAX_DEG);
       }
-      // Final-bar resolution: pull final note toward tonic or fifth degree
-      if (isLastInForm && i === positions.length - 1) {
-        const tonicDeg = Math.round(contourCenter); // tonic in the center register
-        degIdx = chance(rng, 0.65) ? tonicDeg : clamp(tonicDeg + Math.round(scaleLen * 0.5), 0, EXT_MAX_DEG);
+
+      // Apply cell offsets starting at anchor, on consecutive onsets.
+      for (let k = 0; k < cell.offsets.length && (i + k) < positions.length; k++) {
+        const degIdx = clamp(anchor + cell.offsets[k], 0, EXT_MAX_DEG);
+        motif[positions[i + k]] = degToMidi(degIdx);
+        prevDeg = degIdx;
       }
-      // Random ±12 jitter — only active at spread=1 to preserve legacy variety;
-      // spread > 1 already produces multi-octave motion via the extended degree range.
-      const randomOct = spread === 1 && !chance(rng, 0.92)
-        ? (i < positions.length / 2 ? 12 : -12)
-        : 0;
-      motif[pos] = degToMidi(degIdx) + randomOct;
-      lastLastDeg = lastDeg;
-      lastDeg = degIdx;
-      prevDeg = degIdx;
+      i += cell.offsets.length;
     }
+
+    // Final-bar resolution: pull final note toward tonic or fifth degree.
+    if (isLastInForm && positions.length > 0) {
+      const lastPos = positions[positions.length - 1];
+      const tonicDeg = Math.round(contourCenter);
+      const finalDeg = chance(rng, 0.65) ? tonicDeg : clamp(tonicDeg + Math.round(scaleLen * 0.5), 0, EXT_MAX_DEG);
+      motif[lastPos] = degToMidi(finalDeg);
+    }
+
     return motif;
   }
 
@@ -3772,6 +3912,23 @@ let currentPattern = null;
 // editing session starts on the scale tonic. NOT reset on generate or
 // re-roll (preserves the user's "paint tool" state across regenerations).
 const lastPaintPitch = { LD: null, PD: null, SB: null };
+// Active painting cell per melodic voice (LD and SB; PD paints chords).
+// Each entry tracks which cell from MELODY_CELLS we are currently walking
+// through, the scale-degree anchor it started from, and the offset index
+// within the cell. When idx reaches the cell's offset count, the next
+// paint rolls a fresh cell. Reset alongside lastPaintPitch on clear-
+// pattern and load-JSON, plus on scale change (because cell offsets are
+// in scale-degree space and the new scale changes their meaning).
+const paintCellState = {
+  LD: { cell: null, anchorDeg: 0, idx: 0 },
+  SB: { cell: null, anchorDeg: 0, idx: 0 },
+};
+// Modifier capture for paint gestures. Set at pointerdown, read during
+// the drag in toggleCellHit. Alt held during paint forces mono-paint
+// (every paint inherits lastPaintPitch unchanged), preserving the legacy
+// "single repeated pitch" workflow for ostinato sketches. Default tap
+// advances the cell so painted melodies are musical by default.
+let paintAltKey = false;
 let livePlayhead = -1;
 let cachedWaveformBackground = null;
 
@@ -4131,6 +4288,63 @@ function toggleBarLock(barIdx) {
   drawPattern();
 }
 
+// Pick the next melodic pitch for a paint on LD or SB at a given step.
+// Walks through a cell from MELODY_CELLS, anchored either on the previous
+// paint's scale degree (cell continuation) or on a fresh anchor chord-
+// tone-snapped on strong beats. When the cell completes, the next call
+// starts a new cell. Seeded by Date.now()+voice+step so consecutive paints
+// get varied gestures but the same paint reproduces deterministically.
+// Cells are filtered to length 2 to 4 so the user gets variety every few
+// paints rather than committing to long runs.
+function nextPaintPitch(voice, step) {
+  const scale = SCALES[ui.scale.value] || SCALES.chromatic;
+  const scaleLen = scale.length;
+  const barSteps = getBarSteps();
+  const rng = makeRng(strToSeed('paint-' + Date.now() + '-' + voice + '-' + step));
+  const state = paintCellState[voice];
+  // Position-in-bar awareness. Strong beats (within 1 step of 0, 1/4, 1/2,
+  // 3/4 of the bar) anchor new cells on chord tones for harmonic gravity.
+  const posInBar = step % barSteps;
+  const strongBeats = [0, Math.floor(barSteps / 4), Math.floor(barSteps / 2), Math.floor(3 * barSteps / 4)];
+  const isStrong = strongBeats.some(sb => Math.abs(posInBar - sb) <= 1);
+  // Decide whether to continue the active cell or roll a fresh one.
+  const continuing = state.cell !== null && state.idx < state.cell.offsets.length;
+  if (!continuing) {
+    // Pick a new cell from ROLE_FAMILIES.A (the general statement role
+    // since paint has no role context), constrained to 2 to 4 notes.
+    const pool = MELODY_CELLS.filter(c =>
+      ROLE_FAMILIES.A.includes(c.family) &&
+      c.offsets.length >= 2 && c.offsets.length <= 4
+    );
+    state.cell = pick(rng, pool.length > 0 ? pool : MELODY_CELLS);
+    state.idx = 0;
+    // Anchor: continue from last paint pitch if we have one, otherwise
+    // start on tonic. Strong-beat painting always snaps to chord tone.
+    if (lastPaintPitch[voice] !== null) {
+      state.anchorDeg = pitchToDegInScale(lastPaintPitch[voice], scale);
+    } else {
+      state.anchorDeg = 0;
+    }
+    if (isStrong) state.anchorDeg = snapToChordToneInScale(state.anchorDeg, scaleLen);
+  }
+  // Read the cell offset, compute the MIDI pitch, advance the cell.
+  const degIdx = state.anchorDeg + state.cell.offsets[state.idx];
+  state.idx++;
+  // Convert scale degree to pitch. LD pitches are stored as semitone
+  // offsets from C4 (the synth adds 60 downstream). SB pitches are
+  // absolute MIDI clamped to C2..B2 to match the sub-bass register.
+  const inOct = ((degIdx % scaleLen) + scaleLen) % scaleLen;
+  const octShift = Math.floor(degIdx / scaleLen) * 12;
+  if (voice === 'LD') {
+    return scale[inOct] + octShift;
+  } else {
+    let clamped = 36 + scale[inOct] + octShift;
+    while (clamped < 36) clamped += 12;
+    while (clamped > 47) clamped -= 12;
+    return clamped;
+  }
+}
+
 function toggleCellHit(voice, step) {
   if (!currentPattern) return;
   const ev = currentPattern.channels[voice][step];
@@ -4148,15 +4362,21 @@ function toggleCellHit(voice, step) {
       if (slice) newEv.sliceData = { slice, reverse: false };
     }
 
-    // Melodic voices: paint inherits the last pitch used on this voice
-    // (whether from a previous paint or a shift+tap cycle). The first paint
-    // of a session falls back to the scale tonic. After assignment, the
-    // chosen pitch is written back to lastPaintPitch so subsequent paints
-    // pick it up. PD chord arrays are cloned both ways to avoid aliasing
-    // between cells.
+    // Melodic voices: default paint advances a cell from MELODY_CELLS via
+    // nextPaintPitch, producing a musical line rather than a repeated
+    // pitch. Holding ALT during paint restores the legacy mono-paint
+    // behavior (every paint inherits lastPaintPitch unchanged), preserving
+    // the ostinato-sketch workflow. PD always inherits its last chord
+    // since chord cells are not part of the cell library.
     if (voice === 'LD') {
       const scale = SCALES[ui.scale.value] || SCALES.chromatic;
-      newEv.pitch = (lastPaintPitch.LD !== null) ? lastPaintPitch.LD : scale[0];
+      if (paintAltKey && lastPaintPitch.LD !== null) {
+        newEv.pitch = lastPaintPitch.LD;
+      } else if (paintAltKey) {
+        newEv.pitch = scale[0];
+      } else {
+        newEv.pitch = nextPaintPitch('LD', step);
+      }
       lastPaintPitch.LD = newEv.pitch;
       newEv.kind = 'melody';
     } else if (voice === 'PD') {
@@ -4167,7 +4387,13 @@ function toggleCellHit(voice, step) {
       newEv.kind = 'pad';
     } else if (voice === 'SB') {
       const scale = SCALES[ui.scale.value] || SCALES.chromatic;
-      newEv.midiPitch = (lastPaintPitch.SB !== null) ? lastPaintPitch.SB : (36 + scale[0]);
+      if (paintAltKey && lastPaintPitch.SB !== null) {
+        newEv.midiPitch = lastPaintPitch.SB;
+      } else if (paintAltKey) {
+        newEv.midiPitch = 36 + scale[0];
+      } else {
+        newEv.midiPitch = nextPaintPitch('SB', step);
+      }
       lastPaintPitch.SB = newEv.midiPitch;
       newEv.kind = 'sub';
     }
@@ -4464,9 +4690,11 @@ canvas.addEventListener('pointerdown', (e) => {
       };
       velocityRowGeom = getRowGeom(target.voice);
     } else {
-      // Empty cell — paint-set mode immediately
+      // Empty cell. Paint-set mode immediately. Capture alt state so the
+      // drag respects the user's modifier choice from the initial click.
       paintMode = 'set';
       paintLastKey = null;
+      paintAltKey = !!e.altKey;
       paintCell(target.voice, target.step);
     }
     try { canvas.setPointerCapture(e.pointerId); } catch(err) {}
@@ -4738,6 +4966,11 @@ function loadStateJSON(file) {
       lastPaintPitch.LD = null;
       lastPaintPitch.PD = null;
       lastPaintPitch.SB = null;
+      // Also reset the active painting cell so the next paint rolls a fresh
+      // gesture from the loaded scale's tonic rather than continuing a
+      // half-built cell anchored on the previous scale.
+      paintCellState.LD = { cell: null, anchorDeg: 0, idx: 0 };
+      paintCellState.SB = { cell: null, anchorDeg: 0, idx: 0 };
       scheduler.pattern = pat;
       const totalSteps = pat.barSteps * pat.bars;
       drawPattern();
@@ -5512,7 +5745,14 @@ ui.form.addEventListener('change',()=>{updateLabels();customize();});
 ui.bars.addEventListener('change',updateLabels);
 ui.bpm.addEventListener('input',()=>{updateLabels();customize();});
 ui.swing.addEventListener('input',()=>{swingState.pct=parseInt(ui.swing.value)||0;updateLabels();customize();});
-ui.scale.addEventListener('change',()=>{updateLabels();customize();});
+ui.scale.addEventListener('change',()=>{
+  // Reset the active painting cell on scale change. Cell offsets are in
+  // scale-degree space, so continuing a half-built cell across scales
+  // would produce harmonically stale notes. Fresh anchor on the new scale.
+  paintCellState.LD = { cell: null, anchorDeg: 0, idx: 0 };
+  paintCellState.SB = { cell: null, anchorDeg: 0, idx: 0 };
+  updateLabels();customize();
+});
 ui.poly.addEventListener('input',updateLabels);
 ui.orn.addEventListener('input',updateLabels);
 ui.chaos.addEventListener('input',updateLabels);
@@ -5536,6 +5776,9 @@ ui.clearPatternBtn.addEventListener('click', () => {
   lastPaintPitch.LD = null;
   lastPaintPitch.PD = null;
   lastPaintPitch.SB = null;
+  // Reset the active painting cell so the next paint rolls a fresh gesture.
+  paintCellState.LD = { cell: null, anchorDeg: 0, idx: 0 };
+  paintCellState.SB = { cell: null, anchorDeg: 0, idx: 0 };
   drawPattern();
   setStatus && setStatus('pattern cleared', 'success');
 });
