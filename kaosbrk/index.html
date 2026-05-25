@@ -949,6 +949,10 @@
         <label>bits <span class="val" id="crush-bits-val">8</span></label>
         <input type="range" id="crush-bits" min="2" max="14" value="8">
       </div>
+      <div class="ctrl-group">
+        <label>rate <span class="val" id="crush-rate-val">44.1k</span></label>
+        <input type="range" id="crush-rate" min="1" max="20" value="1">
+      </div>
     </div>
     <div class="fx-group">
       <h3>drive</h3>
@@ -959,6 +963,10 @@
       <div class="ctrl-group">
         <label>amount <span class="val" id="drive-amt-val">2.0</span></label>
         <input type="range" id="drive-amt" min="10" max="100" value="20">
+      </div>
+      <div class="ctrl-group">
+        <label>tone <span class="val" id="drive-tone-val">16k</span></label>
+        <input type="range" id="drive-tone" min="0" max="100" value="100">
       </div>
     </div>
   </div>
@@ -1058,8 +1066,8 @@
         <ul>
           <li><b>sidechain</b> ducks the pad on every kick.</li>
           <li><b>comb filter</b> is a short-delay resonator. <code>wet</code> mixes it in, <code>delay</code> sets the period from 2 to 80 ms, <code>feedback</code> sets resonance (up to 0.92).</li>
-          <li><b>bitcrush</b> reduces bit depth from <code>14</code> down to <code>2</code>. Lower bits, cruder sound.</li>
-          <li><b>drive</b> is waveshaping distortion. <code>wet</code> mixes it in, <code>amount</code> sets curve hardness.</li>
+          <li><b>bitcrush</b> two-stage lo-fi processor. <code>bits</code> reduces bit depth from <code>14</code> down to <code>2</code> for stair-stepped quantization noise. <code>rate</code> divides the sample rate by an integer factor from <code>1</code> to <code>20</code>, producing the aliased shimmer that defines real bitcrushers. Use bits alone for crude digital quantization, rate alone for telephone or vintage-sampler character, both together for full early-1990s digital squalor.</li>
+          <li><b>drive</b> waveshaping distortion. <code>wet</code> mixes it in, <code>amount</code> sets curve hardness (tanh-shaped, 4× oversampled to suppress aliasing in the saturator itself). <code>tone</code> is a post-saturation lowpass from <code>200 Hz</code> (dark, muffled) to <code>16 kHz</code> (open, transparent). Pull tone down to soften the harsh upper harmonics that saturation creates without losing the body of the distortion.</li>
         </ul>
       </div>
 
@@ -1306,26 +1314,63 @@ function buildFxChain() {
   combDelay.connect(combWet).connect(combOut);
   combDelay.connect(combFb).connect(combDelay); // feedback loop
 
-  // Bitcrush section
+  // Bitcrush section. Wet path runs: rate reducer (sample-rate decimation
+  // producing aliased lo-fi sound) → bit reducer (quantization). Dry path
+  // carries a matched DelayNode so dry and wet remain phase-aligned at the
+  // mix point regardless of the ScriptProcessor's inherent block latency.
+  // Without phase matching, mixing dry and wet at intermediate values would
+  // produce a comb-filter notch at the latency frequency.
   const crushIn = ctx.createGain();
   const crusher = ctx.createWaveShaper();
   crusher.curve = makeBitcrushCurve(fxState.crushBits);
+  // Sample rate reducer. Holds each input sample for `factor` output
+  // samples, creating the aliased shimmer that defines real bitcrushers.
+  // At factor=1 this is a transparent pass-through.
+  const downsampler = ctx.createScriptProcessor(256, 1, 1);
+  let dsHoldSample = 0;
+  let dsHoldCounter = 0;
+  downsampler.onaudioprocess = function(e) {
+    const inBuf = e.inputBuffer.getChannelData(0);
+    const outBuf = e.outputBuffer.getChannelData(0);
+    const factor = Math.max(1, fxState.crushRate | 0);
+    for (let i = 0; i < inBuf.length; i++) {
+      if (dsHoldCounter <= 0) {
+        dsHoldSample = inBuf[i];
+        dsHoldCounter = factor - 1;
+      } else {
+        dsHoldCounter--;
+      }
+      outBuf[i] = dsHoldSample;
+    }
+  };
+  // Delay compensation for the dry path. The ScriptProcessor has one
+  // buffer of inherent latency (256 samples / ctx.sampleRate).
+  const crushDryDelay = ctx.createDelay(0.05);
+  crushDryDelay.delayTime.value = 256 / ctx.sampleRate;
   const crushDry = ctx.createGain(); crushDry.gain.value = 1 - fxState.crushWet;
   const crushWet = ctx.createGain(); crushWet.gain.value = fxState.crushWet;
   const crushOut = ctx.createGain();
-  crushIn.connect(crushDry).connect(crushOut);
-  crushIn.connect(crusher).connect(crushWet).connect(crushOut);
+  crushIn.connect(crushDry).connect(crushDryDelay).connect(crushOut);
+  crushIn.connect(downsampler).connect(crusher).connect(crushWet).connect(crushOut);
 
-  // Drive section
+  // Drive section. Wet path runs: saturator → tone (lowpass). The tone
+  // lowpass rolls off the harsh upper harmonics that saturation introduces,
+  // which is exactly what real distortion units do. At cutoff=16kHz the
+  // filter is effectively transparent. Q=0.707 (Butterworth) avoids any
+  // peak at the corner. Dry path is unaffected (no harmonics to tame).
   const driveIn = ctx.createGain();
   const driver = ctx.createWaveShaper();
   driver.curve = makeDriveCurve(fxState.driveAmount);
   driver.oversample = '4x';
+  const driveTone = ctx.createBiquadFilter();
+  driveTone.type = 'lowpass';
+  driveTone.frequency.value = fxState.driveTone;
+  driveTone.Q.value = 0.707;
   const driveDry = ctx.createGain(); driveDry.gain.value = 1 - fxState.driveWet;
   const driveWet = ctx.createGain(); driveWet.gain.value = fxState.driveWet;
   const driveOut = ctx.createGain();
   driveIn.connect(driveDry).connect(driveOut);
-  driveIn.connect(driver).connect(driveWet).connect(driveOut);
+  driveIn.connect(driver).connect(driveTone).connect(driveWet).connect(driveOut);
 
   // Wire chain
   input.connect(combIn);
@@ -1334,7 +1379,7 @@ function buildFxChain() {
 
   return {
     input, output: driveOut,
-    nodes: { combDry, combWet, combFb, combDelay, crushDry, crushWet, crusher, driveDry, driveWet, driver }
+    nodes: { combDry, combWet, combFb, combDelay, crushDry, crushWet, crusher, downsampler, driveDry, driveWet, driver, driveTone }
   };
 }
 
@@ -1352,6 +1397,7 @@ function updateFxChain() {
     n.driveDry.gain.value = 1 - fxState.driveWet;
     n.driveWet.gain.value = fxState.driveWet;
     n.driver.curve = makeDriveCurve(fxState.driveAmount);
+    n.driveTone.frequency.value = fxState.driveTone;
   } catch (e) {}
 }
 
@@ -2753,8 +2799,8 @@ let breakPitchFactor = 1.0;
 const fxState = {
   sidechain: false,
   combWet: 0, combDelayMs: 22, combFeedback: 0.50,
-  crushWet: 0, crushBits: 8,
-  driveWet: 0, driveAmount: 2.0
+  crushWet: 0, crushBits: 8, crushRate: 1,
+  driveWet: 0, driveAmount: 2.0, driveTone: 16000
 };
 let fxBus = null; // built in initAudio
 
@@ -5462,7 +5508,7 @@ const RECIPES={
 };
 
 /* ---------- UI WIRING --------------------------------------------------- */
-const ui={recipe:document.getElementById('recipe'),style:document.getElementById('style'),tsig:document.getElementById('tsig'),form:document.getElementById('form'),bars:document.getElementById('bars'),bpm:document.getElementById('bpm'),swing:document.getElementById('swing'),scale:document.getElementById('scale'),poly:document.getElementById('poly'),orn:document.getElementById('orn'),chaos:document.getElementById('chaos'),seedInput:document.getElementById('seed-input'),pitchedSnare:document.getElementById('pitched-snare'),padOn:document.getElementById('pad-on'),subOn:document.getElementById('sub-on'),generateBtn:document.getElementById('generate-btn'),playBtn:document.getElementById('play-btn'),regenBtn:document.getElementById('regen-btn'),styleVal:document.getElementById('style-val'),tsigVal:document.getElementById('tsig-val'),formVal:document.getElementById('form-val'),barsVal:document.getElementById('bars-val'),bpmVal:document.getElementById('bpm-val'),swingVal:document.getElementById('swing-val'),scaleVal:document.getElementById('scale-val'),polyVal:document.getElementById('poly-val'),ornVal:document.getElementById('orn-val'),chaosVal:document.getElementById('chaos-val'),seedVal:document.getElementById('seed-val'),recipeBanner:document.getElementById('recipe-banner'),dropZone:document.getElementById('drop-zone'),fileInput:document.getElementById('file-input'),breakInfo:document.getElementById('break-info'),breakName:document.getElementById('break-name'),breakDuration:document.getElementById('break-duration'),breakSlices:document.getElementById('break-slices'),breakClassification:document.getElementById('break-classification'),sensitivity:document.getElementById('sensitivity'),sensVal:document.getElementById('sens-val'),pitchup:document.getElementById('pitchup'),pitchupVal:document.getElementById('pitchup-val'),redetectBtn:document.getElementById('redetect-btn'),useSlices:document.getElementById('use-slices'),previewBtn:document.getElementById('preview-btn'),clearBreakBtn:document.getElementById('clear-break-btn'),saveJsonBtn:document.getElementById('save-json-btn'),loadJsonBtn:document.getElementById('load-json-btn'),loadJsonInput:document.getElementById('load-json-input'),renderWavBtn:document.getElementById('render-wav-btn'),exportMidiBtn:document.getElementById('export-midi-btn'),fxSidechain:document.getElementById('fx-sidechain'),combWet:document.getElementById('comb-wet'),combWetVal:document.getElementById('comb-wet-val'),combDelay:document.getElementById('comb-delay'),combDelayVal:document.getElementById('comb-delay-val'),combFb:document.getElementById('comb-fb'),combFbVal:document.getElementById('comb-fb-val'),crushWet:document.getElementById('crush-wet'),crushWetVal:document.getElementById('crush-wet-val'),crushBits:document.getElementById('crush-bits'),crushBitsVal:document.getElementById('crush-bits-val'),driveWet:document.getElementById('drive-wet'),driveWetVal:document.getElementById('drive-wet-val'),driveAmt:document.getElementById('drive-amt'),driveAmtVal:document.getElementById('drive-amt-val'),midiOutSel:document.getElementById('midi-out-sel'),midiInitBtn:document.getElementById('midi-init-btn'),midiPanicBtn:document.getElementById('midi-panic-btn'),audioMuteBtn:document.getElementById('audio-mute-btn'),clearPatternBtn:document.getElementById('clear-pattern-btn')};
+const ui={recipe:document.getElementById('recipe'),style:document.getElementById('style'),tsig:document.getElementById('tsig'),form:document.getElementById('form'),bars:document.getElementById('bars'),bpm:document.getElementById('bpm'),swing:document.getElementById('swing'),scale:document.getElementById('scale'),poly:document.getElementById('poly'),orn:document.getElementById('orn'),chaos:document.getElementById('chaos'),seedInput:document.getElementById('seed-input'),pitchedSnare:document.getElementById('pitched-snare'),padOn:document.getElementById('pad-on'),subOn:document.getElementById('sub-on'),generateBtn:document.getElementById('generate-btn'),playBtn:document.getElementById('play-btn'),regenBtn:document.getElementById('regen-btn'),styleVal:document.getElementById('style-val'),tsigVal:document.getElementById('tsig-val'),formVal:document.getElementById('form-val'),barsVal:document.getElementById('bars-val'),bpmVal:document.getElementById('bpm-val'),swingVal:document.getElementById('swing-val'),scaleVal:document.getElementById('scale-val'),polyVal:document.getElementById('poly-val'),ornVal:document.getElementById('orn-val'),chaosVal:document.getElementById('chaos-val'),seedVal:document.getElementById('seed-val'),recipeBanner:document.getElementById('recipe-banner'),dropZone:document.getElementById('drop-zone'),fileInput:document.getElementById('file-input'),breakInfo:document.getElementById('break-info'),breakName:document.getElementById('break-name'),breakDuration:document.getElementById('break-duration'),breakSlices:document.getElementById('break-slices'),breakClassification:document.getElementById('break-classification'),sensitivity:document.getElementById('sensitivity'),sensVal:document.getElementById('sens-val'),pitchup:document.getElementById('pitchup'),pitchupVal:document.getElementById('pitchup-val'),redetectBtn:document.getElementById('redetect-btn'),useSlices:document.getElementById('use-slices'),previewBtn:document.getElementById('preview-btn'),clearBreakBtn:document.getElementById('clear-break-btn'),saveJsonBtn:document.getElementById('save-json-btn'),loadJsonBtn:document.getElementById('load-json-btn'),loadJsonInput:document.getElementById('load-json-input'),renderWavBtn:document.getElementById('render-wav-btn'),exportMidiBtn:document.getElementById('export-midi-btn'),fxSidechain:document.getElementById('fx-sidechain'),combWet:document.getElementById('comb-wet'),combWetVal:document.getElementById('comb-wet-val'),combDelay:document.getElementById('comb-delay'),combDelayVal:document.getElementById('comb-delay-val'),combFb:document.getElementById('comb-fb'),combFbVal:document.getElementById('comb-fb-val'),crushWet:document.getElementById('crush-wet'),crushWetVal:document.getElementById('crush-wet-val'),crushBits:document.getElementById('crush-bits'),crushBitsVal:document.getElementById('crush-bits-val'),crushRate:document.getElementById('crush-rate'),crushRateVal:document.getElementById('crush-rate-val'),driveWet:document.getElementById('drive-wet'),driveWetVal:document.getElementById('drive-wet-val'),driveAmt:document.getElementById('drive-amt'),driveAmtVal:document.getElementById('drive-amt-val'),driveTone:document.getElementById('drive-tone'),driveToneVal:document.getElementById('drive-tone-val'),midiOutSel:document.getElementById('midi-out-sel'),midiInitBtn:document.getElementById('midi-init-btn'),midiPanicBtn:document.getElementById('midi-panic-btn'),audioMuteBtn:document.getElementById('audio-mute-btn'),clearPatternBtn:document.getElementById('clear-pattern-btn')};
 
 // Melody motion state: OCT (octave base + spread) and ARP (mode + rate).
 // Defaults reproduce the original behavior exactly (octBase 0, spread 1, arp
@@ -5547,11 +5593,16 @@ function syncFxUI() {
   ui.combFb.value = Math.round(fxState.combFeedback * 100);
   ui.crushWet.value = Math.round(fxState.crushWet * 100);
   ui.crushBits.value = fxState.crushBits;
+  ui.crushRate.value = Math.max(1, Math.min(20, fxState.crushRate | 0));
   ui.driveWet.value = Math.round(fxState.driveWet * 100);
   ui.driveAmt.value = Math.round(fxState.driveAmount * 10);
+  // Inverse of the log mapping in the input handler: 200 * 80^(v/100) = hz
+  // => v = 100 * log(hz/200) / log(80). Clamp to slider range.
+  const hzClamped = Math.max(200, Math.min(16000, fxState.driveTone));
+  ui.driveTone.value = Math.round(100 * Math.log(hzClamped / 200) / Math.log(80));
   updateLabels();
 }
-function updateLabels(){ui.styleVal.textContent=STYLE_BEHAVIOR[ui.style.value].name;ui.tsigVal.textContent=getMeter();ui.formVal.textContent=ui.form.value;ui.barsVal.textContent=ui.bars.value;ui.bpmVal.textContent=ui.bpm.value;ui.swingVal.textContent=ui.swing.value+'%';ui.scaleVal.textContent=ui.scale.value;ui.polyVal.textContent=(ui.poly.value/100).toFixed(2);ui.ornVal.textContent=(ui.orn.value/100).toFixed(2);ui.chaosVal.textContent=(ui.chaos.value/100).toFixed(2);ui.sensVal.textContent=(ui.sensitivity.value/100).toFixed(2);if(ui.pitchupVal)ui.pitchupVal.textContent=(parseInt(ui.pitchup.value)/100).toFixed(2)+'×';if(ui.combWetVal){ui.combWetVal.textContent=(parseInt(ui.combWet.value)/100).toFixed(2);ui.combDelayVal.textContent=ui.combDelay.value+'ms';ui.combFbVal.textContent=(parseInt(ui.combFb.value)/100).toFixed(2);ui.crushWetVal.textContent=(parseInt(ui.crushWet.value)/100).toFixed(2);ui.crushBitsVal.textContent=ui.crushBits.value;ui.driveWetVal.textContent=(parseInt(ui.driveWet.value)/100).toFixed(2);ui.driveAmtVal.textContent=(parseInt(ui.driveAmt.value)/10).toFixed(1);}}
+function updateLabels(){ui.styleVal.textContent=STYLE_BEHAVIOR[ui.style.value].name;ui.tsigVal.textContent=getMeter();ui.formVal.textContent=ui.form.value;ui.barsVal.textContent=ui.bars.value;ui.bpmVal.textContent=ui.bpm.value;ui.swingVal.textContent=ui.swing.value+'%';ui.scaleVal.textContent=ui.scale.value;ui.polyVal.textContent=(ui.poly.value/100).toFixed(2);ui.ornVal.textContent=(ui.orn.value/100).toFixed(2);ui.chaosVal.textContent=(ui.chaos.value/100).toFixed(2);ui.sensVal.textContent=(ui.sensitivity.value/100).toFixed(2);if(ui.pitchupVal)ui.pitchupVal.textContent=(parseInt(ui.pitchup.value)/100).toFixed(2)+'×';if(ui.combWetVal){ui.combWetVal.textContent=(parseInt(ui.combWet.value)/100).toFixed(2);ui.combDelayVal.textContent=ui.combDelay.value+'ms';ui.combFbVal.textContent=(parseInt(ui.combFb.value)/100).toFixed(2);ui.crushWetVal.textContent=(parseInt(ui.crushWet.value)/100).toFixed(2);ui.crushBitsVal.textContent=ui.crushBits.value;if(ui.crushRateVal){const sr=(typeof ctx!=='undefined'&&ctx)?ctx.sampleRate:44100;const eff=sr/Math.max(1,parseInt(ui.crushRate.value));ui.crushRateVal.textContent=(eff/1000).toFixed(1)+'k';}ui.driveWetVal.textContent=(parseInt(ui.driveWet.value)/100).toFixed(2);ui.driveAmtVal.textContent=(parseInt(ui.driveAmt.value)/10).toFixed(1);if(ui.driveToneVal){const hz=200*Math.pow(80,parseInt(ui.driveTone.value)/100);ui.driveToneVal.textContent=hz>=1000?(hz/1000).toFixed(1)+'k':Math.round(hz)+'Hz';}}}
 function applyRecipe(key){
   if(key==='custom'){ui.recipeBanner.style.display='none';return;}
   const r=RECIPES[key];if(!r)return;
@@ -5578,8 +5629,12 @@ function applyRecipe(key){
     if(r.fx.combFeedback!==undefined)fxState.combFeedback=r.fx.combFeedback;
     fxState.crushWet=r.fx.crushWet||0;
     if(r.fx.crushBits!==undefined)fxState.crushBits=r.fx.crushBits;
+    // Recipes that omit crushRate get the no-op default (factor 1).
+    fxState.crushRate=(r.fx.crushRate!==undefined)?r.fx.crushRate:1;
     fxState.driveWet=r.fx.driveWet||0;
     if(r.fx.driveAmount!==undefined)fxState.driveAmount=r.fx.driveAmount/10;
+    // Recipes that omit driveTone get the no-op default (16 kHz, transparent).
+    fxState.driveTone=(r.fx.driveTone!==undefined)?r.fx.driveTone:16000;
     syncFxUI();
     updateFxChain();
   }
@@ -5730,8 +5785,18 @@ ui.combDelay.addEventListener('input', () => { fxState.combDelayMs = parseInt(ui
 ui.combFb.addEventListener('input', () => { fxState.combFeedback = parseInt(ui.combFb.value)/100; updateFxChain(); updateLabels(); });
 ui.crushWet.addEventListener('input', () => { fxState.crushWet = parseInt(ui.crushWet.value)/100; updateFxChain(); updateLabels(); });
 ui.crushBits.addEventListener('input', () => { fxState.crushBits = parseInt(ui.crushBits.value); updateFxChain(); updateLabels(); });
+ui.crushRate.addEventListener('input', () => { fxState.crushRate = parseInt(ui.crushRate.value); updateLabels(); });
 ui.driveWet.addEventListener('input', () => { fxState.driveWet = parseInt(ui.driveWet.value)/100; updateFxChain(); updateLabels(); });
 ui.driveAmt.addEventListener('input', () => { fxState.driveAmount = parseInt(ui.driveAmt.value)/10; updateFxChain(); updateLabels(); });
+ui.driveTone.addEventListener('input', () => {
+  // Log map slider 0..100 to 200 Hz..16 kHz so equal slider distance equals
+  // equal perceived tonal change across the range. 200*80^(v/100) gives
+  // 200 at v=0 and 16000 at v=100.
+  const v = parseInt(ui.driveTone.value);
+  fxState.driveTone = 200 * Math.pow(80, v / 100);
+  updateFxChain();
+  updateLabels();
+});
 
 // MIDI UI handlers
 ui.midiInitBtn.addEventListener('click', () => initMidi());
