@@ -683,33 +683,10 @@
     var sd = scrollDepth;
 
     if (dssNode && dssReady) {
-      // Mouse Y: drives walk magnitude (how chaotic the breakpoint motion is)
-      // and the Cauchy mix (heavy-tailed jumps appear toward the top of screen).
-      var walkAmt = 0.08 + mouseY * mouseY * 0.92;
-      var cauchy = mouseY > 0.55 ? (mouseY - 0.55) * 1.2 : 0;
-      if (cauchy > 0.4) cauchy = 0.4;
-
-      // Scroll modulates the relationship between anchor and upper voices.
-      // Low scroll: anchor prominent, voices subtle. Mid scroll: full mix.
-      // Near bottom: fade out (preserves original behavior).
-      var voiceMix = sd < 0.4 ? 0.22 + sd * 0.35 :
-                     sd < 0.85 ? 0.36 + (sd - 0.4) * 0.18 :
-                     0.44 - (sd - 0.85) * 1.6;
-      if (voiceMix < 0.05) voiceMix = 0.05;
-
-      var anchorGain = 0.6 - sd * 0.25;
-      if (anchorGain < 0.15) anchorGain = 0.15;
-
       try {
         dssNode.port.postMessage({
           type: 'params',
-          value: {
-            freqCentroid: mouseX,
-            walkAmount: walkAmt,
-            cauchyMix: cauchy,
-            voiceMix: voiceMix,
-            anchorGain: anchorGain
-          }
+          value: { mouseX: mouseX, mouseY: mouseY, scrollDepth: sd }
         });
       } catch (e) {}
     }
@@ -718,9 +695,9 @@
     var masterVol = sd > 0.9 ? 0.4 * (1 - (sd - 0.9) * 6) : 0.4;
     masterGain.gain.linearRampToValueAtTime(Math.max(masterVol, 0.05), now + 0.5);
 
-    // Reverb wet amount: more reverb as the page descends, dissolution feel.
+    // Reverb wet amount: grows gently with scroll for dissolution feel.
     if (wetGain) {
-      var wet = 0.28 + sd * 0.35;
+      var wet = 0.28 + sd * 0.32;
       wetGain.gain.linearRampToValueAtTime(wet, now + 0.5);
     }
 
@@ -734,10 +711,10 @@
     if (!audioActive) return;
     var scrollBoost = scrollDepth > 0.65 && scrollDepth < 0.9 ? 1 + (scrollDepth - 0.65) * 4 : 1;
     var scrollDampen = scrollDepth > 0.9 ? Math.max(0.1, 1 - (scrollDepth - 0.9) * 8) : 1;
-    // Lower base rate than the original noise-pluck stream; events are now
-    // structural and meaningful, not percussive decoration.
-    var rate = (0.15 + mouseX * mouseX * 2.6) * scrollBoost * scrollDampen;
-    var interval = Math.max(180, -Math.log(Math.random()) / rate * 1000);
+    // Events are now musical gestures (timbre reseed or partial-jump). Lower
+    // base rate gives them room to breathe and be heard.
+    var rate = (0.08 + mouseX * mouseX * 1.4) * scrollBoost * scrollDampen;
+    var interval = Math.max(400, -Math.log(Math.random()) / rate * 1000);
     stochasticTimer = setTimeout(function() { triggerPluck(); scheduleStochastic(); }, interval);
   }
 
