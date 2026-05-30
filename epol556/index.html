@@ -142,6 +142,9 @@
   .win small{display:block;color:var(--muted);font-size:.74rem;margin-top:.35rem;line-height:1.45;}
 
   /* prediction */
+  .setup{border-left:2px solid var(--era1-line);padding:.1rem 0 .1rem .9rem;}
+  .setup .slab{font-size:.62rem;letter-spacing:.2em;text-transform:uppercase;color:var(--era1);font-weight:600;display:block;margin-bottom:.32rem;}
+  .setup p{font-size:.9rem;line-height:1.5;color:var(--body);}
   .predict{border:1px solid var(--hair);border-radius:13px;padding:1.1rem 1.2rem;background:rgba(27,24,19,.5);}
   .predict .q{font-family:var(--display);font-weight:500;font-size:1.08rem;color:var(--paper);margin-bottom:.85rem;line-height:1.3;}
   .predict .qlab{font-size:.66rem;letter-spacing:.2em;text-transform:uppercase;color:var(--era1);margin-bottom:.5rem;font-weight:600;}
@@ -351,6 +354,7 @@
         <div class="grid-data">
           <div class="stack-md">
             <h2 class="title rise" style="font-size:clamp(1.7rem,3.6vw,2.6rem);">Pounce moved<br>enrollment.</h2>
+            <div class="setup rise"><span class="slab">Context</span><p>Georgia State gave every admitted student an automated texting assistant to guide them through their summer to-do list, from financial aid to registration.</p></div>
             <div class="predict rise" data-id="pg" data-correct="b" data-yes="The chatbot only helped students already headed to GSU. Reaching someone is not the same as persuading them." data-no="Most people guess &lsquo;both.&rsquo; In fact the gain landed almost entirely on students already committed to GSU.">
               <div class="qlab">Predict first</div>
               <div class="q">A texting chatbot nudged admitted students through summer tasks. Who did it actually help enroll on time?</div>
@@ -399,6 +403,7 @@
         <div class="grid-data">
           <div class="stack-md">
             <h2 class="title rise" style="font-size:clamp(1.7rem,3.6vw,2.6rem);">"Not uniformly<br>effective," and<br>that is the point.</h2>
+            <div class="setup rise"><span class="slab">Context</span><p>That chatbot cut summer melt at Georgia State. Researchers then ran the exact same tool at East Carolina University, a campus serving more advantaged students.</p></div>
             <div class="predict rise" data-id="nur" data-correct="b" data-yes="Exactly. Same chatbot, wealthier campus, and the benefit narrowed to first-generation students. The tool was constant, the need was not." data-no="The same chatbot at a more advantaged campus moved little overall, but it did help first-generation students specifically.">
               <div class="qlab">Predict first</div>
               <div class="q">The same vendor's chatbot ran at a more advantaged university. What happened?</div>
@@ -444,6 +449,7 @@
         <div class="grid-data">
           <div class="stack-md">
             <h2 class="title rise" style="font-size:clamp(1.7rem,3.6vw,2.6rem);">Built carefully,<br>AI can be <span class="g1">fair</span>.</h2>
+            <div class="setup rise"><span class="slab">Context</span><p>Admissions officers fear AI essay scoring would bake in bias, since test scores already track family income and race. Researchers trained a model to rate seven personal qualities, then audited it across demographic subgroups.</p></div>
             <div class="predict rise" data-id="lira" data-correct="c" data-yes="Right. Trained on human ratings and audited by subgroup, the AI scores were far less tied to demographics than test scores." data-no="Counterintuitively, the AI essay scores were the least demographically loaded of the three. Design choices, not the label &lsquo;AI,&rsquo; decided fairness.">
               <div class="qlab">Predict first</div>
               <div class="q">A model scored seven personal qualities in essays. Compared with standardized test scores, how tied to a student's demographics were the AI scores?</div>
@@ -488,6 +494,7 @@
         <div class="grid-data">
           <div class="stack-md">
             <h2 class="title rise" style="font-size:clamp(1.7rem,3.6vw,2.6rem);">Whose voice does<br>AI <span class="g2">write in</span>?</h2>
+            <div class="setup rise"><span class="slab">Context</span><p>Researchers had GPT-3.5 and GPT-4 write 25,000 admissions essays, then compared their style against 150,000 real student essays whose authors' backgrounds were known.</p></div>
             <div class="predict rise" data-id="alv" data-correct="b" data-yes="Yes. Across class, gender, and parental education, the synthetic voice leaned toward the already-advantaged, and GPT-4 leaned further than GPT-3.5." data-no="The default voice did not sound like the students with the least support. It sounded most like male, higher-status, continuing-generation writers.">
               <div class="qlab">Predict first</div>
               <div class="q">Out of the box, whose writing does generative AI's default voice sound most like?</div>
