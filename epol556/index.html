@@ -1017,7 +1017,7 @@
     // 2) slang / informal address -> removed or formalized
     var slang=[[/\bdawg\b/gi,''],[/\bbro\b/gi,''],[/\by'?all\b/gi,'everyone'],[/\bguys\b/gi,'individuals'],
       [/\bkids\b/gi,'students'],[/\bkid\b/gi,'student'],[/\bstuff\b/gi,'material'],[/\bthings\b/gi,'elements'],
-      [/\bawesome\b/gi,'remarkable'],[/\bcool\b/gi,'noteworthy'],[/\blike,?\b/gi,'']];
+      [/\bawesome\b/gi,'remarkable'],[/\bcool\b/gi,'noteworthy'],[/\blike,\s*/gi,'']];
     var hadSlang=false;
     slang.forEach(function(p){ if(p[0].test(s)){ hadSlang=true; } s=s.replace(p[0],p[1]); });
     if(hadSlang) note('minus','Slang and informal address are stripped out. The personal register flattens toward the institutional one.');
@@ -1034,8 +1034,8 @@
     if(hadLex) note('plus','Plain words are swapped for longer, Latinate vocabulary. Alvero et al. (2024) found AI favors words of six or more letters.');
 
     // 4) intensifiers -> deleted (AI prose trims voice-y emphasis)
-    var hadIntens=/\b(really|just|very|so|totally|literally|honestly|actually)\b/i.test(s);
-    s=s.replace(/\b(really|just|very|so|totally|literally|honestly|actually)\b/gi,'');
+    var hadIntens=/\b(really|just|very|totally|literally|honestly|actually)\b/i.test(s);
+    s=s.replace(/\b(really|just|very|totally|literally|honestly|actually)\b/gi,'');
     if(hadIntens) note('minus','Conversational intensifiers are deleted, removing the cadence of a speaking voice.');
 
     // 5) detect sensory / concrete imagery that the scaffolding will bury
