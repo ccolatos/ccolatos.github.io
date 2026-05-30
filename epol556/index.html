@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Whose Voice Gets In — Technology &amp; Equity in College Access</title>
+<title>Whose Voice Gets In: Technology &amp; Equity in College Access</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -883,28 +883,61 @@
       showVM(presets[key].i, presets[key].o);
     });
   });
+  function vmWordlike(tok){ return tok.length<=18 && /[aeiouy]/i.test(tok) && /^[A-Za-z][A-Za-z'’.,!?-]*$/.test(tok); }
+  function looksLikeSentence(t){
+    var s=(t||'').trim();
+    if(s.length<12 || s.indexOf(' ')<0) return false;
+    var toks=s.split(/\s+/);
+    if(toks.length<3) return false;
+    var good=toks.filter(vmWordlike).length;
+    return good>=3 && (good/toks.length)>=0.6;
+  }
+  var VM_OPEN=[
+    'My academic journey has been defined by a series of formative experiences.',
+    'Reflecting on my development, several experiences stand out as deeply formative.',
+    'Throughout my life, I have been shaped by a number of meaningful experiences.',
+    'My personal growth has been informed by several significant moments.'
+  ];
+  var VM_CLOSE=[
+    ' Moreover, this experience has meaningfully shaped my academic and professional aspirations.',
+    ' Ultimately, it has profoundly informed my future ambitions.',
+    ' In many respects, it has defined the trajectory of my growth.',
+    ' In retrospect, it has become a cornerstone of my intellectual development.'
+  ];
+  function vmPick(arr,seed){ var h=0; for(var i=0;i<seed.length;i++){ h=(h*31+seed.charCodeAt(i))>>>0; } return arr[h%arr.length]; }
   function aiify(t){
     var s=(t||'').trim();
     if(!s) return '';
     var contr=[[/\bain'?t\b/gi,'am not'],[/\bgonna\b/gi,'going to'],[/\bwanna\b/gi,'want to'],
-      [/\bgotta\b/gi,'have to'],[/\bdon'?t\b/gi,'do not'],[/\bcan'?t\b/gi,'cannot'],
-      [/\bwon'?t\b/gi,'will not'],[/\bdidn'?t\b/gi,'did not'],[/\bthat'?s\b/gi,'that is'],
-      [/\bit'?s\b/gi,'it is'],[/\bi'?m\b/gi,'I am'],[/\bi'?ve\b/gi,'I have'],[/\bkids\b/gi,'students']];
+      [/\bgotta\b/gi,'have to'],[/\bdon'?t\b/gi,'do not'],[/\bcan'?t\b/gi,'cannot'],[/\bwon'?t\b/gi,'will not'],
+      [/\bdidn'?t\b/gi,'did not'],[/\bisn'?t\b/gi,'is not'],[/\baren'?t\b/gi,'are not'],[/\bwasn'?t\b/gi,'was not'],
+      [/\bcouldn'?t\b/gi,'could not'],[/\bwouldn'?t\b/gi,'would not'],[/\bshouldn'?t\b/gi,'should not'],
+      [/\bdoesn'?t\b/gi,'does not'],[/\bthat'?s\b/gi,'that is'],[/\bit'?s\b/gi,'it is'],[/\bi'?m\b/gi,'I am'],
+      [/\bi'?ve\b/gi,'I have'],[/\bi'?ll\b/gi,'I will'],[/\bwe'?re\b/gi,'we are'],[/\bthey'?re\b/gi,'they are'],
+      [/\byou'?re\b/gi,'you are']];
     contr.forEach(function(p){ s=s.replace(p[0],p[1]); });
-    var lex=[[/\bfix\b/gi,'remediate'],[/\bhelp\b/gi,'provide assistance to'],[/\bhard\b/gi,'demanding'],
-      [/\bbig\b/gi,'substantial'],[/\bgot\b/gi,'obtained'],[/\bjob\b/gi,'professional responsibility'],
-      [/\blearned\b/gi,'developed proficiency in'],[/\bshowed\b/gi,'demonstrated'],[/\bmade\b/gi,'produced']];
+    var lex=[[/\bkids\b/gi,'students'],[/\bkid\b/gi,'student'],[/\bjob\b/gi,'position'],
+      [/\bmoney\b/gi,'financial resources'],[/\bstuff\b/gi,'materials'],[/\bbig\b/gi,'substantial'],
+      [/\bhard\b/gi,'demanding'],[/\bhuge\b/gi,'considerable'],[/\bgood\b/gi,'commendable'],
+      [/\bbad\b/gi,'unfavorable'],[/\breally\b/gi,''],[/\bjust\b/gi,''],[/\bvery\b/gi,'']];
     lex.forEach(function(p){ s=s.replace(p[0],p[1]); });
-    s=s.charAt(0).toLowerCase()+s.slice(1);
-    s='Throughout my formative experiences, '+s;
-    if(!/[.!?]$/.test(s)) s+='.';
-    s+=' Moreover, this endeavor has meaningfully shaped my academic and professional aspirations.';
-    return s;
+    s=s.replace(/\s{2,}/g,' ').replace(/\s+([,.;!?])/g,'$1').trim();
+    s=s.charAt(0).toUpperCase()+s.slice(1);
+    s=s.replace(/[.!?]+$/,'');
+    return vmPick(VM_OPEN,t)+' '+s+'.'+vmPick(VM_CLOSE,t.split('').reverse().join(''));
   }
   function runCustom(){
     var t=vmInput?vmInput.value:'';
-    if(!t.trim()){ vmInput && vmInput.focus(); return; }
+    if(!t.trim()){ if(vmInput) vmInput.focus(); return; }
     vmChips.forEach(function(c){ c.classList.remove('active'); });
+    if(!looksLikeSentence(t)){
+      vmIn.textContent=t.trim();
+      vmOutCol.classList.remove('show'); vmAnno.classList.remove('show');
+      vmOut.textContent='Give me a real sentence in your own voice, something you might actually write, and I will show you what the machine does to it.';
+      void vmOutCol.offsetWidth;
+      setTimeout(function(){ vmOutCol.classList.add('show'); },60);
+      return;
+    }
     showVM(t.trim(), aiify(t));
   }
   if(vmBtn) vmBtn.addEventListener('click',runCustom);
