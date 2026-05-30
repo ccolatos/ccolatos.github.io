@@ -589,12 +589,7 @@
             <div class="vm-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
             <div class="vm-col out" id="vmOutCol"><div class="vm-clab">"Optimized"</div><div class="vm-text" id="vmOut">The polished version appears here.</div></div>
           </div>
-          <div class="vm-anno" id="vmAnno">
-            <div class="vm-arow"><span class="mk">+</span><span>Longer, Latinate words replace plain ones. Alvero et al. (2024) found AI favors words of six or more letters.</span></div>
-            <div class="vm-arow"><span class="mk">&minus;</span><span>Contractions and dialect get smoothed into one "standard" register. This is homogenization.</span></div>
-            <div class="vm-arow"><span class="mk">&minus;</span><span>Sensory, specific, personal detail is abstracted into generic achievement language.</span></div>
-            <div class="vm-arow"><span class="mk">+</span><span>Formulaic scaffolding is added. The result reads like everyone else's.</span></div>
-          </div>
+          <div class="vm-anno" id="vmAnno"></div>
           <p class="vm-note"><b>The distinctiveness holistic review is meant to reward gets blended away</b> toward the voice of privilege. And the students who lean on this tool most are lower-income (Lee et al., 2026), so the instrument meant to set them apart instead makes them blend in.</p>
           <p class="vm-disc">A scripted illustration of the documented direction of the effect, not a live language model.</p>
         </div>
@@ -912,11 +907,23 @@
   // voice machine
   var presets={
     p1:{i:"My grandma's kitchen smelled like cumin and burnt sugar, and that's where I learned to fix things that break.",
-        o:"Within my family's culinary environment, I cultivated a proficiency for resolving complex problems, an experience that has meaningfully informed my academic trajectory."},
+        o:"Within my family's culinary environment, I cultivated a proficiency for resolving complex problems, an experience that has meaningfully informed my academic trajectory.",
+        c:[{sign:'minus',msg:'The sensory anchor (cumin, burnt sugar, a grandmother\u2019s kitchen) is abstracted into \u201Cfamily\u2019s culinary environment.\u201D'},
+           {sign:'plus',msg:'Plain verbs become Latinate: \u201Clearned to fix\u201D turns into \u201Ccultivated a proficiency for resolving.\u201D'},
+           {sign:'minus',msg:'The contraction \u201Cthat\u2019s\u201D is expanded and the spoken rhythm is smoothed away.'},
+           {sign:'plus',msg:'A formulaic \u201Cacademic trajectory\u201D closing is appended, the register of privilege (Alvero et al., 2024).'}]},
     p2:{i:"I'm not gonna lie, I failed chemistry twice before it clicked, and now I tutor the kids who sit where I sat.",
-        o:"After encountering initial academic setbacks in chemistry, I ultimately achieved mastery of the subject and now provide tutoring services to students facing comparable challenges."},
+        o:"After encountering initial academic setbacks in chemistry, I ultimately achieved mastery of the subject and now provide tutoring services to students facing comparable challenges.",
+        c:[{sign:'minus',msg:'The candid voice (\u201CI\u2019m not gonna lie\u201D) is deleted entirely.'},
+           {sign:'minus',msg:'\u201CFailed twice\u201D softens into \u201Cinitial academic setbacks,\u201D blunting the honesty.'},
+           {sign:'plus',msg:'\u201CTutor the kids\u201D inflates to \u201Cprovide tutoring services to students,\u201D longer and more institutional.'},
+           {sign:'minus',msg:'\u201CWhere I sat\u201D, the specific, personal image, becomes generic \u201Ccomparable challenges.\u201D'}]},
     p3:{i:"Friday nights I close the taqueria, count the register, and do calc homework on a flour-dusted counter.",
-        o:"On weekend evenings, I fulfill closing responsibilities at a local restaurant and reconcile the daily transactions while concurrently completing my calculus coursework."}
+        o:"On weekend evenings, I fulfill closing responsibilities at a local restaurant and reconcile the daily transactions while concurrently completing my calculus coursework.",
+        c:[{sign:'minus',msg:'\u201CFriday nights\u201D and \u201Cflour-dusted counter\u201D, the concrete scene, dissolve into \u201Cweekend evenings\u201D and disappear.'},
+           {sign:'plus',msg:'\u201CClose the taqueria\u201D becomes \u201Cfulfill closing responsibilities at a local restaurant.\u201D'},
+           {sign:'plus',msg:'\u201CCount the register\u201D is elevated to \u201Creconcile the daily transactions.\u201D'},
+           {sign:'minus',msg:'The working-class specificity is replaced by neutral corporate phrasing that could describe anyone.'}]}
   };
   var vmIn=document.getElementById('vmIn');
   var vmOut=document.getElementById('vmOut');
@@ -926,11 +933,22 @@
   var vmBtn=document.getElementById('vmBtn');
   var vmChips=Array.prototype.slice.call(document.querySelectorAll('#vmPresets .vm-chip'));
 
-  function showVM(inputText, outputText){
+  function renderAnno(changes){
+    vmAnno.innerHTML='';
+    (changes||[]).forEach(function(c){
+      var row=document.createElement('div'); row.className='vm-arow';
+      var mk=document.createElement('span'); mk.className='mk';
+      mk.innerHTML=(c.sign==='plus')?'+':'\u2212';
+      var sp=document.createElement('span'); sp.textContent=c.msg;
+      row.appendChild(mk); row.appendChild(sp); vmAnno.appendChild(row);
+    });
+  }
+  function showVM(inputText, outputText, changes){
     vmIn.textContent=inputText;
     vmOutCol.classList.remove('show');
     vmAnno.classList.remove('show');
     vmOut.textContent=outputText;
+    renderAnno(changes);
     // force reflow then reveal for the fade
     void vmOutCol.offsetWidth;
     setTimeout(function(){ vmOutCol.classList.add('show'); vmAnno.classList.add('show'); },60);
@@ -942,23 +960,25 @@
       chip.classList.add('active');
       var key=chip.getAttribute('data-k');
       if(vmInput) vmInput.value='';
-      showVM(presets[key].i, presets[key].o);
+      showVM(presets[key].i, presets[key].o, presets[key].c);
     });
   });
-  function vmWordlike(tok){ return tok.length<=18 && /[aeiouy]/i.test(tok) && /^[A-Za-z][A-Za-z'’.,!?-]*$/.test(tok); }
+  function vmWordlike(tok){ return tok.length<=20 && /[aeiouy]/i.test(tok) && /^[A-Za-z][A-Za-z'’.,!?;:-]*$/.test(tok); }
+  // Lenient: accept anything that reads like a real sentence. Only reject clearly low-effort input.
   function looksLikeSentence(t){
     var s=(t||'').trim();
-    if(s.length<18 || s.indexOf(' ')<0) return false;
+    if(s.length<14 || s.indexOf(' ')<0) return false;
     var toks=s.split(/\s+/);
-    if(toks.length<5) return false;
+    if(toks.length<4) return false;
     var good=toks.filter(vmWordlike).length;
-    if(good<5 || (good/toks.length)<0.6) return false;
-    // the exercise is about a personal-statement voice: require first-person reference
-    var firstPerson=/\b(i|i'?m|i'?ve|i'?ll|i'?d|my|me|mine|myself|we|we'?re|our|us)\b/i.test(s);
-    // and at least one plausible verb / action signal beyond a bare greeting
-    var hasVerb=/\b([a-z]+ed|[a-z]+ing|am|is|are|was|were|have|has|had|do|did|does|learn|work|fix|help|fail|close|count|teach|tutor|grew|grow|raise|care|build|made|make|run|read|write|study)\b/i.test(s);
-    return firstPerson && hasVerb;
+    if(good<4 || (good/toks.length)<0.55) return false;
+    // reject only if it is plainly a question/greeting aimed outward with no self-narrative at all
+    var hasContent=/[a-z]{3,}/i.test(s) && good>=4;
+    var bareGreeting=/^(hi|hey|hello|yo|sup|what'?s up|wassup)\b/i.test(s) && toks.length<7;
+    return hasContent && !bareGreeting;
   }
+
+  // Feature-detecting transform. Returns {text, changes:[...]} where each change names a real feature it erased or added.
   var VM_OPEN=[
     'My academic journey has been defined by a series of formative experiences.',
     'Reflecting on my development, several experiences stand out as deeply formative.',
@@ -973,25 +993,65 @@
   ];
   function vmPick(arr,seed){ var h=0; for(var i=0;i<seed.length;i++){ h=(h*31+seed.charCodeAt(i))>>>0; } return arr[h%arr.length]; }
   function aiify(t){
-    var s=(t||'').trim();
-    if(!s) return '';
+    var raw=(t||'').trim();
+    if(!raw) return { text:'', changes:[] };
+    var s=raw;
+    var changes=[];
+    var seen={};
+    function note(sign,msg){ var k=sign+msg; if(!seen[k]){ seen[k]=1; changes.push({sign:sign,msg:msg}); } }
+
+    // 1) contractions and casual forms -> formal expansions
     var contr=[[/\bain'?t\b/gi,'am not'],[/\bgonna\b/gi,'going to'],[/\bwanna\b/gi,'want to'],
-      [/\bgotta\b/gi,'have to'],[/\bdon'?t\b/gi,'do not'],[/\bcan'?t\b/gi,'cannot'],[/\bwon'?t\b/gi,'will not'],
+      [/\bgotta\b/gi,'have to'],[/\bkinda\b/gi,'somewhat'],[/\bsorta\b/gi,'somewhat'],[/\bcuz\b/gi,'because'],
+      [/\b'?cause\b/gi,'because'],[/\bdon'?t\b/gi,'do not'],[/\bcan'?t\b/gi,'cannot'],[/\bwon'?t\b/gi,'will not'],
       [/\bdidn'?t\b/gi,'did not'],[/\bisn'?t\b/gi,'is not'],[/\baren'?t\b/gi,'are not'],[/\bwasn'?t\b/gi,'was not'],
-      [/\bcouldn'?t\b/gi,'could not'],[/\bwouldn'?t\b/gi,'would not'],[/\bshouldn'?t\b/gi,'should not'],
-      [/\bdoesn'?t\b/gi,'does not'],[/\bthat'?s\b/gi,'that is'],[/\bit'?s\b/gi,'it is'],[/\bi'?m\b/gi,'I am'],
-      [/\bi'?ve\b/gi,'I have'],[/\bi'?ll\b/gi,'I will'],[/\bwe'?re\b/gi,'we are'],[/\bthey'?re\b/gi,'they are'],
-      [/\byou'?re\b/gi,'you are']];
-    contr.forEach(function(p){ s=s.replace(p[0],p[1]); });
-    var lex=[[/\bkids\b/gi,'students'],[/\bkid\b/gi,'student'],[/\bjob\b/gi,'position'],
-      [/\bmoney\b/gi,'financial resources'],[/\bstuff\b/gi,'materials'],[/\bbig\b/gi,'substantial'],
-      [/\bhard\b/gi,'demanding'],[/\bhuge\b/gi,'considerable'],[/\bgood\b/gi,'commendable'],
-      [/\bbad\b/gi,'unfavorable'],[/\breally\b/gi,''],[/\bjust\b/gi,''],[/\bvery\b/gi,'']];
-    lex.forEach(function(p){ s=s.replace(p[0],p[1]); });
-    s=s.replace(/\s{2,}/g,' ').replace(/\s+([,.;!?])/g,'$1').trim();
+      [/\bweren'?t\b/gi,'were not'],[/\bcouldn'?t\b/gi,'could not'],[/\bwouldn'?t\b/gi,'would not'],
+      [/\bshouldn'?t\b/gi,'should not'],[/\bdoesn'?t\b/gi,'does not'],[/\bhaven'?t\b/gi,'have not'],
+      [/\bhasn'?t\b/gi,'has not'],[/\bthat'?s\b/gi,'that is'],[/\bit'?s\b/gi,'it is'],[/\bi'?m\b/gi,'I am'],
+      [/\bi'?ve\b/gi,'I have'],[/\bi'?ll\b/gi,'I will'],[/\bi'?d\b/gi,'I would'],[/\bwe'?re\b/gi,'we are'],
+      [/\bthey'?re\b/gi,'they are'],[/\byou'?re\b/gi,'you are'],[/\bwe'?ve\b/gi,'we have'],[/\blet'?s\b/gi,'let us']];
+    var hadContraction=false;
+    contr.forEach(function(p){ if(p[0].test(s)){ hadContraction=true; } s=s.replace(p[0],p[1]); });
+    if(hadContraction) note('minus','Contractions and casual forms are expanded into a single formal register. This is homogenization (Alvero et al., 2024).');
+
+    // 2) slang / informal address -> removed or formalized
+    var slang=[[/\bdawg\b/gi,''],[/\bbro\b/gi,''],[/\by'?all\b/gi,'everyone'],[/\bguys\b/gi,'individuals'],
+      [/\bkids\b/gi,'students'],[/\bkid\b/gi,'student'],[/\bstuff\b/gi,'material'],[/\bthings\b/gi,'elements'],
+      [/\bawesome\b/gi,'remarkable'],[/\bcool\b/gi,'noteworthy'],[/\blike,?\b/gi,'']];
+    var hadSlang=false;
+    slang.forEach(function(p){ if(p[0].test(s)){ hadSlang=true; } s=s.replace(p[0],p[1]); });
+    if(hadSlang) note('minus','Slang and informal address are stripped out. The personal register flattens toward the institutional one.');
+
+    // 3) plain verbs/adjectives -> longer Latinate vocabulary
+    var lex=[[/\blearned\b/gi,'developed proficiency in'],[/\bfixed\b/gi,'remediated'],[/\bfix\b/gi,'remediate'],
+      [/\bhelped\b/gi,'provided assistance to'],[/\bbuilt\b/gi,'constructed'],[/\bmade\b/gi,'produced'],
+      [/\bused\b/gi,'utilized'],[/\bgot\b/gi,'obtained'],[/\bshowed\b/gi,'demonstrated'],[/\bstarted\b/gi,'initiated'],
+      [/\bhard\b/gi,'demanding'],[/\bbig\b/gi,'substantial'],[/\bhuge\b/gi,'considerable'],[/\bgood\b/gi,'commendable'],
+      [/\bbad\b/gi,'unfavorable'],[/\bjob\b/gi,'position'],[/\bmoney\b/gi,'financial resources'],
+      [/\bcheap\b/gi,'economical'],[/\bsmart\b/gi,'capable']];
+    var hadLex=false;
+    lex.forEach(function(p){ if(p[0].test(s)){ hadLex=true; } s=s.replace(p[0],p[1]); });
+    if(hadLex) note('plus','Plain words are swapped for longer, Latinate vocabulary. Alvero et al. (2024) found AI favors words of six or more letters.');
+
+    // 4) intensifiers -> deleted (AI prose trims voice-y emphasis)
+    var hadIntens=/\b(really|just|very|so|totally|literally|honestly|actually)\b/i.test(s);
+    s=s.replace(/\b(really|just|very|so|totally|literally|honestly|actually)\b/gi,'');
+    if(hadIntens) note('minus','Conversational intensifiers are deleted, removing the cadence of a speaking voice.');
+
+    // 5) detect sensory / concrete imagery that the scaffolding will bury
+    var sensory=/\b(smell|smelled|taste|tasted|sound|loud|quiet|cold|warm|hot|hands|kitchen|counter|dust|dusty|rain|sweat|cumin|sugar|salt|smoke|bread|floor|street|night|dawn|morning)\w*/i.test(raw);
+    if(sensory) note('minus','Your sensory, concrete detail survives as words but is framed by generic achievement language that drowns it out.');
+
+    // tidy spacing/caps
+    s=s.replace(/\s{2,}/g,' ').replace(/\s+([,.;!?])/g,'$1').replace(/\(\s+/g,'(').trim();
+    s=s.replace(/^[,;:\s]+/,'');
     s=s.charAt(0).toUpperCase()+s.slice(1);
     s=s.replace(/[.!?]+$/,'');
-    return vmPick(VM_OPEN,t)+' '+s+'.'+vmPick(VM_CLOSE,t.split('').reverse().join(''));
+
+    // 6) scaffolding always added
+    note('plus','Formulaic opening and closing scaffolding is added, so the result reads like everyone else\u2019s.');
+    var out=vmPick(VM_OPEN,raw)+' '+s+'.'+vmPick(VM_CLOSE,raw.split('').reverse().join(''));
+    return { text: out, changes: changes };
   }
   function runCustom(){
     var t=vmInput?vmInput.value:'';
@@ -1005,7 +1065,8 @@
       setTimeout(function(){ vmOutCol.classList.add('show'); },60);
       return;
     }
-    showVM(t.trim(), aiify(t));
+    var res=aiify(t);
+    showVM(t.trim(), res.text, res.changes);
   }
   if(vmBtn) vmBtn.addEventListener('click',runCustom);
   if(vmInput) vmInput.addEventListener('keydown',function(e){
