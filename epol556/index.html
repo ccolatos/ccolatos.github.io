@@ -1484,8 +1484,16 @@
       else { stopSpeaking(); announce('Read aloud off.'); }
     });
   }
-  // stop speech if the user leaves/hides the tab
-  document.addEventListener('visibilitychange',function(){ if(document.hidden){ stopSpeaking(); if(playing) stopPlay(); } });
+  // Leaving the tab pauses any in-progress narration (browsers enforce this),
+  // but does NOT end an active walkthrough. On return, the walkthrough resumes.
+  document.addEventListener('visibilitychange',function(){
+    if(document.hidden){
+      stopSpeaking();          // cancel current utterance only
+      clearPlayTimer();        // hold the auto-advance timer
+    } else {
+      if(playing){ clearPlayTimer(); playTimer=setTimeout(function(){ if(playing) playCurrent(); },400); }
+    }
+  });
 
   // ---------- PLAY MODE: narrated, hands-free walkthrough ----------
   // Authored narration per slide id/title. Prediction slides pose the question, then answer.
@@ -1551,12 +1559,11 @@
       afterGap(700,playCurrent);
     }
 
+    // --- Prediction slides: pose question, think, answer + reveal ---
     if(predict && script && script.q){
-      // pose the question rhetorically, pause, then auto-answer + reveal + narrate
       speak(script.q,function(){
         if(!playing) return;
         afterGap(1500,function(){       // a beat to "think"
-          // auto-select the correct option to reveal the chart, as a user would after deciding
           var correct=predict.getAttribute('data-correct');
           var btn=predict.querySelector('.opt[data-k="'+correct+'"]');
           if(btn && !predict.classList.contains('done')) btn.click();
@@ -1565,10 +1572,52 @@
           });
         });
       });
-    } else {
-      var text=(typeof script==='string')?script:panelSpeech(panel);
-      speak(text,function(){ afterGap(1400,advance); });
+      return;
     }
+
+    // --- Voice Machine: narrate, then actually run the flattening on a preset ---
+    if(title==='The Voice Machine'){
+      speak((typeof script==='string')?script:panelSpeech(panel),function(){
+        if(!playing) return;
+        var chip=panel.querySelector('#vmPresets .vm-chip');  // first vivid example
+        afterGap(500,function(){
+          if(!playing) return;
+          if(chip) chip.click();   // triggers showVM, which announces the optimized text + changes
+          // give the reveal + its announcement time to be heard, then move on
+          afterGap(7000,advance);
+        });
+      });
+      return;
+    }
+
+    // --- Inversion: narrate, then swing the needle both ways ---
+    if(title==='The inversion'){
+      var instBtn=panel.querySelector('.ltog[data-locus="inst"]');
+      var studBtn=panel.querySelector('.ltog[data-locus="stud"]');
+      speak("This is the synthesis no single paper states. One divide, two directions.",function(){
+        if(!playing) return;
+        speak("When the institution holds the tool, it targets need and the divide bends toward equity.",function(){
+          if(!playing) return;
+          if(instBtn) instBtn.click();           // needle swings toward equity
+          afterGap(2600,function(){
+            if(!playing) return;
+            speak("But when the student holds it, the default voice of privilege bends the divide back toward inequity.",function(){
+              if(!playing) return;
+              if(studBtn) studBtn.click();        // needle swings toward inequity
+              afterGap(2600,function(){
+                if(!playing) return;
+                speak("The technology is not the variable. The locus of control is.",function(){ afterGap(1400,advance); });
+              });
+            });
+          });
+        });
+      });
+      return;
+    }
+
+    // --- All other slides: straight narration ---
+    var text=(typeof script==='string')?script:panelSpeech(panel);
+    speak(text,function(){ afterGap(1400,advance); });
   }
   function togglePlay(){ playing?stopPlay():startPlay(); }
   // any manual navigation cancels play
