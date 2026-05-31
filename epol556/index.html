@@ -407,6 +407,12 @@
   .play-cta[aria-pressed="true"]{background:var(--era2);color:var(--ink);}
   .play-cta svg{width:16px;height:16px;}
   .play-or{font-size:.8rem;color:var(--muted);letter-spacing:.04em;}
+
+  /* voice selector */
+  .a11y-select{width:100%;font-family:var(--sans);font-size:.82rem;color:var(--paper);background:var(--ink);
+    border:1px solid var(--hair);border-radius:8px;padding:.55rem .7rem;cursor:pointer;}
+  .a11y-select:focus{outline:3px solid var(--paper);outline-offset:2px;}
+  .a11y-select option{background:var(--ink-2);color:var(--paper);}
 </style>
 </head>
 <body>
@@ -430,6 +436,14 @@
       <button class="a11y-btn" id="ttsToggle" aria-pressed="false">Read panels aloud</button>
     </div>
     <p class="ph" style="margin:.5rem 0 0;">Optional narration for each panel. If you already use a screen reader, leave this off so the two do not overlap.</p>
+  </div>
+  <div class="a11y-group" id="voiceGroup">
+    <div class="lab"><label for="voiceSelect">Narration voice</label></div>
+    <div class="a11y-row" style="flex-direction:column;align-items:stretch;gap:.5rem;">
+      <select class="a11y-select" id="voiceSelect" aria-label="Choose a narration voice"></select>
+      <button class="a11y-btn" id="voiceTest" type="button">Test voice</button>
+    </div>
+    <p class="ph" style="margin:.5rem 0 0;">The available voices come from your device and browser. Choose whichever you prefer for Read Aloud and the walkthrough.</p>
   </div>
   <div class="a11y-group">
     <div class="lab">Guided walkthrough</div>
@@ -998,9 +1012,45 @@
   if(synth){
     chosenVoice=pickBestVoice();
     if(typeof synth.addEventListener==='function'){
-      synth.addEventListener('voiceschanged',function(){ chosenVoice=pickBestVoice(); });
+      synth.addEventListener('voiceschanged',function(){ if(!userPickedVoice) chosenVoice=pickBestVoice(); populateVoices(); });
     }
   }
+  // ---- voice picker (lets the user override the auto-chosen voice) ----
+  var userPickedVoice=false;
+  var voiceSelect=document.getElementById('voiceSelect');
+  var voiceGroup=document.getElementById('voiceGroup');
+  function voiceKey(v){ return (v.name||'')+'|'+(v.lang||''); }
+  function populateVoices(){
+    if(!synth||!voiceSelect) return;
+    var voices=synth.getVoices()||[];
+    if(!voices.length){ return; }
+    // English voices first (most relevant), then the rest, each labeled with name + language
+    var en=voices.filter(function(v){ return /^en(-|_|$)/i.test(v.lang||''); });
+    var other=voices.filter(function(v){ return !/^en(-|_|$)/i.test(v.lang||''); });
+    var ordered=en.concat(other);
+    voiceSelect.innerHTML='';
+    ordered.forEach(function(v){
+      var opt=document.createElement('option');
+      opt.value=voiceKey(v);
+      opt.textContent=v.name+' ('+v.lang+')'+(v.localService?'':' [online]');
+      voiceSelect.appendChild(opt);
+    });
+    if(chosenVoice) voiceSelect.value=voiceKey(chosenVoice);
+  }
+  if(voiceSelect){
+    populateVoices();
+    voiceSelect.addEventListener('change',function(){
+      var voices=synth?synth.getVoices():[];
+      var pick=voices.find(function(v){ return voiceKey(v)===voiceSelect.value; });
+      if(pick){ chosenVoice=pick; userPickedVoice=true; announce('Voice set to '+pick.name+'.'); }
+    });
+    if(!synth){ voiceSelect.disabled=true; if(voiceGroup) voiceGroup.style.display='none'; }
+  }
+  var voiceTest=document.getElementById('voiceTest');
+  if(voiceTest) voiceTest.addEventListener('click',function(){
+    stopSpeaking();
+    speak('This is the narration voice you have selected for the walkthrough and read aloud.');
+  });
   function speak(text,onEnd){
     if(!synth){ if(onEnd) onEnd(); return; }
     try{
@@ -1532,10 +1582,53 @@
   }
   function clearPlayTimer(){ if(playTimer){ clearTimeout(playTimer); playTimer=null; } }
   function stopPlay(){ playing=false; clearPlayTimer(); stopSpeaking(); setPlayUI(false); announce('Walkthrough stopped.'); }
+  // reset all interactive state so a walkthrough always plays from a clean slate
+  function resetInteractions(){
+    // re-lock prediction charts and clear chosen answers
+    document.querySelectorAll('.predict').forEach(function(box){
+      box.classList.remove('done');
+      box.querySelectorAll('.opt').forEach(function(o){
+        o.classList.remove('correct','wrong','dim','locked');
+        o.removeAttribute('aria-disabled');
+        var sm=o.querySelector('.statusmark'); if(sm) sm.textContent='';
+        // restore plain label (strip any "Correct answer." suffix we added)
+        o.removeAttribute('aria-label');
+      });
+      var v=box.querySelector('.verdict'); if(v){ v.className='verdict'; v.innerHTML=''; }
+    });
+    // re-lock the charts that belong to predictions (those that started locked)
+    document.querySelectorAll('.predict').forEach(function(box){
+      var wrap=box.closest('.wrap');
+      if(wrap) wrap.querySelectorAll('.chart').forEach(function(c){
+        if(c.querySelector('.bar-fill')){ c.classList.add('locked'); c.classList.remove('reveal'); syncChartA11y(c); }
+      });
+    });
+    // reset Voice Machine output
+    var vmOutColR=document.getElementById('vmOutCol'), vmAnnoR=document.getElementById('vmAnno'),
+        vmInR=document.getElementById('vmIn'), vmOutR=document.getElementById('vmOut');
+    if(vmOutColR) vmOutColR.classList.remove('show');
+    if(vmAnnoR){ vmAnnoR.classList.remove('show'); vmAnnoR.innerHTML=''; }
+    if(vmInR) vmInR.textContent='Choose a sentence above, or write your own.';
+    if(vmOutR) vmOutR.textContent='The polished version appears here.';
+    document.querySelectorAll('#vmPresets .vm-chip').forEach(function(c){ c.classList.remove('active'); });
+    // reset locus simulator to its default (institution holds it)
+    var instB=document.querySelector('.ltog[data-locus="inst"]'), studB=document.querySelector('.ltog[data-locus="stud"]');
+    if(instB&&studB){
+      studB.classList.remove('on'); studB.setAttribute('aria-pressed','false');
+      instB.classList.add('on'); instB.setAttribute('aria-pressed','true');
+      var mk=document.getElementById('equityMarker'), ch=document.getElementById('cohort');
+      if(mk){ mk.classList.remove('toward-inequity'); mk.classList.add('toward-equity'); }
+      if(ch){ ch.classList.remove('ineq'); ch.classList.add('eq'); }
+      document.querySelectorAll('.locus-card').forEach(function(c){ c.classList.remove('show'); });
+      var li=document.getElementById('locus-inst'); if(li) li.classList.add('show');
+    }
+  }
+
   function startPlay(){
     if(!synth){ announce('Read aloud is not supported in this browser, so the walkthrough cannot narrate.',true); return; }
     playing=true; setPlayUI(true);
     document.body.classList.add('reduce-motion'); // calmer during auto-advance
+    resetInteractions();   // always start fresh, so charts blur and reveal in sequence
     announce('Playing the narrated walkthrough. Press stop, or any arrow key, to take over.');
     if(idx!==0){ go(0,false); }
     // small delay so the slide settles, then begin
