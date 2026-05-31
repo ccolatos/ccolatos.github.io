@@ -346,9 +346,9 @@
   body.reduce-motion .panel .rise{opacity:1 !important;transform:none !important;}
   body.reduce-motion .arc-path{stroke-dashoffset:0 !important;}
 
-  /* user text-size preference */
-  body[data-textscale="large"]{font-size:112.5%;}
-  body[data-textscale="xlarge"]{font-size:125%;}
+  /* user text-size preference: scale the ROOT so all rem-based sizes respond */
+  html[data-textscale="large"]{font-size:118.75%;}   /* 19px base */
+  html[data-textscale="xlarge"]{font-size:137.5%;}    /* 22px base */
 
   /* high-contrast mode: raise text/border contrast, drop low-opacity fills */
   body.high-contrast{--body:#f3ecdd;--muted:#d9cfbb;--faint:#b3a892;
@@ -367,9 +367,8 @@
   }
 
   /* accessibility control panel */
-  .a11y-toggle{position:fixed;top:1.05rem;right:calc(clamp(1.4rem,6vw,7rem));z-index:40;}
   .a11y-fab{width:42px;height:42px;border-radius:50%;cursor:pointer;background:var(--ink-2);
-    border:1px solid var(--hair);color:var(--paper);display:grid;place-items:center;transition:all .3s var(--ease);}
+    border:1px solid var(--hair);color:var(--paper);display:grid;place-items:center;transition:all .3s var(--ease);pointer-events:auto;flex:0 0 auto;}
   .a11y-fab:hover{background:var(--surface);border-color:var(--muted);}
   .a11y-fab svg{width:20px;height:20px;}
   .a11y-panel{position:fixed;top:4.2rem;right:clamp(1.4rem,6vw,7rem);z-index:60;width:300px;max-width:calc(100vw - 2rem);
@@ -389,7 +388,7 @@
     background:transparent;border:1px solid var(--hair);color:var(--muted);display:grid;place-items:center;}
   .a11y-close:hover{color:var(--paper);}
   .a11y-close svg{width:14px;height:14px;}
-  @media(max-width:860px){.a11y-toggle{right:1.2rem;}}
+  @media(max-width:860px){.a11y-panel{right:1rem;}}
 
   /* bar value text is always visible (not color-only); add a non-color state marker for predictions */
   .opt .statusmark{margin-left:auto;font-size:.72rem;font-weight:700;letter-spacing:.04em;opacity:0;}
@@ -398,6 +397,16 @@
   .opt.wrong .statusmark{color:var(--era2);}
 
   @media print{ body::before,body::after{display:none;} }
+
+  /* title-slide play choice */
+  .play-choice{display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-top:.4rem;}
+  .play-cta{font-family:var(--sans);font-weight:600;font-size:.9rem;letter-spacing:.02em;cursor:pointer;
+    padding:.7rem 1.3rem;border-radius:100px;border:1px solid var(--era2-line);background:var(--era2-dim);
+    color:var(--era2);transition:all .3s var(--ease);display:inline-flex;align-items:center;gap:.6rem;pointer-events:auto;}
+  .play-cta:hover{background:var(--era2);color:var(--ink);transform:translateY(-2px);}
+  .play-cta[aria-pressed="true"]{background:var(--era2);color:var(--ink);}
+  .play-cta svg{width:16px;height:16px;}
+  .play-or{font-size:.8rem;color:var(--muted);letter-spacing:.04em;}
 </style>
 </head>
 <body>
@@ -409,11 +418,6 @@
 <div id="sr-live-assertive" class="visually-hidden" role="alert" aria-live="assertive" aria-atomic="true"></div>
 
 <!-- accessibility controls -->
-<div class="a11y-toggle">
-  <button class="a11y-fab" id="a11yFab" aria-expanded="false" aria-controls="a11yPanel" aria-label="Accessibility options">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="4" r="2"/><path d="M4 8h16M9 21l3-9 3 9M12 11V8"/></svg>
-  </button>
-</div>
 <div class="a11y-panel" id="a11yPanel" role="dialog" aria-label="Accessibility options" aria-modal="false">
   <button class="a11y-close" id="a11yClose" aria-label="Close accessibility options">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
@@ -426,6 +430,13 @@
       <button class="a11y-btn" id="ttsToggle" aria-pressed="false">Read panels aloud</button>
     </div>
     <p class="ph" style="margin:.5rem 0 0;">Optional narration for each panel. If you already use a screen reader, leave this off so the two do not overlap.</p>
+  </div>
+  <div class="a11y-group">
+    <div class="lab">Guided walkthrough</div>
+    <div class="a11y-row">
+      <button class="a11y-btn play-btn" data-label="Play entire workbook" aria-pressed="false">Play entire workbook</button>
+    </div>
+    <p class="ph" style="margin:.5rem 0 0;">Plays the whole lecture hands-free as a narrated walkthrough. Press any arrow key to take over.</p>
   </div>
   <div class="a11y-group">
     <div class="lab">Text size</div>
@@ -452,6 +463,9 @@
 <div class="topbar">
   <div class="brand">Whose Voice Gets In<span>EPOL 556 · Group 4</span></div>
   <div class="topright">
+    <button class="a11y-fab" id="a11yFab" aria-expanded="false" aria-controls="a11yPanel" aria-label="Accessibility options">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="4" r="2"/><path d="M4 8h16M9 21l3-9 3 9M12 11V8"/></svg>
+    </button>
     <span class="meter-lab" id="meter-label">Curiosity</span>
     <div class="meter" role="progressbar" aria-labelledby="meter-label" aria-valuemin="0" aria-valuemax="6" aria-valuenow="0" id="meter"><i id="meterfill"></i></div>
     <div id="counter" aria-hidden="true">01 / 14</div>
@@ -490,6 +504,13 @@
         <h1 class="title rise">Whose Voice<br>Gets <span class="g1">In</span>, Whose<br>Gets <em>Reshaped</em></h1>
         <p class="lede rise">Technology and equity in college access, read through the emerging artificial intelligence literature of 2017 to 2026.</p>
         <div class="eyebrow rise" style="margin-top:.3rem;">Chris Colatos<span class="rule"></span>An interactive synthesis across eight studies</div>
+        <div class="play-choice rise">
+          <button class="play-cta play-btn" data-label="Play as narrated walkthrough" aria-pressed="false">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+            Play as narrated walkthrough
+          </button>
+          <span class="play-or">or use the arrows to explore it yourself</span>
+        </div>
       </div>
     </section>
 
@@ -956,14 +977,40 @@
   // ---------- optional Read Aloud (Web Speech API) ----------
   var ttsOn=false;
   var synth=(window.speechSynthesis||null);
-  function speak(text){
-    if(!ttsOn||!synth) return;
+  var chosenVoice=null;
+  function pickBestVoice(){
+    if(!synth) return null;
+    var voices=synth.getVoices()||[];
+    if(!voices.length) return null;
+    // prefer high-quality English voices by known good names, then any local en, then default
+    var prefer=[/Google US English/i,/Microsoft (Aria|Jenny|Guy|Sonia|Libby|Michelle)/i,
+      /Samantha/i,/Siri/i,/Natural/i,/Neural/i,/Enhanced/i,/Premium/i];
+    var en=voices.filter(function(v){ return /^en(-|_|$)/i.test(v.lang||''); });
+    var pool=en.length?en:voices;
+    for(var i=0;i<prefer.length;i++){
+      var hit=pool.find(function(v){ return prefer[i].test(v.name||''); });
+      if(hit) return hit;
+    }
+    // otherwise a local (not network) voice, else the first English voice
+    var local=pool.find(function(v){ return v.localService; });
+    return local||pool[0]||voices[0];
+  }
+  if(synth){
+    chosenVoice=pickBestVoice();
+    if(typeof synth.addEventListener==='function'){
+      synth.addEventListener('voiceschanged',function(){ chosenVoice=pickBestVoice(); });
+    }
+  }
+  function speak(text,onEnd){
+    if(!synth){ if(onEnd) onEnd(); return; }
     try{
       synth.cancel();
       var u=new SpeechSynthesisUtterance(text);
+      if(chosenVoice) u.voice=chosenVoice;
       u.rate=1.0; u.pitch=1.0;
+      if(onEnd) u.onend=onEnd;
       synth.speak(u);
-    }catch(e){}
+    }catch(e){ if(onEnd) onEnd(); }
   }
   function stopSpeaking(){ if(synth){ try{ synth.cancel(); }catch(e){} } }
   // build a plain-text reading of a panel from its visible, non-hidden text
@@ -1398,7 +1445,7 @@
   document.querySelectorAll('.a11y-btn[data-textscale]').forEach(function(btn){
     btn.addEventListener('click',function(){
       var scale=btn.getAttribute('data-textscale');
-      document.body.setAttribute('data-textscale',scale);
+      document.documentElement.setAttribute('data-textscale',scale);
       document.querySelectorAll('.a11y-btn[data-textscale]').forEach(function(b){ b.setAttribute('aria-pressed', b===btn?'true':'false'); });
       announce('Text size: '+btn.textContent.trim());
     });
@@ -1438,7 +1485,105 @@
     });
   }
   // stop speech if the user leaves/hides the tab
-  document.addEventListener('visibilitychange',function(){ if(document.hidden) stopSpeaking(); });
+  document.addEventListener('visibilitychange',function(){ if(document.hidden){ stopSpeaking(); if(playing) stopPlay(); } });
+
+  // ---------- PLAY MODE: narrated, hands-free walkthrough ----------
+  // Authored narration per slide id/title. Prediction slides pose the question, then answer.
+  var NARRATION={
+    'Watch first':"Whose Voice Gets In, Whose Gets Reshaped. Technology and equity in college access. This is a narrated walkthrough. You can stop play at any time and explore the workbook yourself.",
+    'Title':"This is a synthesis across eight studies, asking a single question. As artificial intelligence entered college admissions, did it widen access, or narrow it?",
+    'The frame':"One technology, two opposite verdicts. Whether AI opens the road to college or narrows it does not turn on the technology itself. It turns on three questions. Who builds it? Who uses it? And whose language already lives in the data it learned from?",
+    'Era I':"The first era, from 2017 to 2021. In this period AI was an equity lever. Universities built chatbots to fight summer melt, the gap where admitted students fail to enroll because of paperwork. Because melt hits the least resourced hardest, a tool that reaches whoever is stuck reaches the marginalized first.",
+    'Page & Gehlbach':{q:"Here is a question worth predicting. A texting chatbot at Georgia State nudged admitted students through their summer tasks. Who did it actually help enroll on time? Students still undecided, students already committed, or both equally?",
+      a:"The honest answer: it mostly helped students already committed to the university. Enrollment rose 3.3 points for them, about a 21 percent cut in summer melt, while the undecided barely moved. Reaching someone is not the same as persuading them. And it cost 7 to 15 dollars a student, against 100 to 200 for human counseling."},
+    'Nurshatayeva et al.':{q:"Predict again. Researchers ran the very same chatbot at East Carolina University, a more advantaged campus. What happened?",
+      a:"It was not uniformly effective. Across the full sample it moved little, but for first generation students specifically, loan acceptance rose 8 points. The tool was constant. The difference was the population. Where fewer students are stuck, the same tool has less room to help."},
+    'Lira et al.':{q:"A harder prediction. A model scored seven personal qualities in essays. Compared with standardized test scores, how tied to a student's demographics were the AI scores? More tied, about the same, or far less?",
+      a:"Far less tied. The AI scores were nearly independent of demographics, around 0.06, against 0.38 for test scores, and they held steady across subgroups. Fairness was achievable. Design decided it, not the label AI. But this held in a low stakes setting, and the model still lacks human judgment of meaning."},
+    'The pivot':"Now the pivot, into the second era, 2024 onward. Generative AI changed who holds the tool. The student now brings it to the application, with no targeting and no oversight. The same digital divide that helped in the first era begins to work in reverse.",
+    'Alvero et al.':{q:"Predict this one. Out of the box, whose writing does generative AI's default voice sound most like? First generation lower income students, male higher status students, or no particular group?",
+      a:"It sounded most like male, higher status, continuing generation writers, matching their style on up to 92 percent of distinctive features. Drawing on Gramsci's idea of linguistic hegemony, the default voice carries the markers of privilege, the very writing holistic review already rewards."},
+    'The Voice Machine':"Here you can watch it happen. The Voice Machine takes a sentence in a vivid, personal voice and flattens it toward the register of privilege, naming each thing it erases. The distinctiveness that holistic review is meant to reward gets blended away, and the students who lean on the tool most are the lowest income.",
+    'Lee et al.':"What happens when students use that voice? In a recent preprint of over 81,000 applications, lower income applicants showed 28 percent higher detectable AI use. Among heavy users, their admission odds fell more steeply, 83 percent against 62 for wealthier peers. But read with care. This is observational, not causal, from a single institution.",
+    'The inversion':"This is the synthesis no single paper states. One divide, two directions. When the institution holds the tool, it targets need and bends the divide toward equity. When the student holds it, the default voice of privilege bends the divide back toward inequity. The technology is not the variable. The locus of control is.",
+    'Race & disability':"The same flaw runs across race and disability. Prompted with African American English, models judged speakers more harshly, convicting them 68.7 percent against 62.1, and scaling the models hid the surface bias while the deeper bias remained. For disabled students the gap predates AI, and assistive tools both help and discriminate. A model inherits the demographics of its data.",
+    'What it means':"What it means for access. AI widens access when an institution owns it, aims it at a barrier, and audits it. It narrows access when left to unguided use inside the judgments meant to capture who a student is. And the higher the stakes, the stronger the pull to game the signal, where the better resourced are always better positioned. The question is who holds the tool, and toward whom it is pointed.",
+    'References':"This synthesis draws on eight studies: seven peer reviewed, and one preprint cited as emerging evidence. That is the end of the walkthrough."
+  };
+
+  var playing=false, playTimer=null, playBtns=[];
+  function btnLabel(b,txt){
+    // preserve a leading <svg> icon if present; update only text
+    var svg=b.querySelector('svg');
+    if(svg){ b.innerHTML=''; b.appendChild(svg); b.appendChild(document.createTextNode(' '+txt)); }
+    else { b.textContent=txt; }
+  }
+  function setPlayUI(on){
+    playBtns.forEach(function(b){ b.setAttribute('aria-pressed',on?'true':'false');
+      btnLabel(b, on?'Stop walkthrough':(b.getAttribute('data-label')||'Play entire workbook')); });
+  }
+  function clearPlayTimer(){ if(playTimer){ clearTimeout(playTimer); playTimer=null; } }
+  function stopPlay(){ playing=false; clearPlayTimer(); stopSpeaking(); setPlayUI(false); announce('Walkthrough stopped.'); }
+  function startPlay(){
+    if(!synth){ announce('Read aloud is not supported in this browser, so the walkthrough cannot narrate.',true); return; }
+    playing=true; setPlayUI(true);
+    document.body.classList.add('reduce-motion'); // calmer during auto-advance
+    announce('Playing the narrated walkthrough. Press stop, or any arrow key, to take over.');
+    if(idx!==0){ go(0,false); }
+    // small delay so the slide settles, then begin
+    clearPlayTimer(); playTimer=setTimeout(playCurrent,900);
+  }
+  function afterGap(ms,fn){ clearPlayTimer(); playTimer=setTimeout(function(){ if(playing) fn(); },ms); }
+  function playCurrent(){
+    if(!playing) return;
+    var panel=panels[idx];
+    var title=panel.getAttribute('data-title')||'';
+    var script=NARRATION[title];
+    var predict=panel.querySelector('.predict');
+
+    function advance(){
+      if(!playing) return;
+      if(idx>=total-1){ // finished
+        afterGap(400,function(){ stopPlay(); });
+        return;
+      }
+      go(idx+1,false);
+      afterGap(700,playCurrent);
+    }
+
+    if(predict && script && script.q){
+      // pose the question rhetorically, pause, then auto-answer + reveal + narrate
+      speak(script.q,function(){
+        if(!playing) return;
+        afterGap(1500,function(){       // a beat to "think"
+          // auto-select the correct option to reveal the chart, as a user would after deciding
+          var correct=predict.getAttribute('data-correct');
+          var btn=predict.querySelector('.opt[data-k="'+correct+'"]');
+          if(btn && !predict.classList.contains('done')) btn.click();
+          afterGap(700,function(){
+            speak(script.a,function(){ afterGap(1400,advance); });
+          });
+        });
+      });
+    } else {
+      var text=(typeof script==='string')?script:panelSpeech(panel);
+      speak(text,function(){ afterGap(1400,advance); });
+    }
+  }
+  function togglePlay(){ playing?stopPlay():startPlay(); }
+  // any manual navigation cancels play
+  ['keydown'].forEach(function(){});
+  function cancelPlayOnManual(){ if(playing) stopPlay(); }
+  prev.addEventListener('click',cancelPlayOnManual);
+  next.addEventListener('click',cancelPlayOnManual);
+  dots.forEach(function(d){ d.addEventListener('click',cancelPlayOnManual); });
+  document.addEventListener('keydown',function(e){
+    if(!playing) return;
+    if(['ArrowRight','ArrowLeft','Home','End','PageUp','PageDown'].indexOf(e.key)>=0) stopPlay();
+  });
+  // wire any play buttons
+  playBtns=Array.prototype.slice.call(document.querySelectorAll('.play-btn'));
+  playBtns.forEach(function(b){ b.addEventListener('click',togglePlay); });
 
   go(0);
 })();
