@@ -318,40 +318,167 @@
     .panel .rise{opacity:1;transform:none;transition:none;}
     .arc-path{transition:none;stroke-dashoffset:0;}
   }
+
+  /* ============ ACCESSIBILITY FOUNDATION ============ */
+  /* visually hidden but available to screen readers */
+  .visually-hidden{position:absolute !important;width:1px;height:1px;padding:0;margin:-1px;
+    overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0;}
+
+  /* skip link */
+  .skip-link{position:fixed;top:-60px;left:12px;z-index:200;background:var(--paper);color:var(--ink);
+    font-family:var(--sans);font-weight:700;font-size:.9rem;padding:.7rem 1.1rem;border-radius:9px;
+    transition:top .2s var(--ease);text-decoration:none;}
+  .skip-link:focus{top:12px;}
+
+  /* WCAG 2.2 focus appearance: thick, high-contrast, never only-color */
+  *:focus-visible{outline:3px solid var(--era1);outline-offset:3px;border-radius:6px;}
+  .opt:focus-visible,.vm-chip:focus-visible,.ltog:focus-visible,.enter-btn:focus-visible,
+  .nbtn:focus-visible,.dot:focus-visible,.vm-btn:focus-visible,.a11y-btn:focus-visible{
+    outline:3px solid var(--paper);outline-offset:3px;}
+  /* a visible focus ring even where the browser lacks :focus-visible */
+  .nbtn:focus,.dot:focus,.opt:focus,.ltog:focus,.vm-chip:focus,.enter-btn:focus,.vm-btn:focus,.a11y-btn:focus{outline:3px solid var(--paper);outline-offset:3px;}
+
+  /* user motion preference via in-page toggle */
+  body.reduce-motion .track,body.reduce-motion .bar-fill,body.reduce-motion .locus-card,
+  body.reduce-motion .vm-col.out .vm-text,body.reduce-motion .vm-anno,body.reduce-motion .equity-marker,
+  body.reduce-motion .cap-bar i,body.reduce-motion .meter i,body.reduce-motion .arc-path,
+  body.reduce-motion .rise{transition:none !important;animation:none !important;}
+  body.reduce-motion .panel .rise{opacity:1 !important;transform:none !important;}
+  body.reduce-motion .arc-path{stroke-dashoffset:0 !important;}
+
+  /* user text-size preference */
+  body[data-textscale="large"]{font-size:112.5%;}
+  body[data-textscale="xlarge"]{font-size:125%;}
+
+  /* high-contrast mode: raise text/border contrast, drop low-opacity fills */
+  body.high-contrast{--body:#f3ecdd;--muted:#d9cfbb;--faint:#b3a892;
+    --hair:rgba(243,236,221,0.4);--hair-soft:rgba(243,236,221,0.28);
+    --era1:#8fe6c8;--era2:#f4bd78;}
+  body.high-contrast .chart-cap,body.high-contrast .small,body.high-contrast .bar-foot,
+  body.high-contrast .vm-note,body.high-contrast .locus-card p,body.high-contrast .card-p{color:#ece3d1;}
+  body.high-contrast .chart.locked .bar-track,body.high-contrast .chart.locked .chart-cap,
+  body.high-contrast .chart.locked .grouplabel,body.high-contrast .chart.locked .bar-meta{filter:none;opacity:1;}
+  body.high-contrast .chart.locked .bar-fill{width:0 !important;}
+  body.high-contrast .vm-disc{color:#cabf a9;}
+
+  /* honor OS high-contrast / forced colors */
+  @media (prefers-contrast: more){
+    :root{--body:#f3ecdd;--muted:#cdc3af;--hair:rgba(243,236,221,0.35);}
+  }
+
+  /* accessibility control panel */
+  .a11y-toggle{position:fixed;top:1.05rem;right:calc(clamp(1.4rem,6vw,7rem));z-index:40;}
+  .a11y-fab{width:42px;height:42px;border-radius:50%;cursor:pointer;background:var(--ink-2);
+    border:1px solid var(--hair);color:var(--paper);display:grid;place-items:center;transition:all .3s var(--ease);}
+  .a11y-fab:hover{background:var(--surface);border-color:var(--muted);}
+  .a11y-fab svg{width:20px;height:20px;}
+  .a11y-panel{position:fixed;top:4.2rem;right:clamp(1.4rem,6vw,7rem);z-index:60;width:300px;max-width:calc(100vw - 2rem);
+    background:var(--surface);border:1px solid var(--hair);border-radius:14px;padding:1.1rem 1.2rem;
+    box-shadow:0 24px 60px rgba(0,0,0,.55);display:none;}
+  .a11y-panel.open{display:block;}
+  .a11y-panel h2{font-family:var(--display);font-weight:500;font-size:1.05rem;color:var(--paper);margin-bottom:.2rem;}
+  .a11y-panel .ph{font-size:.78rem;color:var(--muted);margin-bottom:.9rem;line-height:1.4;}
+  .a11y-group{margin:.85rem 0;}
+  .a11y-group .lab{font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:.45rem;}
+  .a11y-row{display:flex;gap:.4rem;flex-wrap:wrap;}
+  .a11y-btn{font-family:var(--sans);font-weight:600;font-size:.78rem;cursor:pointer;padding:.5rem .8rem;
+    border-radius:8px;border:1px solid var(--hair);background:var(--ink);color:var(--body);transition:all .25s var(--ease);}
+  .a11y-btn:hover{color:var(--paper);border-color:var(--muted);}
+  .a11y-btn[aria-pressed="true"]{background:var(--era1-dim);border-color:var(--era1-line);color:var(--era1);}
+  .a11y-close{position:absolute;top:.7rem;right:.7rem;width:28px;height:28px;border-radius:7px;cursor:pointer;
+    background:transparent;border:1px solid var(--hair);color:var(--muted);display:grid;place-items:center;}
+  .a11y-close:hover{color:var(--paper);}
+  .a11y-close svg{width:14px;height:14px;}
+  @media(max-width:860px){.a11y-toggle{right:1.2rem;}}
+
+  /* bar value text is always visible (not color-only); add a non-color state marker for predictions */
+  .opt .statusmark{margin-left:auto;font-size:.72rem;font-weight:700;letter-spacing:.04em;opacity:0;}
+  .opt.correct .statusmark,.opt.wrong .statusmark{opacity:1;}
+  .opt.correct .statusmark{color:var(--era1);}
+  .opt.wrong .statusmark{color:var(--era2);}
+
+  @media print{ body::before,body::after{display:none;} }
 </style>
 </head>
 <body>
 
-<div class="topbar">
-  <div class="brand">Whose Voice Gets In<span>EPOL 556 · Group 4</span></div>
-  <div class="topright">
-    <span class="meter-lab">Curiosity</span>
-    <div class="meter"><i id="meterfill"></i></div>
-    <div id="counter">01 / 14</div>
+<a href="#deck-main" class="skip-link">Skip to lecture content</a>
+
+<!-- screen-reader live announcements -->
+<div id="sr-live" class="visually-hidden" role="status" aria-live="polite" aria-atomic="true"></div>
+<div id="sr-live-assertive" class="visually-hidden" role="alert" aria-live="assertive" aria-atomic="true"></div>
+
+<!-- accessibility controls -->
+<div class="a11y-toggle">
+  <button class="a11y-fab" id="a11yFab" aria-expanded="false" aria-controls="a11yPanel" aria-label="Accessibility options">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="4" r="2"/><path d="M4 8h16M9 21l3-9 3 9M12 11V8"/></svg>
+  </button>
+</div>
+<div class="a11y-panel" id="a11yPanel" role="dialog" aria-label="Accessibility options" aria-modal="false">
+  <button class="a11y-close" id="a11yClose" aria-label="Close accessibility options">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+  </button>
+  <h2>Accessibility</h2>
+  <p class="ph">These settings are saved only for this visit and apply to this lecture.</p>
+  <div class="a11y-group">
+    <div class="lab">Read aloud</div>
+    <div class="a11y-row">
+      <button class="a11y-btn" id="ttsToggle" aria-pressed="false">Read panels aloud</button>
+    </div>
+    <p class="ph" style="margin:.5rem 0 0;">Optional narration for each panel. If you already use a screen reader, leave this off so the two do not overlap.</p>
+  </div>
+  <div class="a11y-group">
+    <div class="lab">Text size</div>
+    <div class="a11y-row" role="group" aria-label="Text size">
+      <button class="a11y-btn" data-textscale="normal" aria-pressed="true">Normal</button>
+      <button class="a11y-btn" data-textscale="large" aria-pressed="false">Large</button>
+      <button class="a11y-btn" data-textscale="xlarge" aria-pressed="false">Larger</button>
+    </div>
+  </div>
+  <div class="a11y-group">
+    <div class="lab">Contrast</div>
+    <div class="a11y-row">
+      <button class="a11y-btn" id="contrastToggle" aria-pressed="false">High contrast</button>
+    </div>
+  </div>
+  <div class="a11y-group">
+    <div class="lab">Motion</div>
+    <div class="a11y-row">
+      <button class="a11y-btn" id="motionToggle" aria-pressed="false">Reduce motion</button>
+    </div>
   </div>
 </div>
 
-<div class="deck">
+<div class="topbar">
+  <div class="brand">Whose Voice Gets In<span>EPOL 556 · Group 4</span></div>
+  <div class="topright">
+    <span class="meter-lab" id="meter-label">Curiosity</span>
+    <div class="meter" role="progressbar" aria-labelledby="meter-label" aria-valuemin="0" aria-valuemax="6" aria-valuenow="0" id="meter"><i id="meterfill"></i></div>
+    <div id="counter" aria-hidden="true">01 / 14</div>
+  </div>
+</div>
+
+<div class="deck" id="deck-main" role="main" aria-roledescription="lecture slides" aria-label="Whose Voice Gets In, interactive lecture">
   <div class="track" id="track">
 
     <!-- 0 · INTRO VIDEO GATE -->
-    <section class="panel" data-title="Watch first" id="introGate">
+    <section class="panel" data-title="Watch first" id="introGate" role="group" aria-roledescription="slide" aria-label="Slide 1 of 14: Watch first">
       <div class="intro-wrap">
-        <div class="eyebrow rise intro-eyebrow"><span class="rule"></span>EPOL 556 · Group 4 · Watch first<span class="rule"></span></div>
+        <div class="eyebrow rise intro-eyebrow"><span class="rule" aria-hidden="true"></span>EPOL 556 · Group 4 · Watch first<span class="rule" aria-hidden="true"></span></div>
         <h1 class="intro-title rise">Whose Voice Gets <span class="g1">In</span>, Whose Gets <em>Reshaped</em></h1>
         <p class="intro-sub rise">A short introduction before the interactive synthesis. Watch this first, then step through the evidence yourself.</p>
         <div class="video-frame rise" id="videoFrame">
           <iframe id="gateVideo"
             src="https://www.youtube-nocookie.com/embed/_nGj-dHJQIs?enablejsapi=1&rel=0&modestbranding=1"
-            title="Introduction: Whose Voice Gets In"
+            title="Introduction video: Whose Voice Gets In, technology and equity in college access"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
         </div>
         <div class="enter-row rise">
           <button class="enter-btn" id="enterBtn">Enter the interactive
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
           </button>
-          <span class="enter-hint">or press the arrow key</span>
+          <span class="enter-hint" aria-hidden="true">or press the arrow key</span>
         </div>
       </div>
     </section>
@@ -802,21 +929,103 @@
   var prev=document.getElementById('prev');
   var next=document.getElementById('next');
   var meterFill=document.getElementById('meterfill');
+  var meter=document.getElementById('meter');
   var hint=document.getElementById('hint');
+  var srLive=document.getElementById('sr-live');
+  var srAssert=document.getElementById('sr-live-assertive');
   var idx=0;
 
   // engagement state
   var interactions={}; var intCount=0; var TOTAL_INT=6;
   var predMade=0, predHit=0;
   function bump(id){ if(interactions[id])return; interactions[id]=true; intCount++;
-    meterFill.style.width=Math.min(100,(intCount/TOTAL_INT)*100)+'%'; }
+    var pct=Math.min(100,(intCount/TOTAL_INT)*100);
+    meterFill.style.width=pct+'%';
+    if(meter) meter.setAttribute('aria-valuenow',String(intCount));
+  }
+
+  // ---------- screen-reader announcements ----------
+  function announce(msg,assertive){
+    var region=assertive?srAssert:srLive;
+    if(!region) return;
+    region.textContent='';
+    // slight delay so repeated identical messages re-fire
+    window.setTimeout(function(){ region.textContent=msg; },40);
+  }
+
+  // ---------- optional Read Aloud (Web Speech API) ----------
+  var ttsOn=false;
+  var synth=(window.speechSynthesis||null);
+  function speak(text){
+    if(!ttsOn||!synth) return;
+    try{
+      synth.cancel();
+      var u=new SpeechSynthesisUtterance(text);
+      u.rate=1.0; u.pitch=1.0;
+      synth.speak(u);
+    }catch(e){}
+  }
+  function stopSpeaking(){ if(synth){ try{ synth.cancel(); }catch(e){} } }
+  // build a plain-text reading of a panel from its visible, non-hidden text
+  function panelSpeech(panel){
+    var title=panel.getAttribute('data-title')||'';
+    var parts=['Slide '+(panels.indexOf(panel)+1)+' of '+total+'. '+title+'.'];
+    // gather readable text: headings, ledes, body, captions that are not inside a locked chart
+    panel.querySelectorAll('h1,h2,.lede,p.body,.kicker,.intro-sub,.setup p,.statcard .lab,.win .wv,.win small,.chart-cap,.bar-name,.bar-val,.predict .q,.vm-note,.locus-card.show p,.refitem').forEach(function(el){
+      if(el.closest('.chart.locked')) return;        // do not read locked answers
+      if(el.closest('[hidden]')) return;
+      if(el.offsetParent===null && !el.closest('.locus-card.show')) return;
+      var t=(el.textContent||'').replace(/\s+/g,' ').trim();
+      if(t) parts.push(t);
+    });
+    return parts.join(' ');
+  }
+
+  // ---------- describe a chart for assistive tech, from its own bar values ----------
+  function describeChart(chart){
+    var title=(chart.querySelector('.chart-title')||{}).textContent||'Chart';
+    var unit=(chart.querySelector('.chart-unit')||{}).textContent||'';
+    var rows=[];
+    chart.querySelectorAll('.bar-row').forEach(function(r){
+      var name=(r.querySelector('.bar-name')||{}).textContent||'';
+      var val=(r.querySelector('.bar-val')||{}).textContent||'';
+      name=name.replace(/\s+/g,' ').trim(); val=val.replace(/\s+/g,' ').trim();
+      if(name||val) rows.push(name+': '+val);
+    });
+    var cap=(chart.querySelector('.chart-cap')||{}).textContent||'';
+    cap=cap.replace(/\s+/g,' ').trim();
+    var label=title.trim()+(unit?(', measured in '+unit.trim()):'')+'. '+rows.join('. ')+(cap?('. '+cap):'');
+    return label;
+  }
+  // apply role/label to a chart and set its hidden-ness based on lock state
+  function syncChartA11y(chart){
+    var locked=chart.classList.contains('locked');
+    if(locked){
+      chart.setAttribute('aria-hidden','true');
+      chart.removeAttribute('role'); chart.removeAttribute('aria-label');
+    }else{
+      chart.removeAttribute('aria-hidden');
+      chart.setAttribute('role','img');
+      chart.setAttribute('aria-label',describeChart(chart));
+    }
+  }
+
+  // ---------- init: label panels, set roles, hide inactive, prep charts ----------
+  panels.forEach(function(p,i){
+    p.setAttribute('role','group');
+    p.setAttribute('aria-roledescription','slide');
+    p.setAttribute('aria-label','Slide '+(i+1)+' of '+total+': '+(p.getAttribute('data-title')||''));
+    // charts: locked ones hidden from AT until predicted; static ones get described
+    p.querySelectorAll('.chart').forEach(syncChartA11y);
+  });
 
   // dots
   panels.forEach(function(p,i){
     var d=document.createElement('button');
     d.className='dot';
-    d.setAttribute('aria-label','Go to panel '+(i+1)+': '+(p.getAttribute('data-title')||''));
-    d.addEventListener('click',function(){ go(i); });
+    d.setAttribute('type','button');
+    d.setAttribute('aria-label','Go to slide '+(i+1)+' of '+total+': '+(p.getAttribute('data-title')||''));
+    d.addEventListener('click',function(){ go(i,true); });
     dotsWrap.appendChild(d);
   });
   var dots=Array.prototype.slice.call(dotsWrap.children);
@@ -828,25 +1037,54 @@
   }
   function hideHint(){ if(hint) hint.classList.add('gone'); }
 
-  function go(n){
+  // hide non-active panels from AT and tab order; show the active one
+  function applyPanelVisibility(){
+    panels.forEach(function(p,i){
+      var active=(i===idx);
+      if(active){
+        p.hidden=false;
+        p.removeAttribute('aria-hidden');
+        if('inert' in HTMLElement.prototype) p.inert=false;
+      }else{
+        // keep in layout for the slide transition, but remove from AT + tab order
+        p.setAttribute('aria-hidden','true');
+        if('inert' in HTMLElement.prototype) p.inert=true;
+        p.hidden=false; // visual transition needs it laid out; inert+aria-hidden handle AT
+      }
+    });
+  }
+
+  function go(n,userInitiated){
+    var prevIdx=idx;
     idx=Math.max(0,Math.min(total-1,n));
     track.style.transform='translateX('+(-idx*100)+'vw)';
-    panels.forEach(function(p,i){
-      var a=(i===idx);
-      p.classList.toggle('is-active',a);
-      p.setAttribute('aria-hidden', a?'false':'true');
-    });
-    dots.forEach(function(d,i){ d.classList.toggle('on',i===idx); });
+    panels.forEach(function(p,i){ p.classList.toggle('is-active',i===idx); });
+    applyPanelVisibility();
+    dots.forEach(function(d,i){ d.classList.toggle('on',i===idx); d.setAttribute('aria-current',i===idx?'true':'false'); });
     counter.textContent=pad(idx+1)+' / '+pad(total);
     prev.disabled=(idx===0);
     next.disabled=(idx===total-1);
     revealCharts(panels[idx]);
     if(idx>0) hideHint();
     if(panels[idx].getAttribute('data-title')==='What it means') fillCapstone();
-    // intro gate: quiet the chrome only while on it, and pause the video when leaving
     var onGate=(panels[idx].id==='introGate');
     document.body.classList.toggle('on-gate',onGate);
     if(!onGate) pauseGateVideo();
+
+    // announce slide change to screen readers
+    if(prevIdx!==idx || !go._announced){
+      go._announced=true;
+      announce('Slide '+(idx+1)+' of '+total+'. '+(panels[idx].getAttribute('data-title')||''));
+    }
+    // move focus to the new panel so keyboard users land in the right place
+    if(userInitiated){
+      var h=panels[idx].querySelector('h1,h2');
+      var target=h||panels[idx];
+      target.setAttribute('tabindex','-1');
+      try{ target.focus({preventScroll:true}); }catch(e){ target.focus(); }
+    }
+    // read aloud if enabled
+    if(ttsOn){ speak(panelSpeech(panels[idx])); }
   }
   function pauseGateVideo(){
     var f=document.getElementById('gateVideo');
@@ -858,26 +1096,38 @@
   }
   function pad(n){ return (n<10?'0':'')+n; }
 
-  // keyboard
+  // keyboard: arrows navigate slides, but never hijack typing or in-panel controls
   document.addEventListener('keydown',function(e){
     var tag=(e.target&&e.target.tagName)||'';
-    if(tag==='TEXTAREA'||tag==='INPUT') return;
-    if(e.key==='ArrowRight'||e.key==='PageDown'){ e.preventDefault(); go(idx+1); }
-    else if(e.key==='ArrowLeft'||e.key==='PageUp'){ e.preventDefault(); go(idx-1); }
-    else if(e.key==='Home'){ e.preventDefault(); go(0); }
-    else if(e.key==='End'){ e.preventDefault(); go(total-1); }
-    else if(e.key===' '){ e.preventDefault(); go(idx+1); }
+    if(tag==='TEXTAREA'||tag==='INPUT'||tag==='SELECT') return;
+    if(e.altKey||e.ctrlKey||e.metaKey) return;
+    if(e.key==='ArrowRight'||e.key==='PageDown'){ e.preventDefault(); go(idx+1,true); }
+    else if(e.key==='ArrowLeft'||e.key==='PageUp'){ e.preventDefault(); go(idx-1,true); }
+    else if(e.key==='Home'){ e.preventDefault(); go(0,true); }
+    else if(e.key==='End'){ e.preventDefault(); go(total-1,true); }
   });
-  prev.addEventListener('click',function(){ go(idx-1); });
-  next.addEventListener('click',function(){ go(idx+1); });
+  prev.addEventListener('click',function(){ go(idx-1,true); });
+  next.addEventListener('click',function(){ go(idx+1,true); });
   var enterBtn=document.getElementById('enterBtn');
-  if(enterBtn) enterBtn.addEventListener('click',function(){ go(idx+1); });
+  if(enterBtn) enterBtn.addEventListener('click',function(){ go(idx+1,true); });
 
   // predictions
   document.querySelectorAll('.predict').forEach(function(box){
     var correct=box.getAttribute('data-correct');
     var opts=Array.prototype.slice.call(box.querySelectorAll('.opt'));
+    // group semantics: the question labels the set of choices
+    var q=box.querySelector('.q');
+    if(q){ if(!q.id){ q.id='predq-'+Math.random().toString(36).slice(2,8); }
+      box.setAttribute('role','group'); box.setAttribute('aria-labelledby',q.id); }
+    // each option gets a visually-marked status slot for non-color feedback
     opts.forEach(function(opt){
+      if(!opt.querySelector('.statusmark')){
+        var sm=document.createElement('span'); sm.className='statusmark'; sm.setAttribute('aria-hidden','false');
+        opt.appendChild(sm);
+      }
+    });
+    opts.forEach(function(opt){
+      opt.setAttribute('type','button');
       opt.addEventListener('click',function(){
         if(box.classList.contains('done')) return;
         box.classList.add('done');
@@ -886,20 +1136,29 @@
         predMade++; if(right) predHit++;
         opts.forEach(function(o){
           o.classList.add('locked');
-          if(o.getAttribute('data-k')===correct) o.classList.add('correct');
-          else if(o===opt) o.classList.add('wrong');
-          else o.classList.add('dim');
+          o.setAttribute('aria-disabled','true');
+          var isCorrect=(o.getAttribute('data-k')===correct);
+          var mark=o.querySelector('.statusmark');
+          if(isCorrect){ o.classList.add('correct'); if(mark) mark.textContent='Correct'; o.setAttribute('aria-label',(o.textContent||'').trim()+'. Correct answer.'); }
+          else if(o===opt){ o.classList.add('wrong'); if(mark) mark.textContent='Your pick'; o.setAttribute('aria-label',(o.textContent||'').trim()+'. Your selection, not correct.'); }
+          else { o.classList.add('dim'); }
         });
         var v=box.querySelector('.verdict');
-        v.innerHTML=right
-          ? '<b>You saw it coming.</b> '+(box.getAttribute('data-yes')||'')
-          : '<b>Not quite.</b> '+(box.getAttribute('data-no')||'');
+        var verdictText=right?(box.getAttribute('data-yes')||''):(box.getAttribute('data-no')||'');
+        v.innerHTML=(right?'<b>You saw it coming.</b> ':'<b>Not quite.</b> ')+verdictText;
         v.classList.add('show', right?'good':'bad');
+        // reveal any locked charts in this panel, to eye AND to assistive tech
         var wrap=box.closest('.wrap');
+        var revealedLabels=[];
         if(wrap){ wrap.querySelectorAll('.chart.locked').forEach(function(c){
           c.classList.remove('locked'); c.classList.add('reveal');
+          syncChartA11y(c);
+          revealedLabels.push(describeChart(c));
         }); }
         bump('pred-'+(box.getAttribute('data-id')||correct));
+        // announce verdict, then the now-available evidence
+        announce((right?'Correct. ':'Not quite. ')+verdictText+(revealedLabels.length?(' The evidence is now shown. '+revealedLabels.join('. ')):''),true);
+        if(ttsOn){ speak((right?'Correct. ':'Not quite. ')+verdictText); }
       });
     });
   });
@@ -953,6 +1212,10 @@
     void vmOutCol.offsetWidth;
     setTimeout(function(){ vmOutCol.classList.add('show'); vmAnno.classList.add('show'); },60);
     bump('voice');
+    // announce the optimized output and what changed
+    var changeText=(changes||[]).map(function(c){ return (c.sign==='plus'?'Added: ':'Removed: ')+c.msg; }).join(' ');
+    announce('Optimized version: '+outputText+(changeText?(' What changed: '+changeText):''),true);
+    if(ttsOn){ speak('Optimized version. '+outputText); }
   }
   vmChips.forEach(function(chip){
     chip.addEventListener('click',function(){
@@ -1060,9 +1323,11 @@
     if(!looksLikeSentence(t)){
       vmIn.textContent=t.trim();
       vmOutCol.classList.remove('show'); vmAnno.classList.remove('show');
-      vmOut.textContent='Try a full sentence about yourself, the kind you might write in a personal statement, and I will show you what the machine does to it.';
+      var msg='Try a full sentence about yourself, the kind you might write in a personal statement, and I will show you what the machine does to it.';
+      vmOut.textContent=msg;
       void vmOutCol.offsetWidth;
       setTimeout(function(){ vmOutCol.classList.add('show'); },60);
+      announce(msg,true);
       return;
     }
     var res=aiify(t);
@@ -1077,21 +1342,28 @@
   var marker=document.getElementById('equityMarker');
   var cohort=document.getElementById('cohort');
   document.querySelectorAll('.ltog').forEach(function(b){
+    b.setAttribute('type','button');
     b.addEventListener('click',function(){
-      document.querySelectorAll('.ltog').forEach(function(x){ x.classList.remove('on'); });
-      b.classList.add('on');
+      document.querySelectorAll('.ltog').forEach(function(x){ x.classList.remove('on'); x.setAttribute('aria-pressed','false'); });
+      b.classList.add('on'); b.setAttribute('aria-pressed','true');
       var which=b.getAttribute('data-locus');
       document.querySelectorAll('.locus-card').forEach(function(c){ c.classList.remove('show'); });
       var card=document.getElementById('locus-'+which);
       if(card) card.classList.add('show');
+      var dir;
       if(which==='inst'){
         marker.classList.remove('toward-inequity'); marker.classList.add('toward-equity');
         cohort.classList.remove('ineq'); cohort.classList.add('eq');
+        dir='The equity needle moves toward access widens.';
       } else {
         marker.classList.remove('toward-equity'); marker.classList.add('toward-inequity');
         cohort.classList.remove('eq'); cohort.classList.add('ineq');
+        dir='The equity needle moves toward access narrows.';
       }
       bump('locus');
+      var cardText=card?(card.textContent||'').replace(/\s+/g,' ').trim():'';
+      announce(dir+' '+cardText,true);
+      if(ttsOn){ speak(dir); }
     });
   });
 
@@ -1105,7 +1377,68 @@
     if(e) e.textContent=intCount+' of '+TOTAL_INT;
     if(pr) pr.textContent=predHit+' of '+predMade;
     if(fill) fill.style.width=Math.min(100,(intCount/TOTAL_INT)*100)+'%';
+    announce('You engaged '+intCount+' of '+TOTAL_INT+' interactive moments, and saw '+predHit+' of '+predMade+' predictions coming. The point is who holds the tool, and toward whom it is pointed.');
   }
+
+  // ---------- accessibility control panel ----------
+  var a11yFab=document.getElementById('a11yFab');
+  var a11yPanel=document.getElementById('a11yPanel');
+  var a11yClose=document.getElementById('a11yClose');
+  function openPanel(){ a11yPanel.classList.add('open'); a11yFab.setAttribute('aria-expanded','true');
+    var first=a11yPanel.querySelector('button:not(.a11y-close)'); if(first) first.focus(); }
+  function closePanel(){ a11yPanel.classList.remove('open'); a11yFab.setAttribute('aria-expanded','false'); a11yFab.focus(); }
+  if(a11yFab) a11yFab.addEventListener('click',function(){ a11yPanel.classList.contains('open')?closePanel():openPanel(); });
+  if(a11yClose) a11yClose.addEventListener('click',closePanel);
+  document.addEventListener('keydown',function(e){ if(e.key==='Escape'&&a11yPanel.classList.contains('open')) closePanel(); });
+  document.addEventListener('click',function(e){
+    if(a11yPanel.classList.contains('open') && !a11yPanel.contains(e.target) && e.target!==a11yFab && !a11yFab.contains(e.target)) closePanel();
+  });
+
+  // text size
+  document.querySelectorAll('.a11y-btn[data-textscale]').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var scale=btn.getAttribute('data-textscale');
+      document.body.setAttribute('data-textscale',scale);
+      document.querySelectorAll('.a11y-btn[data-textscale]').forEach(function(b){ b.setAttribute('aria-pressed', b===btn?'true':'false'); });
+      announce('Text size: '+btn.textContent.trim());
+    });
+  });
+
+  // contrast
+  var contrastToggle=document.getElementById('contrastToggle');
+  if(contrastToggle) contrastToggle.addEventListener('click',function(){
+    var on=document.body.classList.toggle('high-contrast');
+    contrastToggle.setAttribute('aria-pressed',on?'true':'false');
+    announce('High contrast '+(on?'on':'off'));
+  });
+
+  // motion
+  var motionToggle=document.getElementById('motionToggle');
+  if(motionToggle) motionToggle.addEventListener('click',function(){
+    var on=document.body.classList.toggle('reduce-motion');
+    motionToggle.setAttribute('aria-pressed',on?'true':'false');
+    announce('Reduced motion '+(on?'on':'off'));
+  });
+  // honor OS reduced-motion at load
+  if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+    document.body.classList.add('reduce-motion');
+    if(motionToggle) motionToggle.setAttribute('aria-pressed','true');
+  }
+
+  // Read Aloud toggle
+  var ttsToggle=document.getElementById('ttsToggle');
+  if(ttsToggle){
+    if(!synth){ ttsToggle.disabled=true; ttsToggle.textContent='Read aloud (not supported)'; }
+    ttsToggle.addEventListener('click',function(){
+      ttsOn=!ttsOn;
+      ttsToggle.setAttribute('aria-pressed',ttsOn?'true':'false');
+      ttsToggle.textContent=ttsOn?'Stop reading aloud':'Read panels aloud';
+      if(ttsOn){ announce('Read aloud on.'); speak(panelSpeech(panels[idx])); }
+      else { stopSpeaking(); announce('Read aloud off.'); }
+    });
+  }
+  // stop speech if the user leaves/hides the tab
+  document.addEventListener('visibilitychange',function(){ if(document.hidden) stopSpeaking(); });
 
   go(0);
 })();
