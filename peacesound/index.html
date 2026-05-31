@@ -149,7 +149,7 @@
     background:linear-gradient(180deg,#0a0c10,#06080b); box-shadow:0 0 0 1px #05070a, 0 3px 8px -4px #000 inset; }
 
   /* ---------- presets ---------- */
-  .presets{ display:grid; grid-template-columns:repeat(3,1fr); gap:9px; align-content:start; }
+  .presets{ display:grid; grid-template-columns:repeat(3,1fr); gap:9px; align-content:stretch; grid-auto-rows:1fr; }
   @media (max-width:420px){ .presets{ grid-template-columns:repeat(2,1fr); } }
   .preset{ position:relative; text-align:left; cursor:pointer; border:none; border-radius:11px;
     padding:10px 11px 11px 26px; color:var(--ink-dim); font-family:var(--font-label); -webkit-tap-highlight-color:transparent;
@@ -201,13 +201,12 @@
     box-shadow:0 1px 0 rgba(255,255,255,.4) inset, 0 0 10px rgba(255,179,92,.4); }
 
   .iconbtn{ width:34px; height:34px; border-radius:9px; display:grid; place-items:center; cursor:pointer; border:none;
+    padding:0 .1em 0 0; /* offset the leading letter-space so the label sits centered */
     font-family:var(--font-display); font-weight:600; font-size:.78rem; letter-spacing:.1em; color:var(--ink-dim);
     background:linear-gradient(180deg,#23272e,#16191e); box-shadow:0 1px 0 rgba(255,255,255,.05) inset,0 -2px 0 rgba(0,0,0,.5) inset,0 3px 7px -4px #000;
     transition:.15s; -webkit-tap-highlight-color:transparent; }
   .iconbtn:hover{ filter:brightness(1.14); color:var(--ink); }
   .iconbtn[aria-pressed="true"]{ color:var(--amber-soft); box-shadow:0 2px 6px -2px #000 inset,0 0 0 1px rgba(255,179,92,.3); }
-
-  .legal{ margin-top:18px; font-size:.62rem; letter-spacing:.16em; color:#5a5648; text-transform:uppercase; text-align:center; }
 
   /* ---------- info panel ---------- */
   .info{ width:min(860px,100%); margin-top:12px; border-radius:16px; padding:18px 20px;
@@ -231,6 +230,42 @@
   @media (prefers-reduced-motion:reduce){
     .device{ animation:none; }
     *{ transition-duration:.01ms !important; }
+  }
+
+  /* ---------- phones & narrow: uniform presets + aligned bottom rows ---------- */
+  @media (max-width:680px){
+    /* fix 2: every preset the same height on phones (tallest natural content ~79px) */
+    .preset{ min-height:82px; }
+
+    /* fix 3: lay the two control rows on a shared 5-column grid so FAST/SLOW/GENTLE/DIM/i
+       line up beneath CONT/20m/45m/1h/8h */
+    .bottom{ display:grid; grid-template-columns:auto repeat(5,1fr); column-gap:7px; row-gap:11px; align-items:center; }
+    .grp{ display:contents; }
+    .grp > .cap{ grid-column:1; justify-self:start; align-self:center; white-space:nowrap; }
+    .grp:nth-of-type(1) > .cap{ grid-row:1; }
+    .grp:nth-of-type(2) > .cap{ grid-row:2; }
+    #timer{ grid-column:2 / -1; grid-row:1; }      /* 5 buttons span all five control columns */
+    #fade{ grid-column:2 / span 3; grid-row:2; }   /* FAST · SLOW · GENTLE under columns 1–3 */
+    #dim{ grid-column:5; grid-row:2; }             /* under "1h" */
+    #infoBtn{ grid-column:6; grid-row:2; }         /* under "8h" */
+    .seg{ display:flex; }
+    .seg button{ flex:1 1 0; text-align:center; padding:6px 4px; }
+    #dim, #infoBtn{ width:100%; }
+  }
+
+  /* ---------- fix 1: condense vertical rhythm so it fits one phone screen ---------- */
+  @media (max-width:560px){
+    body{ padding:10px 10px 12px; }
+    .faceplate{ padding:14px 4px 12px; }
+    .brandbar{ margin-bottom:9px; }
+    .main{ gap:10px; }
+    .meter{ padding:9px 11px 7px; }
+    .meter .vu{ width:auto; height:138px; max-width:100%; margin:0 auto; }   /* shorter gauge, centered in the full-width face */
+    .readout{ margin-top:6px; }
+    .bank{ margin-top:9px; padding-top:9px; row-gap:8px; column-gap:8px; }
+    .bank .knob svg{ width:52px; }                 /* knobs a touch smaller + closer */
+    .knob{ gap:4px; }
+    .bottom{ margin-top:9px; row-gap:9px; }
   }
 </style>
 </head>
@@ -283,7 +318,6 @@
   </div>
 
   <div class="errbar" id="err"></div>
-  <div class="legal">Keep it quiet · not medical care · stop if it causes discomfort</div>
 
   <div class="info" id="info" hidden>
     <h3>How it works</h3>
