@@ -116,6 +116,10 @@
 
   /* locked chart (awaiting prediction) */
   .chart.locked .bar-track,.chart.locked .chart-cap,.chart.locked .grouplabel,.chart.locked .bar-meta{filter:blur(6px);opacity:.45;user-select:none;}
+  /* hard guarantee the data is hidden even where filter blur is unreliable (mobile Safari):
+     keep every locked bar at zero width and hide the numeric values */
+  .chart.locked .bar-fill{width:0 !important;transition:none !important;}
+  .chart.locked .bar-val{visibility:hidden;}
   .chart.locked::after{content:"Predict to reveal the evidence";position:absolute;inset:0;display:grid;place-items:center;
     font-family:var(--sans);font-size:.74rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);
     background:radial-gradient(closest-side,rgba(27,24,19,.5),transparent);}
@@ -372,8 +376,11 @@
   .a11y-fab:hover{background:var(--surface);border-color:var(--muted);}
   .a11y-fab svg{width:20px;height:20px;}
   .a11y-panel{position:fixed;top:4.2rem;right:clamp(1.4rem,6vw,7rem);z-index:60;width:300px;max-width:calc(100vw - 2rem);
+    max-height:calc(100vh - 5.4rem);overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;
     background:var(--surface);border:1px solid var(--hair);border-radius:14px;padding:1.1rem 1.2rem;
     box-shadow:0 24px 60px rgba(0,0,0,.55);display:none;}
+  .a11y-panel::-webkit-scrollbar{width:8px;}
+  .a11y-panel::-webkit-scrollbar-thumb{background:var(--hair);border-radius:8px;}
   .a11y-panel.open{display:block;}
   .a11y-panel h2{font-family:var(--display);font-weight:500;font-size:1.05rem;color:var(--paper);margin-bottom:.2rem;}
   .a11y-panel .ph{font-size:.78rem;color:var(--muted);margin-bottom:.9rem;line-height:1.4;}
@@ -388,7 +395,7 @@
     background:transparent;border:1px solid var(--hair);color:var(--muted);display:grid;place-items:center;}
   .a11y-close:hover{color:var(--paper);}
   .a11y-close svg{width:14px;height:14px;}
-  @media(max-width:860px){.a11y-panel{right:1rem;}}
+  @media(max-width:860px){.a11y-panel{right:1rem;left:1rem;width:auto;top:3.6rem;max-height:calc(100vh - 4.8rem);}}
 
   /* bar value text is always visible (not color-only); add a non-color state marker for predictions */
   .opt .statusmark{margin-left:auto;font-size:.72rem;font-weight:700;letter-spacing:.04em;opacity:0;}
