@@ -211,6 +211,10 @@
 </style>
 </head>
 <body>
+  <!-- Audible output is routed through this real media element (via a MediaStream).
+       iOS only grants background + lock-screen playback to a playing media element. -->
+  <audio id="sink" playsinline webkit-playsinline preload="auto"
+         style="position:absolute;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none"></audio>
   <div class="device" id="device">
     <div class="wood l"></div><div class="wood r"></div>
     <span class="screw tl"></span><span class="screw tr"></span><span class="screw bl"></span><span class="screw br"></span>
@@ -263,7 +267,7 @@
     <h3>Sensory note</h3>
     <p>If you’re sensitive to sound, start with <b>Sensory‑Simple</b> (one steady sound) and add layers only if they help. Layered sound can become overstimulating.</p>
     <h3>Using it well</h3>
-    <p>Set the volume so the sound is almost forgettable, especially overnight — low volume and amber light are easier on sleep. <b>DIM</b> darkens the panel and requests a screen wake‑lock so audio keeps playing through the night on phones.</p>
+    <p>Set the volume so the sound is almost forgettable, especially overnight — low volume and amber light are easier on sleep. Playback continues when you switch apps or lock the phone, and shows up in your lock‑screen controls. <b>DIM</b> darkens the panel for bedside use and keeps the screen awake while it’s on.</p>
     <h3>Safety</h3>
     <p>This is not medical treatment. Stop if you notice distress, headache, ear pain, or agitation. In a mental‑health emergency, contact local emergency services or a crisis line.</p>
   </div>
@@ -419,6 +423,7 @@ const FADES  = [ {l:'FAST',v:8}, {l:'SLOW',v:30}, {l:'GENTLE',v:90} ];
 const state = { master:.30, tone:.20, noise:.70, rain:.22, surf:0, drone:.12, fade:30, timer:0 };
 
 let ctx=null, node=null, masterGain=null, analyser=null, meterBuf=null;
+let streamDest=null, sinkEl=null, elementSink=false;
 let playing=false, dimmed=false, activePreset=null, wakeLock=null;
 let raf=0, endTimer=0, secTimer=0, sessionEnd=0;
 let needleVal=0;
@@ -563,6 +568,7 @@ function applyPreset(key){
   // highlight active preset
   activePreset = key;
   document.querySelectorAll('.preset').forEach(b=> b.setAttribute('aria-pressed', b.dataset.key===key ? 'true':'false'));
+  updateMediaMetadata();
 }
 
 function clearActivePreset(){
@@ -633,31 +639,67 @@ function sendState(){
   }});
 }
 
+// Fallback only: play straight to the speakers (foreground; no background/lock support).
+function routeDirect(){
+  elementSink = false;
+  try{ if(sinkEl){ sinkEl.pause(); sinkEl.srcObject = null; } }catch(_){}
+  try{ if(analyser && ctx){ try{ analyser.disconnect(); }catch(_){} analyser.connect(ctx.destination); } }catch(_){}
+}
+
 async function powerOn(){
   try{
     if(!ctx){ ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint:'playback' }); }
-    // CRITICAL for iOS/Safari: resume synchronously inside the user gesture, BEFORE any await.
+    // ---- everything that establishes the audio session must run SYNCHRONOUSLY, ----
+    // ---- inside the user gesture, BEFORE the first await (iOS/Safari requirement) ----
     const resumed = ctx.resume();
+
     if(!node){
-      // tiny silent buffer to fully unlock audio on mobile
+      // Build the routing graph now, so the media element can start within the gesture.
+      masterGain = ctx.createGain(); masterGain.gain.value = 1;
+      analyser = ctx.createAnalyser(); analyser.fftSize = 1024; analyser.smoothingTimeConstant = 0.7;
+      meterBuf = new Float32Array(analyser.fftSize);
+      masterGain.connect(analyser);
+
+      // PRIMARY audible path: graph -> MediaStream -> <audio> element.
+      // This is what earns background + lock-screen playback on mobile.
+      let routed = false;
+      try{
+        streamDest = ctx.createMediaStreamDestination();
+        analyser.connect(streamDest);
+        sinkEl = $('sink');
+        sinkEl.srcObject = streamDest.stream;
+        sinkEl.muted = false; sinkEl.volume = 1;
+        elementSink = true; routed = true;
+        const pp = sinkEl.play();            // start now (silent until worklet connects)
+        if(pp && pp.catch) pp.catch(()=>{ routeDirect(); });
+      }catch(_){}
+      if(!routed) routeDirect();
+
+      // tiny silent buffer — extra unlock kick for stubborn mobile audio sessions
       try{ const b=ctx.createBuffer(1,1,ctx.sampleRate); const s=ctx.createBufferSource(); s.buffer=b; s.connect(ctx.destination); s.start(0); }catch(_){}
+
+      setupMediaSession();
+
+      // load the DSP worklet (FIRST await — the session is already live by now)
       const blob = new Blob([workletCode], { type:'application/javascript' });
       const url = URL.createObjectURL(blob);
       await ctx.audioWorklet.addModule(url);
       URL.revokeObjectURL(url);
       node = new AudioWorkletNode(ctx, 'peace-processor', { numberOfInputs:0, numberOfOutputs:1, outputChannelCount:[2] });
-      masterGain = ctx.createGain(); masterGain.gain.value = 1;
-      analyser = ctx.createAnalyser(); analyser.fftSize = 1024; analyser.smoothingTimeConstant = 0.7;
-      meterBuf = new Float32Array(analyser.fftSize);
-      node.connect(masterGain); masterGain.connect(analyser); analyser.connect(ctx.destination);
+      node.connect(masterGain);
     }
+
     await resumed;
     if(ctx.state === 'suspended') await ctx.resume();
+    // re-assert element playback in case the OS parked it during the worklet load
+    if(elementSink && sinkEl){ try{ const pp=sinkEl.play(); if(pp&&pp.catch) pp.catch(()=>{}); }catch(_){} }
 
     sendState();
     node.port.postMessage({ type:'start' });
     playing = true;
     $('power').setAttribute('aria-pressed','true');
+    if('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+    updateMediaMetadata();
     scheduleEnd();
     if(dimmed) requestWake();
     // vintage power-on: peg the needle, then settle into real level
@@ -668,13 +710,36 @@ async function powerOn(){
   }
 }
 
+/* ---- Media Session: lock-screen / Control Center controls + keeps the session alive ---- */
+function setupMediaSession(){
+  if(!('mediaSession' in navigator)) return;
+  try{
+    navigator.mediaSession.setActionHandler('play',  ()=>{ if(!playing) powerOn(); });
+    navigator.mediaSession.setActionHandler('pause', ()=>{ if(playing) powerOff(); });
+    navigator.mediaSession.setActionHandler('stop',  ()=>{ if(playing) powerOff(); });
+  }catch(_){}
+  updateMediaMetadata();
+}
+function updateMediaMetadata(){
+  if(!('mediaSession' in navigator) || typeof MediaMetadata === 'undefined') return;
+  const p = activePreset && PRESETS[activePreset];
+  try{
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: p ? p.name : 'PeaceSound',
+      artist: 'PeaceSound · PS‑1',
+      album: 'Sound Conditioner'
+    });
+  }catch(_){}
+}
+
 function powerOff(){
   if(node) node.port.postMessage({ type:'fadeout' });
   clearTimeout(endTimer); clearInterval(secTimer); secTimer=0; sessionEnd=0;
   const ms = (state.fade + 0.4) * 1000;
-  setTimeout(()=>{ try{ if(ctx) ctx.suspend(); }catch(_){} }, ms);
+  setTimeout(()=>{ try{ if(sinkEl) sinkEl.pause(); }catch(_){} try{ if(ctx) ctx.suspend(); }catch(_){} }, ms);
   playing = false;
   $('power').setAttribute('aria-pressed','false');
+  if('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
   releaseWake();
   stopMeter();
   updateReadout();
@@ -765,12 +830,13 @@ $('infoBtn').addEventListener('click', ()=>{
   $('infoBtn').setAttribute('aria-pressed', open?'true':'false');
 });
 
-// resume audio + re-arm wake lock when returning to the tab
+// re-arm audio (context + media element + wake lock) when returning to the tab
 document.addEventListener('visibilitychange', ()=>{
-  if(document.visibilityState==='visible'){
-    if(playing && ctx && ctx.state==='suspended'){ ctx.resume().catch(()=>{}); }
-    if(playing && !dimmed && !raf){ startMeter(); }
-    if(playing && dimmed){ requestWake(); }
+  if(document.visibilityState==='visible' && playing){
+    if(ctx && ctx.state==='suspended'){ ctx.resume().catch(()=>{}); }
+    if(elementSink && sinkEl){ try{ const pp=sinkEl.play(); if(pp&&pp.catch) pp.catch(()=>{}); }catch(_){} }
+    if(!dimmed && !raf){ startMeter(); }
+    if(dimmed){ requestWake(); }
   }
 });
 </script>
