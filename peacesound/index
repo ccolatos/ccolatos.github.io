@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PeaceSound Generator</title>
+<style>
+  :root { color-scheme: dark; --bg:#0c0f14; --panel:#151a22; --text:#eef3f8; --muted:#aeb8c4; --line:#2a3340; --accent:#9fb7ff; --good:#b7f7d2; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background: radial-gradient(circle at top, #182034 0, var(--bg) 42%); color:var(--text); }
+  main { max-width: 920px; margin: 0 auto; padding: 28px 18px 64px; }
+  header { margin-bottom: 22px; }
+  h1 { margin: 0 0 6px; font-size: clamp(2rem, 6vw, 4.3rem); letter-spacing: -0.05em; line-height: .95; }
+  .tagline { color: var(--muted); font-size: 1.06rem; line-height: 1.45; max-width: 760px; }
+  .grid { display:grid; grid-template-columns: 1.1fr .9fr; gap:16px; }
+  @media (max-width: 760px) { .grid { grid-template-columns:1fr; } }
+  .card { background: color-mix(in srgb, var(--panel) 91%, transparent); border: 1px solid var(--line); border-radius: 18px; padding:18px; box-shadow: 0 20px 70px rgb(0 0 0 / .25); backdrop-filter: blur(10px); }
+  .status { display:flex; gap:10px; align-items:center; color:var(--muted); margin-bottom: 16px; }
+  .dot { width:12px; height:12px; border-radius:50%; background:#5c6675; box-shadow: 0 0 0 5px rgba(92,102,117,.15); }
+  .dot.on { background: var(--good); box-shadow: 0 0 0 6px rgba(183,247,210,.14), 0 0 22px rgba(183,247,210,.8); }
+  .controls { display:flex; flex-wrap:wrap; gap:10px; margin: 16px 0 18px; }
+  button, select { appearance:none; border:1px solid var(--line); background:#0f141c; color:var(--text); border-radius:999px; padding: 11px 15px; font-weight: 650; cursor:pointer; }
+  button.primary { background: linear-gradient(135deg, #dfe7ff, #9fb7ff); color:#101522; border: none; }
+  button.stop { background:#25151a; color:#ffd6df; border-color:#60303d; }
+  button:hover, select:hover { filter: brightness(1.12); }
+  .preset { border-radius:14px; text-align:left; padding: 12px 13px; width: 100%; margin-bottom:10px; background:#111721; }
+  .preset strong { display:block; margin-bottom:4px; }
+  .preset span { color:var(--muted); font-weight:500; font-size:.92rem; line-height:1.35; }
+  label { display:block; margin: 14px 0 6px; font-size:.94rem; color:var(--muted); }
+  .row { display:grid; grid-template-columns: 170px 1fr 55px; align-items:center; gap:10px; margin: 10px 0; }
+  @media (max-width: 540px) { .row { grid-template-columns: 1fr; gap:5px; } }
+  input[type="range"] { width:100%; accent-color: var(--accent); }
+  output { font-variant-numeric: tabular-nums; color:var(--muted); text-align:right; }
+  .note { color:var(--muted); font-size:.92rem; line-height:1.45; }
+  .warning { background:#171f2e; border:1px solid #303b52; color:#dbe7ff; padding:12px 13px; border-radius:14px; line-height:1.4; }
+  .science li { margin: 8px 0; color: var(--muted); line-height: 1.38; }
+  .science b { color: var(--text); }
+  details { margin-top: 14px; border-top:1px solid var(--line); padding-top: 12px; }
+  summary { cursor:pointer; font-weight:700; }
+  code { background:#0b0f15; border:1px solid #222b38; border-radius:6px; padding:1px 5px; }
+  footer { color:#7f8b9a; margin-top:18px; font-size:.82rem; line-height:1.4; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>PeaceSound</h1>
+    <p class="tagline">A low-arousal, evidence-informed sound generator for calming, sleep, meditation, and stillness. It combines brown-noise masking, gentle rain texture, and a very low non-melodic drone with long fades and no sudden events.</p>
+  </header>
+
+  <section class="grid">
+    <div class="card">
+      <div class="status"><span id="dot" class="dot"></span><span id="statusText">Stopped</span></div>
+      <div class="controls">
+        <button id="startBtn" class="primary">Start sound</button>
+        <button id="stopBtn" class="stop">Fade out / stop</button>
+        <select id="duration">
+          <option value="0">Continuous</option>
+          <option value="20">20 min calm session</option>
+          <option value="45">45 min meditation</option>
+          <option value="480">8 hour sleep</option>
+        </select>
+      </div>
+
+      <button class="preset" data-preset="sleep"><strong>All-night sleep</strong><span>Deep brown-noise bed, soft rain, barely-there drone. Lowest arousal.</span></button>
+      <button class="preset" data-preset="calm"><strong>Time-of-need calm</strong><span>Brown noise forward for masking, gentle rain, supportive low drone. 20-minute default.</span></button>
+      <button class="preset" data-preset="meditation"><strong>Meditation stillness</strong><span>More stable drone, less rain movement, no beat, no melody.</span></button>
+      <button class="preset" data-preset="autistic"><strong>Sensory-simple</strong><span>Brown noise only. Start here for autistic sound sensitivity or sensory overload.</span></button>
+
+      <div class="row"><label for="master">Master volume</label><input id="master" type="range" min="0" max="100" value="28"><output id="masterOut">28%</output></div>
+      <div class="row"><label for="brown">Brown-noise bed</label><input id="brown" type="range" min="0" max="100" value="72"><output id="brownOut">72%</output></div>
+      <div class="row"><label for="rain">Soft rain texture</label><input id="rain" type="range" min="0" max="100" value="25"><output id="rainOut">25%</output></div>
+      <div class="row"><label for="drone">Low drone</label><input id="drone" type="range" min="0" max="100" value="12"><output id="droneOut">12%</output></div>
+      <div class="row"><label for="fade">Fade time</label><input id="fade" type="range" min="5" max="180" value="45"><output id="fadeOut">45s</output></div>
+
+      <p class="warning"><b>Safe-use target:</b> keep the sound barely present. For overnight use, set your device so the audio is quieter than normal conversation and comfortable enough that you could sleep through it. This app cannot measure dBA.</p>
+    </div>
+
+    <aside class="card">
+      <h2 style="margin-top:0">Design logic</h2>
+      <ul class="science">
+        <li><b>Brown noise:</b> a low-frequency-weighted masking layer, less hissy than white noise.</li>
+        <li><b>Soft rain:</b> an organic, predictable texture. No thunder, birds, bells, insects, voices, or sudden transients.</li>
+        <li><b>Low drone:</b> a stable attentional anchor, kept very quiet for sleep and more present for meditation.</li>
+        <li><b>No miracle frequency claims:</b> pitch is used for comfort, not “DNA repair,” awakening guarantees, or entrainment claims.</li>
+        <li><b>Autistic-first option:</b> the sensory-simple preset starts with one continuous sound only, because layered sound can become overstimulating.</li>
+      </ul>
+      <details>
+        <summary>Technical notes</summary>
+        <p class="note">This uses the Web Audio API and an AudioWorklet for real-time synthesis. The brown layer is generated by leaky Brownian integration and then gently constrained. Rain is filtered, smoothed noise. The drone uses low sine partials with very slow amplitude drift, not binaural beats. A soft limiter prevents accidental digital clipping.</p>
+      </details>
+      <details>
+        <summary>Recommended protocol</summary>
+        <p class="note"><b>First use:</b> start with Sensory-simple for 5 minutes. Add rain only if it feels calming. Add drone last. For sleep, reduce master volume until the sound is almost forgettable.</p>
+      </details>
+    </aside>
+  </section>
+
+  <footer>
+    Not medical treatment. Stop if the sound causes distress, headache, ear pain, agitation, or worsened sensitivity. In a mental-health emergency, contact local emergency services or a crisis line.
+  </footer>
+</main>
+
+<script>
+let ctx, node, gain, timer = null, startedAt = 0;
+let state = { master:.28, brown:.72, rain:.25, drone:.12, fade:45, duration:0 };
+const ids = ['master','brown','rain','drone','fade'];
+const workletCode = `
+class PeaceProcessor extends AudioWorkletProcessor {
+  constructor() {
+    super();
+    this.state = { master:.28, brown:.72, rain:.25, drone:.12, fade:45, ending:false, endStart:0 };
+    this.bL = 0; this.bR = 0;
+    this.prevRainL = 0; this.prevRainR = 0;
+    this.rainSmoothL = 0; this.rainSmoothR = 0;
+    this.rainMod = 0.65;
+    this.t = 0;
+    this.port.onmessage = e => {
+      if (e.data && e.data.type === 'state') Object.assign(this.state, e.data.state);
+      if (e.data && e.data.type === 'fadeout') { this.state.ending = true; this.state.endStart = this.t; }
+      if (e.data && e.data.type === 'resetfade') { this.state.ending = false; }
+    };
+  }
+  rand() { return Math.random() * 2 - 1; }
+  softLimit(x) { return Math.tanh(x * 1.15) / 1.15; }
+  process(inputs, outputs) {
+    const out = outputs[0];
+    const L = out[0], R = out[1] || out[0];
+    const sr = sampleRate;
+    const s = this.state;
+    for (let i=0; i<L.length; i++) {
+      const tt = this.t;
+      // Leaky Brownian noise, decorrelated per channel, low and steady.
+      this.bL = (this.bL + 0.018 * this.rand()) / 1.018;
+      this.bR = (this.bR + 0.018 * this.rand()) / 1.018;
+      const brown = ((this.bL * 2.8) + (this.bR * 2.8)) * 0.5;
+      const stereoBrownL = this.bL * 2.5;
+      const stereoBrownR = this.bR * 2.5;
+
+      // Soft rain: high-frequency component, smoothed and modulated to avoid harsh static.
+      const wL = this.rand(), wR = this.rand();
+      const hpL = wL - this.prevRainL; this.prevRainL = wL * 0.995 + this.prevRainL * 0.005;
+      const hpR = wR - this.prevRainR; this.prevRainR = wR * 0.995 + this.prevRainR * 0.005;
+      this.rainSmoothL += 0.08 * (hpL - this.rainSmoothL);
+      this.rainSmoothR += 0.08 * (hpR - this.rainSmoothR);
+      this.rainMod += 0.00008 * (this.rand() - this.rainMod + 0.65);
+      if (this.rainMod < .35) this.rainMod = .35; if (this.rainMod > .95) this.rainMod = .95;
+      const rainL = this.rainSmoothL * this.rainMod * .42;
+      const rainR = this.rainSmoothR * this.rainMod * .42;
+
+      // Low non-melodic drone: sine partials, very slow amplitude movement, mono-centered.
+      const breathe = 0.82 + 0.18 * Math.sin(2*Math.PI*0.018*tt);
+      const shimmer = 0.94 + 0.06 * Math.sin(2*Math.PI*0.0063*tt + 1.7);
+      const drone = (
+        Math.sin(2*Math.PI*55*tt) * .18 +
+        Math.sin(2*Math.PI*110*tt + .4) * .13 +
+        Math.sin(2*Math.PI*165*tt + 1.1) * .07 +
+        Math.sin(2*Math.PI*220*tt + 2.0) * .035
+      ) * breathe * shimmer;
+
+      let fadeIn = Math.min(1, tt / Math.max(0.001, s.fade));
+      fadeIn = fadeIn * fadeIn * (3 - 2 * fadeIn);
+      let fadeOut = 1;
+      if (s.ending) {
+        const e = (tt - s.endStart) / Math.max(0.001, s.fade);
+        fadeOut = 1 - Math.min(1, e);
+        fadeOut = fadeOut * fadeOut * (3 - 2 * fadeOut);
+      }
+      const amp = s.master * fadeIn * fadeOut * 0.22;
+      const left = (stereoBrownL * s.brown * .75 + brown * s.brown * .25 + rainL * s.rain + drone * s.drone) * amp;
+      const right = (stereoBrownR * s.brown * .75 + brown * s.brown * .25 + rainR * s.rain + drone * s.drone) * amp;
+      L[i] = this.softLimit(left);
+      R[i] = this.softLimit(right);
+      this.t += 1/sr;
+    }
+    return true;
+  }
+}
+registerProcessor('peace-processor', PeaceProcessor);
+`;
+function $(id){ return document.getElementById(id); }
+function updateOutputs(){
+  ids.forEach(id => { $(id+'Out').textContent = $(id).value + (id === 'fade' ? 's' : '%'); });
+}
+function readState(){
+  state = {
+    master: $('master').value/100,
+    brown: $('brown').value/100,
+    rain: $('rain').value/100,
+    drone: $('drone').value/100,
+    fade: Number($('fade').value),
+    duration: Number($('duration').value)
+  };
+  updateOutputs();
+  sendState();
+}
+function setVals(vals){
+  for (const [k,v] of Object.entries(vals)) if ($(k)) $(k).value = v;
+  readState();
+}
+async function start(){
+  if (!ctx) {
+    ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint:'playback' });
+    const blob = new Blob([workletCode], {type:'application/javascript'});
+    await ctx.audioWorklet.addModule(URL.createObjectURL(blob));
+    node = new AudioWorkletNode(ctx, 'peace-processor', { outputChannelCount:[2] });
+    gain = ctx.createGain();
+    gain.gain.value = 1;
+    node.connect(gain).connect(ctx.destination);
+  }
+  if (ctx.state === 'suspended') await ctx.resume();
+  node.port.postMessage({type:'resetfade'});
+  readState();
+  startedAt = performance.now();
+  setOn(true);
+  scheduleEnd();
+}
+function stop(){
+  if (node) node.port.postMessage({type:'fadeout'});
+  clearTimeout(timer);
+  const wait = (Number($('fade').value) + .5) * 1000;
+  setTimeout(() => { if (ctx) ctx.suspend(); setOn(false); }, wait);
+}
+function sendState(){ if (node) node.port.postMessage({type:'state', state}); }
+function scheduleEnd(){
+  clearTimeout(timer);
+  const min = Number($('duration').value);
+  if (min > 0) {
+    const fadeSec = Number($('fade').value);
+    timer = setTimeout(stop, Math.max(1000, (min*60 - fadeSec) * 1000));
+  }
+}
+function setOn(on){
+  $('dot').classList.toggle('on', on);
+  $('statusText').textContent = on ? 'Playing' : 'Stopped';
+}
+ids.forEach(id => $(id).addEventListener('input', readState));
+$('duration').addEventListener('change', () => { readState(); scheduleEnd(); });
+$('startBtn').addEventListener('click', start);
+$('stopBtn').addEventListener('click', stop);
+document.querySelectorAll('.preset').forEach(btn => btn.addEventListener('click', () => {
+  const p = btn.dataset.preset;
+  if (p === 'sleep') setVals({master:28,brown:72,rain:25,drone:12,fade:75});
+  if (p === 'calm') { $('duration').value = '20'; setVals({master:34,brown:76,rain:31,drone:18,fade:45}); }
+  if (p === 'meditation') { $('duration').value = '45'; setVals({master:32,brown:52,rain:18,drone:32,fade:60}); }
+  if (p === 'autistic') setVals({master:24,brown:80,rain:0,drone:0,fade:30});
+}));
+updateOutputs();
+</script>
+</body>
+</html>
