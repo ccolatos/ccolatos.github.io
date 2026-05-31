@@ -149,8 +149,8 @@
     background:linear-gradient(180deg,#0a0c10,#06080b); box-shadow:0 0 0 1px #05070a, 0 3px 8px -4px #000 inset; }
 
   /* ---------- presets ---------- */
-  .presets{ display:grid; grid-template-columns:repeat(3,1fr); gap:9px; align-content:stretch; grid-auto-rows:1fr; }
-  @media (max-width:420px){ .presets{ grid-template-columns:repeat(2,1fr); } }
+  .presets{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:9px; align-content:stretch; grid-auto-rows:1fr; }
+  @media (max-width:420px){ .presets{ grid-template-columns:repeat(2,minmax(0,1fr)); } }
   .preset{ position:relative; text-align:left; cursor:pointer; border:none; border-radius:11px;
     padding:10px 11px 11px 26px; color:var(--ink-dim); font-family:var(--font-label); -webkit-tap-highlight-color:transparent;
     background:linear-gradient(180deg,#23272e,#16191e);
@@ -177,7 +177,7 @@
   .knob svg{ width:clamp(58px,11vw,82px); height:auto; display:block; filter:drop-shadow(0 4px 6px rgba(0,0,0,.5)); }
   .knob:focus-visible svg .ring{ stroke:var(--amber-soft); }
   .knob .klabel{ font-size:.64rem; letter-spacing:.22em; color:var(--ink-dim); text-transform:uppercase; }
-  .knob .knum{ font-family:var(--font-mono); font-size:.66rem; color:var(--amber); opacity:.0; transition:.2s; height:.8em; line-height:1; }
+  .knob .knum{ font-family:var(--font-mono); font-size:.66rem; color:var(--amber); opacity:.0; transition:.2s; height:1em; line-height:1; overflow:visible; }
   .knob.grab .knum, .knob:hover .knum, .knob:focus-visible .knum{ opacity:.9; }
   /* knob graphics */
   .kbody{ fill:url(#kb); }
@@ -255,17 +255,20 @@
 
   /* ---------- fix 1: condense vertical rhythm so it fits one phone screen ---------- */
   @media (max-width:560px){
-    body{ padding:10px 10px 12px; }
-    .faceplate{ padding:14px 4px 12px; }
-    .brandbar{ margin-bottom:9px; }
-    .main{ gap:10px; }
-    .meter{ padding:9px 11px 7px; }
-    .meter .vu{ width:auto; height:138px; max-width:100%; margin:0 auto; }   /* shorter gauge, centered in the full-width face */
-    .readout{ margin-top:6px; }
-    .bank{ margin-top:9px; padding-top:9px; row-gap:8px; column-gap:8px; }
-    .bank .knob svg{ width:52px; }                 /* knobs a touch smaller + closer */
-    .knob{ gap:4px; }
-    .bottom{ margin-top:9px; row-gap:9px; }
+    body{ padding:8px 10px 10px; }
+    .faceplate{ padding:11px 4px 9px; }
+    .brandbar{ margin-bottom:7px; }
+    .main{ gap:8px; }
+    .meter{ padding:8px 11px 6px; }
+    .meter .vu{ width:auto; height:112px; max-width:100%; margin:0 auto; }   /* shorter gauge, centered in the full-width face */
+    .readout{ margin-top:5px; padding:4px; }
+    /* presets: a little tighter so the tallest (4-line) tile is shorter — all tiles equalize to it */
+    .preset{ min-height:68px; padding:8px 10px 8px 22px; }
+    .preset .psub{ margin-top:2px; line-height:1.15; }
+    .bank{ margin-top:7px; padding-top:7px; row-gap:9px; column-gap:8px; }   /* row-gap keeps space under the value readouts */
+    .bank .knob svg{ width:48px; }                 /* knobs a touch smaller + closer */
+    .knob{ gap:3px; }
+    .bottom{ margin-top:8px; row-gap:9px; }
   }
 </style>
 </head>
@@ -321,11 +324,11 @@
 
   <div class="info" id="info" hidden>
     <h3>How it works</h3>
-    <p>The <b>NOISE</b> bed is steady broadband sound that masks disruptive noise; <b>TONE</b> shifts it from deep/brown to balanced/pink. <b>RAIN</b> and <b>SURF</b> add slow, predictable natural texture with no sudden transients. <b>DRONE</b> is a quiet low tone used purely for comfort — no entrainment, binaural, or “miracle frequency” claims.</p>
+    <p>The <b>NOISE</b> bed is steady broadband sound that masks disruptive noise; <b>TONE</b> shifts it from deep/brown to balanced/pink. <b>RAIN</b> and <b>SURF</b> add slow, predictable natural texture with no sudden transients. <b>DRONE</b> is a quiet low tone used purely for comfort, with no entrainment, binaural, or “miracle frequency” claims.</p>
     <h3>Sensory note</h3>
     <p>If you’re sensitive to sound, start with <b>Sensory‑Simple</b> (one steady sound) and add layers only if they help. Layered sound can become overstimulating.</p>
     <h3>Using it well</h3>
-    <p>Set the volume so the sound is almost forgettable, especially overnight — low volume and amber light are easier on sleep. Playback continues when you switch apps or lock the phone, and shows up in your lock‑screen controls. <b>DIM</b> darkens the panel for bedside use and keeps the screen awake while it’s on.</p>
+    <p>Set the volume so the sound is almost forgettable, especially overnight. Low volume and amber light are easier on sleep. Playback continues when you switch apps or lock the phone, and shows up in your lock‑screen controls. <b>DIM</b> darkens the panel for bedside use and keeps the screen awake while it’s on.</p>
     <h3>Safety</h3>
     <p>This is not medical treatment. Stop if you notice distress, headache, ear pain, or agitation. In a mental‑health emergency, contact local emergency services or a crisis line.</p>
   </div>
