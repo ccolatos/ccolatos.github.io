@@ -2,175 +2,385 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>PeaceSound Generator</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0b0d11" />
+<title>PeaceSound · PS‑1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Saira:wght@300;400;500;600&family=Saira+Condensed:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
-  :root { color-scheme: dark; --bg:#0c0f14; --panel:#151a22; --text:#eef3f8; --muted:#aeb8c4; --line:#2a3340; --accent:#9fb7ff; --good:#b7f7d2; }
-  * { box-sizing: border-box; }
-  body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background: radial-gradient(circle at top, #182034 0, var(--bg) 42%); color:var(--text); }
-  main { max-width: 920px; margin: 0 auto; padding: 28px 18px 64px; }
-  header { margin-bottom: 22px; }
-  h1 { margin: 0 0 6px; font-size: clamp(2rem, 6vw, 4.3rem); letter-spacing: -0.05em; line-height: .95; }
-  .tagline { color: var(--muted); font-size: 1.06rem; line-height: 1.45; max-width: 760px; }
-  .grid { display:grid; grid-template-columns: 1.1fr .9fr; gap:16px; }
-  @media (max-width: 760px) { .grid { grid-template-columns:1fr; } }
-  .card { background: color-mix(in srgb, var(--panel) 91%, transparent); border: 1px solid var(--line); border-radius: 18px; padding:18px; box-shadow: 0 20px 70px rgb(0 0 0 / .25); backdrop-filter: blur(10px); }
-  .status { display:flex; gap:10px; align-items:center; color:var(--muted); margin-bottom: 16px; }
-  .dot { width:12px; height:12px; border-radius:50%; background:#5c6675; box-shadow: 0 0 0 5px rgba(92,102,117,.15); }
-  .dot.on { background: var(--good); box-shadow: 0 0 0 6px rgba(183,247,210,.14), 0 0 22px rgba(183,247,210,.8); }
-  .controls { display:flex; flex-wrap:wrap; gap:10px; margin: 16px 0 18px; }
-  button, select { appearance:none; border:1px solid var(--line); background:#0f141c; color:var(--text); border-radius:999px; padding: 11px 15px; font-weight: 650; cursor:pointer; }
-  button.primary { background: linear-gradient(135deg, #dfe7ff, #9fb7ff); color:#101522; border: none; }
-  button.stop { background:#25151a; color:#ffd6df; border-color:#60303d; }
-  button:hover, select:hover { filter: brightness(1.12); }
-  .preset { border-radius:14px; text-align:left; padding: 12px 13px; width: 100%; margin-bottom:10px; background:#111721; }
-  .preset strong { display:block; margin-bottom:4px; }
-  .preset span { color:var(--muted); font-weight:500; font-size:.92rem; line-height:1.35; }
-  label { display:block; margin: 14px 0 6px; font-size:.94rem; color:var(--muted); }
-  .row { display:grid; grid-template-columns: 170px 1fr 55px; align-items:center; gap:10px; margin: 10px 0; }
-  @media (max-width: 540px) { .row { grid-template-columns: 1fr; gap:5px; } }
-  input[type="range"] { width:100%; accent-color: var(--accent); }
-  output { font-variant-numeric: tabular-nums; color:var(--muted); text-align:right; }
-  .note { color:var(--muted); font-size:.92rem; line-height:1.45; }
-  .warning { background:#171f2e; border:1px solid #303b52; color:#dbe7ff; padding:12px 13px; border-radius:14px; line-height:1.4; }
-  .science li { margin: 8px 0; color: var(--muted); line-height: 1.38; }
-  .science b { color: var(--text); }
-  details { margin-top: 14px; border-top:1px solid var(--line); padding-top: 12px; }
-  summary { cursor:pointer; font-weight:700; }
-  code { background:#0b0f15; border:1px solid #222b38; border-radius:6px; padding:1px 5px; }
-  footer { color:#7f8b9a; margin-top:18px; font-size:.82rem; line-height:1.4; }
+  :root{
+    color-scheme: dark;
+    --bg-0:#070809; --bg-1:#14171d;
+    --metal-0:#262a31; --metal-1:#1a1d23; --metal-2:#0f1216;
+    --edge-hi:rgba(255,255,255,.10); --edge-lo:rgba(0,0,0,.65);
+    --wood-0:#6a4326; --wood-1:#4a2e18; --wood-2:#321d0f;
+    --ink:#d8d2c4; --ink-dim:#8c8676;
+    --amber:#ffb35c; --amber-soft:#ffcf9a; --amber-dim:#6f4f2c;
+    --amber-glow:0 0 10px rgba(255,179,92,.55), 0 0 22px rgba(255,179,92,.28);
+    --green:#7fce93; --red:#e2685f;
+    --ivory:#efe6d2;
+    --font-display:'Saira','Helvetica Neue',sans-serif;
+    --font-label:'Saira Condensed','Arial Narrow',sans-serif;
+    --font-mono:'Share Tech Mono',ui-monospace,monospace;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ height:100%; }
+  body{
+    margin:0; min-height:100%;
+    font-family:var(--font-label);
+    color:var(--ink);
+    background:
+      radial-gradient(130% 95% at 50% -12%, #20242c 0%, #0c0f14 55%, var(--bg-0) 100%);
+    -webkit-font-smoothing:antialiased;
+    touch-action:manipulation;
+    display:flex; flex-direction:column; align-items:center;
+    padding:clamp(14px,4vw,40px) 12px 30px;
+  }
+  body::after{ /* film grain */
+    content:""; position:fixed; inset:0; pointer-events:none; z-index:5; opacity:.05; mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  }
+
+  /* ---------- device shell ---------- */
+  .device{
+    position:relative; width:min(860px,100%);
+    border-radius:24px;
+    padding:0 clamp(20px,4.4vw,46px);
+    background:
+      repeating-linear-gradient(90deg, rgba(255,255,255,.012) 0 1px, transparent 1px 3px),
+      linear-gradient(176deg, var(--metal-0) 0%, var(--metal-1) 46%, var(--metal-2) 100%);
+    box-shadow:
+      0 1px 0 var(--edge-hi) inset,
+      0 -2px 0 rgba(0,0,0,.55) inset,
+      0 40px 90px -30px rgba(0,0,0,.85),
+      0 12px 30px -12px rgba(0,0,0,.7);
+    border:1px solid #05070a;
+    transition:opacity .8s ease, filter .8s ease;
+    animation:rise .9s cubic-bezier(.2,.8,.2,1) both;
+  }
+  @keyframes rise{ from{ opacity:0; transform:translateY(18px) scale(.99); } to{ opacity:1; transform:none; } }
+
+  /* walnut end-caps */
+  .wood{ position:absolute; top:0; bottom:0; width:clamp(16px,3.6vw,34px); z-index:2; pointer-events:none;
+    background:
+      repeating-linear-gradient(180deg, rgba(0,0,0,.16) 0 2px, rgba(255,255,255,.02) 2px 5px, transparent 5px 11px),
+      linear-gradient(95deg, var(--wood-0), var(--wood-1) 55%, var(--wood-2));
+    box-shadow: 0 1px 0 rgba(255,255,255,.08) inset, -6px 0 16px -8px rgba(0,0,0,.7) inset;
+  }
+  .wood.l{ left:0; border-radius:24px 6px 6px 24px; box-shadow:0 1px 0 rgba(255,255,255,.08) inset, 7px 0 16px -10px rgba(0,0,0,.85) inset; }
+  .wood.r{ right:0; border-radius:6px 24px 24px 6px; box-shadow:0 1px 0 rgba(255,255,255,.08) inset,-7px 0 16px -10px rgba(0,0,0,.85) inset; }
+
+  .screw{ position:absolute; width:11px; height:11px; border-radius:50%; z-index:3;
+    background:radial-gradient(circle at 35% 30%, #6b6f78, #2b2e34 60%, #14161a);
+    box-shadow:0 1px 1px rgba(0,0,0,.6), 0 0 0 1px rgba(0,0,0,.4) inset; }
+  .screw::after{ content:""; position:absolute; inset:3px; border-radius:1px; background:linear-gradient(90deg,transparent 44%,rgba(0,0,0,.55) 44% 56%,transparent 56%); transform:rotate(28deg); }
+  .screw.tl{ top:11px; left:11px;} .screw.tr{ top:11px; right:11px;}
+  .screw.bl{ bottom:11px; left:11px;} .screw.br{ bottom:11px; right:11px;}
+
+  .faceplate{ position:relative; z-index:1; padding:clamp(18px,3.4vw,30px) 4px clamp(16px,3vw,26px); }
+
+  /* ---------- brand bar ---------- */
+  .brandbar{ display:flex; align-items:flex-start; justify-content:space-between; gap:14px; margin-bottom:clamp(14px,2.6vw,22px); }
+  .wordmark{ font-family:var(--font-display); font-weight:300; letter-spacing:.42em; font-size:clamp(1.15rem,3.2vw,1.7rem);
+    color:var(--ink); text-shadow:0 1px 0 rgba(0,0,0,.6), 0 -1px 0 rgba(255,255,255,.05); padding-left:.4em; }
+  .wordmark b{ font-weight:600; color:var(--amber-soft); text-shadow:var(--amber-glow); }
+  .model{ font-size:.66rem; letter-spacing:.34em; color:var(--ink-dim); margin-top:5px; padding-left:.5em; text-transform:uppercase; }
+
+  .power{ flex:none; display:flex; flex-direction:column; align-items:center; gap:7px; cursor:pointer;
+    background:none; border:none; padding:4px; -webkit-tap-highlight-color:transparent; }
+  .power .knobwell{ width:54px; height:54px; border-radius:50%; display:grid; place-items:center; position:relative;
+    background:radial-gradient(circle at 38% 30%, #34383f, #15181d 64%, #0a0c0f);
+    box-shadow:0 2px 5px rgba(0,0,0,.6), 0 0 0 1px rgba(0,0,0,.6), 0 1px 0 rgba(255,255,255,.07) inset; }
+  .power .led{ width:13px; height:13px; border-radius:50%; background:#2a2d33; box-shadow:0 0 0 1px rgba(0,0,0,.5) inset; transition:.25s; }
+  .power[aria-pressed="true"] .led{ background:var(--amber); box-shadow:0 0 0 1px rgba(0,0,0,.4) inset, 0 0 9px 2px rgba(255,179,92,.85), 0 0 20px 5px rgba(255,179,92,.4); }
+  .power .plabel{ font-size:.6rem; letter-spacing:.26em; color:var(--ink-dim); }
+  .power:hover .knobwell{ filter:brightness(1.1); }
+  .power:active .knobwell{ transform:translateY(1px); }
+
+  /* ---------- main row: meter + presets ---------- */
+  .main{ display:grid; grid-template-columns:300px 1fr; gap:clamp(14px,2.6vw,24px); align-items:stretch; }
+  @media (max-width:680px){ .main{ grid-template-columns:1fr; } }
+
+  .meter{ position:relative; border-radius:14px; padding:14px 14px 10px; overflow:hidden;
+    background:linear-gradient(180deg,#0b0d10,#070809);
+    box-shadow:0 0 0 1px #05070a, 0 6px 16px -8px #000 inset, 0 1px 0 rgba(255,255,255,.05) inset; }
+  .meterface{ position:relative; border-radius:9px; padding:8px 10px 6px;
+    background:radial-gradient(120% 150% at 50% -20%, #fff7ea 0%, var(--ivory) 42%, #d9cdb4 100%);
+    box-shadow:0 0 22px 2px rgba(255,179,92,.18), 0 2px 6px rgba(0,0,0,.6); }
+  .meterface::after{ /* glass */ content:""; position:absolute; inset:0; border-radius:9px; pointer-events:none;
+    background:linear-gradient(150deg, rgba(255,255,255,.55) 0%, rgba(255,255,255,0) 28%, rgba(255,255,255,0) 70%, rgba(255,255,255,.16) 100%); }
+  .vu{ display:block; width:100%; height:auto; }
+  .vu .scale{ stroke:#3a3326; stroke-width:1.4; fill:none; }
+  .vu .tick{ stroke:#2c2618; }
+  .vu .tick.lg{ stroke:#1d1810; stroke-width:2.2; }
+  .vu .tick.sm{ stroke:#5a4f3a; stroke-width:1.2; }
+  .vu .zone-g{ stroke:rgba(46,120,70,.5); }
+  .vu .zone-r{ stroke:rgba(190,60,50,.62); }
+  .vu .needle line{ stroke:#1c150c; stroke-width:2.1; stroke-linecap:round; }
+  .vu .pivot{ fill:#241a0e; }
+  .vu .vutext{ fill:#6e6045; font-family:var(--font-display); font-weight:600; letter-spacing:.18em; }
+  .readout{ margin-top:9px; text-align:center; font-family:var(--font-mono); font-size:1.04rem; letter-spacing:.16em;
+    color:var(--amber); text-shadow:var(--amber-glow); padding:5px; border-radius:7px;
+    background:linear-gradient(180deg,#0a0c10,#06080b); box-shadow:0 0 0 1px #05070a, 0 3px 8px -4px #000 inset; }
+
+  /* ---------- presets ---------- */
+  .presets{ display:grid; grid-template-columns:repeat(3,1fr); gap:9px; align-content:start; }
+  @media (max-width:420px){ .presets{ grid-template-columns:repeat(2,1fr); } }
+  .preset{ position:relative; text-align:left; cursor:pointer; border:none; border-radius:11px;
+    padding:10px 11px 11px 26px; color:var(--ink-dim); font-family:var(--font-label); -webkit-tap-highlight-color:transparent;
+    background:linear-gradient(180deg,#23272e,#16191e);
+    box-shadow:0 1px 0 rgba(255,255,255,.05) inset, 0 -2px 0 rgba(0,0,0,.5) inset, 0 3px 7px -4px #000;
+    transition:.16s; }
+  .preset .dot{ position:absolute; left:11px; top:13px; width:8px; height:8px; border-radius:50%;
+    background:#34383f; box-shadow:0 0 0 1px rgba(0,0,0,.5) inset; transition:.2s; }
+  .preset .pname{ display:block; font-weight:700; font-size:.86rem; letter-spacing:.03em; color:#bcb6a7; line-height:1.1; }
+  .preset .psub{ display:block; font-size:.64rem; letter-spacing:.05em; color:#6c6657; margin-top:3px; line-height:1.2; text-transform:uppercase; }
+  .preset:hover{ filter:brightness(1.12); }
+  .preset[aria-pressed="true"]{ background:linear-gradient(180deg,#191c21,#101317);
+    box-shadow:0 2px 6px -2px #000 inset, 0 0 0 1px rgba(255,179,92,.22); }
+  .preset[aria-pressed="true"] .dot{ background:var(--amber); box-shadow:0 0 8px 1px rgba(255,179,92,.85), 0 0 16px 3px rgba(255,179,92,.35); }
+  .preset[aria-pressed="true"] .pname{ color:var(--amber-soft); }
+
+  /* ---------- knob bank ---------- */
+  .bank{ margin-top:clamp(16px,3vw,26px); padding-top:clamp(14px,2.6vw,20px);
+    border-top:1px solid rgba(0,0,0,.55); box-shadow:0 1px 0 rgba(255,255,255,.04);
+    display:grid; grid-template-columns:repeat(6,1fr); gap:8px; }
+  @media (max-width:560px){ .bank{ grid-template-columns:repeat(3,1fr); row-gap:18px; } }
+  .knob{ display:flex; flex-direction:column; align-items:center; gap:6px; outline:none;
+    touch-action:none; user-select:none; -webkit-user-select:none; cursor:grab; -webkit-tap-highlight-color:transparent; }
+  .knob.grab{ cursor:grabbing; }
+  .knob svg{ width:clamp(58px,11vw,82px); height:auto; display:block; filter:drop-shadow(0 4px 6px rgba(0,0,0,.5)); }
+  .knob:focus-visible svg .ring{ stroke:var(--amber-soft); }
+  .knob .klabel{ font-size:.64rem; letter-spacing:.22em; color:var(--ink-dim); text-transform:uppercase; }
+  .knob .knum{ font-family:var(--font-mono); font-size:.66rem; color:var(--amber); opacity:.0; transition:.2s; height:.8em; line-height:1; }
+  .knob.grab .knum, .knob:hover .knum, .knob:focus-visible .knum{ opacity:.9; }
+  /* knob graphics */
+  .kbody{ fill:url(#kb); }
+  .kring{ fill:none; stroke:#0a0c10; stroke-width:1; }
+  .kcap{ fill:url(#kc); }
+  .knurl{ fill:none; stroke:#000; stroke-width:7; stroke-dasharray:1.4 3.1; opacity:.45; }
+  .ktrack{ fill:none; stroke:rgba(255,255,255,.07); stroke-width:3; stroke-linecap:round; }
+  .kval{ fill:none; stroke:var(--amber); stroke-width:3; stroke-linecap:round; filter:drop-shadow(0 0 4px rgba(255,179,92,.7)); }
+  .kind{ stroke:var(--amber-soft); stroke-width:3; stroke-linecap:round; filter:drop-shadow(0 0 3px rgba(255,179,92,.8)); }
+
+  /* ---------- bottom bar ---------- */
+  .bottom{ margin-top:clamp(16px,3vw,24px); display:flex; flex-wrap:wrap; align-items:center; gap:14px 18px; justify-content:space-between; }
+  .grp{ display:flex; align-items:center; gap:9px; }
+  .grp > .cap{ font-size:.6rem; letter-spacing:.24em; color:var(--ink-dim); text-transform:uppercase; }
+  .seg{ display:inline-flex; padding:3px; border-radius:10px; gap:2px;
+    background:linear-gradient(180deg,#0a0c10,#06080b); box-shadow:0 0 0 1px #05070a, 0 3px 7px -4px #000 inset; }
+  .seg button{ border:none; cursor:pointer; font-family:var(--font-label); font-weight:600; letter-spacing:.08em;
+    font-size:.72rem; color:var(--ink-dim); background:transparent; padding:6px 9px; border-radius:7px; transition:.15s; -webkit-tap-highlight-color:transparent; }
+  .seg button:hover{ color:var(--ink); }
+  .seg button[aria-pressed="true"]{ color:#101317; background:linear-gradient(180deg,var(--amber-soft),var(--amber));
+    box-shadow:0 1px 0 rgba(255,255,255,.4) inset, 0 0 10px rgba(255,179,92,.4); }
+
+  .iconbtn{ width:34px; height:34px; border-radius:9px; display:grid; place-items:center; cursor:pointer; border:none;
+    font-family:var(--font-display); font-weight:600; font-size:.78rem; letter-spacing:.1em; color:var(--ink-dim);
+    background:linear-gradient(180deg,#23272e,#16191e); box-shadow:0 1px 0 rgba(255,255,255,.05) inset,0 -2px 0 rgba(0,0,0,.5) inset,0 3px 7px -4px #000;
+    transition:.15s; -webkit-tap-highlight-color:transparent; }
+  .iconbtn:hover{ filter:brightness(1.14); color:var(--ink); }
+  .iconbtn[aria-pressed="true"]{ color:var(--amber-soft); box-shadow:0 2px 6px -2px #000 inset,0 0 0 1px rgba(255,179,92,.3); }
+
+  .legal{ margin-top:18px; font-size:.62rem; letter-spacing:.16em; color:#5a5648; text-transform:uppercase; text-align:center; }
+
+  /* ---------- info panel ---------- */
+  .info{ width:min(860px,100%); margin-top:12px; border-radius:16px; padding:18px 20px;
+    background:linear-gradient(176deg,#191c21,#101317); border:1px solid #06080b;
+    box-shadow:0 1px 0 rgba(255,255,255,.05) inset, 0 18px 40px -24px #000;
+    font-family:var(--font-display); font-weight:300; color:#b7b1a3; line-height:1.5; font-size:.84rem; }
+  .info[hidden]{ display:none; }
+  .info h3{ font-family:var(--font-label); font-weight:700; letter-spacing:.16em; text-transform:uppercase; font-size:.72rem;
+    color:var(--amber-soft); margin:0 0 4px; }
+  .info p{ margin:0 0 12px; } .info p:last-child{ margin-bottom:0; }
+  .info b{ color:var(--ink); font-weight:500; }
+
+  /* ---------- dimmed / bedside mode ---------- */
+  .device.dim{ filter:brightness(.34) saturate(.7); }
+  .device.dim .readout{ opacity:.5; }
+  .device.dim, .device.dim *{ transition:filter .9s ease, opacity .9s ease; }
+
+  .errbar{ width:min(860px,100%); margin-top:12px; padding:11px 14px; border-radius:12px; display:none;
+    background:#241317; border:1px solid #5a2730; color:#ffd6db; font-size:.8rem; letter-spacing:.04em; font-family:var(--font-display); }
+
+  @media (prefers-reduced-motion:reduce){
+    .device{ animation:none; }
+    *{ transition-duration:.01ms !important; }
+  }
 </style>
 </head>
 <body>
-<main>
-  <header>
-    <h1>PeaceSound</h1>
-    <p class="tagline">A low-arousal, evidence-informed sound generator for calming, sleep, meditation, and stillness. It combines brown-noise masking, gentle rain texture, and a very low non-melodic drone with long fades and no sudden events.</p>
-  </header>
+  <div class="device" id="device">
+    <div class="wood l"></div><div class="wood r"></div>
+    <span class="screw tl"></span><span class="screw tr"></span><span class="screw bl"></span><span class="screw br"></span>
 
-  <section class="grid">
-    <div class="card">
-      <div class="status"><span id="dot" class="dot"></span><span id="statusText">Stopped</span></div>
-      <div class="controls">
-        <button id="startBtn" class="primary">Start sound</button>
-        <button id="stopBtn" class="stop">Fade out / stop</button>
-        <select id="duration">
-          <option value="0">Continuous</option>
-          <option value="20">20 min calm session</option>
-          <option value="45">45 min meditation</option>
-          <option value="480">8 hour sleep</option>
-        </select>
+    <div class="faceplate">
+      <div class="brandbar">
+        <div>
+          <div class="wordmark">PEACE<b>SOUND</b></div>
+          <div class="model">Model PS‑1 · Sound Conditioner</div>
+        </div>
+        <button class="power" id="power" aria-pressed="false" aria-label="Power on / fade out">
+          <span class="knobwell"><span class="led"></span></span>
+          <span class="plabel">POWER</span>
+        </button>
       </div>
 
-      <button class="preset" data-preset="sleep"><strong>All-night sleep</strong><span>Deep brown-noise bed, soft rain, barely-there drone. Lowest arousal.</span></button>
-      <button class="preset" data-preset="calm"><strong>Time-of-need calm</strong><span>Brown noise forward for masking, gentle rain, supportive low drone. 20-minute default.</span></button>
-      <button class="preset" data-preset="meditation"><strong>Meditation stillness</strong><span>More stable drone, less rain movement, no beat, no melody.</span></button>
-      <button class="preset" data-preset="autistic"><strong>Sensory-simple</strong><span>Brown noise only. Start here for autistic sound sensitivity or sensory overload.</span></button>
+      <div class="main">
+        <div class="meter">
+          <div class="meterface">
+            <svg class="vu" id="vu" viewBox="0 0 300 168" role="img" aria-label="Output level meter"></svg>
+          </div>
+          <div class="readout" id="readout">CONT</div>
+        </div>
+        <div class="presets" id="presets"></div>
+      </div>
 
-      <div class="row"><label for="master">Master volume</label><input id="master" type="range" min="0" max="100" value="28"><output id="masterOut">28%</output></div>
-      <div class="row"><label for="brown">Brown-noise bed</label><input id="brown" type="range" min="0" max="100" value="72"><output id="brownOut">72%</output></div>
-      <div class="row"><label for="rain">Soft rain texture</label><input id="rain" type="range" min="0" max="100" value="25"><output id="rainOut">25%</output></div>
-      <div class="row"><label for="drone">Low drone</label><input id="drone" type="range" min="0" max="100" value="12"><output id="droneOut">12%</output></div>
-      <div class="row"><label for="fade">Fade time</label><input id="fade" type="range" min="5" max="180" value="45"><output id="fadeOut">45s</output></div>
+      <div class="bank" id="bank"></div>
 
-      <p class="warning"><b>Safe-use target:</b> keep the sound barely present. For overnight use, set your device so the audio is quieter than normal conversation and comfortable enough that you could sleep through it. This app cannot measure dBA.</p>
+      <div class="bottom">
+        <div class="grp">
+          <span class="cap">Timer</span>
+          <div class="seg" id="timer" role="group" aria-label="Session timer"></div>
+        </div>
+        <div class="grp">
+          <span class="cap">Fade</span>
+          <div class="seg" id="fade" role="group" aria-label="Fade length"></div>
+          <button class="iconbtn" id="dim" aria-pressed="false" title="Bedside dim (keeps screen awake while playing)">DIM</button>
+          <button class="iconbtn" id="infoBtn" aria-pressed="false" aria-label="About this sound" title="About">i</button>
+        </div>
+      </div>
     </div>
+  </div>
 
-    <aside class="card">
-      <h2 style="margin-top:0">Design logic</h2>
-      <ul class="science">
-        <li><b>Brown noise:</b> a low-frequency-weighted masking layer, less hissy than white noise.</li>
-        <li><b>Soft rain:</b> an organic, predictable texture. No thunder, birds, bells, insects, voices, or sudden transients.</li>
-        <li><b>Low drone:</b> a stable attentional anchor, kept very quiet for sleep and more present for meditation.</li>
-        <li><b>No miracle frequency claims:</b> pitch is used for comfort, not “DNA repair,” awakening guarantees, or entrainment claims.</li>
-        <li><b>Autistic-first option:</b> the sensory-simple preset starts with one continuous sound only, because layered sound can become overstimulating.</li>
-      </ul>
-      <details>
-        <summary>Technical notes</summary>
-        <p class="note">This uses the Web Audio API and an AudioWorklet for real-time synthesis. The brown layer is generated by leaky Brownian integration and then gently constrained. Rain is filtered, smoothed noise. The drone uses low sine partials with very slow amplitude drift, not binaural beats. A soft limiter prevents accidental digital clipping.</p>
-      </details>
-      <details>
-        <summary>Recommended protocol</summary>
-        <p class="note"><b>First use:</b> start with Sensory-simple for 5 minutes. Add rain only if it feels calming. Add drone last. For sleep, reduce master volume until the sound is almost forgettable.</p>
-      </details>
-    </aside>
-  </section>
+  <div class="errbar" id="err"></div>
+  <div class="legal">Keep it quiet · not medical care · stop if it causes discomfort</div>
 
-  <footer>
-    Not medical treatment. Stop if the sound causes distress, headache, ear pain, agitation, or worsened sensitivity. In a mental-health emergency, contact local emergency services or a crisis line.
-  </footer>
-</main>
+  <div class="info" id="info" hidden>
+    <h3>How it works</h3>
+    <p>The <b>NOISE</b> bed is steady broadband sound that masks disruptive noise; <b>TONE</b> shifts it from deep/brown to balanced/pink. <b>RAIN</b> and <b>SURF</b> add slow, predictable natural texture with no sudden transients. <b>DRONE</b> is a quiet low tone used purely for comfort — no entrainment, binaural, or “miracle frequency” claims.</p>
+    <h3>Sensory note</h3>
+    <p>If you’re sensitive to sound, start with <b>Sensory‑Simple</b> (one steady sound) and add layers only if they help. Layered sound can become overstimulating.</p>
+    <h3>Using it well</h3>
+    <p>Set the volume so the sound is almost forgettable, especially overnight — low volume and amber light are easier on sleep. <b>DIM</b> darkens the panel and requests a screen wake‑lock so audio keeps playing through the night on phones.</p>
+    <h3>Safety</h3>
+    <p>This is not medical treatment. Stop if you notice distress, headache, ear pain, or agitation. In a mental‑health emergency, contact local emergency services or a crisis line.</p>
+  </div>
 
 <script>
-let ctx, node, gain, timer = null, startedAt = 0;
-let state = { master:.28, brown:.72, rain:.25, drone:.12, fade:45, duration:0 };
-const ids = ['master','brown','rain','drone','fade'];
+"use strict";
+
+/* =========================================================================
+   AUDIO ENGINE — single AudioWorklet, all layers synthesised in real time.
+   ========================================================================= */
 const workletCode = `
 class PeaceProcessor extends AudioWorkletProcessor {
-  constructor() {
+  constructor(){
     super();
-    this.state = { master:.28, brown:.72, rain:.25, drone:.12, fade:45, ending:false, endStart:0 };
-    this.bL = 0; this.bR = 0;
-    this.prevRainL = 0; this.prevRainR = 0;
-    this.rainSmoothL = 0; this.rainSmoothR = 0;
-    this.rainMod = 0.65;
-    this.t = 0;
-    this.port.onmessage = e => {
-      if (e.data && e.data.type === 'state') Object.assign(this.state, e.data.state);
-      if (e.data && e.data.type === 'fadeout') { this.state.ending = true; this.state.endStart = this.t; }
-      if (e.data && e.data.type === 'resetfade') { this.state.ending = false; }
+    this.p  = { master:0,   tone:0.2, noise:0.7, rain:0.2, surf:0, drone:0.12, fade:30 };
+    this.tp = { master:0.3, tone:0.2, noise:0.7, rain:0.2, surf:0, drone:0.12, fade:30 };
+    this.t=0; this.started=false; this.startT=0; this.ending=false; this.endStart=0;
+    // pink (Kellet) state, L = pk[0..6], R = pk[7..13]
+    this.pk = new Float64Array(14);
+    this.darkL=0; this.darkR=0;
+    // rain
+    this.rlpL=0; this.rlpR=0; this.rhpL=0; this.rhpR=0; this.renv=0.7;
+    // surf
+    this.surfPhase=0; this.surfPeriod=10; this.surfLpL=0; this.surfLpR=0; this.surfEnv=0;
+    // dc blockers
+    this.dcInL=0; this.dcOutL=0; this.dcInR=0; this.dcOutR=0;
+    this.port.onmessage = (e) => {
+      const d = e.data; if(!d) return;
+      if(d.type==='state'){ Object.assign(this.tp, d.state); }
+      else if(d.type==='fadeout'){ this.ending=true; this.endStart=this.t; }
+      else if(d.type==='start'){ this.started=true; this.startT=this.t; this.ending=false; }
     };
   }
-  rand() { return Math.random() * 2 - 1; }
-  softLimit(x) { return Math.tanh(x * 1.15) / 1.15; }
-  process(inputs, outputs) {
-    const out = outputs[0];
-    const L = out[0], R = out[1] || out[0];
-    const sr = sampleRate;
-    const s = this.state;
-    for (let i=0; i<L.length; i++) {
-      const tt = this.t;
-      // Leaky Brownian noise, decorrelated per channel, low and steady.
-      this.bL = (this.bL + 0.018 * this.rand()) / 1.018;
-      this.bR = (this.bR + 0.018 * this.rand()) / 1.018;
-      const brown = ((this.bL * 2.8) + (this.bR * 2.8)) * 0.5;
-      const stereoBrownL = this.bL * 2.5;
-      const stereoBrownR = this.bR * 2.5;
+  rnd(){ return Math.random()*2-1; }
+  process(inputs, outputs){
+    const out = outputs[0]; const L = out[0]; const R = out[1] || out[0];
+    const n = L.length; const sr = sampleRate;
+    const p = this.p, tp = this.tp; const sm = 0.0025;
+    const k = this.pk;
+    for(let i=0;i<n;i++){
+      p.master += (tp.master-p.master)*sm;
+      p.tone   += (tp.tone  -p.tone )*sm;
+      p.noise  += (tp.noise -p.noise)*sm;
+      p.rain   += (tp.rain  -p.rain )*sm;
+      p.surf   += (tp.surf  -p.surf )*sm;
+      p.drone  += (tp.drone -p.drone)*sm;
+      p.fade = tp.fade;
+      const t = this.t;
 
-      // Soft rain: high-frequency component, smoothed and modulated to avoid harsh static.
-      const wL = this.rand(), wR = this.rand();
-      const hpL = wL - this.prevRainL; this.prevRainL = wL * 0.995 + this.prevRainL * 0.005;
-      const hpR = wR - this.prevRainR; this.prevRainR = wR * 0.995 + this.prevRainR * 0.005;
-      this.rainSmoothL += 0.08 * (hpL - this.rainSmoothL);
-      this.rainSmoothR += 0.08 * (hpR - this.rainSmoothR);
-      this.rainMod += 0.00008 * (this.rand() - this.rainMod + 0.65);
-      if (this.rainMod < .35) this.rainMod = .35; if (this.rainMod > .95) this.rainMod = .95;
-      const rainL = this.rainSmoothL * this.rainMod * .42;
-      const rainR = this.rainSmoothR * this.rainMod * .42;
+      const wL = this.rnd(), wR = this.rnd();
 
-      // Low non-melodic drone: sine partials, very slow amplitude movement, mono-centered.
-      const breathe = 0.82 + 0.18 * Math.sin(2*Math.PI*0.018*tt);
-      const shimmer = 0.94 + 0.06 * Math.sin(2*Math.PI*0.0063*tt + 1.7);
+      // ---- pink noise (Paul Kellet), per channel for a wide, non-fatiguing field ----
+      k[0]=0.99886*k[0]+wL*0.0555179; k[1]=0.99332*k[1]+wL*0.0750759; k[2]=0.96900*k[2]+wL*0.1538520;
+      k[3]=0.86650*k[3]+wL*0.3104856; k[4]=0.55000*k[4]+wL*0.5329522; k[5]=-0.7616*k[5]-wL*0.0168980;
+      let pinkL=(k[0]+k[1]+k[2]+k[3]+k[4]+k[5]+k[6]+wL*0.5362)*0.5; k[6]=wL*0.115926;
+      k[7]=0.99886*k[7]+wR*0.0555179; k[8]=0.99332*k[8]+wR*0.0750759; k[9]=0.96900*k[9]+wR*0.1538520;
+      k[10]=0.86650*k[10]+wR*0.3104856; k[11]=0.55000*k[11]+wR*0.5329522; k[12]=-0.7616*k[12]-wR*0.0168980;
+      let pinkR=(k[7]+k[8]+k[9]+k[10]+k[11]+k[12]+k[13]+wR*0.5362)*0.5; k[13]=wR*0.115926;
+
+      // ---- tone morph: dark (low-passed pink ~ brown) <-> balanced pink. Never harsh white. ----
+      this.darkL += 0.045*(pinkL - this.darkL);
+      this.darkR += 0.045*(pinkR - this.darkR);
+      const tn = p.tone;
+      const noiseL = this.darkL*1.7*(1-tn) + pinkL*tn;
+      const noiseR = this.darkR*1.7*(1-tn) + pinkR*tn;
+
+      // ---- rain: high band of white, softened, amplitude-modulated, no droplet transients ----
+      this.rlpL += 0.55*(wL - this.rlpL); const rhL = wL - this.rlpL;
+      this.rlpR += 0.55*(wR - this.rlpR); const rhR = wR - this.rlpR;
+      this.rhpL += 0.35*(rhL - this.rhpL);
+      this.rhpR += 0.35*(rhR - this.rhpR);
+      this.renv += 0.00006*((this.rnd()*0.25 + 0.78) - this.renv);
+      if(this.renv<0.45) this.renv=0.45; if(this.renv>1.0) this.renv=1.0;
+      const rainL = this.rhpL*this.renv*0.95;
+      const rainR = this.rhpR*this.renv*0.95;
+
+      // ---- surf: low-mid wash modulated by a slow, slightly random wave swell ----
+      this.surfPhase += 1/(sr*this.surfPeriod);
+      if(this.surfPhase>=1){ this.surfPhase-=1; this.surfPeriod = 8 + Math.random()*5; }
+      const ph = this.surfPhase; let swell;
+      if(ph<0.62){ const x=ph/0.62; swell=x*x*(3-2*x); }
+      else { const x=1-(ph-0.62)/0.38; swell=x*x*(3-2*x); }
+      this.surfEnv += 0.02*(swell - this.surfEnv);
+      this.surfLpL += 0.06*(wL - this.surfLpL);
+      this.surfLpR += 0.06*(wR - this.surfLpR);
+      const foam = Math.max(0, this.surfEnv-0.55)*1.4;
+      const surfL = (this.surfLpL*2.7 + this.rhpL*foam*0.5)*this.surfEnv;
+      const surfR = (this.surfLpR*2.7 + this.rhpR*foam*0.5)*this.surfEnv;
+
+      // ---- drone: low partials, very slow amplitude breathing, mono-centred ----
+      const breathe = 0.82 + 0.18*Math.sin(2*Math.PI*0.016*t);
+      const shimmer = 0.95 + 0.05*Math.sin(2*Math.PI*0.0061*t + 1.7);
       const drone = (
-        Math.sin(2*Math.PI*55*tt) * .18 +
-        Math.sin(2*Math.PI*110*tt + .4) * .13 +
-        Math.sin(2*Math.PI*165*tt + 1.1) * .07 +
-        Math.sin(2*Math.PI*220*tt + 2.0) * .035
+        Math.sin(2*Math.PI*55*t)*0.20 +
+        Math.sin(2*Math.PI*82.5*t + 0.5)*0.09 +
+        Math.sin(2*Math.PI*110*t + 0.4)*0.12 +
+        Math.sin(2*Math.PI*165*t + 1.1)*0.05
       ) * breathe * shimmer;
 
-      let fadeIn = Math.min(1, tt / Math.max(0.001, s.fade));
-      fadeIn = fadeIn * fadeIn * (3 - 2 * fadeIn);
-      let fadeOut = 1;
-      if (s.ending) {
-        const e = (tt - s.endStart) / Math.max(0.001, s.fade);
-        fadeOut = 1 - Math.min(1, e);
-        fadeOut = fadeOut * fadeOut * (3 - 2 * fadeOut);
-      }
-      const amp = s.master * fadeIn * fadeOut * 0.22;
-      const left = (stereoBrownL * s.brown * .75 + brown * s.brown * .25 + rainL * s.rain + drone * s.drone) * amp;
-      const right = (stereoBrownR * s.brown * .75 + brown * s.brown * .25 + rainR * s.rain + drone * s.drone) * amp;
-      L[i] = this.softLimit(left);
-      R[i] = this.softLimit(right);
+      // ---- mix + fades ----
+      let mixL = noiseL*p.noise + rainL*p.rain + surfL*p.surf + drone*p.drone;
+      let mixR = noiseR*p.noise + rainR*p.rain + surfR*p.surf + drone*p.drone;
+
+      let fIn = 1;
+      if(this.started){ fIn = Math.min(1,(t-this.startT)/Math.max(0.001,p.fade)); fIn = fIn*fIn*(3-2*fIn); }
+      let fOut = 1;
+      if(this.ending){ const e=(t-this.endStart)/Math.max(0.001,p.fade); fOut = 1-Math.min(1,e); fOut = fOut*fOut*(3-2*fOut); }
+      const amp = p.master * fIn * fOut * 0.45;
+      mixL *= amp; mixR *= amp;
+
+      // dc block
+      const oL = mixL - this.dcInL + 0.999*this.dcOutL; this.dcInL = mixL; this.dcOutL = oL;
+      const oR = mixR - this.dcInR + 0.999*this.dcOutR; this.dcInR = mixR; this.dcOutR = oR;
+
+      // soft limiter
+      L[i] = Math.tanh(oL*1.1)/1.1;
+      R[i] = Math.tanh(oR*1.1)/1.1;
       this.t += 1/sr;
     }
     return true;
@@ -178,74 +388,391 @@ class PeaceProcessor extends AudioWorkletProcessor {
 }
 registerProcessor('peace-processor', PeaceProcessor);
 `;
-function $(id){ return document.getElementById(id); }
-function updateOutputs(){
-  ids.forEach(id => { $(id+'Out').textContent = $(id).value + (id === 'fade' ? 's' : '%'); });
+
+/* =========================================================================
+   STATE + DATA
+   ========================================================================= */
+const KNOBS = [
+  { id:'master', label:'Volume', def:0.30 },
+  { id:'tone',   label:'Tone',   def:0.20 },
+  { id:'noise',  label:'Noise',  def:0.70 },
+  { id:'rain',   label:'Rain',   def:0.22 },
+  { id:'surf',   label:'Surf',   def:0.00 },
+  { id:'drone',  label:'Drone',  def:0.12 },
+];
+
+const PRESETS = {
+  sleep:    { name:'All‑Night Sleep', sub:'deep mask + faint rain', master:.30, tone:.16, noise:.74, rain:.20, surf:0,   drone:.10, fade:90, timer:480 },
+  deeprest: { name:'Deep Rest',       sub:'pure dark noise',        master:.30, tone:.06, noise:.84, rain:0,   surf:0,   drone:.06, fade:90, timer:480 },
+  rainfall: { name:'Rainfall',        sub:'steady soft rain',       master:.34, tone:.32, noise:.40, rain:.62, surf:0,   drone:0,   fade:30, timer:0 },
+  ocean:    { name:'Serenity',        sub:'slow rolling waves',     master:.34, tone:.22, noise:.30, rain:0,   surf:.66, drone:.06, fade:30, timer:0 },
+  storm:    { name:'Distant Storm',   sub:'rain + rolling surf',    master:.32, tone:.14, noise:.46, rain:.40, surf:.46, drone:.14, fade:30, timer:0 },
+  meditate: { name:'Meditation',      sub:'stable low drone',       master:.32, tone:.18, noise:.42, rain:.12, surf:0,   drone:.40, fade:90, timer:45 },
+  stillness:{ name:'Stillness',       sub:'barely‑there hum',       master:.26, tone:.20, noise:.30, rain:0,   surf:0,   drone:.30, fade:90, timer:0 },
+  focus:    { name:'Focus Mask',      sub:'balanced steady noise',  master:.40, tone:.46, noise:.78, rain:0,   surf:0,   drone:0,   fade:8,  timer:0 },
+  simple:   { name:'Sensory‑Simple',  sub:'one calm sound only',    master:.26, tone:.14, noise:.80, rain:0,   surf:0,   drone:0,   fade:30, timer:0 },
+};
+
+const TIMERS = [ {l:'CONT',v:0}, {l:'20m',v:20}, {l:'45m',v:45}, {l:'1h',v:60}, {l:'8h',v:480} ];
+const FADES  = [ {l:'FAST',v:8}, {l:'SLOW',v:30}, {l:'GENTLE',v:90} ];
+
+const state = { master:.30, tone:.20, noise:.70, rain:.22, surf:0, drone:.12, fade:30, timer:0 };
+
+let ctx=null, node=null, masterGain=null, analyser=null, meterBuf=null;
+let playing=false, dimmed=false, activePreset=null, wakeLock=null;
+let raf=0, endTimer=0, secTimer=0, sessionEnd=0;
+let needleVal=0;
+const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+
+const $ = id => document.getElementById(id);
+
+/* =========================================================================
+   GEOMETRY HELPERS  (deg measured from vertical "up"; clockwise positive)
+   ========================================================================= */
+function vpos(cx,cy,r,deg){ const a=deg*Math.PI/180; return [cx + r*Math.sin(a), cy - r*Math.cos(a)]; }
+function vArc(cx,cy,r,d0,d1){
+  if(Math.abs(d1-d0) < 0.01) d1 = d0 + 0.01;
+  const [x0,y0]=vpos(cx,cy,r,d0); const [x1,y1]=vpos(cx,cy,r,d1);
+  const large = Math.abs(d1-d0) > 180 ? 1 : 0;
+  return `M ${x0.toFixed(2)} ${y0.toFixed(2)} A ${r} ${r} 0 ${large} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`;
 }
-function readState(){
-  state = {
-    master: $('master').value/100,
-    brown: $('brown').value/100,
-    rain: $('rain').value/100,
-    drone: $('drone').value/100,
-    fade: Number($('fade').value),
-    duration: Number($('duration').value)
-  };
-  updateOutputs();
+const SVGNS = 'http://www.w3.org/2000/svg';
+function el(tag, attrs){ const e=document.createElementNS(SVGNS, tag); for(const k in attrs) e.setAttribute(k, attrs[k]); return e; }
+
+/* =========================================================================
+   BUILD: KNOBS
+   ========================================================================= */
+const knobRefs = {};
+function buildKnobs(){
+  const bank = $('bank');
+  KNOBS.forEach(cfg => {
+    const wrap = document.createElement('div');
+    wrap.className = 'knob'; wrap.tabIndex = 0;
+    wrap.setAttribute('role','slider');
+    wrap.setAttribute('aria-label', cfg.label);
+    wrap.setAttribute('aria-valuemin','0'); wrap.setAttribute('aria-valuemax','100');
+
+    const svg = el('svg', { viewBox:'0 0 120 120' });
+    // defs (gradients) — one set is enough but harmless per-knob; keep ids unique
+    const defs = el('defs', {});
+    const gb = el('radialGradient', { id:'kb_'+cfg.id, cx:'38%', cy:'30%', r:'75%' });
+    gb.appendChild(el('stop',{offset:'0%','stop-color':'#3a3f47'}));
+    gb.appendChild(el('stop',{offset:'58%','stop-color':'#23272d'}));
+    gb.appendChild(el('stop',{offset:'100%','stop-color':'#0d0f13'}));
+    const gc = el('radialGradient', { id:'kc_'+cfg.id, cx:'42%', cy:'32%', r:'70%' });
+    gc.appendChild(el('stop',{offset:'0%','stop-color':'#43484f'}));
+    gc.appendChild(el('stop',{offset:'100%','stop-color':'#1b1e23'}));
+    defs.appendChild(gb); defs.appendChild(gc); svg.appendChild(defs);
+
+    svg.appendChild(el('path',{ class:'ktrack', d: vArc(60,60,50,-135,135) }));
+    const val = el('path',{ class:'kval', d: vArc(60,60,50,-135,-135) });
+    svg.appendChild(val);
+    svg.appendChild(el('circle',{ class:'kbody ring', cx:60, cy:60, r:39, fill:`url(#kb_${cfg.id})`, stroke:'#0a0c10', 'stroke-width':1 }));
+    svg.appendChild(el('circle',{ class:'knurl', cx:60, cy:60, r:39 }));
+    svg.appendChild(el('circle',{ class:'kcap', cx:60, cy:60, r:30, fill:`url(#kc_${cfg.id})` }));
+    const ind = el('g', { class:'indg' });
+    ind.appendChild(el('line',{ class:'kind', x1:60, y1:22, x2:60, y2:35 }));
+    svg.appendChild(ind);
+
+    const label = document.createElement('div'); label.className='klabel'; label.textContent=cfg.label;
+    const num = document.createElement('div'); num.className='knum';
+
+    wrap.appendChild(svg); wrap.appendChild(label); wrap.appendChild(num);
+    bank.appendChild(wrap);
+
+    knobRefs[cfg.id] = { wrap, val, ind, num, def:cfg.def };
+    attachKnob(wrap, cfg);
+    updateKnob(cfg.id);
+  });
+}
+
+function updateKnob(id){
+  const r = knobRefs[id]; const v = state[id];
+  const ang = -135 + v*270;
+  r.ind.setAttribute('transform', `rotate(${ang.toFixed(2)} 60 60)`);
+  r.val.setAttribute('d', vArc(60,60,50,-135,ang));
+  r.num.textContent = Math.round(v*100);
+  r.wrap.setAttribute('aria-valuenow', Math.round(v*100));
+}
+
+function setKnob(id, v, userAction){
+  v = Math.max(0, Math.min(1, v));
+  state[id] = v;
+  updateKnob(id);
+  if(userAction) clearActivePreset();
   sendState();
 }
-function setVals(vals){
-  for (const [k,v] of Object.entries(vals)) if ($(k)) $(k).value = v;
-  readState();
+
+function attachKnob(wrap, cfg){
+  let dragging=false, startY=0, startVal=0, fine=false;
+  const sens = 1/240;
+  wrap.addEventListener('pointerdown', e=>{
+    dragging=true; startY=e.clientY; startVal=state[cfg.id]; fine=e.shiftKey;
+    wrap.classList.add('grab'); try{ wrap.setPointerCapture(e.pointerId);}catch(_){} e.preventDefault();
+  });
+  wrap.addEventListener('pointermove', e=>{
+    if(!dragging) return;
+    const dy = startY - e.clientY;
+    setKnob(cfg.id, startVal + dy*sens*(fine?0.25:1), true);
+    e.preventDefault();
+  });
+  const end = e=>{ if(dragging){ dragging=false; wrap.classList.remove('grab'); try{ wrap.releasePointerCapture(e.pointerId);}catch(_){} } };
+  wrap.addEventListener('pointerup', end);
+  wrap.addEventListener('pointercancel', end);
+  wrap.addEventListener('lostpointercapture', ()=>{ dragging=false; wrap.classList.remove('grab'); });
+  wrap.addEventListener('wheel', e=>{ e.preventDefault(); setKnob(cfg.id, state[cfg.id] + (e.deltaY<0?0.03:-0.03), true); }, {passive:false});
+  wrap.addEventListener('dblclick', ()=> setKnob(cfg.id, cfg.def, true));
+  wrap.addEventListener('keydown', e=>{
+    let d=0; const s=0.02;
+    if(e.key==='ArrowUp'||e.key==='ArrowRight') d=s;
+    else if(e.key==='ArrowDown'||e.key==='ArrowLeft') d=-s;
+    else if(e.key==='PageUp') d=0.1;
+    else if(e.key==='PageDown') d=-0.1;
+    else if(e.key==='Home'){ setKnob(cfg.id,0,true); e.preventDefault(); return; }
+    else if(e.key==='End'){ setKnob(cfg.id,1,true); e.preventDefault(); return; }
+    else return;
+    setKnob(cfg.id, state[cfg.id]+d, true); e.preventDefault();
+  });
 }
-async function start(){
-  if (!ctx) {
-    ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint:'playback' });
-    const blob = new Blob([workletCode], {type:'application/javascript'});
-    await ctx.audioWorklet.addModule(URL.createObjectURL(blob));
-    node = new AudioWorkletNode(ctx, 'peace-processor', { outputChannelCount:[2] });
-    gain = ctx.createGain();
-    gain.gain.value = 1;
-    node.connect(gain).connect(ctx.destination);
+
+/* =========================================================================
+   BUILD: PRESETS
+   ========================================================================= */
+function buildPresets(){
+  const host = $('presets');
+  Object.keys(PRESETS).forEach(key => {
+    const p = PRESETS[key];
+    const b = document.createElement('button');
+    b.className='preset'; b.setAttribute('aria-pressed','false'); b.dataset.key=key;
+    b.innerHTML = `<span class="dot"></span><span class="pname">${p.name}</span><span class="psub">${p.sub}</span>`;
+    b.addEventListener('click', ()=> applyPreset(key));
+    host.appendChild(b);
+  });
+}
+
+function applyPreset(key){
+  const p = PRESETS[key];
+  ['master','tone','noise','rain','surf','drone'].forEach(id => { state[id]=p[id]; updateKnob(id); });
+  state.fade = p.fade;
+  // reflect fade + timer segmented controls
+  setSeg('fade', p.fade);
+  setSeg('timer', p.timer); state.timer = p.timer;
+  sendState();
+  updateReadout();
+  if(playing) scheduleEnd();
+  // highlight active preset
+  activePreset = key;
+  document.querySelectorAll('.preset').forEach(b=> b.setAttribute('aria-pressed', b.dataset.key===key ? 'true':'false'));
+}
+
+function clearActivePreset(){
+  if(!activePreset) return;
+  activePreset = null;
+  document.querySelectorAll('.preset').forEach(b=> b.setAttribute('aria-pressed','false'));
+}
+
+/* =========================================================================
+   BUILD: SEGMENTED CONTROLS (timer, fade)
+   ========================================================================= */
+function buildSeg(hostId, items, onPick){
+  const host = $(hostId);
+  items.forEach(it=>{
+    const b=document.createElement('button');
+    b.textContent=it.l; b.dataset.v=it.v; b.setAttribute('aria-pressed','false');
+    b.addEventListener('click', ()=> onPick(it.v));
+    host.appendChild(b);
+  });
+}
+function setSeg(hostId, v){
+  $(hostId).querySelectorAll('button').forEach(b=> b.setAttribute('aria-pressed', Number(b.dataset.v)===v ? 'true':'false'));
+}
+
+/* =========================================================================
+   BUILD: VU METER
+   ========================================================================= */
+function buildMeter(){
+  const svg = $('vu'); const cx=150, cy=152, r=128;
+  const A=42; // sweep half-angle
+  // base scale arc
+  svg.appendChild(el('path',{ class:'scale', d: vArc(cx,cy,r,-A,A) }));
+  // green / red zones (slightly inside scale)
+  svg.appendChild(el('path',{ class:'zone-g', d: vArc(cx,cy,r-6,-A,18), 'stroke-width':4, fill:'none', 'stroke-linecap':'round' }));
+  svg.appendChild(el('path',{ class:'zone-r', d: vArc(cx,cy,r-6,18,A), 'stroke-width':4, fill:'none', 'stroke-linecap':'round' }));
+  // ticks
+  for(let i=0;i<=10;i++){
+    const deg = -A + (i/10)*(A*2);
+    const lg = (i%5===0);
+    const len = lg?12:7;
+    const [x0,y0]=vpos(cx,cy,r-2,deg); const [x1,y1]=vpos(cx,cy,r-2-len,deg);
+    svg.appendChild(el('line',{ class:'tick '+(lg?'lg':'sm'), x1:x0.toFixed(1), y1:y0.toFixed(1), x2:x1.toFixed(1), y2:y1.toFixed(1) }));
   }
-  if (ctx.state === 'suspended') await ctx.resume();
-  node.port.postMessage({type:'resetfade'});
-  readState();
-  startedAt = performance.now();
-  setOn(true);
-  scheduleEnd();
+  // labels
+  const t1=el('text',{ class:'vutext', x:150, y:64, 'text-anchor':'middle', 'font-size':'13' }); t1.textContent='PEACE'; svg.appendChild(t1);
+  const t2=el('text',{ class:'vutext', x:150, y:108, 'text-anchor':'middle', 'font-size':'8', 'letter-spacing':'4', fill:'#8a7a59' }); t2.textContent='VU'; svg.appendChild(t2);
+  // needle
+  const g=el('g',{ class:'needle', id:'needle' });
+  const [nx,ny]=vpos(cx,cy,118,0);
+  g.appendChild(el('line',{ x1:cx, y1:cy, x2:nx.toFixed(1), y2:ny.toFixed(1) }));
+  g.appendChild(el('line',{ x1:cx, y1:cy, x2:cx, y2:(cy+10), 'stroke-width':4 }));
+  svg.appendChild(g);
+  svg.appendChild(el('circle',{ class:'pivot', cx:cx, cy:cy, r:7 }));
+  svg.appendChild(el('circle',{ cx:cx, cy:cy, r:3, fill:'#8a7a59' }));
+  setNeedle(0);
 }
-function stop(){
-  if (node) node.port.postMessage({type:'fadeout'});
-  clearTimeout(timer);
-  const wait = (Number($('fade').value) + .5) * 1000;
-  setTimeout(() => { if (ctx) ctx.suspend(); setOn(false); }, wait);
+function setNeedle(v){
+  const ang = -42 + Math.max(0,Math.min(1,v))*84;
+  const g = $('needle'); if(g) g.setAttribute('transform', `rotate(${ang.toFixed(2)} 150 152)`);
 }
-function sendState(){ if (node) node.port.postMessage({type:'state', state}); }
+
+/* =========================================================================
+   AUDIO LIFECYCLE
+   ========================================================================= */
+function sendState(){
+  if(node) node.port.postMessage({ type:'state', state:{
+    master:state.master, tone:state.tone, noise:state.noise, rain:state.rain, surf:state.surf, drone:state.drone, fade:state.fade
+  }});
+}
+
+async function powerOn(){
+  try{
+    if(!ctx){ ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint:'playback' }); }
+    // CRITICAL for iOS/Safari: resume synchronously inside the user gesture, BEFORE any await.
+    const resumed = ctx.resume();
+    if(!node){
+      // tiny silent buffer to fully unlock audio on mobile
+      try{ const b=ctx.createBuffer(1,1,ctx.sampleRate); const s=ctx.createBufferSource(); s.buffer=b; s.connect(ctx.destination); s.start(0); }catch(_){}
+      const blob = new Blob([workletCode], { type:'application/javascript' });
+      const url = URL.createObjectURL(blob);
+      await ctx.audioWorklet.addModule(url);
+      URL.revokeObjectURL(url);
+      node = new AudioWorkletNode(ctx, 'peace-processor', { numberOfInputs:0, numberOfOutputs:1, outputChannelCount:[2] });
+      masterGain = ctx.createGain(); masterGain.gain.value = 1;
+      analyser = ctx.createAnalyser(); analyser.fftSize = 1024; analyser.smoothingTimeConstant = 0.7;
+      meterBuf = new Float32Array(analyser.fftSize);
+      node.connect(masterGain); masterGain.connect(analyser); analyser.connect(ctx.destination);
+    }
+    await resumed;
+    if(ctx.state === 'suspended') await ctx.resume();
+
+    sendState();
+    node.port.postMessage({ type:'start' });
+    playing = true;
+    $('power').setAttribute('aria-pressed','true');
+    scheduleEnd();
+    if(dimmed) requestWake();
+    // vintage power-on: peg the needle, then settle into real level
+    needleVal = 1; setNeedle(1);
+    startMeter();
+  }catch(err){
+    showError('Audio could not start: ' + (err && err.message ? err.message : err) + '. Tap POWER again, or check that the browser allows sound.');
+  }
+}
+
+function powerOff(){
+  if(node) node.port.postMessage({ type:'fadeout' });
+  clearTimeout(endTimer); clearInterval(secTimer); secTimer=0; sessionEnd=0;
+  const ms = (state.fade + 0.4) * 1000;
+  setTimeout(()=>{ try{ if(ctx) ctx.suspend(); }catch(_){} }, ms);
+  playing = false;
+  $('power').setAttribute('aria-pressed','false');
+  releaseWake();
+  stopMeter();
+  updateReadout();
+}
+
+function togglePower(){ if(playing) powerOff(); else powerOn(); }
+
+/* ---- session timer ---- */
 function scheduleEnd(){
-  clearTimeout(timer);
-  const min = Number($('duration').value);
-  if (min > 0) {
-    const fadeSec = Number($('fade').value);
-    timer = setTimeout(stop, Math.max(1000, (min*60 - fadeSec) * 1000));
+  clearTimeout(endTimer); clearInterval(secTimer); secTimer=0; sessionEnd=0;
+  const min = state.timer;
+  if(min > 0){
+    const total = min*60;
+    sessionEnd = Date.now() + total*1000;
+    const fireIn = Math.max(1000, (total - state.fade)*1000);
+    endTimer = setTimeout(()=> powerOff(), fireIn);
+    secTimer = setInterval(updateReadout, 1000);
+  }
+  updateReadout();
+}
+function updateReadout(){
+  const out = $('readout');
+  if(playing && sessionEnd){
+    let s = Math.max(0, Math.round((sessionEnd - Date.now())/1000));
+    const h=Math.floor(s/3600), m=Math.floor((s%3600)/60), ss=s%60;
+    out.textContent = h>0 ? (h+':'+String(m).padStart(2,'0')+':'+String(ss).padStart(2,'0'))
+                          : (String(m).padStart(2,'0')+':'+String(ss).padStart(2,'0'));
+  } else if(state.timer>0){
+    const lbl = TIMERS.find(t=>t.v===state.timer);
+    out.textContent = lbl ? lbl.l : 'CONT';
+  } else {
+    out.textContent = 'CONT';
   }
 }
-function setOn(on){
-  $('dot').classList.toggle('on', on);
-  $('statusText').textContent = on ? 'Playing' : 'Stopped';
+
+/* ---- meter loop ---- */
+function startMeter(){ cancelAnimationFrame(raf); if(!reduceMotion || true) raf = requestAnimationFrame(meterLoop); }
+function stopMeter(){ cancelAnimationFrame(raf); raf=0; needleVal=0; setNeedle(0); }
+function meterLoop(){
+  if(!playing || dimmed){ raf=0; return; }
+  if(analyser){
+    analyser.getFloatTimeDomainData(meterBuf);
+    let sum=0; for(let i=0;i<meterBuf.length;i++){ const v=meterBuf[i]; sum+=v*v; }
+    const rms = Math.sqrt(sum/meterBuf.length);
+    const target = Math.min(1, Math.pow(rms*4.6, 0.62));
+    needleVal += (target - needleVal) * (reduceMotion ? 0.25 : 0.12);
+    setNeedle(needleVal);
+  }
+  raf = requestAnimationFrame(meterLoop);
 }
-ids.forEach(id => $(id).addEventListener('input', readState));
-$('duration').addEventListener('change', () => { readState(); scheduleEnd(); });
-$('startBtn').addEventListener('click', start);
-$('stopBtn').addEventListener('click', stop);
-document.querySelectorAll('.preset').forEach(btn => btn.addEventListener('click', () => {
-  const p = btn.dataset.preset;
-  if (p === 'sleep') setVals({master:28,brown:72,rain:25,drone:12,fade:75});
-  if (p === 'calm') { $('duration').value = '20'; setVals({master:34,brown:76,rain:31,drone:18,fade:45}); }
-  if (p === 'meditation') { $('duration').value = '45'; setVals({master:32,brown:52,rain:18,drone:32,fade:60}); }
-  if (p === 'autistic') setVals({master:24,brown:80,rain:0,drone:0,fade:30});
-}));
-updateOutputs();
+
+/* ---- wake lock (bedside mode) ---- */
+async function requestWake(){
+  try{ if('wakeLock' in navigator){ wakeLock = await navigator.wakeLock.request('screen'); } }catch(_){}
+}
+function releaseWake(){ try{ if(wakeLock){ wakeLock.release(); wakeLock=null; } }catch(_){} }
+
+/* ---- dim / bedside ---- */
+function toggleDim(){
+  dimmed = !dimmed;
+  $('device').classList.toggle('dim', dimmed);
+  $('dim').setAttribute('aria-pressed', dimmed?'true':'false');
+  if(dimmed){ if(playing) requestWake(); stopMeterAnimOnly(); }
+  else { releaseWake(); if(playing) startMeter(); }
+}
+function stopMeterAnimOnly(){ cancelAnimationFrame(raf); raf=0; } // freeze needle, keep audio
+
+/* ---- error display ---- */
+function showError(msg){ const e=$('err'); e.textContent=msg; e.style.display='block'; }
+
+/* =========================================================================
+   WIRE UP
+   ========================================================================= */
+buildKnobs();
+buildPresets();
+buildMeter();
+buildSeg('timer', TIMERS, v=>{ state.timer=v; setSeg('timer',v); clearActivePreset(); if(playing) scheduleEnd(); else updateReadout(); });
+buildSeg('fade',  FADES,  v=>{ state.fade=v;  setSeg('fade',v);  clearActivePreset(); sendState(); });
+setSeg('timer', state.timer);
+setSeg('fade', state.fade);
+updateReadout();
+
+$('power').addEventListener('click', togglePower);
+$('dim').addEventListener('click', toggleDim);
+$('infoBtn').addEventListener('click', ()=>{
+  const i=$('info'); const open=i.hasAttribute('hidden');
+  if(open){ i.removeAttribute('hidden'); } else { i.setAttribute('hidden',''); }
+  $('infoBtn').setAttribute('aria-pressed', open?'true':'false');
+});
+
+// resume audio + re-arm wake lock when returning to the tab
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState==='visible'){
+    if(playing && ctx && ctx.state==='suspended'){ ctx.resume().catch(()=>{}); }
+    if(playing && !dimmed && !raf){ startMeter(); }
+    if(playing && dimmed){ requestWake(); }
+  }
+});
 </script>
 </body>
 </html>
