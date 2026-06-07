@@ -122,12 +122,41 @@
     border:1px solid var(--hair);background:#000;box-shadow:0 14px 40px rgba(0,0,0,.4);}
   .video-frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0;}
 
-  /* the interactive (chapter 4) gets a taller stage + its own controls */
-  .stage-frame{position:relative;width:100%;height:clamp(440px,80vh,820px);border-radius:12px;
-    overflow:hidden;border:1px solid var(--era2-line);background:#0c0b08;box-shadow:0 18px 50px rgba(0,0,0,.5);}
-  .stage-frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0;}
-  .stage-tools{display:flex;flex-wrap:wrap;align-items:center;gap:.7rem;margin-top:.9rem;}
-  .stage-note{font-size:.78rem;color:var(--muted);letter-spacing:.02em;flex:1;min-width:200px;line-height:1.45;}
+  /* the interactive (chapter 4) is a full-viewport app, so it launches into an overlay
+     rather than a cramped inline frame; the panel shows a launch poster instead */
+  .launch-poster{display:flex;flex-wrap:wrap;gap:clamp(1rem,3vw,1.6rem);align-items:center;
+    justify-content:space-between;border:1px solid var(--era2-line);border-radius:12px;
+    padding:clamp(1.2rem,3vw,1.8rem);
+    background:radial-gradient(130% 150% at 0% 0%, var(--era2-dim), transparent 58%), var(--ink-2);}
+  .lp-text{flex:1 1 auto;min-width:240px;}
+  .lp-kicker{font-size:.64rem;letter-spacing:.18em;text-transform:uppercase;color:var(--era2);
+    font-weight:600;margin-bottom:.55rem;}
+  .lp-title{font-family:var(--display);font-weight:500;font-size:clamp(1.3rem,3vw,1.9rem);
+    line-height:1.15;letter-spacing:-.01em;color:var(--paper);}
+  .lp-title em{font-style:italic;color:var(--era2);font-weight:400;}
+  .lp-note{font-size:.9rem;line-height:1.55;color:var(--muted);margin-top:.7rem;max-width:62ch;}
+  .lp-actions{display:flex;flex-direction:column;gap:.6rem;flex:0 0 auto;align-self:center;}
+  .lp-go{font-size:.92rem;padding:.82rem 1.4rem;}
+
+  /* full-viewport overlay that hosts the interactive lecture */
+  .ov{position:fixed;inset:0;z-index:1000;display:none;flex-direction:column;background:var(--ink);}
+  .ov.open{display:flex;}
+  .ov-bar{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:1rem;
+    height:48px;padding:0 clamp(.9rem,3vw,1.4rem);border-bottom:1px solid var(--hair);background:var(--ink-2);}
+  .ov-title{font-family:var(--display);font-style:italic;font-weight:500;font-size:.92rem;color:var(--paper);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .ov-actions{display:flex;align-items:center;gap:.55rem;flex:0 0 auto;}
+  .ov-btn{font-family:var(--sans);font-weight:600;font-size:.78rem;letter-spacing:.02em;cursor:pointer;
+    padding:.45rem .9rem;border-radius:100px;border:1px solid var(--era2-line);background:var(--era2-dim);
+    color:var(--era2);transition:all .25s var(--ease);display:inline-flex;align-items:center;gap:.45rem;
+    text-decoration:none;}
+  .ov-btn:hover{background:var(--era2);color:var(--ink);}
+  .ov-btn svg{width:14px;height:14px;}
+  .ov-btn.ghost{border-color:var(--hair);background:transparent;color:var(--body);}
+  .ov-btn.ghost:hover{border-color:var(--muted);color:var(--paper);background:var(--surface);}
+  .ov-stage{flex:1 1 auto;position:relative;min-height:0;background:#000;}
+  .ov-stage iframe{position:absolute;inset:0;width:100%;height:100%;border:0;}
+  body.ov-locked{overflow:hidden;}
   .tool-btn{font-family:var(--sans);font-weight:600;font-size:.8rem;letter-spacing:.02em;cursor:pointer;
     padding:.6rem 1.05rem;border-radius:100px;border:1px solid var(--era2-line);background:var(--era2-dim);
     color:var(--era2);transition:all .25s var(--ease);display:inline-flex;align-items:center;gap:.5rem;
@@ -179,8 +208,8 @@
     .ch-chevron svg{width:16px;height:16px;}
     .acc-pad{padding-left:1.1rem;padding-right:1.1rem;}
     .ch-title{font-size:clamp(1.18rem,5vw,1.4rem);}
-    .stage-tools{gap:.55rem;}
-    .tool-btn{font-size:.78rem;padding:.55rem .9rem;}
+    .lp-actions{flex-direction:row;flex-wrap:wrap;align-self:stretch;}
+    .tool-btn{font-size:.78rem;padding:.6rem .95rem;}
   }
 </style>
 </head>
@@ -315,22 +344,22 @@
         </h2>
         <div id="panel-4" class="acc-panel" role="region" aria-label="Interactive lecture: Whose Voice Gets In">
           <div class="acc-inner"><div class="acc-pad">
-            <div class="stage-frame">
-              <iframe data-src="video4.html" id="stageFrame"
-                title="Whose Voice Gets In, an interactive lecture by Chris Colatos"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
-                allowfullscreen referrerpolicy="strict-origin-when-cross-origin" loading="lazy"></iframe>
-            </div>
-            <div class="stage-tools">
-              <span class="stage-note">This chapter is interactive. Click inside it once, then use the arrow keys or the on-screen controls to move through the slides. For the full experience, open it fullscreen.</span>
-              <button class="tool-btn" id="fsBtn" type="button">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
-                View fullscreen
-              </button>
-              <a class="tool-btn ghost" href="video4.html" target="_blank" rel="noopener">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M15 3h6v6M10 14L21 3M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"/></svg>
-                Open in a new tab
-              </a>
+            <div class="launch-poster">
+              <div class="lp-text">
+                <div class="lp-kicker">Interactive lecture</div>
+                <div class="lp-title">Whose Voice Gets In, <em>Whose Gets Reshaped</em></div>
+                <p class="lp-note">A short introduction, then a hands-on synthesis across eight studies: predict each finding, watch a vivid sentence get flattened toward the voice of privilege, and choose who holds the tool. It opens at full size so the slide controls, the prediction charts, and the narrated walkthrough all work as intended.</p>
+              </div>
+              <div class="lp-actions">
+                <button class="tool-btn lp-go" id="launchBtn" type="button">
+                  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+                  Launch the interactive lecture
+                </button>
+                <a class="tool-btn ghost" href="video4.html" target="_blank" rel="noopener">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M15 3h6v6M10 14L21 3M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"/></svg>
+                  Open in a new tab
+                </a>
+              </div>
             </div>
           </div></div>
         </div>
@@ -347,6 +376,29 @@
     <div class="f-meta">University of Illinois at Urbana-Champaign</div>
   </footer>
 
+</div>
+
+<!-- full-viewport host for the interactive lecture (chapter 4) -->
+<div class="ov" id="ov" role="dialog" aria-modal="true" aria-label="Whose Voice Gets In, interactive lecture by Chris Colatos" hidden>
+  <div class="ov-bar">
+    <span class="ov-title">Whose Voice Gets In &middot; Chris Colatos</span>
+    <div class="ov-actions">
+      <a class="ov-btn ghost" href="video4.html" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M15 3h6v6M10 14L21 3M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"/></svg>
+        New tab
+      </a>
+      <button class="ov-btn" id="ovClose" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        Close
+      </button>
+    </div>
+  </div>
+  <div class="ov-stage">
+    <iframe id="ovFrame"
+      title="Whose Voice Gets In, an interactive lecture by Chris Colatos"
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+      allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
+  </div>
 </div>
 
 <script>
@@ -410,23 +462,72 @@
     });
   });
 
-  // fullscreen for the interactive chapter
-  var fsBtn = document.getElementById('fsBtn');
-  var stage = document.getElementById('stageFrame');
-  if(fsBtn && stage){
-    fsBtn.addEventListener('click', function(){
-      var ch4 = document.querySelector('.chapter[data-id="4"]');
-      if(ch4 && !ch4.classList.contains('open')) openChapter(ch4);
-      var req = stage.requestFullscreen || stage.webkitRequestFullscreen || stage.msRequestFullscreen;
-      if(req){
-        try{ req.call(stage); }
-        catch(e){ window.open('video4.html','_blank','noopener'); }
-      } else {
-        // iOS Safari does not allow element fullscreen on iframes; open it directly instead
-        window.open('video4.html','_blank','noopener');
-      }
-    });
+  // ---------- the interactive lecture opens in a full-viewport overlay ----------
+  var ov = document.getElementById('ov');
+  var ovFrame = document.getElementById('ovFrame');
+  var ovClose = document.getElementById('ovClose');
+  var launchBtn = document.getElementById('launchBtn');
+  var shell = document.querySelector('.shell');
+  var lastFocus = null;
+  var canInert = ('inert' in HTMLElement.prototype);
+
+  function fsElement(){ return document.fullscreenElement || document.webkitFullscreenElement || null; }
+  function exitFs(){
+    var ex = document.exitFullscreen || document.webkitExitFullscreen;
+    if(ex){ try{ ex.call(document); }catch(e){} }
   }
+
+  function openOverlay(){
+    if(!ov || !ovFrame) return;
+    lastFocus = document.activeElement;
+    if(ovFrame.getAttribute('src') !== 'video4.html') ovFrame.setAttribute('src','video4.html');
+    ov.hidden = false;
+    ov.classList.add('open');
+    document.body.classList.add('ov-locked');
+    if(canInert && shell) shell.inert = true;   // make the page behind the modal unreachable
+    // give the lecture the whole screen on desktop (same as its own "view fullscreen");
+    // where that is unavailable (notably iOS), the bar overlay below is the full-viewport fallback
+    var req = ovFrame.requestFullscreen || ovFrame.webkitRequestFullscreen;
+    if(req){
+      try{ var pr = req.call(ovFrame); if(pr && pr.catch) pr.catch(function(){ if(ovClose) ovClose.focus(); }); }
+      catch(e){ if(ovClose) ovClose.focus(); }
+    } else if(ovClose){ ovClose.focus(); }
+    announce('Interactive lecture opened at full size. Press Escape to close.');
+  }
+  function closeOverlay(){
+    if(!ov || !ov.classList.contains('open')) return;
+    if(fsElement()) exitFs();                                   // leave fullscreen if we entered it
+    ov.classList.remove('open');
+    ov.hidden = true;
+    if(ovFrame) ovFrame.setAttribute('src','about:blank');      // stop any audio or narration
+    document.body.classList.remove('ov-locked');
+    if(canInert && shell) shell.inert = false;
+    if(lastFocus && lastFocus.focus){ try{ lastFocus.focus(); }catch(e){} }
+    announce('Interactive lecture closed.');
+  }
+
+  if(launchBtn) launchBtn.addEventListener('click', openOverlay);
+  if(ovClose) ovClose.addEventListener('click', closeOverlay);
+  // leaving fullscreen (Esc or the system control) closes the overlay too
+  ['fullscreenchange','webkitfullscreenchange'].forEach(function(ev){
+    document.addEventListener(ev, function(){
+      if(!fsElement() && ov && ov.classList.contains('open')) closeOverlay();
+    });
+  });
+  // Esc closes the bar-overlay fallback; in fullscreen the browser handles Esc and the
+  // fullscreenchange handler above takes over, so only act when not in fullscreen
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape' && ov && ov.classList.contains('open') && !fsElement()){ e.preventDefault(); closeOverlay(); }
+  });
+  // keep Tab focus on the overlay's own controls in the fallback (light focus containment)
+  if(ov) ov.addEventListener('keydown', function(e){
+    if(e.key !== 'Tab' || fsElement()) return;
+    var focusables = ov.querySelectorAll('a[href], button:not([disabled])');
+    if(!focusables.length) return;
+    var first = focusables[0], last = focusables[focusables.length-1];
+    if(e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
+    else if(!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
+  });
 
   // honor an OS reduced-motion preference for the entrance (belt and suspenders with the CSS)
   if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches){

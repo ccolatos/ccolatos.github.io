@@ -169,7 +169,10 @@
   .enter-hint{font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);}
   /* on the gate, quiet the bottom chrome for a clean cover */
   body.on-gate .dots,body.on-gate .hint{opacity:0;pointer-events:none;}
-  body.on-gate .navbar{background:transparent;}
+  /* the transparent gate navbar must not swallow clicks meant for the Enter button
+     behind it; only its own arrows stay interactive */
+  body.on-gate .navbar{background:transparent;pointer-events:none;}
+  body.on-gate .navbar .navbtns{pointer-events:auto;}
 
   /* prediction */
   .setup{border-left:2px solid var(--era1-line);padding:.1rem 0 .1rem .9rem;}
