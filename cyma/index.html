@@ -530,13 +530,13 @@ Engine.prototype.init = function () {
   if (this.ctx) return true;
   var AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) return false;
-  var mobileUA = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  var c = this.ctx = new AC({ latencyHint: mobileUA ? 'playback' : 'interactive' });
+  var c = this.ctx = new AC({ latencyHint: 'interactive' });
   this.sr = c.sampleRate; this.LEAD = 0.035;
   this.master = c.createGain(); this.master.gain.value = 0.85;
   this.comp = c.createDynamicsCompressor();
   this.comp.threshold.value = -14; this.comp.knee.value = 10; this.comp.ratio.value = 8; this.comp.attack.value = 0.003; this.comp.release.value = 0.15;
   this.master.connect(this.comp); this.comp.connect(c.destination);
+  var eng = this; c.onstatechange = function () { if (c.state !== 'running' && c.state !== 'closed') { try { c.resume(); } catch (e) {} } };
   this.analyser = c.createAnalyser(); this.analyser.fftSize = 4096; this.analyser.smoothingTimeConstant = 0;
   this.master.connect(this.analyser);
   /* Silent keepalive so the graph is never idle: iOS drops an audio session that carries nothing. */
@@ -548,8 +548,15 @@ Engine.prototype.init = function () {
     try {
       var ms = c.createMediaStreamDestination(); this.comp.connect(ms);
       var a = document.createElement('audio'); a.setAttribute('playsinline', ''); a.setAttribute('autoplay', ''); a.style.display = 'none';
-      a.srcObject = ms.stream; document.body.appendChild(a); this.mediaEl = a;
+      a.srcObject = ms.stream; document.body.appendChild(a); this.mediaEl = a; keepPlaying(a, this);
       var pr = a.play(); if (pr && pr.catch) pr.catch(function () {});
+      /* A silent looping file keeps the page's media session alive while it is in the background, so the system
+         does not throttle the audio thread and the live element can be resumed without a gap. */
+      try {
+        var wav = silentWav(), b = document.createElement('audio'); b.setAttribute('playsinline', ''); b.loop = true; b.volume = 0.01; b.style.display = 'none';
+        b.src = URL.createObjectURL(wav); document.body.appendChild(b); this.silentEl = b; keepPlaying(b, this);
+        var pr2 = b.play(); if (pr2 && pr2.catch) pr2.catch(function () {});
+      } catch (e) {}
     } catch (e) {}
   }
   this.scope = new Float32Array(4096);
@@ -564,7 +571,27 @@ Engine.prototype.wave = function (partials, quad) {
 };
 Engine.prototype.now = function () { return this.ctx ? this.ctx.currentTime : 0; };
 Engine.prototype.schedTime = function () { return Math.ceil((this.ctx.currentTime + this.LEAD) * this.sr) / this.sr; };
-Engine.prototype.resume = function () { if (this.mediaEl && this.mediaEl.paused && !document.hidden) { try { var pr = this.mediaEl.play(); if (pr && pr.catch) pr.catch(function () {}); } catch (e) {} } if (this.ctx && this.ctx.state !== 'running') { try { return this.ctx.resume(); } catch (e) {} } return Promise.resolve(); };
+
+/* Re-play a media element the system has paused, backing off if the system keeps pausing it, so recovery never turns into a fight. */
+function keepPlaying(a, eng) {
+  var fails = 0, timer = null, settle = null;
+  a.addEventListener('pause', function () {
+    if (eng.muted || !eng.ctx || eng.ctx.state === 'closed') return;
+    var delay = Math.min(4000, 250 * Math.pow(2, Math.min(fails, 4))); fails++; a._nextTry = Date.now() + delay;
+    clearTimeout(timer); timer = setTimeout(function () { try { var p = a.play(); if (p && p.catch) p.catch(function () {}); } catch (e) {} }, delay);
+  });
+  a.addEventListener('playing', function () { clearTimeout(settle); settle = setTimeout(function () { fails = 0; a._nextTry = 0; }, 3000); });
+}
+/* Half a second of silence as a WAV blob (8 kHz, 8-bit, mono). */
+function silentWav() {
+  var sr = 8000, n = sr / 2, buf = new ArrayBuffer(44 + n), v = new DataView(buf), i;
+  var str = function (o, s) { for (var k = 0; k < s.length; k++) v.setUint8(o + k, s.charCodeAt(k)); };
+  str(0, 'RIFF'); v.setUint32(4, 36 + n, true); str(8, 'WAVE'); str(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, sr, true); v.setUint32(28, sr, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true); str(36, 'data'); v.setUint32(40, n, true);
+  for (i = 0; i < n; i++) v.setUint8(44 + i, 128);
+  return new Blob([buf], { type: 'audio/wav' });
+}
+Engine.prototype.resume = function () { var self = this; [this.mediaEl, this.silentEl].forEach(function (a) { if (a && a.paused && Date.now() >= (a._nextTry || 0)) { try { var pr = a.play(); if (pr && pr.catch) pr.catch(function () {}); } catch (e) {} } }); void self; if (this.ctx && this.ctx.state !== 'running') { try { return this.ctx.resume(); } catch (e) {} } return Promise.resolve(); };
 Engine.prototype.suspend = function () { if (this.ctx && this.ctx.state === 'running') { try { this.ctx.suspend(); } catch (e) {} } };
 Engine.prototype.setMuted = function (m) { this.muted = m; if (this.ctx) this.master.gain.setTargetAtTime(m ? 0 : 0.85, this.ctx.currentTime, 0.03); };
 Engine.prototype.readScope = function () { this.analyser.getFloatTimeDomainData(this.scope); return this.scope; };
@@ -2592,7 +2619,7 @@ App.prototype.bind = function () {
   if (window.ResizeObserver) { try { new ResizeObserver(onResize).observe(d.well); } catch (e) {} }
   document.addEventListener('visibilitychange', function () { if (!self.started) return; if (!document.hidden) { self.eng.resume(); self.lastTs = 0; } else if (self.cur && self.cur.bgTick) { try { self.cur.bgTick(self.eng.now()); } catch (e) {} } });
   setInterval(function () { if (self.started && document.hidden && self.cur && self.cur.bgTick) { try { self.cur.bgTick(self.eng.now()); } catch (e) {} } }, 250);
-  setInterval(function () { if (self.started && !document.hidden && self.eng.ctx && self.eng.ctx.state === 'suspended') self.eng.resume(); }, 500);
+  setInterval(function () { if (self.started && self.eng.ctx && (self.eng.ctx.state !== 'running' || (self.eng.mediaEl && self.eng.mediaEl.paused))) self.eng.resume(); }, 250);
   document.addEventListener('pointerdown', function () { if (self.started) self.eng.resume(); }, true);
   document.addEventListener('touchstart', function () { if (self.started) self.eng.resume(); }, { passive: true, capture: true });
   document.addEventListener('keydown', function (e) {
