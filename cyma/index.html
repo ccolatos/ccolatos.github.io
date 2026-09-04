@@ -145,6 +145,15 @@ nav .glyph{font-size:22px;line-height:1}
 .intro p b{color:var(--ink);font-weight:500}
 @media(max-width:600px){header{gap:6px 10px;padding:10px 12px 4px}.journeys button{padding:5px 9px;font-size:12.5px}.progress{order:9;flex-basis:100%;margin-left:0;justify-content:center;gap:3px}.progress button{padding:6px 3px}.iconbtn:first-of-type{margin-left:auto}}
 
+.folds{border-top:1px solid var(--line);margin-top:2px}
+.foldbtn{display:flex;align-items:center;gap:12px;width:100%;padding:13px 2px;font-family:var(--serif);font-size:15.5px;color:var(--ink-2);border-bottom:1px solid var(--line);text-align:left;cursor:pointer}
+.foldbtn:hover{color:var(--ink)}
+.foldbtn .chev{flex:0 0 auto;width:7px;height:7px;border-right:1.5px solid var(--ink-3);border-bottom:1.5px solid var(--ink-3);transform:rotate(-45deg);transition:transform .18s ease;margin-left:2px}
+.foldbtn[aria-expanded=true]{color:var(--ink)}
+.foldbtn[aria-expanded=true] .chev{transform:rotate(45deg)}
+.fold{display:none;font-family:var(--serif);font-size:16px;line-height:1.58;color:var(--ink-2);padding:10px 2px 16px;border-bottom:1px solid var(--line)}
+.fold.open{display:block}
+
 </style>
 </head>
 <body>
@@ -175,8 +184,12 @@ nav .glyph{font-size:22px;line-height:1}
       <p class="readout" id="readout" aria-live="polite"></p>
       <div class="controls" id="controls"></div>
       <p class="notice" id="notice"></p>
-      <button class="morebtn" id="morebtn" type="button" aria-expanded="false" aria-controls="more">Notes on the physics</button>
-      <p class="more" id="more"></p>
+      <div class="folds">
+        <button class="foldbtn" id="plainbtn" type="button" aria-expanded="false" aria-controls="plain"><span class="chev" aria-hidden="true"></span>What is happening here</button>
+        <div class="fold" id="plain"></div>
+        <button class="foldbtn" id="morebtn" type="button" aria-expanded="false" aria-controls="more"><span class="chev" aria-hidden="true"></span>Notes on the physics</button>
+        <div class="fold" id="more"></div>
+      </div>
       <nav>
         <button id="prev" type="button" aria-label="Previous station"></button>
         <button id="next" type="button" aria-label="Next station"></button>
@@ -517,7 +530,8 @@ Engine.prototype.init = function () {
   if (this.ctx) return true;
   var AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) return false;
-  var c = this.ctx = new AC({ latencyHint: 'interactive' });
+  var mobileUA = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  var c = this.ctx = new AC({ latencyHint: mobileUA ? 'playback' : 'interactive' });
   this.sr = c.sampleRate; this.LEAD = 0.035;
   this.master = c.createGain(); this.master.gain.value = 0.85;
   this.comp = c.createDynamicsCompressor();
@@ -550,7 +564,7 @@ Engine.prototype.wave = function (partials, quad) {
 };
 Engine.prototype.now = function () { return this.ctx ? this.ctx.currentTime : 0; };
 Engine.prototype.schedTime = function () { return Math.ceil((this.ctx.currentTime + this.LEAD) * this.sr) / this.sr; };
-Engine.prototype.resume = function () { if (this.mediaEl && this.mediaEl.paused) { try { var pr = this.mediaEl.play(); if (pr && pr.catch) pr.catch(function () {}); } catch (e) {} } if (this.ctx && this.ctx.state !== 'running') { try { return this.ctx.resume(); } catch (e) {} } return Promise.resolve(); };
+Engine.prototype.resume = function () { if (this.mediaEl && this.mediaEl.paused && !document.hidden) { try { var pr = this.mediaEl.play(); if (pr && pr.catch) pr.catch(function () {}); } catch (e) {} } if (this.ctx && this.ctx.state !== 'running') { try { return this.ctx.resume(); } catch (e) {} } return Promise.resolve(); };
 Engine.prototype.suspend = function () { if (this.ctx && this.ctx.state === 'running') { try { this.ctx.suspend(); } catch (e) {} } };
 Engine.prototype.setMuted = function (m) { this.muted = m; if (this.ctx) this.master.gain.setTargetAtTime(m ? 0 : 0.85, this.ctx.currentTime, 0.03); };
 Engine.prototype.readScope = function () { this.analyser.getFloatTimeDomainData(this.scope); return this.scope; };
@@ -1579,7 +1593,7 @@ var ASCENT = new Station({
   tick: function () {
     var eng = this.app.eng, now = eng.now(), seg = 1.0, N = this.N, sr = eng.sr, eps = 2 / sr;
     if (this.schedT < now - 0.5) { this.s0 = this.sAt(now); this.t0 = now; this.anchorAt(now + 0.05, false); }
-    var look = document.hidden ? 2.6 : 1.6;
+    var look = document.hidden ? 8 : 1.6;
     while (this.schedT < now + look) {
       var tA = this.schedT, tB = tA + seg, sA = this.sAt(tA), sB = this.sAt(tB);
       for (var k = 0; k < N; k++) {
@@ -1596,6 +1610,7 @@ var ASCENT = new Station({
       this.schedT = tB;
     }
   },
+  bgTick: function (t) { this.tick(0.25, t); },
   draw: function (stage, t) {
     stage.fade(0.14);
     var c = stage.ctx, W = stage.W, H = stage.H, hue = this.hue(), cx = W * 0.40, cy = H * 0.5, R = W * 0.29, s = this.sAt(t), k;
@@ -2025,11 +2040,12 @@ var MOTION = new SynthStation({
     this.poly.voices.forEach(function (v) { v.fl.frequency.setTargetAtTime(P.cut, now, 0.015); v.fl.Q.setTargetAtTime(P.Q, now, 0.015); v.trem.gain.setTargetAtTime(1 - P.lfoAmp / 2, now, 0.02); v.gs.gain.setTargetAtTime(P.sub ? 0.5 : 0, now, 0.02); });
   },
   tick: function (dt, t) {
-    if (this.P.lfoWave === 'sh') { var per = 1 / this.P.lfoRate, ahead = document.hidden ? 1.8 : 0.25; if (this.shT < t) this.shT = t; while (this.shT < t + ahead) { this.shT += per; this.shVal = Math.random() * 2 - 1; this.sh.offset.setValueAtTime(this.shVal, this.shT); } }
+    if (this.P.lfoWave === 'sh') { var per = 1 / this.P.lfoRate, ahead = document.hidden ? 6 : 0.25; if (this.shT < t) this.shT = t; while (this.shT < t + ahead) { this.shT += per; this.shVal = Math.random() * 2 - 1; this.sh.offset.setValueAtTime(this.shVal, this.shT); } }
     var held = this.poly.voices.filter(function (v) { return !v.off; }).slice(-4), row = [null, null, null, null], self = this;
     held.forEach(function (v, i) { row[i] = 1200 * Math.log2(v.f / mtof(KEY_LO)) + self.P.lfoPitch * lfoValue(self.P.lfoWave === 'sh' ? 'none' : self.P.lfoWave, self.P.lfoRate, t - self.lfoT0) + (self.P.lfoWave === 'sh' ? self.P.lfoPitch * self.shVal : 0); });
     this.roll.push(row); if (this.roll.length > 180) this.roll.shift();
   },
+  bgTick: function (t) { if (this.P.lfoWave === 'sh') { var per = 1 / this.P.lfoRate; if (this.shT < t) this.shT = t; while (this.shT < t + 6) { this.shT += per; this.shVal = Math.random() * 2 - 1; this.sh.offset.setValueAtTime(this.shVal, this.shT); } } },
   gesture: function (type, u, v, R) {
     var y = v * this.app.stage.H, x = u * this.app.stage.W, r = R.spec; if (y < r.y || y > r.y + r.h) return;
     this.P.cut = clamp(specF(r.x, r.w, x), 40, 16000); this.P.Q = clamp(0.3 * Math.pow(60, 1 - (y - r.y) / r.h), 0.3, 20); this.presetIndex = null; this.apply();
@@ -2333,9 +2349,10 @@ var GRAINS = new SynthStation({
     if (!streams.length) { this.next = Math.max(this.next, t + 0.02); return; }
     var per = 1 / P.density;
     if (this.next < t) this.next = t + 0.01;
-    var ahead = document.hidden ? 1.6 : 0.14;
+    var ahead = document.hidden ? 6 : 0.14;
     while (this.next < t + ahead) { for (var i = 0; i < streams.length; i++) this.spawn(this.next + Math.random() * per * 0.3, streams[i].s, streams[i].v); this.next += per; }
   },
+  bgTick: function (t) { this.tick(0.25, t); },
   gesture: function (type, u, v, R) { var r = R.panel, y = v * this.app.stage.H; if (y < r.y || y > r.y + r.h) return; this.scan = clamp((u * this.app.stage.W - r.x) / r.w, 0, 1); this.P.pos = this.scan; this.presetIndex = null; },
   panel: function (stage, r, t) {
     var c = stage.ctx, k = stage.k, env = this.envs[this.P.source], M = env.length, ym = r.y + r.h * 0.55, amp = r.h * 0.34;
@@ -2499,6 +2516,27 @@ var SHAPE = new SynthStation({
   readout: function () { var P = this.P; return '<b>' + P.curve + '</b> curve at ' + P.drive.toFixed(1) + '× drive, ' + fmtPct(P.mix) + ' wet; compressor ' + P.thresh + ' dB at ' + P.ratio.toFixed(1) + ':1' + (P.chorus ? '; chorus ' + fmtPct(P.chorus) + ' sweeping ±' + (P.cdepth * 1000).toFixed(1) + ' ms at ' + P.crate.toFixed(2) + ' Hz' : ''); }
 });
 
+/* ---------- Plain-language explanations, one per station ---------- */
+var PLAIN = {
+  ratio: 'Two tones are playing. The picture plots one against the other: the lower tone moves the pen left and right, the upper tone moves it up and down. When the two frequencies are in a simple whole-number relationship, such as 3 to 2 for a perfect fifth, the pen retraces the same path and you see a closed shape. The phase slider shifts the timing of one tone against the other. That does not change the interval you hear, but it changes which member of the shape family you see, and twice per cycle the shape collapses to a line. Switch to equal temperament and the fifth is no longer exactly 3 to 2, so the shape never closes: it slowly cycles through all its forms, at the same rate the interval\'s overtones beat. Tone: Harmonics adds overtones to both notes, and the shape becomes the plot of those richer waveforms.',
+  orbit: 'The same two tones, but now each one spins a pointer around a circle, and the picture traces the difference between the two pointer tips. Counter-rotation, the pointers turning opposite ways, draws a rose with as many petals as the two numbers of the ratio add up to: 5 for 3 to 2, 3 for 2 to 1, 17 for the whole tone. Same-direction rotation folds the petals inward into loops. The upper tone\'s amplitude decides whether loops appear at all, and the exact amplitude where they vanish is marked cusp on the slider. Changing the phase here only rotates the whole figure; it does not change its shape. These are the classic rotary harmonograph drawings.',
+  series: 'A vibrating string does not vibrate at one frequency only. It also vibrates in halves, thirds, quarters and so on, all at once, giving frequencies of 2, 3, 4 and more times the fundamental. Those are the harmonics, and the bars show them: tap a bar to switch that harmonic on or off in the sound. Look at the neighbours. Harmonic 2 to 1 is an octave, 3 to 2 a perfect fifth, 4 to 3 a fourth, 5 to 4 a major third. Every consonant interval in music is a pair of neighbours on this ladder. That is where the small whole numbers in the Ratio station come from, and why the ear finds those ratios familiar: it has heard them inside every voice and every plucked string since birth. The string drawing shows the same modes slowed hundreds of times so you can watch them.',
+  drift: 'Two notes a fifth apart. When the fifth is tuned as an exact 3 to 2, the shape holds still and nothing beats. Nudge the upper note by a few cents (a cent is a hundredth of a semitone) and the shape starts to rotate through its family. With pure sines you see this but hardly hear it. Switch Tone to Harmonics and you hear a slow throb: the third harmonic of the lower note and the second harmonic of the upper are now slightly different frequencies, and they beat at exactly the rate the shape cycles. A piano\'s fifth is about two cents narrow, so this throb is real and audible on any tempered instrument, roughly three cycles every four seconds at this pitch. The Equal button sets exactly that tempered fifth. The loudness strip at the bottom is the actual output level over the last four seconds.',
+  glide: 'The upper tone slides through the whole octave while the lower one holds. The shape at the top is the real path of the two tones over the last third of a second: at a simple ratio it locks into a clean figure, and in between it fills the square. The dots on the track mark the just intervals, larger for simpler ratios. The curve below is roughness, a model of how much the two tones grind against each other, calculated from how close their overtones come to each other without matching. It has valleys at the same simple ratios where the shape locks, which is one reason those intervals sound smooth. Use Snap to land exactly on the just ratios. Use Sine to hear that two pure tones are only rough when they are very close together, so the valleys need overtones to exist.',
+  phantom: 'Four tones are playing: 330, 440, 550 and 660 Hz. Yet the note you hear is 110 Hz, and there is no energy at 110 Hz at all. The ear notices that these tones are the third, fourth, fifth and sixth harmonics of 110 Hz and hears the fundamental that would have produced them. That is the missing fundamental. It is why small speakers seem to have bass and why a bass line survives a phone call. Toggle the fundamental on and the pitch does not change; only the colour gets fuller. Shift every partial up by the same number of hertz and the pitch moves by only a fraction of the shift: the ear is fitting the best harmonic series it can, not measuring the spacing. The waveform at the top repeats at the missing fundamental\'s period, and that repetition is what the ear picks up on.',
+  plate: 'A speaker drives a metal plate at one frequency, and the plate bends into a pattern of hills and valleys that stand still in place. Powder bounces off the moving parts and comes to rest on the lines where the plate is not moving: those lines are the figure. Every frequency at which the plate resonates has its own pattern, so sweeping the frequency steps through the figures, and between resonances the powder hesitates. A square plate driven at its centre gives the classic Chladni figures. Making the plate bigger brings the intricate patterns down to lower frequencies, because a large plate resonates lower than a small one of the same thickness. Water in a dish behaves differently. Shake the dish up and down and ripples appear at half the shaking frequency, forming a standing pattern across the surface; the bright lines are where the surface slopes catch the light. The plates and the dish are calculated from their physics, not copied from photographs.',
+  ascent: 'You are hearing eight tones one octave apart, all gliding upward together. As each one rises out of the middle of the range it fades away, and a new one fades in at the bottom, so the set never runs out. Because our ears treat notes an octave apart as nearly the same note, the result is a tone that seems to rise forever without ever getting higher: the Shepard-Risset glissando. The circle shows pitch class, which note name each tone is nearest, turning steadily; the strip on the right shows pitch height, where each tone actually is and how loud it is under the fixed window. The whole illusion depends on the octave, the first interval that closed a figure back in the Ratio station.',
+  timbre: 'Every pitched sound is built from harmonics, and what makes a saw sound different from a square at the same pitch and loudness is which harmonics are present and how loud each one is. Play a note and compare: the saw wave has every harmonic, each a little quieter than the last; the square has only the odd ones; the triangle has only the odd ones and they fall off fast; the sine has just the fundamental. The teal ticks on the spectrum are where theory says the harmonics should be and how loud; the live spectrum is what is actually coming out. The envelope shapes loudness over time: a quick attack with no sustain gives a pluck, a slow attack and a long release give a pad. Same harmonics, completely different instrument.',
+  voice: 'This is the classic analogue synth voice. Oscillators make a bright, buzzy signal full of harmonics, a filter takes some of them away, and an amplifier sets the level. Two oscillators slightly detuned sound wide because their harmonics slowly drift in and out of step with each other; drop the second an octave for weight; add the sub for a floor. The filter\'s cutoff decides where the tone is cut, resonance boosts the harmonics right at the cutoff, and slope is how steeply the highs fall away. Drag on the spectrum to play the filter by hand: the teal curve is the filter\'s exact response, so you can see which harmonics survive. The four target timbres from the lab are the first four presets; try to rebuild each one before revealing it.',
+  motion: 'A sound that never changes is a photograph; envelopes and LFOs turn it into a film. The amplitude envelope shapes loudness: attack, decay, a sustain level while you hold, and a release when you let go. The filter envelope does the same to brightness: a positive amount opens the filter on each note, which gives analogue synths their plucky, vocal quality; a negative amount closes it. The LFO is a slow oscillator you route somewhere: to pitch for vibrato, to loudness for tremolo, to the filter for wobble, to pulse width for a thick chorus-like shimmer. Sample-and-hold replaces the smooth wave with random steps. The roll on the right draws the pitch of each held note over time, so vibrato and glide show up as lines. Velocity, from a MIDI keyboard or from how far down the on-screen key you tap, makes notes louder and brighter.',
+  fm: 'One sine wave, the modulator, wobbles the frequency of another, the carrier, very fast. Do that slowly and you hear vibrato; do it hundreds of times a second and you get new frequencies instead: sidebands spaced above and below the carrier by the modulator\'s frequency. The index is how hard the modulator pushes; more index means more sidebands and a brighter, more complex sound. The ratio between modulator and carrier decides where the sidebands land: whole-number ratios put them on the harmonic series, so you get a pitched tone; a ratio like 1.414 scatters them, so you get bells and metal. Give the modulator an envelope that fades and the tone starts bright and mellows, which is the electric piano sound. The teal marks are where the mathematics says the sidebands will be; the spectrum shows them appearing.',
+  wavetable: 'A wavetable is a stack of single-cycle waveforms, here ten of them, from sine through saw to formants and noise. Position picks which frame plays, and positions between frames blend the two neighbours. The trick is to move the position while a note sounds: an envelope sweeps it once per note, an LFO makes it breathe or flutter, or you drag the panel by hand. Because each frame has a different set of harmonics, sweeping through the table morphs the timbre in a way a filter cannot. The low-pass filter afterwards works exactly as it does in the subtractive voice.',
+  additive: 'Instead of starting rich and filtering down, additive synthesis builds a sound from sine waves, one per partial. Drag across the panel to set the level of each of the twelve partials, like organ drawbars. Two things make it come alive. First, let the higher partials die away faster than the low ones, and the tone loses brightness as it rings, the way real struck and plucked sounds do. Second, stretch the partials so they are no longer exact multiples of the fundamental, and the same levels turn from a pipe organ into a bell. The teal ticks show where each partial should sit. Twelve partials already need twelve envelopes, which is why additive synths are powerful but tedious to program.',
+  grains: 'Take a recorded sound, cut it into slices a few dozen milliseconds long, and play the slices one after another, each with a soft fade in and out so it does not click. Now you can do things ordinary playback cannot. Move the playback point slowly and the sound lasts longer without dropping in pitch; stop it, and one moment freezes. Play the slices at a different speed and the pitch changes without the timing changing. Scatter where the slices are taken from and the sound turns into a cloud. The panel shows the source sound with the marker, the spray range and the grains flying out. The three sources were synthesised inside the app, so there is nothing to upload.',
+  models: 'Instead of describing the sound, describe the thing that makes it. A plucked string is a wave running back and forth along the string, losing a little energy and a little brightness on every trip. The app does exactly that in a loop, and the white curve is the string\'s shape read out of that loop. Brightness is how much high frequency survives each trip, decay is how fast the energy goes, and pick position adds the comb-shaped hole in the spectrum you get from plucking near the bridge or near the middle. Bars and drum heads are built from their vibration modes: a uniform bar rings at 1 : 2.76 : 5.40, a marimba bar is carved underneath so it rings at 1 : 4 : 10 and sounds like wood, and a drum head has inharmonic modes and a pitch that dips after the stroke. A little noise at the moment of the strike gives each one its attack.',
+  shape: 'Three of the most common processors, in a row. Waveshaping bends the waveform through a curve: a gentle curve adds warmth, a hard one clips and turns fierce, a folding one sends the peaks back down and invents new partials. The panel draws the curve, and the spectrum shows new harmonics appear as you raise the drive. The compressor turns down the loud moments: threshold is where it starts, ratio is how hard, attack and release are how fast, and the meter shows how many decibels it is removing right now. The chorus mixes the sound with a slightly delayed copy whose delay is swept by an LFO; the copy\'s pitch wobbles, and against the original it shimmers. Shorten the delay and it becomes a flanger.'
+};
+
 /* ---------- App shell ---------- */
 var JOURNEYS = {
   ratio: { key: 'ratio', title: 'Ratio', stations: [RATIO, ORBIT, SERIES, DRIFT, GLIDE, PHANTOM, PLATE, ASCENT] },
@@ -2516,7 +2554,7 @@ function App() {
   var $ = function (id) { return document.getElementById(id); };
   this.dom = { intro: $('intro'), begin: $('begin'), beginSynth: $('begin-synth'), fine: $('fine'), progress: $('progress'), motion: $('motionbtn'), mute: $('mutebtn'), jr: $('jr-ratio'), js: $('jr-synth'),
     well: $('well'), canvas: $('stage'), title: $('title'), count: $('count'), readout: $('readout'), thesis: $('thesis'), notice: $('notice'),
-    more: $('more'), morebtn: $('morebtn'), controls: $('controls'), prev: $('prev'), next: $('next'), panel: $('panel') };
+    more: $('more'), morebtn: $('morebtn'), plain: $('plain'), plainbtn: $('plainbtn'), controls: $('controls'), prev: $('prev'), next: $('next'), panel: $('panel') };
   this.stage = new Stage(this.dom.canvas, this.dom.well);
   this.buildHeader(); this.bind();
 }
@@ -2541,7 +2579,8 @@ App.prototype.bind = function () {
   d.jr.addEventListener('click', function () { self.setJourney('ratio'); }); d.js.addEventListener('click', function () { self.setJourney('synth'); });
   d.motion.addEventListener('click', function () { self.setMotion(!self.motion); });
   d.mute.addEventListener('click', function () { self.setMuted(!self.eng.muted); });
-  d.morebtn.addEventListener('click', function () { var open = d.more.classList.toggle('open'); d.morebtn.textContent = open ? 'Fewer notes' : 'Notes on the physics'; d.morebtn.setAttribute('aria-expanded', open ? 'true' : 'false'); });
+  var fold = function (btn, box) { btn.addEventListener('click', function () { var open = box.classList.toggle('open'); btn.setAttribute('aria-expanded', open ? 'true' : 'false'); }); };
+  fold(d.morebtn, d.more); fold(d.plainbtn, d.plain);
   d.prev.addEventListener('click', function () { self.go(self.index - 1); });
   d.next.addEventListener('click', function () { self.go(self.index + 1); });
   /* Touching any control or the figure takes over from Motion, so a manual setting is never overwritten by the sweep. */
@@ -2551,9 +2590,9 @@ App.prototype.bind = function () {
   var onResize = function () { self.stage.resize(); self.stage.clear(); };
   window.addEventListener('resize', onResize);
   if (window.ResizeObserver) { try { new ResizeObserver(onResize).observe(d.well); } catch (e) {} }
-  document.addEventListener('visibilitychange', function () { if (!self.started) return; if (!document.hidden) { self.eng.resume(); self.lastTs = 0; } });
-  setInterval(function () { if (self.started && document.hidden && self.cur) { try { self.cur.tick(0.25, self.eng.now()); } catch (e) {} } }, 250);
-  setInterval(function () { if (self.started && self.eng.ctx && self.eng.ctx.state !== 'running') self.eng.resume(); }, 500);
+  document.addEventListener('visibilitychange', function () { if (!self.started) return; if (!document.hidden) { self.eng.resume(); self.lastTs = 0; } else if (self.cur && self.cur.bgTick) { try { self.cur.bgTick(self.eng.now()); } catch (e) {} } });
+  setInterval(function () { if (self.started && document.hidden && self.cur && self.cur.bgTick) { try { self.cur.bgTick(self.eng.now()); } catch (e) {} } }, 250);
+  setInterval(function () { if (self.started && !document.hidden && self.eng.ctx && self.eng.ctx.state === 'suspended') self.eng.resume(); }, 500);
   document.addEventListener('pointerdown', function () { if (self.started) self.eng.resume(); }, true);
   document.addEventListener('touchstart', function () { if (self.started) self.eng.resume(); }, { passive: true, capture: true });
   document.addEventListener('keydown', function (e) {
@@ -2615,8 +2654,8 @@ App.prototype.go = function (i) {
   if (st.hasMotion) st.setMotion(this.motion);
   this.setAccent(st.hue());
   d.title.textContent = st.title; d.count.textContent = (i + 1) + ' of ' + STATIONS.length + (st.week ? ', ' + st.week : '');
-  d.thesis.textContent = st.thesis; d.notice.textContent = st.notice; d.more.textContent = st.more;
-  d.more.classList.remove('open'); d.morebtn.textContent = 'Notes on the physics'; d.morebtn.setAttribute('aria-expanded', 'false');
+  d.thesis.textContent = st.thesis; d.notice.textContent = st.notice; d.more.textContent = st.more; d.plain.textContent = PLAIN[st.id] || '';
+  d.more.classList.remove('open'); d.morebtn.setAttribute('aria-expanded', 'false'); d.plain.classList.remove('open'); d.plainbtn.setAttribute('aria-expanded', 'false');
   d.controls.innerHTML = '';
   for (var k = 0; k < st.controls.length; k++) d.controls.appendChild(st.controls[k].el);
   d.prev.disabled = i === 0; d.next.disabled = i === STATIONS.length - 1;
