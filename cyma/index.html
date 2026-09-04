@@ -1807,7 +1807,7 @@ SynthStation.prototype.draw = function (stage, t) {
 };
 SynthStation.prototype.presetChips = function (presets, after) {
   var self = this;
-  return ctlChips({ label: 'Presets from the lab', options: presets.map(function (p, i) { return { label: p.name, value: i }; }),
+  return ctlChips({ label: 'Presets', options: presets.map(function (p, i) { return { label: p.name, value: i }; }),
     get: function () { return self.presetIndex == null ? null : self.presetIndex; },
     set: function (i) { self.presetIndex = i; for (var k in presets[i].P) self.P[k] = JSON.parse(JSON.stringify(presets[i].P[k])); if (after) after(); if (self.apply) self.apply(); } });
 };
@@ -1836,12 +1836,12 @@ function envSliders(st, key, labels) {
 
 /* ---------- Synthesis stations A ---------- */
 
-/* S1. Timbre (Week 1) */
+/* S1. Timbre */
 var TIMBRE = new SynthStation({
-  id: 'timbre', title: 'Timbre', week: 'Week 1',
+  id: 'timbre', title: 'Timbre',
   thesis: 'What makes two sounds at the same pitch and loudness different: which harmonics are present, how loud each is, and how the whole thing changes over time.',
   notice: 'Play the keys, or your computer keyboard (Z to M, Q to P). Compare the four classic waves on the spectrum: saw carries every harmonic, square only the odd ones, triangle the odd ones falling off fast, sine nothing but the fundamental. Then bend the envelope and hear the same spectrum become a pluck, a pad, an organ.',
-  more: 'Lecture 1 in the app: harmonic content, amplitude envelope, spectral evolution. The predicted harmonic amplitudes drawn under the spectrum are the Fourier series of each ideal wave (1/k for the saw, odd 1/k for the square, odd 1/k² for the triangle); the live spectrum above them is the actual output, so the two can be compared directly. Lab 3 (waveform comparison) and Lab 2 (visual analysis) can be run here before moving to a DAW synth.',
+  more: 'Harmonic content, amplitude envelope, spectral evolution: the three things that define a timbre. The predicted harmonic amplitudes drawn under the spectrum are the Fourier series of each ideal wave (1/k for the saw, odd 1/k for the square, odd 1/k² for the triangle); the live spectrum above them is the actual output, so the two can be compared directly. Comparing the four waves and reading the spectrum here is good preparation for doing the same inside a DAW synth.',
   hue: function () { return 36; },
   enter: function (app) {
     var self = this; this.setupAudio(app);
@@ -1889,12 +1889,12 @@ var TIMBRE = new SynthStation({
   }
 });
 
-/* S2. Voice: oscillators and filters (Week 2) */
+/* S2. Voice: oscillators and filters */
 var VOICE = new SynthStation({
-  id: 'voice', title: 'Voice', week: 'Week 2',
+  id: 'voice', title: 'Voice',
   thesis: 'The classic subtractive voice: oscillators make a rich spectrum, the filter carves it. Oscillator, filter, amplifier, output.',
   notice: 'Drag inside the spectrum: left and right moves the cutoff, up and down the resonance. The teal curve is the filter\'s exact response, drawn from the same node that filters the sound. Detune the second oscillator a few cents for width, drop it an octave for weight, add the sub for a floor.',
-  more: 'Lecture 2: oscillator waveforms, detuning and octave stacking, filter types (low-pass, high-pass, band-pass, notch), cutoff, resonance and slope. The 24 dB setting cascades two identical 12 dB stages, which is how most analogue four-pole designs are approximated in software. The lab\'s four target timbres (muted brass, hollow woodwind, thin strings, thick bass) are the first four presets; try to rebuild each from scratch before revealing it.',
+  more: 'Oscillator waveforms, detuning and octave stacking, filter types (low-pass, high-pass, band-pass, notch), cutoff, resonance and slope. The 24 dB setting cascades two identical 12 dB stages, which is how most analogue four-pole designs are approximated in software. Four classic target timbres (muted brass, hollow woodwind, thin strings, thick bass) are the first four presets; try to rebuild each from scratch before revealing it.',
   hue: function () { return 200; },
   enter: function (app) {
     var self = this; this.setupAudio(app);
@@ -1968,12 +1968,12 @@ var VOICE = new SynthStation({
   readout: function () { var P = this.P; return '<b>' + P.w1 + '</b> + <b>' + P.w2 + '</b> ' + fmtCents(P.det + 1200 * P.oct2) + (P.sub ? ' + sub' : '') + ', ' + P.ftype + ' at <b>' + fmtHz(P.cut) + '</b>, Q ' + P.Q.toFixed(1) + ', ' + P.slope + ' dB per octave'; }
 });
 
-/* S3. Motion: envelopes, LFOs, modulation routing (Week 3) */
+/* S3. Motion: envelopes, LFOs, modulation routing */
 var MOTION = new SynthStation({
-  id: 'motion', title: 'Motion', week: 'Week 3',
+  id: 'motion', title: 'Motion',
   thesis: 'A static spectrum is a photograph. Envelopes and LFOs turn it into a film: articulation, filter sweeps, vibrato, tremolo, wobble.',
   notice: 'The filter envelope is the signature of the analogue synth voice: positive amount opens the filter on each note, negative closes it. Route the LFO to pitch for vibrato, to amplitude for tremolo, to the filter for wobble, to pulse width for chorus-like thickness. The roll on the right draws the pitch of each held voice, so the vibrato and the glide are visible.',
-  more: 'Lecture 3: ADSR stages and articulation characters, filter envelopes and envelope amount, LFO waveforms including sample and hold, the classic destinations, and modulation routing. Velocity is routed to amplitude and to filter envelope amount, so a MIDI keyboard plays expressively. The five articulations from Lab 1 and the LFO applications from Lab 3 are presets.',
+  more: 'ADSR stages and articulation characters, filter envelopes and envelope amount, LFO waveforms including sample and hold, the classic destinations, and modulation routing. Velocity is routed to amplitude and to filter envelope amount, so a MIDI keyboard plays expressively. The five standard articulations (pluck, pad, organ, swell, percussion) and the classic LFO applications are presets.',
   hue: function () { return 300; },
   enter: function (app) {
     var self = this; this.setupAudio(app);
@@ -2069,12 +2069,12 @@ var MOTION = new SynthStation({
   }
 });
 
-/* S4. FM (Week 4) */
+/* S4. FM */
 var FM = new SynthStation({
-  id: 'fm', title: 'FM', week: 'Week 4',
+  id: 'fm', title: 'FM',
   thesis: 'One sine bends the frequency of another. Out come sidebands at the carrier plus and minus every multiple of the modulator, and the ratio between the two decides whether the result is a tone or a bell.',
   notice: 'Drag inside the spectrum: left and right sets the ratio, up and down the modulation index. The teal marks are the sidebands predicted by Bessel functions for the current index; the live spectrum should land on them. Integer ratios give harmonic timbres, 1.414 gives the classic metallic bell.',
-  more: 'Lecture 4: carriers, modulators, index, ratios and algorithms. With modulation index I the k-th sideband has amplitude J_k(I), the Bessel function of order k, so the spectrum grows outward as the index rises and individual partials dip to zero at the roots of J_k. Sidebands that fall below 0 Hz reflect back with inverted phase, which is why 1:1 FM sounds like a square-ish wave. The modulator envelope is what gives electric pianos and bells their brightness that fades. Velocity is routed to the index.',
+  more: 'Carriers, modulators, index, ratios and algorithms. With modulation index I the k-th sideband has amplitude J_k(I), the Bessel function of order k, so the spectrum grows outward as the index rises and individual partials dip to zero at the roots of J_k. Sidebands that fall below 0 Hz reflect back with inverted phase, which is why 1:1 FM sounds like a square-ish wave. The modulator envelope is what gives electric pianos and bells their brightness that fades. Velocity is routed to the index.',
   hue: function () { return 340; },
   enter: function (app) {
     var self = this; this.setupAudio(app);
@@ -2151,12 +2151,12 @@ var WT_FRAMES = (function () {
   ];
 })();
 
-/* S5. Wavetable (Week 5) */
+/* S5. Wavetable */
 var WAVETABLE = new SynthStation({
-  id: 'wavetable', title: 'Wavetable', week: 'Week 5',
+  id: 'wavetable', title: 'Wavetable',
   thesis: 'A stack of single-cycle waveforms. Position picks a frame; moving the position with an envelope or LFO makes the timbre itself animate.',
   notice: 'Drag across the panel to scan the table by hand. Then let the envelope sweep the position on every note, or an LFO breathe through it. Adjacent frames crossfade, so the spectrum morphs rather than jumps.',
-  more: 'Lecture 5: wavetable architecture, frame selection, position modulation by envelope, LFO and manual control, and the hybrid with subtractive filtering. Each frame here is defined by its harmonic amplitudes, so the spectrum of every frame is exact and the morph between two frames is a linear crossfade of their spectra. The lab\'s evolving pad and animated lead are presets.',
+  more: 'Wavetable architecture, frame selection, position modulation by envelope, LFO and manual control, and the hybrid with subtractive filtering. Each frame here is defined by its harmonic amplitudes, so the spectrum of every frame is exact and the morph between two frames is a linear crossfade of their spectra. An evolving pad and an animated lead are presets.',
   hue: function () { return 175; },
   enter: function (app) {
     var self = this; this.setupAudio(app);
@@ -2220,12 +2220,12 @@ var WAVETABLE = new SynthStation({
   readout: function () { var P = this.P, lo = Math.floor(P.pos), hi = Math.min(WT_FRAMES.length - 1, lo + 1); return 'Position <b>' + P.pos.toFixed(2) + '</b> between ' + WT_FRAMES[lo].name + ' and ' + WT_FRAMES[hi].name + (P.penvAmt ? ', envelope sweeps ' + fmtSigned(P.penvAmt, 1) + ' frames' : '') + (P.lfoAmt ? ', LFO ±' + P.lfoAmt.toFixed(1) + ' frames at ' + P.lfoRate.toFixed(2) + ' Hz' : ''); }
 });
 
-/* S6. Additive (Week 6) */
+/* S6. Additive */
 var ADDITIVE = new SynthStation({
-  id: 'additive', title: 'Additive', week: 'Week 6',
+  id: 'additive', title: 'Additive',
   thesis: 'Build the sound one partial at a time: each sine has its own level, its own decay, and its own frequency ratio to the fundamental.',
   notice: 'Drag across the panel to set the twelve partial levels like drawbars. Make the higher partials decay faster and the tone loses brightness as it rings, the way struck and plucked sounds do. Stretch the ratios away from integers and the same levels turn into a bell.',
-  more: 'Lecture 6: additive principles, harmonic versus inharmonic partials, per-partial envelopes, and the practical cost of the method. Twelve partials is a small additive instrument, but it already needs twelve envelopes, which is exactly the point the lecture makes about why additive interfaces are hard. The teal marks on the spectrum show where each partial should sit for the current stretch.',
+  more: 'Additive principles, harmonic versus inharmonic partials, per-partial envelopes, and the practical cost of the method. Twelve partials is a small additive instrument, but it already needs twelve envelopes, which is exactly the point the lecture makes about why additive interfaces are hard. The teal marks on the spectrum show where each partial should sit for the current stretch.',
   hue: function () { return 96; },
   enter: function (app) {
     var self = this; this.setupAudio(app);
@@ -2295,12 +2295,12 @@ function renderSource(ctx, kind) {
 }
 function hannCurve(n) { var c = new Float32Array(n); for (var i = 0; i < n; i++) c[i] = 0.5 - 0.5 * Math.cos(TAU * i / (n - 1)); return c; }
 
-/* S7. Grains (Week 7) */
+/* S7. Grains */
 var GRAINS = new SynthStation({
-  id: 'grains', title: 'Grains', week: 'Week 7',
+  id: 'grains', title: 'Grains',
   thesis: 'Cut a sound into pieces a few milliseconds long, then replay the pieces at any rate, from any position, at any pitch. Time and pitch come apart.',
   notice: 'Hold a key and grains stream from the marked position in the source; the keyboard transposes every grain. Set the scan speed to zero to freeze a moment, to a quarter to stretch time fourfold with no change of pitch, and raise the spray to scatter the grains into a cloud. Switch Without keys to Play C4 for a stream that runs on its own.',
-  more: 'Lecture 7: grain size, density, position, spray, pitch and window. Below about 20 ms grains stop being heard as fragments and become a timbre. The window shape decides how much click each grain carries: the bare rectangle switches the sound on and off instantly at every grain edge, so it crackles at the grain rate, and that crackle is the lesson; two milliseconds of slope on each edge removes it while keeping the articulated attack. The three sources are synthesised here so nothing has to be uploaded: a sung vowel, a plucked string, and an inharmonic bell. The lab\'s freeze, stretch and cloud settings are presets.',
+  more: 'Grain size, density, position, spray, pitch and window. Below about 20 ms grains stop being heard as fragments and become a timbre. The window shape decides how much click each grain carries: the bare rectangle switches the sound on and off instantly at every grain edge, so it crackles at the grain rate, and that crackle is the lesson; two milliseconds of slope on each edge removes it while keeping the articulated attack. The three sources are synthesised here so nothing has to be uploaded: a sung vowel, a plucked string, and an inharmonic bell. Freeze, stretch and cloud settings are presets.',
   hue: function () { return 25; },
   enter: function (app) {
     var self = this; this.setupAudio(app, 0.9);
@@ -2369,7 +2369,7 @@ var GRAINS = new SynthStation({
   readout: function () { var P = this.P; return '<b>' + P.size + ' ms</b> grains, ' + P.density + ' per second, ' + (P.window === 'rect' ? 'bare rectangle window so every edge clicks, ' : (P.window === 'trap' ? 'rectangle with 2 ms edges, ' : P.window === 'tri' ? 'triangle window, ' : 'Hann window, ')) + (P.speed === 0 ? 'position frozen' : 'scanning at ' + P.speed.toFixed(2) + '× so time is stretched ' + (P.speed > 0 ? (1 / Math.abs(P.speed)).toFixed(1) + 'fold' : 'and reversed')) + ', spray ±' + (P.spray * 2400).toFixed(0) + ' ms. Pitch follows the keys, time does not'; }
 });
 
-/* S8. Models (Week 8): plucked string in an AudioWorklet, struck bar and drum head as modal synthesis */
+/* S8. Models: plucked string in an AudioWorklet, struck bar and drum head as modal synthesis */
 var STRING_WORKLET = "class CymaString extends AudioWorkletProcessor{constructor(){super();this.voices=[];this.port.onmessage=e=>this.msg(e.data);this.count=0;}\n" +
 "msg(m){if(m.type==='pluck'){const w0=2*Math.PI*m.freq/sampleRate,c0=Math.cos(w0),s0=Math.sin(w0);let a=0.78*(1-m.brightness);\n" +
 "const magMin=Math.pow(10,-(6/m.freq)/20);let lo=0,hi=a;for(let it=0;it<30;it++){const mid=0.5*(lo+hi),mag=(1-mid)/Math.sqrt(1-2*mid*c0+mid*mid);if(mag>=magMin)lo=mid;else hi=mid;}a=lo;\n" +
@@ -2388,10 +2388,10 @@ var MODAL_SETS = {
   tabla: { name: 'loaded membrane, near-harmonic', ratios: [1, 2, 3, 4, 5, 6], drop: 0.03, noise: 0.5 }
 };
 var MODELS = new SynthStation({
-  id: 'models', title: 'Models', week: 'Week 8',
+  id: 'models', title: 'Models',
   thesis: 'Instead of describing the sound, describe the object: an excitation, a resonator, and the losses between them. Pluck a string, strike a bar, hit a drum.',
   notice: 'The string is a real Karplus-Strong waveguide running in the audio thread; the white curve is the string itself, read out of the delay line. Brightness sets the loop filter and how soft the pluck is, damping the decay, pick position the comb that thins alternate harmonics. The bars and drum heads are modal models: resonators at the object\'s mode ratios plus a brief noise of the strike. A uniform bar rings at 1 : 2.76 : 5.40; a marimba bar is undercut to 1 : 4 : 10, which is why it sounds like wood and not glass; a drum head is inharmonic while the loaded tabla dayan head is nearly harmonic. The Tabla preset is the bayan side: a hard stroke on an ordinary head, damped fast, with the pitch bending down as the pressure of the hand releases.',
-  more: 'Lecture 8: excitation and resonance, Karplus-Strong, waveguides and modal synthesis. The uniform bar uses the free-free bar ratios 1, 2.756, 5.404, 8.933; the tuned bar the 1 : 4 : 10 ratios that marimba makers cut into the underside; the drum the circular membrane ratios 1, 1.594, 2.136, 2.296, 2.653, 2.918, the same Bessel zeros that shape the Plate station; the tabla head the near-harmonic ratios its loading paste produces. Drum heads also drop in pitch for a few tens of milliseconds after the strike, as real heads do. If the browser cannot run audio worklets the string falls back to a modal approximation and says so.',
+  more: 'Excitation and resonance, Karplus-Strong, waveguides and modal synthesis. The uniform bar uses the free-free bar ratios 1, 2.756, 5.404, 8.933; the tuned bar the 1 : 4 : 10 ratios that marimba makers cut into the underside; the drum the circular membrane ratios 1, 1.594, 2.136, 2.296, 2.653, 2.918, the same Bessel zeros that shape the Plate station; the tabla head the near-harmonic ratios its loading paste produces. Drum heads also drop in pitch for a few tens of milliseconds after the strike, as real heads do. If the browser cannot run audio worklets the string falls back to a modal approximation and says so.',
   hue: function () { return 60; },
   enter: function (app) {
     var self = this; this.setupAudio(app);
@@ -2456,10 +2456,10 @@ var MODELS = new SynthStation({
 
 /* S9. Shape (Weeks 10 and 11): waveshaping, dynamics, chorus */
 var SHAPE = new SynthStation({
-  id: 'shape', title: 'Shape', week: 'Weeks 10 and 11',
+  id: 'shape', title: 'Shape',
   thesis: 'Synthesis makes the sound; processing remakes it. Bend the waveform through a curve, squeeze its dynamics, then smear it against a delayed copy of itself.',
   notice: 'The panel draws the transfer curve: input left to right, output up. Soft curves add odd harmonics gently; hard clipping adds them fiercely; folding sends the peaks back down and invents new partials. Watch the spectrum fill as you raise the drive. The meter shows how many decibels the compressor is taking off right now.',
-  more: 'Lecture 10 and 11: creative filtering, dynamics, distortion, and modulation effects. Waveshaping is memoryless, so a sine in gives harmonics exactly determined by the curve\'s polynomial expansion; a symmetric curve adds only odd harmonics. The chorus is a short delay swept by an LFO and mixed with the dry signal, the same structure as a flanger with the delay made longer. Spectral effects are described in the lecture but need a DAW to explore.',
+  more: 'Creative filtering, dynamics, distortion, and modulation effects. Waveshaping is memoryless, so a sine in gives harmonics exactly determined by the curve\'s polynomial expansion; a symmetric curve adds only odd harmonics. The chorus is a short delay swept by an LFO and mixed with the dry signal, the same structure as a flanger with the delay made longer. Spectral effects need a DAW to explore.',
   hue: function () { return 5; },
   enter: function (app) {
     var self = this; this.setupAudio(app, 0.75);
@@ -2527,7 +2527,7 @@ var PLAIN = {
   plate: 'A speaker drives a metal plate at one frequency, and the plate bends into a pattern of hills and valleys that stand still in place. Powder bounces off the moving parts and comes to rest on the lines where the plate is not moving: those lines are the figure. Every frequency at which the plate resonates has its own pattern, so sweeping the frequency steps through the figures, and between resonances the powder hesitates. A square plate driven at its centre gives the classic Chladni figures. Making the plate bigger brings the intricate patterns down to lower frequencies, because a large plate resonates lower than a small one of the same thickness. Water in a dish behaves differently. Shake the dish up and down and ripples appear at half the shaking frequency, forming a standing pattern across the surface; the bright lines are where the surface slopes catch the light. The plates and the dish are calculated from their physics, not copied from photographs.',
   ascent: 'You are hearing eight tones one octave apart, all gliding upward together. As each one rises out of the middle of the range it fades away, and a new one fades in at the bottom, so the set never runs out. Because our ears treat notes an octave apart as nearly the same note, the result is a tone that seems to rise forever without ever getting higher: the Shepard-Risset glissando. The circle shows pitch class, which note name each tone is nearest, turning steadily; the strip on the right shows pitch height, where each tone actually is and how loud it is under the fixed window. The whole illusion depends on the octave, the first interval that closed a figure back in the Ratio station.',
   timbre: 'Every pitched sound is built from harmonics, and what makes a saw sound different from a square at the same pitch and loudness is which harmonics are present and how loud each one is. Play a note and compare: the saw wave has every harmonic, each a little quieter than the last; the square has only the odd ones; the triangle has only the odd ones and they fall off fast; the sine has just the fundamental. The teal ticks on the spectrum are where theory says the harmonics should be and how loud; the live spectrum is what is actually coming out. The envelope shapes loudness over time: a quick attack with no sustain gives a pluck, a slow attack and a long release give a pad. Same harmonics, completely different instrument.',
-  voice: 'This is the classic analogue synth voice. Oscillators make a bright, buzzy signal full of harmonics, a filter takes some of them away, and an amplifier sets the level. Two oscillators slightly detuned sound wide because their harmonics slowly drift in and out of step with each other; drop the second an octave for weight; add the sub for a floor. The filter\'s cutoff decides where the tone is cut, resonance boosts the harmonics right at the cutoff, and slope is how steeply the highs fall away. Drag on the spectrum to play the filter by hand: the teal curve is the filter\'s exact response, so you can see which harmonics survive. The four target timbres from the lab are the first four presets; try to rebuild each one before revealing it.',
+  voice: 'This is the classic analogue synth voice. Oscillators make a bright, buzzy signal full of harmonics, a filter takes some of them away, and an amplifier sets the level. Two oscillators slightly detuned sound wide because their harmonics slowly drift in and out of step with each other; drop the second an octave for weight; add the sub for a floor. The filter\'s cutoff decides where the tone is cut, resonance boosts the harmonics right at the cutoff, and slope is how steeply the highs fall away. Drag on the spectrum to play the filter by hand: the teal curve is the filter\'s exact response, so you can see which harmonics survive. Four classic target timbres are the first four presets; try to rebuild each one before revealing it.',
   motion: 'A sound that never changes is a photograph; envelopes and LFOs turn it into a film. The amplitude envelope shapes loudness: attack, decay, a sustain level while you hold, and a release when you let go. The filter envelope does the same to brightness: a positive amount opens the filter on each note, which gives analogue synths their plucky, vocal quality; a negative amount closes it. The LFO is a slow oscillator you route somewhere: to pitch for vibrato, to loudness for tremolo, to the filter for wobble, to pulse width for a thick chorus-like shimmer. Sample-and-hold replaces the smooth wave with random steps. The roll on the right draws the pitch of each held note over time, so vibrato and glide show up as lines. Velocity, from a MIDI keyboard or from how far down the on-screen key you tap, makes notes louder and brighter.',
   fm: 'One sine wave, the modulator, wobbles the frequency of another, the carrier, very fast. Do that slowly and you hear vibrato; do it hundreds of times a second and you get new frequencies instead: sidebands spaced above and below the carrier by the modulator\'s frequency. The index is how hard the modulator pushes; more index means more sidebands and a brighter, more complex sound. The ratio between modulator and carrier decides where the sidebands land: whole-number ratios put them on the harmonic series, so you get a pitched tone; a ratio like 1.414 scatters them, so you get bells and metal. Give the modulator an envelope that fades and the tone starts bright and mellows, which is the electric piano sound. The teal marks are where the mathematics says the sidebands will be; the spectrum shows them appearing.',
   wavetable: 'A wavetable is a stack of single-cycle waveforms, here ten of them, from sine through saw to formants and noise. Position picks which frame plays, and positions between frames blend the two neighbours. The trick is to move the position while a note sounds: an envelope sweeps it once per note, an LFO makes it breathe or flutter, or you drag the panel by hand. Because each frame has a different set of harmonics, sweeping through the table morphs the timbre in a way a filter cannot. The low-pass filter afterwards works exactly as it does in the subtractive voice.',
@@ -2653,7 +2653,7 @@ App.prototype.go = function (i) {
   st.enter(this);
   if (st.hasMotion) st.setMotion(this.motion);
   this.setAccent(st.hue());
-  d.title.textContent = st.title; d.count.textContent = (i + 1) + ' of ' + STATIONS.length + (st.week ? ', ' + st.week : '');
+  d.title.textContent = st.title; d.count.textContent = (i + 1) + ' of ' + STATIONS.length;
   d.thesis.textContent = st.thesis; d.notice.textContent = st.notice; d.more.textContent = st.more; d.plain.textContent = PLAIN[st.id] || '';
   d.more.classList.remove('open'); d.morebtn.setAttribute('aria-expanded', 'false'); d.plain.classList.remove('open'); d.plainbtn.setAttribute('aria-expanded', 'false');
   d.controls.innerHTML = '';
