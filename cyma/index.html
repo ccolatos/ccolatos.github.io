@@ -511,19 +511,19 @@ function ratioName(p, q) { var g = gcd(p, q); var key = (p / g) + ':' + (q / g);
 /* ---------- Audio engine ---------- */
 var LEVEL = 0.26;
 
-function Ledger(t0, f0) { this.bT = t0; this.bF = f0; this.bC = 0; this.ev = []; }
-Ledger.prototype.lastT = function () { return this.ev.length ? this.ev[this.ev.length - 1].t : this.bT; };
-Ledger.prototype.add = function (t, f) { this.ev.push({ t: t, f: f }); };
-Ledger.prototype.freqAt = function (t) { var f = this.bF; for (var i = 0; i < this.ev.length; i++) { if (this.ev[i].t <= t) f = this.ev[i].f; else break; } return f; };
-Ledger.prototype.cyclesAt = function (t) {
-  var c = this.bC, tp = this.bT, f = this.bF;
-  for (var i = 0; i < this.ev.length; i++) { var e = this.ev[i]; if (e.t >= t) break; c += f * (e.t - tp); tp = e.t; f = e.f; }
-  return c + f * (t - tp);
-};
+/* Frequency ledger: every scheduled frequency change with its cumulative cycle count, so the exact phase at any time is a
+   binary search plus one multiply. Events may be scheduled far into the future; cancelFrom removes them again. */
+function Ledger(t0, f0) { this.ev = [{ t: t0, f: f0, c: 0 }]; }
+Ledger.prototype.lastT = function () { return this.ev[this.ev.length - 1].t; };
+Ledger.prototype.add = function (t, f) { var ev = this.ev, last = ev[ev.length - 1]; if (t <= last.t) { last.f = f; return; } ev.push({ t: t, f: f, c: last.c + last.f * (t - last.t) }); };
+Ledger.prototype.idx = function (t) { var ev = this.ev, lo = 0, hi = ev.length - 1; if (t <= ev[0].t) return 0; while (lo < hi) { var mid = (lo + hi + 1) >> 1; if (ev[mid].t <= t) lo = mid; else hi = mid - 1; } return lo; };
+Ledger.prototype.freqAt = function (t) { return this.ev[this.idx(t)].f; };
+Ledger.prototype.cyclesAt = function (t) { var e = this.ev[this.idx(t)]; return e.c + e.f * (t - e.t); };
 Ledger.prototype.prune = function (now) {
-  while (this.ev.length && this.ev[0].t < now - 1) { var e = this.ev.shift(); this.bC += this.bF * (e.t - this.bT); this.bT = e.t; this.bF = e.f; }
-  this.bC -= Math.floor(this.bC);
+  var i = this.idx(now - 1); if (i > 0) this.ev.splice(0, i);
+  var c0 = Math.floor(this.ev[0].c); if (c0) for (var k = 0; k < this.ev.length; k++) this.ev[k].c -= c0;
 };
+Ledger.prototype.cancelFrom = function (t) { var ev = this.ev, i = this.idx(t), k = ev[i].t >= t ? i : i + 1; if (k < 1) k = 1; if (k < ev.length) ev.length = k; };
 
 function Engine() { this.ctx = null; this.muted = false; this.ok = false; }
 Engine.prototype.init = function () {
@@ -591,6 +591,26 @@ function silentWav() {
   for (i = 0; i < n; i++) v.setUint8(44 + i, 128);
   return new Blob([buf], { type: 'audio/wav' });
 }
+
+/* The browser stops animation frames and throttles timers when the page is hidden, but the audio thread keeps
+   rendering. This clock rides on it: a worklet (or a ScriptProcessor where worklets are missing) posts a message
+   every 2048 frames, about 23 times a second, and those messages are delivered even in a background tab. */
+var CLOCK_WORKLET = "class CymaClock extends AudioWorkletProcessor{constructor(){super();this.n=0;}process(i,o){this.n+=128;if(this.n>=2048){this.n=0;this.port.postMessage(0);}return true;}}registerProcessor('cyma-clock',CymaClock);";
+Engine.prototype.startClock = function (onTick) {
+  var c = this.ctx, self = this; if (!c) return;
+  var sink = c.createGain(); sink.gain.value = 0; sink.connect(c.destination);
+  var useScript = function () {
+    try { var sp = c.createScriptProcessor(2048, 1, 1); sp.onaudioprocess = function (e) { try { e.outputBuffer.getChannelData(0).fill(0); } catch (x) {} onTick(); }; sp.connect(sink); self.clock = sp; self.clockKind = 'script'; } catch (e) { self.clockKind = 'none'; }
+  };
+  if (c.audioWorklet && typeof AudioWorkletNode !== 'undefined' && typeof URL !== 'undefined' && URL.createObjectURL) {
+    try {
+      var url = URL.createObjectURL(new Blob([CLOCK_WORKLET], { type: 'application/javascript' }));
+      c.audioWorklet.addModule(url).then(function () {
+        try { var n = new AudioWorkletNode(c, 'cyma-clock', { numberOfInputs: 0, outputChannelCount: [1] }); n.port.onmessage = function () { onTick(); }; n.connect(sink); self.clock = n; self.clockKind = 'worklet'; } catch (e) { useScript(); }
+      }).catch(useScript);
+    } catch (e) { useScript(); }
+  } else useScript();
+};
 Engine.prototype.resume = function () { var self = this; [this.mediaEl, this.silentEl].forEach(function (a) { if (a && a.paused && Date.now() >= (a._nextTry || 0)) { try { var pr = a.play(); if (pr && pr.catch) pr.catch(function () {}); } catch (e) {} } }); void self; if (this.ctx && this.ctx.state !== 'running') { try { return this.ctx.resume(); } catch (e) {} } return Promise.resolve(); };
 Engine.prototype.suspend = function () { if (this.ctx && this.ctx.state === 'running') { try { this.ctx.suspend(); } catch (e) {} } };
 Engine.prototype.setMuted = function (m) { this.muted = m; if (this.ctx) this.master.gain.setTargetAtTime(m ? 0 : 0.85, this.ctx.currentTime, 0.03); };
@@ -624,7 +644,12 @@ Tone.prototype.setFreq = function (f, t) {
   for (var i = 0; i < this.osc.length; i++) this.osc[i].frequency.setValueAtTime(f, t);
   this.ledger.add(t, f); return t;
 };
+Tone.prototype.cancelFrom = function (t) { for (var i = 0; i < this.osc.length; i++) this.osc[i].frequency.cancelScheduledValues(t); this.ledger.cancelFrom(t); };
 Tone.prototype.freq = function () { return this.ledger.freqAt(this.eng.now() + 1); };
+Tone.prototype.setPhiAt = function (phi, t, tc) { this.rSS.gain.setTargetAtTime(Math.cos(phi), t, tc || 0.03); if (this.quad) this.rSC.gain.setTargetAtTime(Math.sin(phi), t, tc || 0.03); };
+Tone.prototype.cancelPhiFrom = function (t) { this.rSS.gain.cancelScheduledValues(t); if (this.quad) this.rSC.gain.cancelScheduledValues(t); };
+Tone.prototype.setAmpAt = function (a, t, tc) { this.level = a; this.amp.gain.setTargetAtTime(a, t, tc || 0.03); };
+Tone.prototype.cancelAmpFrom = function (t) { this.amp.gain.cancelScheduledValues(t); };
 Tone.prototype.setTimbre = function (m, t) {
   this.mix = m; if (!t) t = this.eng.now(); var tc = 0.025;
   this.gS.gain.setTargetAtTime(1 - m, t, tc); this.gHS.gain.setTargetAtTime(m, t, tc);
@@ -660,6 +685,14 @@ Duo.prototype.ratio = function () {
   return r;
 };
 Duo.prototype.f2 = function () { return this.st.f1 * this.ratio(); };
+Duo.prototype.f2For = function (f1, cents) { var iv = this.iv(), r = this.st.tuning === 'equal' ? Math.pow(2, iv.semis / 12) : iv.p / iv.q; if (cents) r *= Math.pow(2, cents / 1200); return f1 * r; };
+/* Schedule both tones at time t for the given fundamental and detuning, without touching the phase pin. */
+Duo.prototype.setAt = function (t, f1, cents) { this.t1.setFreq(f1, t); this.t2.setFreq(this.f2For(f1, cents), t); };
+Duo.prototype.cancelFrom = function (t) { this.t1.cancelFrom(t); this.t2.cancelFrom(t); };
+Duo.prototype.phiFor = function (t, v) {
+  var iv = this.iv(), p = iv.p, q = iv.q, P1 = TAU * this.t1.ledger.cyclesAt(t), P2 = TAU * this.t2.ledger.cyclesAt(t);
+  return mod(psiFromFrac(p, q, v) - (P2 - (p / q) * P1), TAU);
+};
 Duo.prototype.retune = function (noPin) {
   var t = this.eng.schedTime();
   this.t1.setFreq(this.st.f1, t); this.t2.setFreq(this.f2(), t);
@@ -722,6 +755,9 @@ Bank.prototype.set = function (i, f, a, tc) {
   if (f !== this.f[i]) { if (this.a[i] === 0) this.osc[i].frequency.setValueAtTime(f, t); else this.osc[i].frequency.setTargetAtTime(f, t, tc); this.f[i] = f; }
   if (a !== this.a[i]) { this.g[i].gain.setTargetAtTime(a, t, tc); this.a[i] = a; }
 };
+Bank.prototype.setFreqAt = function (i, f, t) { this.osc[i].frequency.setValueAtTime(f, t); this.f[i] = f; };
+Bank.prototype.setGainAt = function (i, a, t, tc) { this.g[i].gain.setTargetAtTime(a, t, tc == null ? 0.02 : tc); this.a[i] = a; };
+Bank.prototype.cancelFrom = function (t) { for (var i = 0; i < this.osc.length; i++) { this.osc[i].frequency.cancelScheduledValues(t); this.g[i].gain.cancelScheduledValues(t); this.f[i] = NaN; this.a[i] = NaN; } };
 Bank.prototype.setLevel = function (v) { this.sum.gain.setTargetAtTime(v, this.eng.now(), 0.03); };
 Bank.prototype.dispose = function () {
   var t = this.eng.now(), oscs = this.osc, tail = this.pan || this.sum;
@@ -863,23 +899,36 @@ Station.prototype.tick = function () {};
 Station.prototype.draw = function () {};
 Station.prototype.readout = function () { return ''; };
 Station.prototype.pointer = null;
-Station.prototype.setMotion = function (on) { this.motion = on; };
+/* Motion is a deterministic function of audio time. While it runs, each station writes its own trajectory into the audio
+   graph MOTION_H seconds ahead and re-extends it whenever JavaScript gets to run, so the sound keeps moving when the tab
+   is hidden and the page's timers slow down; the visuals read the same function of time when they resume. */
+var MOTION_H = 90;
+Station.prototype.setMotion = function (on) {
+  var was = this.motion; this.motion = on; var now = this.app ? this.app.eng.now() : 0;
+  if (on && !was) { this.motionT0 = now; this.schedT = 0; if (this.motionStart) this.motionStart(now); }
+  if (!on && was && this.motionStop) this.motionStop(now);
+};
+Station.prototype.bgTick = function (t) { if (this.motion && this.motionSchedule) this.motionSchedule(t); };
+/* Re-plan the scheduled trajectory from the next safe time (after a control changed the tones under it). */
+Station.prototype.motionPre = function () { if (this.motion && this.motionCancel) this.motionCancel(this.app.eng.schedTime()); };
+Station.prototype.motionResync = function () { if (!this.motion || !this.motionCancel) return; var t = this.app.eng.schedTime(); this.motionCancel(t); this.schedT = t; this.motionSchedule(this.app.eng.now()); };
+function motionSteps(st, now, step, fn) { var t = Math.max(st.schedT || 0, st.app.eng.schedTime()); t = Math.ceil(t / step) * step; var end = now + MOTION_H; for (; t <= end; t += step) fn(t); st.schedT = t; }
 
 function intervalChips(app, station, onChange) {
   return ctlChips({ label: 'Interval', options: INTERVALS.map(function (iv, i) { return { label: iv.name + ' ' + iv.p + ':' + iv.q, value: i, hue: iv.hue }; }),
-    get: function () { return DUO_STATE.iv; }, set: function (v) { DUO_STATE.iv = v; onChange(); app.setAccent(station.hue()); } });
+    get: function () { return DUO_STATE.iv; }, set: function (v) { station.motionPre(); DUO_STATE.iv = v; onChange(); station.motionResync(); app.setAccent(station.hue()); } });
 }
-function tuningSeg(duo) {
+function tuningSeg(duo, station) {
   return ctlSeg({ label: 'Tuning', options: [{ label: 'Just', value: 'just' }, { label: 'Equal temperament', value: 'equal' }],
-    get: function () { return DUO_STATE.tuning; }, set: function (v) { DUO_STATE.tuning = v; duo.retune(); } });
+    get: function () { return DUO_STATE.tuning; }, set: function (v) { if (station) station.motionPre(); DUO_STATE.tuning = v; duo.retune(); if (station) station.motionResync(); } });
 }
 function toneSeg(duo) {
   return ctlSeg({ label: 'Tone', options: [{ label: 'Sine', value: 0 }, { label: 'Harmonics', value: 1 }],
     get: function () { return DUO_STATE.mix; }, set: function (v) { DUO_STATE.mix = v; duo.applyTimbre(); } });
 }
-function pitchSlider(duo) {
+function pitchSlider(duo, station) {
   return ctlSlider({ label: 'Lower tone', min: 110, max: 440, log: true, step: 0.5, fmt: fmtHz,
-    get: function () { return DUO_STATE.f1; }, set: function (v) { DUO_STATE.f1 = v; duo.retune(); } });
+    get: function () { return DUO_STATE.f1; }, set: function (v) { if (station) station.motionPre(); DUO_STATE.f1 = v; duo.retune(); if (station) station.motionResync(); } });
 }
 function duoReadoutBasic(duo) {
   var iv = duo.iv(), f1 = duo.t1.freq(), f2 = duo.t2.freq(), c = centsOfRatio(f2 / f1);
@@ -907,13 +956,18 @@ var RATIO = new Station({
         marks: [{ at: 0, label: 'closed' }, { at: 0.25, label: 'open' }, { at: 0.5, label: 'closed' }, { at: 0.75, label: 'open' }, { at: 1, label: 'closed' },
           { live: true, get: function () { return st.tuning === 'equal' && INTERVALS[st.iv].semis % 12 ? duo.liveFrac(app.eng.now()) : null; } }],
         get: function () { return st.v; }, set: function (v) { stopMotion(app); st.v = v; duo.applyPhase(); } }),
-      ctlRow([tuningSeg(duo), toneSeg(duo)]),
-      pitchSlider(duo)
+      ctlRow([tuningSeg(duo, this), toneSeg(duo)]),
+      pitchSlider(duo, this)
     ];
   },
   leave: function () { this.duo.dispose(); this.duo = null; },
-  tick: function (dt) {
-    if (this.motion) { DUO_STATE.v = mod(DUO_STATE.v + dt / 28, 1); if ((this.mf = (this.mf || 0) + 1) % 2 === 0) this.duo.applyPhase(); }
+  motionStart: function (t0) { this.v0 = DUO_STATE.v; },
+  motionValue: function (t) { return mod(this.v0 + (t - this.motionT0) / 28, 1); },
+  motionSchedule: function (now) { var self = this, duo = this.duo; motionSteps(this, now, 0.1, function (ts) { duo.t2.setPhiAt(duo.phiFor(ts, self.motionValue(ts)), ts, 0.03); }); },
+  motionCancel: function (t) { this.duo.t2.cancelPhiFrom(t); },
+  motionStop: function (now) { var t = this.app.eng.schedTime(); this.duo.t2.cancelPhiFrom(t); DUO_STATE.v = this.motionValue(now); this.duo.applyPhase(t); },
+  tick: function (dt, t) {
+    if (this.motion) { DUO_STATE.v = this.motionValue(t); this.duo.t2.phi = this.duo.phiFor(t, DUO_STATE.v); this.motionSchedule(t); }
     if ((this.pruneT = (this.pruneT || 0) + dt) > 2) { this.pruneT = 0; this.duo.prune(); }
   },
   draw: function (stage, t) {
@@ -947,12 +1001,16 @@ var ORBIT = new Station({
       ctlSlider({ label: 'Upper tone amplitude', min: 0.25, max: 2.5, log: true, step: 0.005, fmt: function (v) { return v.toFixed(2) + ' × lower'; },
         marks: [{ value: true, label: 'cusp', get: function () { var iv = INTERVALS[st.iv]; return iv.q / iv.p; } }],
         get: function () { return st.B; }, set: function (v) { stopMotion(app); st.B = v; duo.applyAmps(); } }),
-      ctlRow([tuningSeg(duo), toneSeg(duo)])
+      ctlRow([tuningSeg(duo, this), toneSeg(duo)])
     ];
   },
   leave: function () { this.duo.dispose(); this.duo = null; },
-  tick: function (dt) {
-    if (this.motion) { this.mt = (this.mt || 0) + dt; var u = 0.5 + 0.5 * Math.sin(TAU * this.mt / 26); DUO_STATE.B = Math.pow(10, lerp(Math.log10(0.28), Math.log10(2.2), u)); if ((this.mf = (this.mf || 0) + 1) % 2 === 0) this.duo.applyAmps(); }
+  motionValue: function (t) { var u = 0.5 + 0.5 * Math.sin(TAU * (t - this.motionT0) / 26); return Math.pow(10, lerp(Math.log10(0.28), Math.log10(2.2), u)); },
+  motionSchedule: function (now) { var self = this, duo = this.duo; motionSteps(this, now, 0.1, function (ts) { duo.t2.setAmpAt(LEVEL * self.motionValue(ts), ts, 0.05); }); },
+  motionCancel: function (t) { this.duo.t2.cancelAmpFrom(t); },
+  motionStop: function (now) { this.duo.t2.cancelAmpFrom(this.app.eng.schedTime()); DUO_STATE.B = this.motionValue(now); this.duo.applyAmps(); },
+  tick: function (dt, t) {
+    if (this.motion) { DUO_STATE.B = this.motionValue(t); this.motionSchedule(t); }
     if ((this.pruneT = (this.pruneT || 0) + dt) > 2) { this.pruneT = 0; this.duo.prune(); }
   },
   draw: function (stage, t) {
@@ -1002,8 +1060,12 @@ var DRIFT = new Station({
     ];
   },
   leave: function () { this.duo.dispose(); this.duo = null; DUO_STATE.cents = 0; },
-  tick: function (dt) {
-    if (this.motion) { this.mt = (this.mt || 0) + dt; DUO_STATE.cents = 16 * Math.sin(TAU * this.mt / 40); if ((this.mf = (this.mf || 0) + 1) % 4 === 0) this.duo.retune(true); }
+  motionValue: function (t) { return 16 * Math.sin(TAU * (t - this.motionT0) / 40); },
+  motionSchedule: function (now) { var self = this, duo = this.duo; motionSteps(this, now, 0.1, function (ts) { duo.setAt(ts, DUO_STATE.f1, self.motionValue(ts)); }); },
+  motionCancel: function (t) { this.duo.cancelFrom(t); },
+  motionStop: function (now) { this.duo.cancelFrom(this.app.eng.schedTime()); DUO_STATE.cents = this.motionValue(now); this.duo.retune(true); },
+  tick: function (dt, t) {
+    if (this.motion) { DUO_STATE.cents = this.motionValue(t); this.motionSchedule(t); }
     this.envT += dt; if (this.envT > 0.016) { this.envT = 0; this.env[this.envI] = this.app.eng.rms(); this.envI = (this.envI + 1) % this.env.length; }
     if ((this.pruneT = (this.pruneT || 0) + dt) > 2) { this.pruneT = 0; this.duo.prune(); }
   },
@@ -1078,9 +1140,25 @@ var SERIES = new Station({
     if (v < 0.5) return;
     var i = Math.floor((u - 0.06) / 0.88 * 12); if (i >= 0 && i < 12) { stopMotion(this.app); this.toggle(i); }
   },
-  tick: function (dt) {
+  /* The motion sequence: every 1.1 s the next harmonic is added; after all twelve, back to the fundamental. */
+  motionStart: function (t0) { this.on0 = this.on.slice(); this.seq = null; },
+  seqAt: function (k) {
+    if (!this.seq) this.seq = [this.on0.slice()];
+    while (this.seq.length <= k) { var prev = this.seq[this.seq.length - 1], next = prev.slice(), n = next.reduce(function (a, b) { return a + b; }, 0); if (n >= 12) { for (var i = 1; i < 12; i++) next[i] = 0; } else next[n] = next[n] ? 0 : 1; this.seq.push(next); }
+    return this.seq[k];
+  },
+  motionValue: function (t) { return this.seqAt(Math.max(0, Math.floor((t - this.motionT0) / 1.1))); },
+  motionSchedule: function (now) {
+    var self = this, bank = this.bank, f0 = this.f0, start = Math.max(this.schedT || 0, this.app.eng.schedTime()), end = now + MOTION_H;
+    var k0 = Math.max(1, Math.ceil((start - this.motionT0) / 1.1)), kEnd = Math.floor((end - this.motionT0) / 1.1);
+    for (var k = k0; k <= kEnd; k++) { var ts = this.motionT0 + k * 1.1, st = self.seqAt(k), prev = self.seqAt(k - 1); for (var i = 0; i < 12; i++) if (st[i] !== prev[i]) bank.setGainAt(i, st[i] ? 0.3 / (i + 1) : 0, ts, 0.03); }
+    this.schedT = end;
+  },
+  motionCancel: function (t) { this.bank.cancelFrom(t); },
+  motionStop: function (now) { this.bank.cancelFrom(this.app.eng.schedTime()); this.on = this.motionValue(now).slice(); this.apply(); },
+  tick: function (dt, t) {
     this.vt += dt;
-    if (this.motion) { this.mt += dt; if (this.mt > 1.1) { this.mt = 0; var n = this.on.reduce(function (a, b) { return a + b; }, 0); if (n >= 12) { for (var i = 1; i < 12; i++) this.on[i] = 0; this.apply(); } else this.toggle(n); } }
+    if (this.motion) { var st = this.motionValue(t); for (var i = 0; i < 12; i++) this.on[i] = st[i]; for (var j = 11; j > 0; j--) if (this.on[j] && this.on[j - 1]) { this.pair = [j, j + 1]; break; } this.motionSchedule(t); }
   },
   draw: function (stage, t) {
     stage.clear();
@@ -1150,16 +1228,20 @@ var GLIDE = new Station({
   setCents: function (v) {
     var c = clamp(v, 0, 1200);
     if (this.snap) { var best = null, bd = 12; GLIDE_MARKS.forEach(function (r) { var d = Math.abs(centsOfRatio(r[0] / r[1]) - c); if (d < bd) { bd = d; best = r; } }); if (best) c = centsOfRatio(best[0] / best[1]); }
-    this.c = c; DUO_STATE.cents = c; this.duo.retune(true); this.app.setAccent(this.hue());
+    this.motionPre(); this.c = c; DUO_STATE.cents = c; this.duo.retune(true); this.motionResync(); this.app.setAccent(this.hue());
   },
+  motionValue: function (t) { return 600 - 600 * Math.cos(TAU * (t - this.motionT0) / 60); },
+  motionSchedule: function (now) { var self = this, duo = this.duo; motionSteps(this, now, 0.05, function (ts) { duo.setAt(ts, 220, self.motionValue(ts)); }); },
+  motionCancel: function (t) { this.duo.cancelFrom(t); },
+  motionStop: function (now) { this.duo.cancelFrom(this.app.eng.schedTime()); this.c = this.motionValue(now); DUO_STATE.cents = this.c; this.duo.retune(true); },
   near: function () { var c = this.c, best = null, bd = 3.5; GLIDE_MARKS.forEach(function (r) { var d = Math.abs(centsOfRatio(r[0] / r[1]) - c); if (d < bd) { bd = d; best = r; } }); return best; },
   pointer: function (type, u, v) {
     if (type === 'down') { stopMotion(this.app); this.u0 = u; this.c0 = this.c; }
     if (v > 0.62 && v < 0.98) { this.setCents((u - 0.08) / 0.84 * 1200); this.u0 = u; this.c0 = this.c; return; }
     if (type === 'move' && this.u0 != null) this.setCents(this.c0 + (u - this.u0) * 600);
   },
-  tick: function (dt) {
-    if (this.motion) { this.mt += dt; if ((this.mf = (this.mf || 0) + 1) % 3 === 0) { var s = this.snap; this.snap = false; this.setCents(600 - 600 * Math.cos(TAU * this.mt / 60)); this.snap = s; } }
+  tick: function (dt, t) {
+    if (this.motion) { this.c = this.motionValue(t); DUO_STATE.cents = this.c; this.motionSchedule(t); var nr = this.near(); var key = nr ? nr[0] + ':' + nr[1] : ''; if (key !== this.lastNear) { this.lastNear = key; this.app.setAccent(this.hue()); } }
     if ((this.pruneT = (this.pruneT || 0) + dt) > 2) { this.pruneT = 0; this.duo.prune(); }
   },
   draw: function (stage, t) {
@@ -1221,9 +1303,9 @@ var PHANTOM = new Station({
     var self = this; this.app = app; this.f0 = 110; this.set = this.set || 0; this.fund = !!this.fund; this.shift = this.shift || 0; this.mt = 0;
     this.bank = new Bank(app.eng, 6, 0); this.apply();
     this.controls = [
-      ctlChips({ label: 'Partials sounding', options: PHANTOM_SETS.map(function (s, i) { return { label: s.join(' '), value: i }; }), get: function () { return self.set; }, set: function (v) { self.set = v; self.apply(); } }),
+      ctlChips({ label: 'Partials sounding', options: PHANTOM_SETS.map(function (s, i) { return { label: s.join(' '), value: i }; }), get: function () { return self.set; }, set: function (v) { self.motionPre(); self.set = v; self.apply(); self.motionResync(); } }),
       ctlRow([
-        ctlSeg({ label: 'Fundamental, 110 Hz', options: [{ label: 'Absent', value: false }, { label: 'Present', value: true }], get: function () { return self.fund; }, set: function (v) { self.fund = v; self.apply(); } })
+        ctlSeg({ label: 'Fundamental, 110 Hz', options: [{ label: 'Absent', value: false }, { label: 'Present', value: true }], get: function () { return self.fund; }, set: function (v) { self.motionPre(); self.fund = v; self.apply(); self.motionResync(); } })
       ]),
       ctlSlider({ label: 'Shift every partial', min: 0, max: 60, step: 0.5, fmt: function (v) { return fmtSigned(v, 1) + ' Hz'; }, get: function () { return self.shift; }, set: function (v) { stopMotion(app); self.shift = v; self.apply(); } })
     ];
@@ -1237,7 +1319,11 @@ var PHANTOM = new Station({
     this.bank.set(5, this.f0, this.fund ? 0.2 : 0, 0.03);
   },
   pitch: function () { var ks = this.partials(), fs = ks.map(function (k) { return k * this.f0 + this.shift; }, this); return residuePitch(fs, ks); },
-  tick: function (dt) { if (this.motion) { this.mt += dt; this.shift = 20 - 20 * Math.cos(TAU * this.mt / 18); if ((this.mf = (this.mf || 0) + 1) % 2 === 0) this.apply(); } },
+  motionValue: function (t) { return 20 - 20 * Math.cos(TAU * (t - this.motionT0) / 18); },
+  motionSchedule: function (now) { var self = this, ks = this.partials(), bank = this.bank, f0 = this.f0; motionSteps(this, now, 0.1, function (ts) { var sh = self.motionValue(ts); for (var i = 0; i < ks.length; i++) bank.setFreqAt(i, ks[i] * f0 + sh, ts); }); },
+  motionCancel: function (t) { this.bank.cancelFrom(t); },
+  motionStop: function (now) { this.bank.cancelFrom(this.app.eng.schedTime()); this.shift = this.motionValue(now); this.apply(); },
+  tick: function (dt, t) { if (this.motion) { this.shift = this.motionValue(t); this.motionSchedule(t); } },
   draw: function (stage) {
     stage.clear();
     var c = stage.ctx, W = stage.W, H = stage.H, hue = this.hue(), eng = this.app.eng, buf = eng.readScope(), sr = eng.sr, x0 = W * 0.07, x1 = W * 0.93, i;
@@ -1497,9 +1583,14 @@ var PLATE = new Station({
     }
     this.wctx.putImageData(this.wdata, 0, 0);
   },
-  tick: function (dt) {
-    if (this.motion) { this.mt += dt; var u = 0.5 - 0.5 * Math.cos(TAU * this.mt / 110); this.setFreq(Math.pow(10, lerp(Math.log10(80), Math.log10(1600), u))); }
+  motionValue: function (t) { var u = 0.5 - 0.5 * Math.cos(TAU * (t - this.motionT0) / 110); return Math.pow(10, lerp(Math.log10(80), Math.log10(1600), u)); },
+  motionSchedule: function (now) { var self = this, bank = this.bank; motionSteps(this, now, 0.05, function (ts) { bank.setFreqAt(0, self.motionValue(ts), ts); }); },
+  motionCancel: function (t) { this.bank.cancelFrom(t); },
+  motionStop: function (now) { this.bank.cancelFrom(this.app.eng.schedTime()); this.setFreq(this.motionValue(now)); },
+  tick: function (dt, t) {
+    if (this.motion) { this.freq = this.motionValue(t); this.dirty = true; this.wdirty = true; this.motionSchedule(t); }
     this.frame++;
+    if (document.hidden) return;
     if (this.view === 'water') { if (this.wdirty && (!this.motion || this.frame % 2 === 0)) { if (this.computeWater()) this.wdirty = false; this.wpainted = false; } this.vphase += dt * TAU * 0.3; if (DISH.ready && (this.frame % 2 === 0 || !this.wpainted)) { this.paintWater(); this.wpainted = true; } return; }
     if (this.dirty && (!this.motion || this.frame % 2 === 0)) { this.dirty = false; this.computeField(); }
     var G = this.G, E = this.E, Gx = this.Gx, Gy = this.Gy, px = this.px, py = this.py, vx = this.vx, vy = this.vy, N = this.NP;
@@ -1601,26 +1692,26 @@ var ASCENT = new Station({
   freqAt: function (k, s) { return this.fMin * Math.pow(2, mod(k + s, this.N)); },
   ampAt: function (f) { var z = Math.log2(f / this.fc) / this.sigma; return this.level * Math.exp(-z * z); },
   /* Pin every partial to its exact value at time t and restart scheduling from there. */
-  anchorAt: function (t, hold) {
+  anchorAt: function (t, mode) {
     var s = this.sAt(t);
     for (var k = 0; k < this.N; k++) {
-      var fp = this.bank.osc[k].frequency, gp = this.bank.g[k].gain;
-      if (hold) { fp.cancelAndHoldAtTime(t); gp.cancelAndHoldAtTime(t); }
-      else { fp.cancelScheduledValues(t); gp.cancelScheduledValues(t); fp.setValueAtTime(this.freqAt(k, s), t); gp.setValueAtTime(0, t); }
+      var fp = this.bank.osc[k].frequency, gp = this.bank.g[k].gain, f = this.freqAt(k, s);
+      if (mode === 'hold') { fp.cancelAndHoldAtTime(t); gp.cancelAndHoldAtTime(t); }
+      else { fp.cancelScheduledValues(t); gp.cancelScheduledValues(t); fp.setValueAtTime(f, t); gp.setValueAtTime(mode === 'cut' ? this.ampAt(f) : 0, t); }
     }
     this.schedT = t;
   },
   /* Change direction or pace: re-anchor the glide so the sound stays continuous. */
   rechart: function (change) {
     var now = this.app.eng.now(), canHold = !!this.bank.osc[0].frequency.cancelAndHoldAtTime, t1 = now + 0.06;
-    if (canHold && t1 < this.schedT) { this.anchorAt(t1, true); this.s0 = this.sAt(t1); this.t0 = t1; }
+    if (t1 < this.schedT) { this.anchorAt(t1, canHold ? 'hold' : 'cut'); this.s0 = this.sAt(t1); this.t0 = t1; }
     else { var ta = Math.max(now, this.schedT); this.s0 = this.sAt(ta); this.t0 = ta; }
     change();
   },
   tick: function () {
     var eng = this.app.eng, now = eng.now(), seg = 1.0, N = this.N, sr = eng.sr, eps = 2 / sr;
-    if (this.schedT < now - 0.5) { this.s0 = this.sAt(now); this.t0 = now; this.anchorAt(now + 0.05, false); }
-    var look = document.hidden ? 8 : 1.6;
+    if (this.schedT < now - 0.5) { this.s0 = this.sAt(now); this.t0 = now; this.anchorAt(now + 0.05, 'fresh'); }
+    var look = MOTION_H;
     while (this.schedT < now + look) {
       var tA = this.schedT, tB = tA + seg, sA = this.sAt(tA), sB = this.sAt(tB);
       for (var k = 0; k < N; k++) {
@@ -2058,6 +2149,7 @@ var MOTION = new SynthStation({
   leave: function () { this.teardownAudio(); stopLater([this.lfo, this.sh], 0.05); },
   applyLfo: function () {
     var P = this.P, now = this.app.eng.now();
+    if (this.sh) { var tc0 = this.app.eng.schedTime(); this.sh.offset.cancelScheduledValues(tc0); this.shT = tc0; this.shList = []; }
     if (P.lfoWave !== 'sh') this.lfo.type = P.lfoWave; this.lfo.frequency.setTargetAtTime(P.lfoRate, now, 0.02);
     this.shOut.gain.setTargetAtTime(P.lfoWave === 'sh' ? 1 : 0, now, 0.02); this.oscOut.gain.setTargetAtTime(P.lfoWave === 'sh' ? 0 : 1, now, 0.02);
     this.dPitch.gain.setTargetAtTime(P.lfoPitch, now, 0.02); this.dAmp.gain.setTargetAtTime(P.lfoAmp / 2, now, 0.02); this.dFilt.gain.setTargetAtTime(P.lfoFilt, now, 0.02); this.dPW.gain.setTargetAtTime(P.lfoPW * 0.5, now, 0.02);
@@ -2067,12 +2159,19 @@ var MOTION = new SynthStation({
     this.poly.voices.forEach(function (v) { v.fl.frequency.setTargetAtTime(P.cut, now, 0.015); v.fl.Q.setTargetAtTime(P.Q, now, 0.015); v.trem.gain.setTargetAtTime(1 - P.lfoAmp / 2, now, 0.02); v.gs.gain.setTargetAtTime(P.sub ? 0.5 : 0, now, 0.02); });
   },
   tick: function (dt, t) {
-    if (this.P.lfoWave === 'sh') { var per = 1 / this.P.lfoRate, ahead = document.hidden ? 6 : 0.25; if (this.shT < t) this.shT = t; while (this.shT < t + ahead) { this.shT += per; this.shVal = Math.random() * 2 - 1; this.sh.offset.setValueAtTime(this.shVal, this.shT); } }
+    this.shSchedule(t);
     var held = this.poly.voices.filter(function (v) { return !v.off; }).slice(-4), row = [null, null, null, null], self = this;
     held.forEach(function (v, i) { row[i] = 1200 * Math.log2(v.f / mtof(KEY_LO)) + self.P.lfoPitch * lfoValue(self.P.lfoWave === 'sh' ? 'none' : self.P.lfoWave, self.P.lfoRate, t - self.lfoT0) + (self.P.lfoWave === 'sh' ? self.P.lfoPitch * self.shVal : 0); });
     this.roll.push(row); if (this.roll.length > 180) this.roll.shift();
   },
-  bgTick: function (t) { if (this.P.lfoWave === 'sh') { var per = 1 / this.P.lfoRate; if (this.shT < t) this.shT = t; while (this.shT < t + 6) { this.shT += per; this.shVal = Math.random() * 2 - 1; this.sh.offset.setValueAtTime(this.shVal, this.shT); } } },
+  shSchedule: function (t) {
+    if (this.P.lfoWave !== 'sh') return;
+    var per = 1 / this.P.lfoRate; if (!this.shList) this.shList = []; if (this.shT < t) this.shT = t;
+    while (this.shT < t + MOTION_H) { this.shT += per; var v = Math.random() * 2 - 1; this.sh.offset.setValueAtTime(v, this.shT); this.shList.push({ t: this.shT, v: v }); }
+    while (this.shList.length > 1 && this.shList[1].t <= t) this.shList.shift();
+    if (this.shList.length && this.shList[0].t <= t) this.shVal = this.shList[0].v;
+  },
+  bgTick: function (t) { this.shSchedule(t); },
   gesture: function (type, u, v, R) {
     var y = v * this.app.stage.H, x = u * this.app.stage.W, r = R.spec; if (y < r.y || y > r.y + r.h) return;
     this.P.cut = clamp(specF(r.x, r.w, x), 40, 16000); this.P.Q = clamp(0.3 * Math.pow(60, 1 - (y - r.y) / r.h), 0.3, 20); this.presetIndex = null; this.apply();
@@ -2193,13 +2292,14 @@ var WAVETABLE = new SynthStation({
     this.shapes = WT_FRAMES.map(function (f) { return sampleHarmonics(f.a, 96); });
     this.lfoT0 = app.eng.now(); this.livePos = P.pos;
     this.poly = new Poly(app.eng, function (n, vel, t) {
-      var f = mtof(n), oA = ctx.createOscillator(), oB = ctx.createOscillator(), gA = ctx.createGain(), gB = ctx.createGain(), fl = ctx.createBiquadFilter(), amp = ctx.createGain();
-      oA.frequency.setValueAtTime(f, t); oB.frequency.setValueAtTime(f, t); oA.setPeriodicWave(self.waves[0]); oB.setPeriodicWave(self.waves[1]);
-      gA.gain.value = 1; gB.gain.value = 0; oA.connect(gA); oB.connect(gB); gA.connect(fl); gB.connect(fl);
+      var f = mtof(n), N = WT_FRAMES.length, oscs = [], gains = [], fl = ctx.createBiquadFilter(), amp = ctx.createGain();
+      for (var k = 0; k < N; k++) { var o = ctx.createOscillator(), g = ctx.createGain(); o.setPeriodicWave(self.waves[k]); o.frequency.setValueAtTime(f, t); g.gain.value = 0; o.connect(g); g.connect(fl); o.start(t); oscs.push(o); gains.push(g); }
       fl.type = 'lowpass'; fl.frequency.value = P.cut; fl.Q.value = 0.7; fl.connect(amp); amp.gain.value = 0; amp.connect(bus.out);
-      var peak = 0.4 * (0.35 + 0.65 * vel); envStart(amp.gain, t, peak, P.aenv); oA.start(t); oB.start(t);
-      var v = { f: f, oscs: [oA, oB], gains: [gA, gB], frames: [0, 1], fl: fl, release: function (tr) { envRelease(amp.gain, tr, envValue(P.aenv, peak, tr - t), P.aenv); stopLater([oA, oB], P.aenv.r + 0.3); }, kill: function () { amp.gain.cancelScheduledValues(0); amp.gain.setTargetAtTime(0, ctx.currentTime, 0.01); stopLater([oA, oB], 0.05); }, tail: P.aenv.r + 0.2 };
-      v.t0 = t; self.setPos(v, self.posFor(v, t)); return v;
+      var peak = 0.4 * (0.35 + 0.65 * vel); envStart(amp.gain, t, peak, P.aenv);
+      var v = { f: f, oscs: oscs, gains: gains, w: new Float32Array(N), fl: fl, t0: t, schedT: 0,
+        release: function (tr) { envRelease(amp.gain, tr, envValue(P.aenv, peak, tr - t), P.aenv); v.off = tr; self.replan(v, tr); stopLater(oscs, P.aenv.r + 0.3); },
+        kill: function () { amp.gain.cancelScheduledValues(0); amp.gain.setTargetAtTime(0, ctx.currentTime, 0.01); stopLater(oscs, 0.05); }, tail: P.aenv.r + 0.2 };
+      self.plan(v, t); return v;
     }, 6);
     var presets = [
       { name: 'Static frame', P: { pos: 5, penvAmt: 0, lfoAmt: 0, cut: 8000, aenv: { a: 0.01, d: 0.3, s: 0.9, r: 0.4 } } },
@@ -2218,20 +2318,25 @@ var WAVETABLE = new SynthStation({
   },
   leave: function () { this.teardownAudio(); },
   posFor: function (v, t) { var P = this.P, dt = t - v.t0, env = v.off ? envValue(P.penv, 1, v.off - v.t0) * Math.exp(-(t - v.off) / Math.max(0.004, P.penv.r / 3)) : envValue(P.penv, 1, dt); return clamp(P.pos + P.penvAmt * env + P.lfoAmt * Math.sin(TAU * P.lfoRate * (t - this.lfoT0)), 0, WT_FRAMES.length - 1.0001); },
-  setPos: function (v, pos) {
-    if (!isFinite(pos)) pos = 0; pos = clamp(pos, 0, WT_FRAMES.length - 1.0001); var lo = Math.floor(pos), frac = pos - lo, now = this.app.eng.now();
-    if (v.frames[0] !== lo || v.frames[1] !== lo + 1) {
-      var a = v.frames.indexOf(lo), b = v.frames.indexOf(lo + 1), oscs = [null, null], gains = [null, null], used = [false, false], i;
-      if (a >= 0) { oscs[0] = v.oscs[a]; gains[0] = v.gains[a]; used[a] = true; }
-      if (b >= 0 && b !== a) { oscs[1] = v.oscs[b]; gains[1] = v.gains[b]; used[b] = true; }
-      for (i = 0; i < 2; i++) if (!oscs[i]) { var k = used[0] ? 1 : 0; used[k] = true; oscs[i] = v.oscs[k]; gains[i] = v.gains[k]; oscs[i].setPeriodicWave(this.waves[i === 0 ? lo : lo + 1]); }
-      v.oscs = oscs; v.gains = gains; v.frames = [lo, lo + 1];
-    }
-    v.gains[0].gain.setTargetAtTime(1 - frac, now, 0.012); v.gains[1].gain.setTargetAtTime(frac, now, 0.012);
+  /* Frame weights for a position: the two neighbouring frames crossfade. */
+  weights: function (pos, out) { pos = clamp(isFinite(pos) ? pos : 0, 0, WT_FRAMES.length - 1.0001); var lo = Math.floor(pos), fr = pos - lo; for (var k = 0; k < out.length; k++) out[k] = k === lo ? 1 - fr : (k === lo + 1 ? fr : 0); return out; },
+  /* Write the voice's frame gains into the timeline from time `from` up to the planning horizon. */
+  plan: function (v, from) {
+    var step = 0.05, end = Math.max(from, this.app.eng.now()) + 30, tmp = new Float32Array(v.w.length), ts = Math.ceil(from / step) * step;
+    for (; ts <= end; ts += step) { this.weights(this.posFor(v, ts), tmp); for (var k = 0; k < tmp.length; k++) if (tmp[k] !== v.w[k]) { v.gains[k].gain.setTargetAtTime(tmp[k], ts, 0.012); v.w[k] = tmp[k]; } }
+    v.schedT = ts;
   },
-  apply: function () { var P = this.P, now = this.app.eng.now(); this.poly.voices.forEach(function (v) { v.fl.frequency.setTargetAtTime(P.cut, now, 0.02); }); },
-  tick: function (dt, t) { var self = this, any = false; this.poly.voices.forEach(function (v) { var p = self.posFor(v, t); self.setPos(v, p); if (!v.off) { self.livePos = p; any = true; } }); if (!any) this.livePos = this.P.pos + this.P.lfoAmt * Math.sin(TAU * this.P.lfoRate * (t - this.lfoT0)); },
-  gesture: function (type, u, v, R) { var y = v * this.app.stage.H, r = R.panel; if (y < r.y || y > r.y + r.h) return; this.P.pos = clamp((u * this.app.stage.W - r.x) / r.w * (WT_FRAMES.length - 1), 0, WT_FRAMES.length - 1); this.presetIndex = null; },
+  /* Discard the voice's future gain steps and plan again from the next safe time (a control or the release changed the trajectory). */
+  replan: function (v, at) {
+    var t = Math.max(at || 0, this.app.eng.schedTime());
+    for (var k = 0; k < v.gains.length; k++) v.gains[k].gain.cancelScheduledValues(t);
+    this.weights(this.posFor(v, t), v.w); this.plan(v, t);
+  },
+  apply: function () { var P = this.P, now = this.app.eng.now(), self = this; this.poly.voices.forEach(function (v) { v.fl.frequency.setTargetAtTime(P.cut, now, 0.02); self.replan(v); }); },
+  extend: function (t) { var self = this; this.poly.voices.forEach(function (v) { if (v.schedT < t + 10) self.plan(v, v.schedT); }); },
+  bgTick: function (t) { this.extend(t); },
+  tick: function (dt, t) { var self = this, any = false; this.extend(t); this.poly.voices.forEach(function (v) { if (!v.off) { self.livePos = self.posFor(v, t); any = true; } }); if (!any) this.livePos = this.P.pos + this.P.lfoAmt * Math.sin(TAU * this.P.lfoRate * (t - this.lfoT0)); },
+  gesture: function (type, u, v, R) { var y = v * this.app.stage.H, r = R.panel; if (y < r.y || y > r.y + r.h) return; this.P.pos = clamp((u * this.app.stage.W - r.x) / r.w * (WT_FRAMES.length - 1), 0, WT_FRAMES.length - 1); this.presetIndex = null; this.apply(); },
   panel: function (stage, r) {
     var c = stage.ctx, k = stage.k, n = WT_FRAMES.length, pos = clamp(this.livePos, 0, n - 1), lo = Math.floor(pos), frac = pos - lo;
     var fw = r.w / n, amp = r.h * 0.22, y0 = r.y + r.h * 0.62;
@@ -2352,14 +2457,14 @@ var GRAINS = new SynthStation({
       this.presetChips(presets),
       ctlRow([this.seg('source', 'Source', [{ label: 'Voice', value: 'voice' }, { label: 'Pluck', value: 'pluck' }, { label: 'Bell', value: 'bell' }]), this.seg('window', 'Window', [{ label: 'Hann', value: 'hann' }, { label: 'Triangle', value: 'tri' }, { label: 'Rectangle', value: 'rect' }, { label: 'Rectangle, 2 ms edges', value: 'trap' }]), this.seg('drone', 'Without keys', [{ label: 'Silent', value: 0 }, { label: 'Play C4', value: 1 }])]),
       ctlRow([this.slider('size', { label: 'Grain size', min: 3, max: 250, log: true, step: 1, fmt: function (v) { return v + ' ms'; } }), this.slider('density', { label: 'Density', min: 2, max: 90, log: true, step: 1, fmt: function (v) { return v + ' grains/s'; } })]),
-      ctlRow([this.slider('pos', { label: 'Position', min: 0, max: 1, step: 0.001, fmt: function (v) { return (v * 2.4).toFixed(2) + ' s'; }, set: function (v) { self.P.pos = v; self.scan = v; } }), this.slider('speed', { label: 'Scan speed', min: -1, max: 2, step: 0.01, fmt: function (v) { return v === 0 ? 'frozen' : v.toFixed(2) + '×'; } }), this.slider('spray', { label: 'Spray', min: 0, max: 0.5, step: 0.005, fmt: function (v) { return '±' + (v * 2400).toFixed(0) + ' ms'; } }), this.slider('jitter', { label: 'Pitch jitter', min: 0, max: 100, step: 1, fmt: fmtCents })])
+      ctlRow([this.slider('pos', { label: 'Position', min: 0, max: 1, step: 0.001, fmt: function (v) { return (v * 2.4).toFixed(2) + ' s'; }, set: function (v) { self.P.pos = v; self.setScan(v); } }), this.slider('speed', { label: 'Scan speed', min: -1, max: 2, step: 0.01, fmt: function (v) { return v === 0 ? 'frozen' : v.toFixed(2) + '×'; } }), this.slider('spray', { label: 'Spray', min: 0, max: 0.5, step: 0.005, fmt: function (v) { return '±' + (v * 2400).toFixed(0) + ' ms'; } }), this.slider('jitter', { label: 'Pitch jitter', min: 0, max: 100, step: 1, fmt: fmtCents })])
     ];
     this.poly = { noteOn: function (n, vel) { self.held[n] = vel; }, noteOff: function (n) { delete self.held[n]; }, heldNotes: function () { return Object.keys(self.held).map(Number); }, dispose: function () { self.held = {}; }, voices: [], allOff: function () { self.held = {}; }, last: null };
   },
   leave: function () { this.teardownAudio(); },
   spawn: function (t, semis, vel) {
     var P = this.P, ctx = this.ctx, buf = this.buffers[P.source], dur = P.size / 1000, rate = Math.pow(2, (semis + (Math.random() * 2 - 1) * P.jitter / 100) / 12);
-    var bufDur = Math.min(dur * rate, buf.duration - 0.02), pos = clamp(this.scan + (Math.random() * 2 - 1) * P.spray, 0, 1), off = pos * (buf.duration - bufDur - 0.01);
+    var bufDur = Math.min(dur * rate, buf.duration - 0.02), base = this.scanT0 != null && this.scanSpeed ? this.scanAt(t) : this.scan, pos = clamp(base + (Math.random() * 2 - 1) * P.spray, 0, 1), off = pos * (buf.duration - bufDur - 0.01);
     dur = bufDur / rate;
     var src = ctx.createBufferSource(), g = ctx.createGain(); src.buffer = buf; src.playbackRate.value = rate; src.connect(g); g.connect(this.bus.out);
     var lvl = 0.9 * vel * Math.sqrt(12 / P.density) * (P.size < 30 ? 1 : 0.8);
@@ -2371,16 +2476,18 @@ var GRAINS = new SynthStation({
     this.recent.push({ t: t, pos: pos, dur: dur }); if (this.recent.length > 60) this.recent.shift();
   },
   tick: function (dt, t) {
-    var P = this.P; if (P.speed) { this.scan = mod(this.scan + P.speed * dt / 2.4, 1); P.pos = this.scan; }
+    var P = this.P; if (this.scanT0 == null) { this.scanT0 = t; this.scan0 = this.scan; this.scanSpeed = P.speed; } if (P.speed !== this.scanSpeed) { this.scan0 = this.scanAt(t); this.scanT0 = t; this.scanSpeed = P.speed; } if (P.speed) { this.scan = this.scanAt(t); P.pos = this.scan; }
     var notes = Object.keys(this.held), self = this, streams = notes.length ? notes.map(function (n) { return { s: +n - 60, v: self.held[n] }; }) : (P.drone ? [{ s: 0, v: 0.6 }] : []);
     if (!streams.length) { this.next = Math.max(this.next, t + 0.02); return; }
     var per = 1 / P.density;
     if (this.next < t) this.next = t + 0.01;
-    var ahead = document.hidden ? 6 : 0.14;
+    var ahead = document.hidden ? 20 : 0.14;
     while (this.next < t + ahead) { for (var i = 0; i < streams.length; i++) this.spawn(this.next + Math.random() * per * 0.3, streams[i].s, streams[i].v); this.next += per; }
   },
+  scanAt: function (t) { return mod(this.scan0 + this.scanSpeed * (t - this.scanT0) / 2.4, 1); },
+  setScan: function (v) { this.scan = v; this.scan0 = v; this.scanT0 = this.app.eng.now(); this.scanSpeed = this.P.speed; },
   bgTick: function (t) { this.tick(0.25, t); },
-  gesture: function (type, u, v, R) { var r = R.panel, y = v * this.app.stage.H; if (y < r.y || y > r.y + r.h) return; this.scan = clamp((u * this.app.stage.W - r.x) / r.w, 0, 1); this.P.pos = this.scan; this.presetIndex = null; },
+  gesture: function (type, u, v, R) { var r = R.panel, y = v * this.app.stage.H; if (y < r.y || y > r.y + r.h) return; this.setScan(clamp((u * this.app.stage.W - r.x) / r.w, 0, 1)); this.P.pos = this.scan; this.presetIndex = null; },
   panel: function (stage, r, t) {
     var c = stage.ctx, k = stage.k, env = this.envs[this.P.source], M = env.length, ym = r.y + r.h * 0.55, amp = r.h * 0.34;
     c.fillStyle = 'rgba(255,255,255,0.025)'; c.fillRect(r.x, r.y, r.w, r.h);
@@ -2617,8 +2724,9 @@ App.prototype.bind = function () {
   var onResize = function () { self.stage.resize(); self.stage.clear(); };
   window.addEventListener('resize', onResize);
   if (window.ResizeObserver) { try { new ResizeObserver(onResize).observe(d.well); } catch (e) {} }
-  document.addEventListener('visibilitychange', function () { if (!self.started) return; if (!document.hidden) { self.eng.resume(); self.lastTs = 0; } else if (self.cur && self.cur.bgTick) { try { self.cur.bgTick(self.eng.now()); } catch (e) {} } });
-  setInterval(function () { if (self.started && document.hidden && self.cur && self.cur.bgTick) { try { self.cur.bgTick(self.eng.now()); } catch (e) {} } }, 250);
+  document.addEventListener('visibilitychange', function () { if (!self.started) return; if (!document.hidden) { self.eng.resume(); self.lastTs = 0; self.bgT = null; } else { self.bgT = null; if (self.cur && self.cur.bgTick) { try { self.cur.bgTick(self.eng.now()); } catch (e) {} } } });
+  /* Fallback only: if the audio clock is not delivering, keep the schedulers fed from a timer. */
+  setInterval(function () { if (self.started && document.hidden && self.cur && self.cur.bgTick && performance.now() - self.lastClockAt > 1500) { try { self.cur.bgTick(self.eng.now()); } catch (e) {} } }, 250);
   setInterval(function () { if (self.started && self.eng.ctx && (self.eng.ctx.state !== 'running' || (self.eng.mediaEl && self.eng.mediaEl.paused))) self.eng.resume(); }, 250);
   document.addEventListener('pointerdown', function () { if (self.started) self.eng.resume(); }, true);
   document.addEventListener('touchstart', function () { if (self.started) self.eng.resume(); }, { passive: true, capture: true });
@@ -2645,7 +2753,8 @@ App.prototype.bind = function () {
 App.prototype.start = function (journey) {
   if (this.started) return;
   if (!this.eng.init()) { this.dom.fine.textContent = 'This browser has no Web Audio support, so the instruments cannot sound. Try a current Safari, Chrome, Firefox or Edge.'; return; }
-  this.eng.resume(); this.started = true;
+  this.eng.resume(); this.started = true; this.lastFrameAt = 0; this.lastClockAt = 0; this.bgT = null;
+  var app = this; this.eng.startClock(function () { app.onClock(); });
   this.dom.intro.classList.add('hidden');
   this.stage.resize(); this.journey = JOURNEYS[journey || 'ratio']; this.stations = this.journey.stations; this.buildHeader(); this.go(0);
   var self = this; this.raf = requestAnimationFrame(function (ts) { self.frame(ts); });
@@ -2706,8 +2815,17 @@ App.prototype.step = function (dt) {
   for (var k = 0; k < st.controls.length; k++) st.controls[k].refresh();
   this.readoutT += dt; if (this.readoutT > 0.12) { this.readoutT = 0; this.updateReadout(); }
 };
+/* Called from the audio clock. When frames are running it does nothing; when the page is hidden or the frame loop is starved, it advances the station's time so sweeps, glides and schedulers continue while nothing is drawn. */
+App.prototype.onClock = function () {
+  var nowMs = performance.now(); this.lastClockAt = nowMs;
+  if (!this.cur) return;
+  var starved = document.hidden || nowMs - this.lastFrameAt > 350; if (!starved) return;
+  var t = this.eng.now(), dt = this.bgT == null ? 0.043 : Math.min(0.5, Math.max(0, t - this.bgT)); this.bgT = t;
+  try { this.cur.tick(dt, t); } catch (e) { if (!this.errLogged && window.console) { this.errLogged = true; console.error(e); } }
+};
 App.prototype.frame = function (ts) {
   var self = this; this.raf = requestAnimationFrame(function (t2) { self.frame(t2); });
+  this.lastFrameAt = performance.now(); this.bgT = null;
   var dt = this.lastTs ? Math.min(0.1, (ts - this.lastTs) / 1000) : 1 / 60; this.lastTs = ts;
   try { this.step(dt); } catch (e) { if (!this.errLogged && window.console) { this.errLogged = true; console.error(e); } }
 };
