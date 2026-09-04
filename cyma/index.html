@@ -813,6 +813,8 @@ function curveN(iv, k) { return Math.min(CURVE_MAX, 2048 + k * (iv.p + iv.q)); }
 var TET_OFFSET = INTERVALS.map(function (iv) { return 100 * iv.semis - centsOfRatio(iv.p / iv.q); });
 
 function Station(def) { for (var k in def) this[k] = def[k]; this.controls = []; this.motion = false; this.hasMotion = true; }
+/* A hand on a control that the slow sweep is driving takes precedence: the sweep stops. */
+function stopMotion(app) { if (app && app.motion) app.setMotion(false); }
 Station.prototype.hue = function () { return 50; };
 Station.prototype.enter = function () {};
 Station.prototype.leave = function () {};
@@ -863,7 +865,7 @@ var RATIO = new Station({
       ctlSlider({ label: 'Phase', min: 0, max: 1, step: 0.001, fmt: function (v) { return (v * 360 / INTERVALS[st.iv].q).toFixed(0) + '°'; },
         marks: [{ at: 0, label: 'closed' }, { at: 0.25, label: 'open' }, { at: 0.5, label: 'closed' }, { at: 0.75, label: 'open' }, { at: 1, label: 'closed' },
           { live: true, get: function () { return st.tuning === 'equal' && INTERVALS[st.iv].semis % 12 ? duo.liveFrac(app.eng.now()) : null; } }],
-        get: function () { return st.v; }, set: function (v) { st.v = v; duo.applyPhase(); } }),
+        get: function () { return st.v; }, set: function (v) { stopMotion(app); st.v = v; duo.applyPhase(); } }),
       ctlRow([tuningSeg(duo), toneSeg(duo)]),
       pitchSlider(duo)
     ];
@@ -881,7 +883,7 @@ var RATIO = new Station({
     stage.glow(this.buf, n, this.hue(), stage.W / 2, stage.H / 2, R, R, true);
   },
   pointer: function (type, u) {
-    if (type === 'down') { this.u0 = u; this.v0 = DUO_STATE.v; return; }
+    if (type === 'down') { stopMotion(this.app); this.u0 = u; this.v0 = DUO_STATE.v; return; }
     if (type === 'move') { DUO_STATE.v = mod(this.v0 + (u - this.u0), 1); this.duo.applyPhase(); }
   },
   readout: function () { return duoReadoutBasic(this.duo); }
@@ -903,7 +905,7 @@ var ORBIT = new Station({
       ctlSeg({ label: 'Rotation', options: [{ label: 'Counter', value: 'counter' }, { label: 'Same direction', value: 'co' }], get: function () { return st.rot; }, set: function (v) { st.rot = v; } }),
       ctlSlider({ label: 'Upper tone amplitude', min: 0.25, max: 2.5, log: true, step: 0.005, fmt: function (v) { return v.toFixed(2) + ' × lower'; },
         marks: [{ value: true, label: 'cusp', get: function () { var iv = INTERVALS[st.iv]; return iv.q / iv.p; } }],
-        get: function () { return st.B; }, set: function (v) { st.B = v; duo.applyAmps(); } }),
+        get: function () { return st.B; }, set: function (v) { stopMotion(app); st.B = v; duo.applyAmps(); } }),
       ctlRow([tuningSeg(duo), toneSeg(duo)])
     ];
   },
@@ -920,7 +922,7 @@ var ORBIT = new Station({
     stage.glow(this.buf, n, this.hue(), stage.W / 2, stage.H / 2, R, R, true);
   },
   pointer: function (type, u) {
-    if (type === 'down') { this.u0 = u; this.b0 = Math.log(DUO_STATE.B); return; }
+    if (type === 'down') { stopMotion(this.app); this.u0 = u; this.b0 = Math.log(DUO_STATE.B); return; }
     if (type === 'move') { DUO_STATE.B = clamp(Math.exp(this.b0 + (u - this.u0) * 2.3), 0.25, 2.5); this.duo.applyAmps(); }
   },
   readout: function () {
@@ -949,10 +951,10 @@ var DRIFT = new Station({
       intervalChips(app, this, function () { duo.retune(); }),
       ctlSlider({ label: 'Detune the upper tone', min: -30, max: 30, step: 0.1, fmt: function (v) { return fmtSigned(v, 1) + ' cents'; },
         marks: [{ value: true, get: function () { return 0; }, label: 'just' }, { value: true, get: function () { var o = TET_OFFSET[st.iv]; return Math.abs(o) < 0.01 ? null : o; }, label: 'equal' }],
-        get: function () { return st.cents; }, set: function (v) { st.cents = Math.abs(v) < 0.05 ? 0 : v; duo.retune(st.cents !== 0); } }),
+        get: function () { return st.cents; }, set: function (v) { stopMotion(app); st.cents = Math.abs(v) < 0.05 ? 0 : v; duo.retune(st.cents !== 0); } }),
       ctlRow([
         ctlSeg({ label: 'Set to', options: [{ label: 'Just', value: 'just' }, { label: 'Equal', value: 'equal' }], get: function () { return Math.abs(st.cents) < 0.01 ? 'just' : (Math.abs(st.cents - TET_OFFSET[st.iv]) < 0.01 ? 'equal' : null); },
-          set: function (v) { st.cents = v === 'just' ? 0 : TET_OFFSET[st.iv]; duo.retune(st.cents !== 0); } }),
+          set: function (v) { stopMotion(app); st.cents = v === 'just' ? 0 : TET_OFFSET[st.iv]; duo.retune(st.cents !== 0); } }),
         toneSeg(duo),
         ctlSeg({ label: 'Ears', options: [{ label: 'Together', value: false }, { label: 'Split', value: true }], get: function () { return st.split; }, set: function (v) { st.split = v; duo.applyPan(); } })
       ])
@@ -987,7 +989,7 @@ var DRIFT = new Station({
     stage.text('loudness of the output, last 4 s', x0, yb + 15 * stage.k, { size: 11, color: 'rgba(236,229,211,0.45)' });
   },
   pointer: function (type, u) {
-    if (type === 'down') { this.u0 = u; this.c0 = DUO_STATE.cents; return; }
+    if (type === 'down') { stopMotion(this.app); this.u0 = u; this.c0 = DUO_STATE.cents; return; }
     if (type === 'move') { var c = clamp(this.c0 + (u - this.u0) * 60, -30, 30); DUO_STATE.cents = Math.abs(c) < 0.05 ? 0 : c; this.duo.retune(DUO_STATE.cents !== 0); }
   },
   readout: function () {
@@ -1013,12 +1015,12 @@ var SERIES = new Station({
     this.bank = new Bank(app.eng, 12, 0); this.apply();
     this.controls = [
       ctlChips({ label: 'Harmonics', multi: true, options: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(function (k) { return { label: String(k), value: k }; }),
-        get: function () { var r = []; for (var i = 0; i < 12; i++) if (self.on[i]) r.push(i + 1); return r; }, set: function (k) { self.toggle(k - 1); } }),
+        get: function () { var r = []; for (var i = 0; i < 12; i++) if (self.on[i]) r.push(i + 1); return r; }, set: function (k) { stopMotion(app); self.toggle(k - 1); } }),
       ctlRow([
         ctlSeg({ label: 'Fundamental', options: [{ label: '55 Hz', value: 55 }, { label: '110 Hz', value: 110 }, { label: '220 Hz', value: 220 }], get: function () { return self.f0; }, set: function (v) { self.f0 = v; self.apply(); } }),
         ctlSeg({ label: 'Set', options: [{ label: 'First six', value: 'six' }, { label: 'Fundamental only', value: 'one' }, { label: 'All twelve', value: 'all' }],
           get: function () { var n = self.on.reduce(function (a, b) { return a + b; }, 0); return n === 12 ? 'all' : (n === 1 && self.on[0] ? 'one' : (n === 6 && self.on.slice(0, 6).every(Boolean) ? 'six' : null)); },
-          set: function (v) { for (var i = 0; i < 12; i++) self.on[i] = v === 'all' ? 1 : (v === 'six' ? (i < 6 ? 1 : 0) : (i === 0 ? 1 : 0)); self.apply(); } })
+          set: function (v) { stopMotion(app); for (var i = 0; i < 12; i++) self.on[i] = v === 'all' ? 1 : (v === 'six' ? (i < 6 ? 1 : 0) : (i === 0 ? 1 : 0)); self.apply(); } })
       ])
     ];
   },
@@ -1033,7 +1035,7 @@ var SERIES = new Station({
   pointer: function (type, u, v) {
     if (type !== 'down') return;
     if (v < 0.5) return;
-    var i = Math.floor((u - 0.06) / 0.88 * 12); if (i >= 0 && i < 12) this.toggle(i);
+    var i = Math.floor((u - 0.06) / 0.88 * 12); if (i >= 0 && i < 12) { stopMotion(this.app); this.toggle(i); }
   },
   tick: function (dt) {
     this.vt += dt;
@@ -1099,7 +1101,7 @@ var GLIDE = new Station({
     this.controls = [
       ctlSlider({ label: 'Upper tone', min: 0, max: 1200, step: 0.5, fmt: function (v) { return v.toFixed(0) + ' cents'; },
         marks: GLIDE_MARKS.map(function (r) { return { value: true, get: function () { return centsOfRatio(r[0] / r[1]); } }; }),
-        get: function () { return self.c; }, set: function (v) { self.setCents(v); } }),
+        get: function () { return self.c; }, set: function (v) { stopMotion(app); self.setCents(v); } }),
       ctlRow([toneSeg(duo), ctlSeg({ label: 'Snap', options: [{ label: 'Off', value: false }, { label: 'To just ratios', value: true }], get: function () { return !!self.snap; }, set: function (v) { self.snap = v; self.setCents(self.c); } })])
     ];
   },
@@ -1111,7 +1113,7 @@ var GLIDE = new Station({
   },
   near: function () { var c = this.c, best = null, bd = 3.5; GLIDE_MARKS.forEach(function (r) { var d = Math.abs(centsOfRatio(r[0] / r[1]) - c); if (d < bd) { bd = d; best = r; } }); return best; },
   pointer: function (type, u, v) {
-    if (type === 'down') { this.u0 = u; this.c0 = this.c; }
+    if (type === 'down') { stopMotion(this.app); this.u0 = u; this.c0 = this.c; }
     if (v > 0.62 && v < 0.98) { this.setCents((u - 0.08) / 0.84 * 1200); this.u0 = u; this.c0 = this.c; return; }
     if (type === 'move' && this.u0 != null) this.setCents(this.c0 + (u - this.u0) * 600);
   },
@@ -1182,11 +1184,11 @@ var PHANTOM = new Station({
       ctlRow([
         ctlSeg({ label: 'Fundamental, 110 Hz', options: [{ label: 'Absent', value: false }, { label: 'Present', value: true }], get: function () { return self.fund; }, set: function (v) { self.fund = v; self.apply(); } })
       ]),
-      ctlSlider({ label: 'Shift every partial', min: 0, max: 60, step: 0.5, fmt: function (v) { return fmtSigned(v, 1) + ' Hz'; }, get: function () { return self.shift; }, set: function (v) { self.shift = v; self.apply(); } })
+      ctlSlider({ label: 'Shift every partial', min: 0, max: 60, step: 0.5, fmt: function (v) { return fmtSigned(v, 1) + ' Hz'; }, get: function () { return self.shift; }, set: function (v) { stopMotion(app); self.shift = v; self.apply(); } })
     ];
   },
   leave: function () { this.bank.dispose(); this.bank = null; },
-  pointer: function (type, u, v) { if (v < 0.5) return; this.shift = Math.round(clamp((u - 0.07) / 0.86, 0, 1) * 120) / 2; this.apply(); },
+  pointer: function (type, u, v) { if (v < 0.5) return; stopMotion(this.app); this.shift = Math.round(clamp((u - 0.07) / 0.86, 0, 1) * 120) / 2; this.apply(); },
   partials: function () { return PHANTOM_SETS[this.set]; },
   apply: function () {
     var ks = this.partials();
@@ -1282,7 +1284,7 @@ var PLATE = new Station({
     var self = this; this.app = app; var D = diskPrepare(); dishBuild();
     this.diam = this.diam || 0.24; this.freq = this.freq || 1033; this.r0 = this.r0 == null ? 0.62 : this.r0; this.th0 = this.th0 == null ? -Math.PI / 2 : this.th0;
     this.view = this.view || 'square'; this.x0 = this.x0 == null ? 0 : this.x0; this.y0 = this.y0 == null ? 0 : this.y0; this.mt = 0; this.frame = 0; this.vphase = 0;
-    this.G = window.innerWidth < 900 ? 128 : 160; var G = this.G; this.GW = window.innerWidth < 900 ? 192 : 256;
+    this.G = window.innerWidth < 900 ? 128 : 160; var G = this.G; this.GW = window.innerWidth < 900 ? 320 : 384;
     this.E = new Float32Array(G * G); this.Ur = new Float32Array(G * G); this.Ui = new Float32Array(G * G); this.Gx = new Float32Array(G * G); this.Gy = new Float32Array(G * G);
     this.rho = new Float32Array(G * G); this.th = new Float32Array(G * G);
     for (var j = 0; j < G; j++) for (var i = 0; i < G; i++) { var x = (i + 0.5) / G * 2 - 1, y = (j + 0.5) / G * 2 - 1, idx = j * G + i; this.rho[idx] = Math.sqrt(x * x + y * y); this.th[idx] = Math.atan2(y, x); }
@@ -1301,7 +1303,7 @@ var PLATE = new Station({
     this.chipsWaterEl = chipsWater; this.waterChipsBuilt = false;
     var media = ctlSeg({ label: 'Medium', options: [{ label: 'Square plate', value: 'square' }, { label: 'Round plate', value: 'sand' }, { label: 'Water in a dish', value: 'water' }], get: function () { return self.view; }, set: function (v) { self.view = v; self.app.setAccent(self.hue()); self.wdirty = true; self.dirty = true; self.resetSand(); } });
     this.controls = [
-      ctlSlider({ label: 'Drive frequency', min: 60, max: 2400, log: true, step: 0.5, fmt: fmtHz, marks: D.modes.slice(0, 40).map(function (m) { return { value: true, get: function () { return self.view === 'sand' ? diskFP(self.diam) * m.lam2 : null; } }; }), get: function () { return self.freq; }, set: function (v) { self.setFreq(v); } }),
+      ctlSlider({ label: 'Drive frequency', min: 60, max: 2400, log: true, step: 0.5, fmt: fmtHz, marks: D.modes.slice(0, 40).map(function (m) { return { value: true, get: function () { return self.view === 'sand' ? diskFP(self.diam) * m.lam2 : null; } }; }), get: function () { return self.freq; }, set: function (v) { stopMotion(app); self.setFreq(v); } }),
       media,
       { el: diamSlider.el, refresh: function () { diamSlider.el.style.display = self.view !== 'water' ? '' : 'none'; diamSlider.refresh(); } },
       { el: chipsPlate.el, refresh: function () { chipsPlate.el.style.display = self.view !== 'water' ? '' : 'none'; if (self.view !== 'water') self.refreshPlateChips(); } },
@@ -1318,7 +1320,7 @@ var PLATE = new Station({
       else { items = DISK.modes.map(function (m) { return { f: FP * m.lam2, label: diskLabel(m) + ' ' }; }).filter(function (it) { return it.f >= 60 && it.f <= 2400; }); if (lab) lab.textContent = 'Round plate resonances (diameters, circles)'; }
       var stepN = Math.max(1, Math.ceil(items.length / 16)), chosen = [];
       for (var i = 0; i < items.length && chosen.length < 16; i += stepN) chosen.push(items[i]);
-      this.plateChips = chosen.map(function (it) { var f = Math.round(it.f * 10) / 10, b = el('button', 'chip', it.label + Math.round(f) + ' Hz'); b.type = 'button'; b.style.setProperty('--chip', accentFor(42)); b._f = f; b.addEventListener('click', function () { self.setFreq(b._f); }); box.appendChild(b); return b; });
+      this.plateChips = chosen.map(function (it) { var f = Math.round(it.f * 10) / 10, b = el('button', 'chip', it.label + Math.round(f) + ' Hz'); b.type = 'button'; b.style.setProperty('--chip', accentFor(42)); b._f = f; b.addEventListener('click', function () { stopMotion(self.app); self.setFreq(b._f); }); box.appendChild(b); return b; });
     }
     var f = this.freq; this.plateChips.forEach(function (b) { b.classList.toggle('on', Math.abs(b._f - f) < 0.6); });
   },
@@ -1328,7 +1330,7 @@ var PLATE = new Station({
       this.waterChipsBuilt = true; var picks = DISH.list.filter(function (z) { return z.n >= 3 && z.n <= 12 && z.s >= 1 && z.s <= 4 && 2 * z.f >= 60 && 2 * z.f <= 2400; });
       var chosen = [], stepN = Math.max(1, Math.floor(picks.length / 14)); for (var i = 0; i < picks.length && chosen.length < 14; i += stepN) chosen.push(picks[i]);
       var self = this, box = this.chipsWaterEl.el.querySelector('.chips'); box.innerHTML = ''; this.waterChips = chosen.map(function (z) {
-        var b = el('button', 'chip', '(' + z.n + ',' + z.s + ') ' + Math.round(2 * z.f) + ' Hz'); b.type = 'button'; b.style.setProperty('--chip', accentFor(196)); b._f = Math.round(2 * z.f * 10) / 10; b.addEventListener('click', function () { self.setFreq(b._f); }); box.appendChild(b); return b;
+        var b = el('button', 'chip', '(' + z.n + ',' + z.s + ') ' + Math.round(2 * z.f) + ' Hz'); b.type = 'button'; b.style.setProperty('--chip', accentFor(196)); b._f = Math.round(2 * z.f * 10) / 10; b.addEventListener('click', function () { stopMotion(self.app); self.setFreq(b._f); }); box.appendChild(b); return b;
       });
     }
     var f = this.freq; this.waterChips.forEach(function (b) { b.classList.toggle('on', Math.abs(b._f - f) < 0.6); });
@@ -1336,7 +1338,7 @@ var PLATE = new Station({
   setFreq: function (f) { this.freq = f; this.dirty = true; this.wdirty = true; this.bank.set(0, f, 0.2, 0.03); },
   resetSand: function () { for (var i = 0; i < this.NP; i++) { if (this.view === 'square') { this.px[i] = 1 + Math.random() * (this.G - 2); this.py[i] = 1 + Math.random() * (this.G - 2); } else { var r = Math.sqrt(Math.random()) * 0.96, a = Math.random() * TAU; this.px[i] = (1 + r * Math.cos(a)) * this.G / 2; this.py[i] = (1 + r * Math.sin(a)) * this.G / 2; } this.vx[i] = 0; this.vy[i] = 0; } },
   pointer: function (type, u, v) {
-    if (this.view === 'water') { if (type === 'down') { this.u0 = u; this.f0 = this.freq; } else if (type === 'move' && this.u0 != null) this.setFreq(clamp(this.f0 * Math.pow(40, u - this.u0), 60, 2400)); return; }
+    if (this.view === 'water') { if (type === 'down') { stopMotion(this.app); this.u0 = u; this.f0 = this.freq; } else if (type === 'move' && this.u0 != null) this.setFreq(clamp(this.f0 * Math.pow(40, u - this.u0), 60, 2400)); return; }
     var m = 0.06, s = 0.88, x = ((u - m) / s) * 2 - 1, y = ((v - m) / s) * 2 - 1, r = Math.sqrt(x * x + y * y);
     if (this.view === 'square') { this.x0 = clamp(x, -0.97, 0.97); this.y0 = clamp(y, -0.97, 0.97); if (Math.abs(this.x0) < 0.03 && Math.abs(this.y0) < 0.03) { this.x0 = 0; this.y0 = 0; } this.dirty = true; return; }
     this.r0 = clamp(r, 0, 0.97); this.th0 = Math.atan2(y, x); if (this.r0 < 0.03) this.r0 = 0; this.dirty = true;
@@ -1414,43 +1416,50 @@ var PLATE = new Station({
     var GW = this.GW, WD = this.WD, rho = this.Wrho, th = this.Wth; WD.fill(0);
     for (k = 0; k < kept.length; k++) {
       var z2 = kept[k].z, W = dishProfile(z2), n = z2.n, wt = kept[k].w / top, ref = -Math.PI / 2;
-      for (i = 0; i < GW * GW; i++) { var r = rho[i]; if (r > 1) continue; WD[i] += wt * W[(r * 159) | 0] * (n ? Math.cos(n * (th[i] - ref)) : 1); }
+      for (i = 0; i < GW * GW; i++) { var r = rho[i]; if (r > 1.03) continue; WD[i] += wt * W[Math.min(159, (r * 159) | 0)] * (n ? Math.cos(n * (th[i] - ref)) : 1); }
     }
     var mx = 1e-12; for (i = 0; i < GW * GW; i++) if (Math.abs(WD[i]) > mx) mx = Math.abs(WD[i]);
     for (i = 0; i < GW * GW; i++) WD[i] /= mx;
     /* Equalise the rings: a camera sees every cell of the pattern, not only the strongest ring, so normalise by the radial envelope. */
     var env = new Float32Array(160), sm = new Float32Array(160), b;
-    for (i = 0; i < GW * GW; i++) { if (rho[i] > 1) continue; b = (rho[i] * 159) | 0; var av = Math.abs(WD[i]); if (av > env[b]) env[b] = av; }
+    for (i = 0; i < GW * GW; i++) { if (rho[i] > 1) continue; b = Math.min(159, (rho[i] * 159) | 0); var av = Math.abs(WD[i]); if (av > env[b]) env[b] = av; }
     for (b = 0; b < 160; b++) { var m0 = 0; for (var q = -3; q <= 3; q++) { var bb = clamp(b + q, 0, 159); if (env[bb] > m0) m0 = env[bb]; } sm[b] = Math.max(0.28, m0); }
-    for (i = 0; i < GW * GW; i++) { if (rho[i] > 1) continue; WD[i] = clamp(WD[i] / sm[(rho[i] * 159) | 0], -1, 1); }
+    for (i = 0; i < GW * GW; i++) { if (rho[i] > 1.03) continue; WD[i] = clamp(WD[i] / sm[Math.min(159, (rho[i] * 159) | 0)], -1, 1); }
     var S = this.Wslope, smax = 1e-9;
     for (var j = 0; j < GW; j++) for (i = 0; i < GW; i++) {
-      var idx = j * GW + i; if (rho[idx] > 0.99) { S[idx] = 0; continue; }
+      var idx = j * GW + i; if (rho[idx] > 1.02) { S[idx] = 0; continue; }
       var l = WD[idx - (i ? 1 : 0)], rr = WD[idx + (i < GW - 1 ? 1 : 0)], u = WD[idx - (j ? GW : 0)], dn = WD[idx + (j < GW - 1 ? GW : 0)];
       var gx = (rr - l) * 0.5, gy = (dn - u) * 0.5, sl = Math.sqrt(gx * gx + gy * gy); S[idx] = sl; if (sl > smax) smax = sl;
     }
     this.wsmax = smax; return true;
   },
   paintWater: function () {
-    var GW = this.GW, WD = this.WD, S = this.Wslope, rho = this.Wrho, px = this.wdata.data, A = 0.74 + 0.26 * Math.cos(this.vphase), inv = A / (this.wsmax || 1), i;
-    for (i = 0; i < GW * GW; i++) {
-      var o = 4 * i, r = rho[i];
-      if (r > 0.995) { px[o] = 2; px[o + 1] = 5; px[o + 2] = 12; px[o + 3] = 255; continue; }
-      var h = WD[i] * A, s = S[i] * inv, ah = Math.abs(h);
-      var c1 = (ah - 0.36) / 0.045, c2 = (ah - 0.7) / 0.05, cd = (ah - 1) / 0.075, sl = (s - 0.45) / 0.09;
-      var L = Math.exp(-c1 * c1) * 0.9 + Math.exp(-c2 * c2) * 0.6 + Math.exp(-sl * sl) * 0.25, dot = Math.exp(-cd * cd), rim = r > 0.96 ? (r - 0.96) / 0.035 : 0;
-      var base = 0.5 + 0.5 * h;
-      px[o] = Math.min(255, 4 + 10 * base + 120 * L + 235 * dot + 60 * rim);
-      px[o + 1] = Math.min(255, 9 + 26 * base + 195 * L + 245 * dot + 110 * rim);
-      px[o + 2] = Math.min(255, 22 + 55 * base + 255 * L + 255 * dot + 150 * rim);
-      px[o + 3] = 255;
+    var GW = this.GW, WD = this.WD, rho = this.Wrho, px = this.wdata.data, A = 0.74 + 0.26 * Math.cos(this.vphase), invS = A / (this.wsmax || 1), i, j;
+    var lx = -0.55, ly = -0.62, lz = 0.56, ll = Math.sqrt(lx * lx + ly * ly + lz * lz); lx /= ll; ly /= ll; lz /= ll;
+    var hx = lx, hy = ly, hz = lz + 1, hl = Math.sqrt(hx * hx + hy * hy + hz * hz); hx /= hl; hy /= hl; hz /= hl;
+    var K = 2.6 / (this.wsmax || 1) * A;
+    for (j = 0; j < GW; j++) for (i = 0; i < GW; i++) {
+      var idx = j * GW + i, o = 4 * idx, r = rho[idx];
+      if (r > 1.02) { px[o] = 2; px[o + 1] = 5; px[o + 2] = 12; px[o + 3] = 255; continue; }
+      var h = WD[idx] * A, ah = Math.abs(h);
+      var l = WD[idx - (i ? 1 : 0)], rr = WD[idx + (i < GW - 1 ? 1 : 0)], u = WD[idx - (j ? GW : 0)], d = WD[idx + (j < GW - 1 ? GW : 0)];
+      var gx = (rr - l) * 0.5 * A, gy = (d - u) * 0.5 * A, s = Math.sqrt(gx * gx + gy * gy) * invS / A;
+      var nx = -gx * K, ny = -gy * K, nl = 1 / Math.sqrt(nx * nx + ny * ny + 1); nx *= nl; ny *= nl; var nz = nl;
+      var diff = Math.max(0, nx * lx + ny * ly + nz * lz), sp = Math.max(0, nx * hx + ny * hy + nz * hz); sp = sp * sp; sp = sp * sp; sp = sp * sp; sp = sp * sp * sp;
+      var c1 = (ah - 0.36) / 0.05, c2 = (ah - 0.7) / 0.055, cd = (ah - 1) / 0.07, sl = (s - 0.45) / 0.09;
+      var rings = Math.exp(-c1 * c1) * 0.9 + Math.exp(-c2 * c2) * 0.6 + Math.exp(-sl * sl) * 0.2, dot = Math.exp(-cd * cd);
+      var vig = 1 - 0.28 * r * r * r * r, relief = 0.28 + 0.72 * diff;
+      var R = (3 + 15 * relief) * vig + 105 * rings + 185 * dot + 120 * sp;
+      var G = (8 + 38 * relief) * vig + 180 * rings + 205 * dot + 135 * sp;
+      var B = (22 + 78 * relief) * vig + 250 * rings + 230 * dot + 160 * sp;
+      px[o] = R > 255 ? 255 : R; px[o + 1] = G > 255 ? 255 : G; px[o + 2] = B > 255 ? 255 : B; px[o + 3] = 255;
     }
     this.wctx.putImageData(this.wdata, 0, 0);
   },
   tick: function (dt) {
     if (this.motion) { this.mt += dt; var u = 0.5 - 0.5 * Math.cos(TAU * this.mt / 110); this.setFreq(Math.pow(10, lerp(Math.log10(80), Math.log10(1600), u))); }
     this.frame++;
-    if (this.view === 'water') { if (this.wdirty && (!this.motion || this.frame % 2 === 0)) { if (this.computeWater()) this.wdirty = false; } this.vphase += dt * TAU * 0.3; if (DISH.ready) this.paintWater(); return; }
+    if (this.view === 'water') { if (this.wdirty && (!this.motion || this.frame % 2 === 0)) { if (this.computeWater()) this.wdirty = false; this.wpainted = false; } this.vphase += dt * TAU * 0.3; if (DISH.ready && (this.frame % 2 === 0 || !this.wpainted)) { this.paintWater(); this.wpainted = true; } return; }
     if (this.dirty && (!this.motion || this.frame % 2 === 0)) { this.dirty = false; this.computeField(); }
     var G = this.G, E = this.E, Gx = this.Gx, Gy = this.Gy, px = this.px, py = this.py, vx = this.vx, vy = this.vy, N = this.NP;
     var k = Math.min(2, dt * 60), KF = 3.4 * k, KJ = 1.7 * k, damp = Math.pow(0.78, k), R = G / 2 - 1.5, cx = G / 2, cy = G / 2, square = this.view === 'square', lim = G - 1.5;
@@ -1473,10 +1482,16 @@ var PLATE = new Station({
     stage.clear();
     var c = stage.ctx, W = stage.W, m = W * 0.06, S = W * 0.88, cx = m + S / 2, cy = m + S / 2, R = S / 2;
     if (this.view === 'water') {
+      var halo = c.createRadialGradient(cx, cy, R * 0.92, cx, cy, R * 1.12); halo.addColorStop(0, 'rgba(40,90,150,0.18)'); halo.addColorStop(1, 'rgba(40,90,150,0)');
+      c.fillStyle = halo; c.beginPath(); c.arc(cx, cy, R * 1.12, 0, TAU); c.fill();
       c.fillStyle = '#02050c'; c.beginPath(); c.arc(cx, cy, R, 0, TAU); c.fill();
-      if (DISH.ready) { c.save(); c.beginPath(); c.arc(cx, cy, R, 0, TAU); c.clip(); c.imageSmoothingEnabled = true; c.drawImage(this.wimg, m, m, S, S); c.restore(); }
-      else stage.text('computing the modes of the dish', cx, cy, { size: 12, align: 'center', serif: true, italic: true, color: 'rgba(236,229,211,0.6)' });
-      c.strokeStyle = 'rgba(180,220,255,0.35)'; c.lineWidth = 1.5 * stage.k; c.beginPath(); c.arc(cx, cy, R, 0, TAU); c.stroke();
+      if (DISH.ready) {
+        c.save(); c.beginPath(); c.arc(cx, cy, R, 0, TAU); c.clip(); c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high'; c.drawImage(this.wimg, m, m, S, S);
+        var shade = c.createRadialGradient(cx, cy, R * 0.86, cx, cy, R); shade.addColorStop(0, 'rgba(0,0,0,0)'); shade.addColorStop(1, 'rgba(0,0,0,0.45)');
+        c.fillStyle = shade; c.fillRect(m, m, S, S); c.restore();
+      } else stage.text('computing the modes of the dish', cx, cy, { size: 12, align: 'center', serif: true, italic: true, color: 'rgba(236,229,211,0.6)' });
+      c.strokeStyle = 'rgba(150,205,255,0.55)'; c.lineWidth = 1.3 * stage.k; c.beginPath(); c.arc(cx, cy, R - 0.6 * stage.k, 0, TAU); c.stroke();
+      c.strokeStyle = 'rgba(236,229,211,0.12)'; c.lineWidth = 1; c.beginPath(); c.arc(cx, cy, R + 1.2 * stage.k, 0, TAU); c.stroke();
       return;
     }
     var square = this.view === 'square', g = c.createRadialGradient(cx - R * 0.3, cy - R * 0.3, R * 0.1, cx, cy, R * 1.3); g.addColorStop(0, '#1e2126'); g.addColorStop(1, '#0e1114');
@@ -2526,7 +2541,10 @@ App.prototype.bind = function () {
   d.morebtn.addEventListener('click', function () { var open = d.more.classList.toggle('open'); d.morebtn.textContent = open ? 'Fewer notes' : 'Notes on the physics'; d.morebtn.setAttribute('aria-expanded', open ? 'true' : 'false'); });
   d.prev.addEventListener('click', function () { self.go(self.index - 1); });
   d.next.addEventListener('click', function () { self.go(self.index + 1); });
-  this.stage.handler = function (type, u, v) { if (self.cur && self.cur.pointer) self.cur.pointer(type, u, v); };
+  /* Touching any control or the figure takes over from Motion, so a manual setting is never overwritten by the sweep. */
+  var takeOver = function () { if (self.motion) self.setMotion(false); };
+  d.controls.addEventListener('pointerdown', takeOver, true); d.controls.addEventListener('keydown', takeOver, true); d.controls.addEventListener('input', takeOver, true);
+  this.stage.handler = function (type, u, v) { if (type === 'down') takeOver(); if (self.cur && self.cur.pointer) self.cur.pointer(type, u, v); };
   var onResize = function () { self.stage.resize(); self.stage.clear(); };
   window.addEventListener('resize', onResize);
   if (window.ResizeObserver) { try { new ResizeObserver(onResize).observe(d.well); } catch (e) {} }
