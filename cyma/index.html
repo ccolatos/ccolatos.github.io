@@ -2283,12 +2283,13 @@ function hannCurve(n) { var c = new Float32Array(n); for (var i = 0; i < n; i++)
 var GRAINS = new SynthStation({
   id: 'grains', title: 'Grains', week: 'Week 7',
   thesis: 'Cut a sound into pieces a few milliseconds long, then replay the pieces at any rate, from any position, at any pitch. Time and pitch come apart.',
-  notice: 'Hold a key and grains stream from the marked position in the source. Set the scan speed to zero to freeze a moment, to a quarter to stretch time fourfold with no change of pitch, and raise the spray to scatter the grains into a cloud. The keyboard transposes every grain.',
+  notice: 'Hold a key and grains stream from the marked position in the source; the keyboard transposes every grain. Set the scan speed to zero to freeze a moment, to a quarter to stretch time fourfold with no change of pitch, and raise the spray to scatter the grains into a cloud. Switch Without keys to Play C4 for a stream that runs on its own.',
   more: 'Lecture 7: grain size, density, position, spray, pitch and window. Below about 20 ms grains stop being heard as fragments and become a timbre. The window shape decides how much click each grain carries: the bare rectangle switches the sound on and off instantly at every grain edge, so it crackles at the grain rate, and that crackle is the lesson; two milliseconds of slope on each edge removes it while keeping the articulated attack. The three sources are synthesised here so nothing has to be uploaded: a sung vowel, a plucked string, and an inharmonic bell. The lab\'s freeze, stretch and cloud settings are presets.',
   hue: function () { return 25; },
   enter: function (app) {
     var self = this; this.setupAudio(app, 0.9);
-    this.P = this.P || { source: 'voice', size: 60, density: 25, pos: 0.3, spray: 0.03, speed: 0.25, window: 'hann', jitter: 0, drone: 1 };
+    this.P = this.P || { source: 'bell', size: 110, density: 32, pos: 0.22, spray: 0.18, speed: 0.12, window: 'hann', jitter: 8, drone: 0 };
+    if (this.presetIndex === undefined) this.presetIndex = 0;
     var ctx = app.eng.ctx; this.ctx = ctx;
     this.buffers = { voice: renderSource(ctx, 'voice'), pluck: renderSource(ctx, 'pluck'), bell: renderSource(ctx, 'bell') };
     this.hann = hannCurve(64); this.next = app.eng.now() + 0.05; this.recent = []; this.held = {}; this.scan = this.P.pos;
@@ -2296,6 +2297,7 @@ var GRAINS = new SynthStation({
     for (var key in this.buffers) { var d = this.buffers[key].getChannelData(0), M = 200, env = new Float32Array(M), step = Math.floor(d.length / M); for (var i = 0; i < M; i++) { var mx = 0; for (var j = 0; j < step; j++) mx = Math.max(mx, Math.abs(d[i * step + j])); env[i] = mx; } this.envs[key] = env; }
     void self2;
     var presets = [
+      { name: 'Slow cloud', P: { source: 'bell', size: 110, density: 32, spray: 0.18, speed: 0.12, window: 'hann', jitter: 8 } },
       { name: 'Freeze', P: { size: 80, density: 30, spray: 0.01, speed: 0, window: 'hann', jitter: 0 } },
       { name: 'Stretch ×4', P: { size: 60, density: 25, spray: 0.02, speed: 0.25, window: 'hann', jitter: 0 } },
       { name: 'Cloud', P: { size: 45, density: 45, spray: 0.35, speed: 0.1, window: 'hann', jitter: 12 } },
@@ -2407,7 +2409,7 @@ var MODELS = new SynthStation({
       { name: 'Nylon guitar', P: { model: 'string', brightness: 0.3, damping: 2.2, pick: 0.22 } }, { name: 'Steel string', P: { model: 'string', brightness: 0.9, damping: 6, pick: 0.13 } },
       { name: 'Harp', P: { model: 'string', brightness: 0.55, damping: 4.5, pick: 0.5 } }, { name: 'Muted pluck', P: { model: 'string', brightness: 0.15, damping: 0.35, pick: 0.3 } },
       { name: 'Marimba', P: { model: 'marimba', hardness: 0.3, decay: 0.9 } }, { name: 'Glass bar', P: { model: 'glass', hardness: 0.85, decay: 5 } },
-      { name: 'Tom', P: { model: 'tom', hardness: 0.45, decay: 0.9, bend: 0.09 } }, { name: 'Tabla', P: { model: 'tom', hardness: 1, decay: 0.11, bend: 0.24 } }, { name: 'Tabla, ringing dayan', P: { model: 'tabla', hardness: 0.7, decay: 1.2, bend: 0.04 } }
+      { name: 'Tom', P: { model: 'tom', hardness: 0.45, decay: 0.9, bend: 0.09 } }, { name: 'Tabla', P: { model: 'tom', hardness: 1, decay: 0.11, bend: 0.24 } }
     ];
     this.controls = [
       this.presetChips(presets),
