@@ -2371,12 +2371,12 @@ var MODAL_SETS = {
 var MODELS = new SynthStation({
   id: 'models', title: 'Models', week: 'Week 8',
   thesis: 'Instead of describing the sound, describe the object: an excitation, a resonator, and the losses between them. Pluck a string, strike a bar, hit a drum.',
-  notice: 'The string is a real Karplus-Strong waveguide running in the audio thread; the white curve is the string itself, read out of the delay line. Brightness sets the loop filter and how soft the pluck is, damping the decay, pick position the comb that thins alternate harmonics. The bars and drum heads are modal models: resonators at the object\'s mode ratios plus a brief noise of the strike. A uniform bar rings at 1 : 2.76 : 5.40; a marimba bar is undercut to 1 : 4 : 10, which is why it sounds like wood and not glass; a drum head is inharmonic while the loaded tabla head is nearly harmonic.',
+  notice: 'The string is a real Karplus-Strong waveguide running in the audio thread; the white curve is the string itself, read out of the delay line. Brightness sets the loop filter and how soft the pluck is, damping the decay, pick position the comb that thins alternate harmonics. The bars and drum heads are modal models: resonators at the object\'s mode ratios plus a brief noise of the strike. A uniform bar rings at 1 : 2.76 : 5.40; a marimba bar is undercut to 1 : 4 : 10, which is why it sounds like wood and not glass; a drum head is inharmonic while the loaded tabla dayan head is nearly harmonic. The Tabla preset is the bayan side: a hard stroke on an ordinary head, damped fast, with the pitch bending down as the pressure of the hand releases.',
   more: 'Lecture 8: excitation and resonance, Karplus-Strong, waveguides and modal synthesis. The uniform bar uses the free-free bar ratios 1, 2.756, 5.404, 8.933; the tuned bar the 1 : 4 : 10 ratios that marimba makers cut into the underside; the drum the circular membrane ratios 1, 1.594, 2.136, 2.296, 2.653, 2.918, the same Bessel zeros that shape the Plate station; the tabla head the near-harmonic ratios its loading paste produces. Drum heads also drop in pitch for a few tens of milliseconds after the strike, as real heads do. If the browser cannot run audio worklets the string falls back to a modal approximation and says so.',
   hue: function () { return 60; },
   enter: function (app) {
     var self = this; this.setupAudio(app);
-    this.P = this.P || { model: 'string', brightness: 0.45, damping: 2.5, pick: 0.22, hardness: 0.5, decay: 1.6 };
+    this.P = this.P || { model: 'string', brightness: 0.45, damping: 2.5, pick: 0.22, hardness: 0.5, decay: 1.6, bend: 0.09 };
     var P = this.P, ctx = app.eng.ctx, bus = this.bus; this.shape = null; this.wl = null; this.wlState = 'loading'; this.ids = 0;
     if (ctx.audioWorklet && typeof AudioWorkletNode !== 'undefined') {
       var url = URL.createObjectURL(new Blob([STRING_WORKLET], { type: 'application/javascript' }));
@@ -2393,7 +2393,8 @@ var MODELS = new SynthStation({
       var hard = P.model === 'string' ? P.brightness : P.hardness, base = P.model === 'string' ? P.damping : P.decay, strike = 0.5 * (0.4 + 0.6 * vel);
       ratios.forEach(function (r, k) {
         var o = ctx.createOscillator(), g = ctx.createGain(), fk = f * r; if (fk > 18000) return; o.type = 'sine';
-        if (set.drop) { o.frequency.setValueAtTime(fk * (1 + set.drop), t); o.frequency.exponentialRampToValueAtTime(fk, t + 0.07); } else o.frequency.setValueAtTime(fk, t);
+        var bend = set.drop ? (P.bend == null ? set.drop : P.bend) : 0;
+        if (bend > 0.001) { o.frequency.setValueAtTime(fk * (1 + bend), t); o.frequency.exponentialRampToValueAtTime(fk, t + 0.05 + 0.4 * bend); } else o.frequency.setValueAtTime(fk, t);
         var lvl = strike * Math.exp(-k / (0.5 + 5 * hard)) / (1 + 0.25 * k), tc = Math.max(0.02, base / (1 + 0.7 * k) / 3);
         g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(lvl, t + 0.003); g.gain.setTargetAtTime(0, t + 0.003, tc); o.connect(g); g.connect(amp); o.start(t); oscs.push(o); gains.push(g);
       });
@@ -2406,13 +2407,13 @@ var MODELS = new SynthStation({
       { name: 'Nylon guitar', P: { model: 'string', brightness: 0.3, damping: 2.2, pick: 0.22 } }, { name: 'Steel string', P: { model: 'string', brightness: 0.9, damping: 6, pick: 0.13 } },
       { name: 'Harp', P: { model: 'string', brightness: 0.55, damping: 4.5, pick: 0.5 } }, { name: 'Muted pluck', P: { model: 'string', brightness: 0.15, damping: 0.35, pick: 0.3 } },
       { name: 'Marimba', P: { model: 'marimba', hardness: 0.3, decay: 0.9 } }, { name: 'Glass bar', P: { model: 'glass', hardness: 0.85, decay: 5 } },
-      { name: 'Tom', P: { model: 'tom', hardness: 0.45, decay: 0.9 } }, { name: 'Tabla-like', P: { model: 'tabla', hardness: 0.75, decay: 1.6 } }
+      { name: 'Tom', P: { model: 'tom', hardness: 0.45, decay: 0.9, bend: 0.09 } }, { name: 'Tabla', P: { model: 'tom', hardness: 1, decay: 0.11, bend: 0.24 } }, { name: 'Tabla, ringing dayan', P: { model: 'tabla', hardness: 0.7, decay: 1.2, bend: 0.04 } }
     ];
     this.controls = [
       this.presetChips(presets),
       this.seg('model', 'Resonator', [{ label: 'Plucked string', value: 'string' }, { label: 'Uniform bar', value: 'glass' }, { label: 'Tuned bar', value: 'marimba' }, { label: 'Drum head', value: 'tom' }, { label: 'Loaded head', value: 'tabla' }]),
       ctlRow([this.slider('brightness', { label: 'String brightness', min: 0.05, max: 0.98, step: 0.01, fmt: fmtPct }), this.slider('damping', { label: 'String decay', min: 0.2, max: 12, log: true, step: 0.01, fmt: fmtMs }), this.slider('pick', { label: 'Pick position', min: 0.03, max: 0.5, step: 0.01, fmt: function (v) { return (v * 100).toFixed(0) + '% along' } })]),
-      ctlRow([this.slider('hardness', { label: 'Strike hardness', min: 0, max: 1, step: 0.01, fmt: fmtPct }), this.slider('decay', { label: 'Bar or drum decay', min: 0.1, max: 8, log: true, step: 0.01, fmt: fmtMs })])
+      ctlRow([this.slider('hardness', { label: 'Strike hardness', min: 0, max: 1, step: 0.01, fmt: fmtPct }), this.slider('decay', { label: 'Bar or drum decay', min: 0.05, max: 8, log: true, step: 0.01, fmt: fmtMs }), this.slider('bend', { label: 'Drum pitch bend at the strike', min: 0, max: 0.35, step: 0.01, fmt: function (v) { return v ? '+' + Math.round(v * 100) + '%, ' + Math.round((0.05 + 0.4 * v) * 1000) + ' ms' : 'none'; } })])
     ];
   },
   leave: function () { if (this.wl) { try { this.wl.port.postMessage({ type: 'all' }); this.wl.disconnect(); } catch (e) {} } this.teardownAudio(); },
@@ -2431,7 +2432,7 @@ var MODELS = new SynthStation({
       stage.text('mode ratios' + (P.model === 'string' ? ' (worklet unavailable, modal approximation)' : ''), r.x, r.y + 9 * k, { size: 9.5, color: 'rgba(236,229,211,0.5)' });
     }
   },
-  readout: function () { var P = this.P; if (P.model === 'string') return 'Plucked string: brightness <b>' + fmtPct(P.brightness) + '</b>, decay ' + fmtMs(P.damping) + ', picked ' + Math.round(P.pick * 100) + '% along' + (this.wlState === 'ok' ? '. Karplus-Strong waveguide, audio thread' : (this.wlState === 'loading' ? '. Loading the worklet' : '. Worklet unavailable, modal approximation')); var ms = MODAL_SETS[P.model]; return ms.name.charAt(0).toUpperCase() + ms.name.slice(1) + ', modes ' + ms.ratios.slice(0, 5).map(function (x) { return x.toFixed(x === 1 ? 0 : 2); }).join(' : ') + ', hardness <b>' + fmtPct(P.hardness) + '</b>, decay ' + fmtMs(P.decay) + (ms.drop ? ', pitch drops ' + Math.round(ms.drop * 100) + '% at the strike' : ''); }
+  readout: function () { var P = this.P; if (P.model === 'string') return 'Plucked string: brightness <b>' + fmtPct(P.brightness) + '</b>, decay ' + fmtMs(P.damping) + ', picked ' + Math.round(P.pick * 100) + '% along' + (this.wlState === 'ok' ? '. Karplus-Strong waveguide, audio thread' : (this.wlState === 'loading' ? '. Loading the worklet' : '. Worklet unavailable, modal approximation')); var ms = MODAL_SETS[P.model]; return ms.name.charAt(0).toUpperCase() + ms.name.slice(1) + ', modes ' + ms.ratios.slice(0, 5).map(function (x) { return x.toFixed(x === 1 ? 0 : 2); }).join(' : ') + ', hardness <b>' + fmtPct(P.hardness) + '</b>, decay ' + fmtMs(P.decay) + (ms.drop && P.bend > 0.001 ? ', pitch starts ' + Math.round(P.bend * 100) + '% high and settles in ' + Math.round((0.05 + 0.4 * P.bend) * 1000) + ' ms' : ''); }
 });
 
 /* S9. Shape (Weeks 10 and 11): waveshaping, dynamics, chorus */
