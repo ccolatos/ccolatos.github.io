@@ -143,7 +143,7 @@ nav .glyph{font-size:22px;line-height:1}
 .intro .begin.alt{background:none;border:1px solid var(--ink-2);color:var(--ink)}
 .intro .begin.alt:hover{border-color:var(--ink);background:none}
 .intro p b{color:var(--ink);font-weight:500}
-@media(max-width:600px){header{gap:6px 10px;padding:10px 12px 4px}.journeys button{padding:5px 9px;font-size:12.5px}.progress{order:9;flex-basis:100%;margin-left:0;justify-content:center;gap:3px}.progress button{padding:6px 3px}.iconbtn:first-of-type{margin-left:auto}}
+@media(max-width:600px){header{gap:6px 10px;padding:10px 12px 4px}.journeys button{padding:5px 9px;font-size:12.5px}header .brk{display:block;flex-basis:100%;height:0}.progress{margin-left:0;gap:3px}.progress button{padding:8px 3px}.motionbtn{margin-left:auto}}
 
 .folds{border-top:1px solid var(--line);margin-top:2px}
 .foldbtn{display:flex;align-items:center;gap:12px;width:100%;padding:13px 2px;font-family:var(--serif);font-size:15.5px;color:var(--ink-2);border-bottom:1px solid var(--line);text-align:left;cursor:pointer}
@@ -154,24 +154,34 @@ nav .glyph{font-size:22px;line-height:1}
 .fold{display:none;font-family:var(--serif);font-size:16px;line-height:1.58;color:var(--ink-2);padding:10px 2px 16px;border-bottom:1px solid var(--line)}
 .fold.open{display:block}
 
+.chip.right{background:var(--chip);color:var(--ground);border-color:var(--chip)}
+.chip.dim{opacity:.35}
+.filebtn{display:inline-block;margin-right:10px}
+label .filebtn+.val{font-weight:400;color:var(--ink-3)}
+@media(max-width:600px){.journeys button{padding:5px 7px;font-size:12px}header .wordmark{font-size:16px;letter-spacing:.18em}}
+
+.brk{display:none}
+
 </style>
 </head>
 <body>
 <div class="intro" id="intro">
   <div class="intro-inner">
     <div class="wordmark">CYMA</div>
-    <p class="lede">Sound made visible. Two journeys, every station an instrument you can play.</p>
+    <p class="lede">Sound made visible. Three journeys, every station an instrument you can play.</p>
+    <p><b>Foundations</b>: what sound is and how we hear it, for anyone starting out: frequency and level, phase, timbre, the ear, and on through digital audio, levels, rooms, dynamics, microphones, space and meters.</p>
     <p><b>Ratio</b>: eight stations on interval, resonance and the ear, from the Lissajous figure to the vibrating plate. Every figure is computed from the tones actually sounding.</p>
     <p><b>Synthesis</b>: nine stations on timbre, the subtractive voice, envelopes and LFOs, FM, wavetable, additive, granular, physical modelling and processing. Play them from the screen, the computer keyboard, or a MIDI controller.</p>
     <p>Headphones help.</p>
-    <div class="begins"><button class="begin" id="begin" type="button">Begin with Ratio</button><button class="begin alt" id="begin-synth" type="button">Begin with Synthesis</button></div>
+    <div class="begins"><button class="begin" id="begin-found" type="button">Begin with Foundations</button><button class="begin alt" id="begin" type="button">Begin with Ratio</button><button class="begin alt" id="begin-synth" type="button">Begin with Synthesis</button></div>
     <p class="fine" id="fine">Sound starts when you press begin. Arrow keys move between stations. In Synthesis, Z to M and Q to P play notes, minus and equals shift the octave.</p>
   </div>
 </div>
 <div class="app" id="app">
   <header>
     <div class="wordmark">CYMA</div>
-    <div class="journeys" role="tablist" aria-label="Journeys"><button id="jr-ratio" type="button" role="tab">Ratio</button><button id="jr-synth" type="button" role="tab">Synthesis</button></div>
+    <div class="journeys" role="tablist" aria-label="Journeys"><button id="jr-found" type="button" role="tab">Foundations</button><button id="jr-ratio" type="button" role="tab">Ratio</button><button id="jr-synth" type="button" role="tab">Synthesis</button></div>
+    <span class="brk" aria-hidden="true"></span>
     <div class="progress" id="progress" role="navigation" aria-label="Stations"></div>
     <button class="iconbtn" id="motionbtn" type="button" aria-pressed="false" title="Motion: let the station sweep itself slowly" aria-label="Motion off. Let the station sweep itself slowly"></button>
     <button class="iconbtn" id="mutebtn" type="button" aria-pressed="false" title="Mute" aria-label="Sound on. Mute"></button>
@@ -535,21 +545,26 @@ Engine.prototype.init = function () {
   this.master = c.createGain(); this.master.gain.value = 0.85;
   this.comp = c.createDynamicsCompressor();
   this.comp.threshold.value = -14; this.comp.knee.value = 10; this.comp.ratio.value = 8; this.comp.attack.value = 0.003; this.comp.release.value = 0.15;
-  this.master.connect(this.comp); this.comp.connect(c.destination);
+  this.master.connect(this.comp);
   var eng = this; c.onstatechange = function () { if (c.state !== 'running' && c.state !== 'closed') { try { c.resume(); } catch (e) {} } };
+  this.directOut = false; this.connectDirect = function () { if (!eng.directOut) { eng.directOut = true; try { eng.comp.connect(c.destination); } catch (e) {} } };
   this.analyser = c.createAnalyser(); this.analyser.fftSize = 4096; this.analyser.smoothingTimeConstant = 0;
   this.master.connect(this.analyser);
   /* Silent keepalive so the graph is never idle: iOS drops an audio session that carries nothing. */
   try { var ka = c.createOscillator(), kg = c.createGain(); ka.frequency.value = 18; kg.gain.value = 0.00001; ka.connect(kg); kg.connect(this.master); ka.start(); this.keepalive = ka; } catch (e) {}
-  /* iOS and Android: Web Audio alone does not fully claim the media session and obeys the silent switch, so the same
-     signal is also played through a real audio element fed by a MediaStream. This is the fix the other instruments use. */
+  /* Phones and tablets: the whole output goes through one real audio element fed by a MediaStream. A media element is
+     what the system keeps alive in the background and what ignores the silent switch; a second, direct path to the
+     speakers would only add a doubled, slightly delayed copy at the moment the system interrupts and resumes. The
+     direct path is connected only if the element fails to start. */
   this.isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   if (this.isMobile && c.createMediaStreamDestination) {
     try {
       var ms = c.createMediaStreamDestination(); this.comp.connect(ms);
       var a = document.createElement('audio'); a.setAttribute('playsinline', ''); a.setAttribute('autoplay', ''); a.style.display = 'none';
       a.srcObject = ms.stream; document.body.appendChild(a); this.mediaEl = a; keepPlaying(a, this);
-      var pr = a.play(); if (pr && pr.catch) pr.catch(function () {});
+      var began = false; a.addEventListener('playing', function () { began = true; });
+      setTimeout(function () { if (!began) eng.connectDirect(); }, 2500);
+      var pr = a.play(); if (pr && pr.catch) pr.catch(function () { eng.connectDirect(); });
       /* A silent looping file keeps the page's media session alive while it is in the background, so the system
          does not throttle the audio thread and the live element can be resumed without a gap. */
       try {
@@ -557,8 +572,8 @@ Engine.prototype.init = function () {
         b.src = URL.createObjectURL(wav); document.body.appendChild(b); this.silentEl = b; keepPlaying(b, this);
         var pr2 = b.play(); if (pr2 && pr2.catch) pr2.catch(function () {});
       } catch (e) {}
-    } catch (e) {}
-  }
+    } catch (e) { this.connectDirect(); }
+  } else this.connectDirect();
   this.scope = new Float32Array(4096);
   this.waves = { sinS: this.wave([1], false), sinC: this.wave([1], true), harmS: this.wave(HARM, false), harmC: this.wave(HARM, true) };
   this.ok = true; return true;
@@ -1856,7 +1871,7 @@ function drawScope(stage, eng, r, hue, ms) {
   c.beginPath();
   for (i = 0; i < n; i++) { var x = r.x + r.w * i / (n - 1), y = r.y + r.h / 2 - clamp(buf[i0 + i], -1, 1) * r.h * 0.46; if (i) c.lineTo(x, y); else c.moveTo(x, y); }
   c.strokeStyle = hsl(hue, 85, 72, 0.95); c.lineWidth = 1.3 * stage.k; c.lineJoin = 'round'; c.stroke();
-  stage.text('waveform, ' + (ms || 24) + ' ms', r.x + 4, r.y + 11 * stage.k, { size: 9.5, color: 'rgba(236,229,211,0.42)' });
+  stage.text('waveform, ' + (Math.round((ms || 24) * 10) / 10) + ' ms', r.x + 4, r.y + 11 * stage.k, { size: 9.5, color: 'rgba(236,229,211,0.42)' });
 }
 function drawKeys(stage, r, held, hue) {
   var c = stage.ctx, ww = r.w / WHITE_COUNT, n, k = stage.k;
@@ -2650,6 +2665,864 @@ var SHAPE = new SynthStation({
   readout: function () { var P = this.P; return '<b>' + P.curve + '</b> curve at ' + P.drive.toFixed(1) + '× drive, ' + fmtPct(P.mix) + ' wet; compressor ' + P.thresh + ' dB at ' + P.ratio.toFixed(1) + ':1' + (P.chorus ? '; chorus ' + fmtPct(P.chorus) + ' sweeping ±' + (P.cdepth * 1000).toFixed(1) + ' ms at ' + P.crate.toFixed(2) + ' Hz' : ''); }
 });
 
+/* ---------- Foundations journey: shared pieces ---------- */
+var C_AIR = 343; /* speed of sound in air at 20 C, m/s */
+var REGIONS = [
+  { name: 'sub-bass', lo: 20, hi: 60, feel: 'felt as much as heard' }, { name: 'bass', lo: 60, hi: 250, feel: 'fundamentals of most instruments' },
+  { name: 'low mids', lo: 250, hi: 500, feel: 'warmth, body, mud' }, { name: 'mids', lo: 500, hi: 2000, feel: 'presence, intelligibility, nasal' },
+  { name: 'upper mids', lo: 2000, hi: 4000, feel: 'clarity, edge, harshness' }, { name: 'presence', lo: 4000, hi: 6000, feel: 'definition, sibilance' }, { name: 'brilliance', lo: 6000, hi: 20000, feel: 'air, sparkle, detail' }
+];
+function regionOf(f) { for (var i = 0; i < REGIONS.length; i++) if (f < REGIONS[i].hi) return REGIONS[i]; return REGIONS[REGIONS.length - 1]; }
+function dbfs(v) { return 20 * Math.log10(Math.max(1e-9, v)); }
+function fromDb(db) { return Math.pow(10, db / 20); }
+function fmtDb(v) { return (v > 0 ? '+' : '') + v.toFixed(1) + ' dB'; }
+function fmtM(m) { return m >= 1 ? m.toFixed(2) + ' m (' + (m * 3.28084).toFixed(1) + ' ft)' : (m * 100).toFixed(1) + ' cm (' + (m * 39.3701).toFixed(1) + ' in)'; }
+/* IEC 61672 A-weighting, exact. */
+function aWeight(f) { var f2 = f * f, r = 12194 * 12194 * f2 * f2 / ((f2 + 20.6 * 20.6) * Math.sqrt((f2 + 107.7 * 107.7) * (f2 + 737.9 * 737.9)) * (f2 + 12194 * 12194)); return 20 * Math.log10(r) + 2.0; }
+function noteOf(f) { var n = Math.round(69 + 12 * Math.log2(f / 440)), cents = Math.round(1200 * Math.log2(f / mtof(n))); return noteName(n) + (cents ? ' ' + (cents > 0 ? '+' : '') + cents + ' ct' : ''); }
+
+/* ---- Offline-rendered buffers ---- */
+var FBUF = {};
+function pinkBuffer(ctx) {
+  if (FBUF.pink) return FBUF.pink;
+  var sr = ctx.sampleRate, n = sr * 4, b = ctx.createBuffer(1, n, sr), d = b.getChannelData(0), b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0, i;
+  for (i = 0; i < n; i++) { var w = Math.random() * 2 - 1; b0 = 0.99886 * b0 + w * 0.0555179; b1 = 0.99332 * b1 + w * 0.0750759; b2 = 0.96900 * b2 + w * 0.1538520; b3 = 0.86650 * b3 + w * 0.3104856; b4 = 0.55000 * b4 + w * 0.5329522; b5 = -0.7616 * b5 - w * 0.0168980; d[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * 0.5362) * 0.11; b6 = w * 0.115926; }
+  normalizeBuffer(d, 0.25); FBUF.pink = b; return b;
+}
+function normalizeBuffer(d, peak) { var mx = 1e-9; for (var i = 0; i < d.length; i++) mx = Math.max(mx, Math.abs(d[i])); var g = peak / mx; for (i = 0; i < d.length; i++) d[i] *= g; }
+/* A small piece of music synthesised on the spot: drums, bass, chords and a plucked line, two bars at 96 BPM. */
+function musicBuffer(ctx) {
+  if (FBUF.music) return FBUF.music;
+  var sr = ctx.sampleRate, bpm = 96, beat = 60 / bpm, len = beat * 8, n = Math.floor(sr * len), b = ctx.createBuffer(1, n, sr), d = b.getChannelData(0), i, k;
+  var add = function (t0, dur, fn) { var s0 = Math.floor(t0 * sr), s1 = Math.min(n, Math.floor((t0 + dur) * sr)); for (var s = s0; s < s1; s++) d[s] += fn((s - s0) / sr); };
+  var kick = function (t) { return 0.9 * Math.sin(TAU * (48 * t + 90 * (1 - Math.exp(-t * 18)) / 18 * 18)) * Math.exp(-t * 9) + 0.4 * (Math.random() * 2 - 1) * Math.exp(-t * 120); };
+  var snare = function (t) { return (0.55 * (Math.random() * 2 - 1) * Math.exp(-t * 14) + 0.5 * Math.sin(TAU * 185 * t) * Math.exp(-t * 30)) * 0.8; };
+  var hat = function (t) { var w = Math.random() * 2 - 1; return 0.22 * (w - (Math.random() * 2 - 1) * 0.5) * Math.exp(-t * 60); };
+  var bass = function (f) { return function (t) { var s = 0; for (var h = 1; h <= 6; h++) s += Math.sin(TAU * f * h * t) / h * Math.exp(-t * (1.5 + h)); return 0.5 * s * Math.min(1, t * 200); }; };
+  var pad = function (fs) { return function (t) { var s = 0; for (var q = 0; q < fs.length; q++) { s += Math.sin(TAU * fs[q] * t) + 0.35 * Math.sin(TAU * fs[q] * 2 * t + 0.4) + 0.12 * Math.sin(TAU * fs[q] * 3 * t); } return 0.07 * s * Math.min(1, t * 3) * Math.min(1, (beat * 4 - t) * 2); }; };
+  var pluck = function (f) { return function (t) { var s = 0; for (var h = 1; h <= 8; h++) s += Math.sin(TAU * f * h * t) / h * Math.exp(-t * (2 + 2.2 * h)); return 0.38 * s * Math.min(1, t * 400); }; };
+  var A1 = 55, C2 = 65.41, D2 = 73.42, E2 = 82.41, chordA = [220, 261.63, 329.63], chordF = [174.61, 220, 261.63], mel = [440, 523.25, 493.88, 440, 392, 440, 329.63, 392];
+  for (k = 0; k < 8; k++) { var t = k * beat; if (k % 2 === 0) add(t, 0.5, kick); if (k % 2 === 1) add(t, 0.4, snare); add(t, 0.15, hat); add(t + beat / 2, 0.15, hat); if (k === 3) add(t + beat / 2, 0.3, kick); }
+  add(0, beat * 2, bass(A1)); add(beat * 2, beat * 2, bass(C2)); add(beat * 4, beat * 2, bass(D2)); add(beat * 6, beat * 2, bass(E2));
+  add(0, beat * 4, pad(chordA)); add(beat * 4, beat * 4, pad(chordF));
+  for (k = 0; k < 8; k++) add(k * beat + beat / 2, beat * 0.9, pluck(mel[k]));
+  normalizeBuffer(d, 0.5); FBUF.music = b; return b;
+}
+
+/* ---- The user's own audio and microphone ---- */
+var USER = { buffer: null, name: '', loading: false, error: '', micStream: null, micError: '' };
+function loadUserFile(eng, file, done) {
+  USER.loading = true; USER.error = '';
+  var rd = new FileReader();
+  rd.onload = function () { eng.ctx.decodeAudioData(rd.result, function (buf) { var ch = buf.getChannelData(0), mx = 1e-9, i; for (i = 0; i < ch.length; i += 7) mx = Math.max(mx, Math.abs(ch[i])); USER.buffer = buf; USER.gain = Math.min(1, 0.5 / mx); USER.name = file.name; USER.loading = false; if (done) done(true); }, function () { USER.loading = false; USER.error = 'That file could not be decoded. Try a WAV, MP3, AAC or FLAC.'; if (done) done(false); }); };
+  rd.onerror = function () { USER.loading = false; USER.error = 'The file could not be read.'; if (done) done(false); };
+  rd.readAsArrayBuffer(file);
+}
+function requestMic(done) {
+  if (USER.micStream) { done(true); return; }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { USER.micError = 'This browser does not offer microphone access.'; done(false); return; }
+  navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }, video: false }).then(function (s) { USER.micStream = s; USER.micError = ''; done(true); }, function () { USER.micError = 'Microphone permission was not given.'; done(false); });
+}
+/* A file control: a styled button wrapping a hidden file input, plus status text. */
+function ctlFile(eng, onLoaded) {
+  var wrap = el('div', 'ctl'), lab = el('label'), inp = document.createElement('input'), btn = el('span', 'pressbtn filebtn', 'Load your own audio'), status = el('span', 'val', '');
+  inp.type = 'file'; inp.accept = 'audio/*'; inp.style.display = 'none';
+  lab.appendChild(btn); lab.appendChild(status); lab.appendChild(inp); wrap.appendChild(lab);
+  inp.addEventListener('change', function () { var f = inp.files && inp.files[0]; if (!f) return; status.textContent = 'decoding'; loadUserFile(eng, f, function (ok) { status.textContent = ok ? USER.name : USER.error; if (ok && onLoaded) onLoaded(); }); });
+  return { el: wrap, refresh: function () { if (!USER.loading && USER.buffer && status.textContent !== USER.name && !USER.error) status.textContent = USER.name; } };
+}
+
+/* ---- A switchable source feeding a station ---- */
+function Src(eng) { this.eng = eng; this.ctx = eng.ctx; this.out = this.ctx.createGain(); this.out.gain.value = 1; this.kind = null; this.nodes = []; this.level = 0.5; this.freq = 440; this.type = 'sine'; }
+Src.prototype.stop = function () { var ns = this.nodes; this.nodes = []; ns.forEach(function (x) { try { x.stop && x.stop(); } catch (e) {} try { x.disconnect(); } catch (e) {} }); };
+Src.prototype.set = function (kind) {
+  var c = this.ctx, self = this; this.stop(); this.kind = kind;
+  if (kind === 'tone') { var o = c.createOscillator(); o.type = this.type; o.frequency.value = this.freq; this.osc = o; o.connect(this.out); o.start(); this.nodes.push(o); }
+  else if (kind === 'pink' || kind === 'music' || kind === 'file') {
+    var buf = kind === 'pink' ? pinkBuffer(c) : (kind === 'music' ? musicBuffer(c) : USER.buffer); if (!buf) { this.kind = null; return false; }
+    var s = c.createBufferSource(); s.buffer = buf; s.loop = true; var g = c.createGain(); g.gain.value = kind === 'file' ? (USER.gain || 1) : 1; s.connect(g); g.connect(this.out); s.start(); this.nodes.push(s); this.nodes.push(g);
+  } else if (kind === 'mic') { if (!USER.micStream) { this.kind = null; return false; } var m = c.createMediaStreamSource(USER.micStream); m.connect(this.out); this.nodes.push(m); this.micNode = m; }
+  this.applyLevel(); void self; return true;
+};
+Src.prototype.applyLevel = function () { var g = this.kind === 'tone' ? this.level : this.level * 2; this.out.gain.setTargetAtTime(g, this.ctx.currentTime, 0.02); };
+Src.prototype.setLevel = function (v) { this.level = v; this.applyLevel(); };
+Src.prototype.setFreq = function (f, tc) { this.freq = f; if (this.osc) this.osc.frequency.setTargetAtTime(f, this.ctx.currentTime, tc == null ? 0.012 : tc); };
+Src.prototype.setType = function (t) { this.type = t; if (this.osc) { try { this.osc.type = t; } catch (e) {} } };
+Src.prototype.dispose = function () { this.stop(); try { this.out.disconnect(); } catch (e) {} };
+function sourceSeg(st, opts, onChange) {
+  return ctlSeg({ label: 'Source', options: opts, get: function () { return st.src.kind; }, set: function (v) { if (v === 'file' && !USER.buffer) { st.hint = 'Load a file first'; return; } if (v === 'mic' && !USER.micStream) { requestMic(function (ok) { if (ok) { st.src.set('mic'); if (onChange) onChange(); } else st.hint = USER.micError; }); return; } st.src.set(v); st.hint = ''; if (onChange) onChange(); } });
+}
+
+/* ---- Drawing: the frequency-region strip ---- */
+function drawRegions(stage, r, f, hue, opts) {
+  var c = stage.ctx, k = stage.k, x0 = r.x, w = r.w, fx = function (q) { return x0 + w * Math.log(q / 20) / Math.log(20000 / 20); };
+  /* Labels go inside their box when they fit; otherwise into the row above the strip, or the row below the numbers,
+     whichever has room, so neighbouring names never overlap at any width. */
+  var lastAbove = -1e9, lastBelow = -1e9; c.font = (9.5 * k).toFixed(1) + 'px ' + SANS;
+  REGIONS.forEach(function (rg, i) {
+    var xa = fx(rg.lo), xb = fx(rg.hi), on = f != null && f >= rg.lo && f < rg.hi, cx = (xa + xb) / 2;
+    c.fillStyle = on ? hsl(hue, 80, 60, 0.55) : 'rgba(236,229,211,' + (i % 2 ? 0.05 : 0.08) + ')'; c.fillRect(xa + 1, r.y, xb - xa - 2, r.h);
+    if (opts && opts.labels === false) return;
+    var tw = c.measureText(rg.name).width, col = on ? '#ece5d3' : 'rgba(236,229,211,0.6)';
+    if (tw <= xb - xa - 6) { stage.text(rg.name, cx, r.y + r.h / 2 + 4 * k, { size: 9.5, align: 'center', color: col }); return; }
+    var roomAbove = cx - tw / 2 > lastAbove + 6, roomBelow = cx - tw / 2 > lastBelow + 6, above = roomAbove || !roomBelow, y = above ? r.y - 5 * k : r.y + r.h + 22 * k, lx = cx;
+    if (above && !roomAbove) lx = lastAbove + 6 + tw / 2;
+    if (above) lastAbove = lx + tw / 2; else lastBelow = lx + tw / 2;
+    stage.text(rg.name, lx, y, { size: 9.5, align: 'center', color: col });
+    c.strokeStyle = on ? '#ece5d3' : 'rgba(236,229,211,0.3)'; c.lineWidth = 1; c.beginPath(); if (above) { c.moveTo(cx, r.y - 3 * k); c.lineTo(cx, r.y + 3 * k); } else { c.moveTo(cx, r.y + r.h - 3 * k); c.lineTo(cx, r.y + r.h + 3 * k); } c.stroke();
+  });
+  [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000].forEach(function (q) { stage.text(q >= 1000 ? (q / 1000) + 'k' : String(q), fx(q), r.y + r.h + 11 * k, { size: 8.5, align: 'center', color: 'rgba(236,229,211,0.4)' }); });
+  if (f != null) { var x = fx(clamp(f, 20, 20000)); c.strokeStyle = '#ece5d3'; c.lineWidth = 1.4 * k; c.beginPath(); c.moveTo(x, r.y - 4 * k); c.lineTo(x, r.y + r.h + 2 * k); c.stroke(); }
+}
+function drawMeter(stage, r, db, hue, label, floor, noScale) {
+  var c = stage.ctx, k = stage.k, f0 = floor == null ? -60 : floor, v = clamp((db - f0) / (0 - f0), 0, 1);
+  c.fillStyle = 'rgba(255,255,255,0.05)'; c.fillRect(r.x, r.y, r.w, r.h);
+  c.fillStyle = db > -0.5 ? hsl(0, 85, 60, 0.95) : hsl(hue, 80, 62, 0.9); c.fillRect(r.x, r.y + r.h * (1 - v), r.w, r.h * v);
+  if (!noScale) [0, -6, -12, -18, -24, -36, -48].forEach(function (m) { if (m < f0) return; var y = r.y + r.h * (1 - (m - f0) / (0 - f0)); c.strokeStyle = 'rgba(236,229,211,0.25)'; c.lineWidth = 1; c.beginPath(); c.moveTo(r.x - 3, y); c.lineTo(r.x, y); c.stroke(); stage.text(String(m), r.x - 6, y + 3, { size: 8.5, align: 'right', color: 'rgba(236,229,211,0.45)' }); });
+  if (label) stage.text(label, r.x + r.w / 2, r.y + r.h + 11 * k, { size: 9.5, align: 'center', color: 'rgba(236,229,211,0.55)' });
+}
+
+/* ---- Ear-training rounds: short, immediate feedback, adaptive difficulty, low stakes ---- */
+function Game(st, cfg) { this.st = st; this.cfg = cfg; this.score = 0; this.tries = 0; this.streak = 0; this.level = cfg.startLevel; this.answer = null; this.revealed = false; this.msg = ''; this.on = false; }
+Game.prototype.begin = function () { this.on = true; this.score = 0; this.tries = 0; this.streak = 0; this.level = this.cfg.startLevel; this.next(); };
+Game.prototype.end = function () { this.on = false; this.revealed = false; this.answer = null; this.msg = ''; if (this.cfg.onEnd) this.cfg.onEnd(); };
+Game.prototype.next = function () { this.revealed = false; var last = this.answer; var a; do { a = Math.floor(Math.random() * this.cfg.choices.length); } while (this.cfg.choices.length > 2 && a === last); this.answer = a; this.msg = ''; this.cfg.pose(a, this.level); };
+Game.prototype.guess = function (i) {
+  if (!this.on || this.revealed) return;
+  this.revealed = true; this.tries++; var right = i === this.answer;
+  if (right) { this.score++; this.streak++; if (this.streak >= 2 && this.cfg.harder) { this.level = this.cfg.harder(this.level); this.streak = 0; } }
+  else { this.streak = 0; if (this.cfg.easier) this.level = this.cfg.easier(this.level); }
+  this.msg = right ? 'Right. ' : 'Not this time. '; this.msg += 'It was ' + this.cfg.choices[this.answer] + '.'; if (this.cfg.reveal) this.cfg.reveal(this.answer, right);
+};
+Game.prototype.controls = function () {
+  var g = this, cfg = this.cfg;
+  var chips = ctlChips({ label: cfg.question, options: cfg.choices.map(function (c, i) { return { label: c, value: i }; }), get: function () { return g.revealed ? g.answer : null; }, set: function (i) { g.guess(i); } });
+  var bar = ctlRow([
+    { el: (function () { var b = el('button', 'pressbtn', 'Start a round'); b.type = 'button'; b.addEventListener('click', function () { if (g.on) g.end(); else g.begin(); }); g._btn = b; return b; })(), refresh: function () { g._btn.textContent = g.on ? 'Stop the game' : 'Start a round'; g._btn.setAttribute('aria-pressed', g.on ? 'true' : 'false'); } },
+    { el: (function () { var b = el('button', 'pressbtn', 'Next'); b.type = 'button'; b.addEventListener('click', function () { if (g.on) g.next(); }); g._next = b; return b; })(), refresh: function () { g._next.style.display = g.on ? '' : 'none'; } }
+  ]);
+  var wrap = { el: chips.el, refresh: function () { chips.el.style.display = g.on ? '' : 'none'; chips.refresh(); var bs = chips.el.querySelectorAll('button.chip'); bs.forEach(function (b, i) { b.classList.toggle('right', g.revealed && i === g.answer); b.classList.toggle('dim', g.revealed && i !== g.answer); }); } };
+  return [bar, wrap];
+};
+Game.prototype.status = function () { if (!this.on) return ''; return ' Game: ' + this.score + ' of ' + this.tries + (this.msg ? '. ' + this.msg : '. Listen, then choose'); };
+
+/* Base for the Foundations stations. */
+function FoundStation(def) { Station.call(this, def); this.found = true; this.hasMotion = def.hasMotion !== false; this.hint = ''; }
+FoundStation.prototype = Object.create(Station.prototype);
+FoundStation.prototype.setupAudio = function (app) { this.app = app; this.bus = new SynthBus(app.eng, 0.9); app.eng.analyser.smoothingTimeConstant = 0.65; this.src = new Src(app.eng); };
+FoundStation.prototype.teardownAudio = function () { if (this.src) this.src.dispose(); if (this.bus) this.bus.dispose(); this.src = null; this.bus = null; this.app.eng.analyser.smoothingTimeConstant = 0; };
+
+/* ---------- Foundations stations A: sound and hearing ---------- */
+
+/* F1. Wave: frequency, amplitude, period, wavelength, distance */
+var WAVE = new FoundStation({
+  id: 'wave', title: 'Wave',
+  thesis: 'Sound is a pressure wave, and four properties describe it: frequency, how often it repeats, heard as pitch; amplitude, how far the pressure swings, heard as loudness; wavelength, the distance one cycle covers in the air; and phase, where in its cycle the wave is at a given instant.',
+  notice: 'Slide the frequency and watch the cycles crowd together as the pitch rises; the strip shows which part of the audible range you are in. Slide the amplitude and watch the wave grow; its size is stated as a level in decibels. Move the source away and the amplitude halves for every doubling of distance, a drop of 6 dB. Phase gets its own station next. Turn on Motion to sweep the whole audible range.',
+  more: 'Frequency in hertz is cycles per second; the period is its reciprocal. Wavelength is the speed of sound, 343 m/s in air at 20 C, divided by frequency: 3.4 m at 100 Hz, 34 cm at 1 kHz, 3.4 cm at 10 kHz, which is why bass needs deep absorbers, why a few centimetres of microphone position matter at 1 kHz, and why thin foam only tames the top. Amplitude is the size of the pressure swing; in practice it is stated as a level in decibels, a ratio scale on which doubling the amplitude is +6 dB and doubling the power is +3 dB. The scale here is dBFS, decibels below digital full scale, because the app cannot know how loud your speakers are; in the air the same idea is dB SPL, referenced to the threshold of hearing. The inverse-square law gives 6 dB less per doubling of distance for a point source in free air; rooms reduce that fall-off with reflections.',
+  hue: function () { return 200; },
+  enter: function (app) {
+    var self = this; this.setupAudio(app); this.P = this.P || { freq: 220, level: -12, dist: 1, wave: 'sine' };
+    this.dist = app.eng.ctx.createGain(); this.src.out.connect(this.dist); this.dist.connect(this.bus.out);
+    this.src.type = this.P.wave; this.src.freq = this.P.freq; this.src.set('tone'); this.apply(); this.mt = 0;
+    this.controls = [
+      ctlSlider({ label: 'Frequency', min: 20, max: 20000, log: true, step: 0.1, fmt: fmtHz, get: function () { return self.P.freq; }, set: function (v) { stopMotion(app); self.P.freq = v; self.apply(); } }),
+      ctlRow([ctlSlider({ label: 'Amplitude, as a level', min: -60, max: 0, step: 0.5, fmt: function (v) { return v.toFixed(1) + ' dBFS'; }, get: function () { return self.P.level; }, set: function (v) { self.P.level = v; self.apply(); } }),
+        ctlSlider({ label: 'Distance from the source', min: 1, max: 32, log: true, step: 0.1, fmt: function (v) { return v.toFixed(1) + ' m (' + (v * 3.281).toFixed(0) + ' ft)'; }, get: function () { return self.P.dist; }, set: function (v) { self.P.dist = v; self.apply(); } })]),
+      ctlSeg({ label: 'Waveform', options: [{ label: 'Sine', value: 'sine' }, { label: 'Triangle', value: 'triangle' }, { label: 'Square', value: 'square' }, { label: 'Saw', value: 'sawtooth' }], get: function () { return self.P.wave; }, set: function (v) { self.P.wave = v; self.src.setType(v); } })
+    ];
+  },
+  leave: function () { this.teardownAudio(); },
+  apply: function () { var P = this.P; this.src.setFreq(P.freq); this.src.setLevel(fromDb(P.level)); this.dist.gain.setTargetAtTime(1 / P.dist, this.app.eng.now(), 0.02); },
+  tick: function (dt) { if (this.motion) { this.mt += dt; var u = 0.5 - 0.5 * Math.cos(TAU * this.mt / 40); this.P.freq = 20 * Math.pow(1000, u); this.apply(); } },
+  draw: function (stage) {
+    stage.clear(); var c = stage.ctx, W = stage.W, H = stage.H, k = stage.k, P = this.P, hue = this.hue(), eng = this.app.eng;
+    var r = { x: W * 0.05, y: H * 0.03, w: W * 0.9, h: H * 0.34 }, buf = eng.readScope(), sr = eng.sr, per = sr / P.freq, ms = clamp(3 * 1000 / P.freq, 2, 40), n = Math.min(buf.length - 1, Math.round(ms / 1000 * sr)), i0 = 0;
+    for (var i = 1; i < 2000 && i < buf.length - n; i++) if (buf[i - 1] <= 0 && buf[i] > 0) { i0 = i; break; }
+    c.fillStyle = 'rgba(255,255,255,0.025)'; c.fillRect(r.x, r.y, r.w, r.h);
+    c.strokeStyle = 'rgba(236,229,211,0.12)'; c.lineWidth = 1; c.beginPath(); c.moveTo(r.x, r.y + r.h / 2); c.lineTo(r.x + r.w, r.y + r.h / 2); c.stroke();
+    var tick = ms <= 5 ? 1 : (ms <= 12 ? 2 : (ms <= 25 ? 5 : 10)); for (var t = 0; t <= ms; t += tick) { var x = r.x + r.w * t / ms; c.strokeStyle = 'rgba(236,229,211,0.15)'; c.beginPath(); c.moveTo(x, r.y + r.h - 6 * k); c.lineTo(x, r.y + r.h); c.stroke(); stage.text(t + ' ms', x, r.y + r.h + 11 * k, { size: 8.5, align: 'center', color: 'rgba(236,229,211,0.45)' }); }
+    c.beginPath(); for (i = 0; i < n; i++) { var xx = r.x + r.w * i / (n - 1), y = r.y + r.h / 2 - clamp(buf[i0 + i], -1, 1) * r.h * 0.47; if (i) c.lineTo(xx, y); else c.moveTo(xx, y); }
+    c.strokeStyle = hsl(hue, 85, 70, 0.95); c.lineWidth = 1.5 * k; c.lineJoin = 'round'; c.stroke();
+    var pxPer = r.w * (per / sr) * 1000 / ms; if (pxPer > 14) { c.strokeStyle = hsl(hue, 60, 75, 0.7); c.lineWidth = 1; c.beginPath(); c.moveTo(r.x + 4, r.y + 12 * k); c.lineTo(r.x + 4 + pxPer, r.y + 12 * k); c.stroke(); stage.text('one period, ' + (1000 / P.freq).toFixed(2) + ' ms', r.x + 8 + pxPer, r.y + 15 * k, { size: 9.5, color: 'rgba(236,229,211,0.65)' }); }
+    drawRegions(stage, { x: W * 0.05, y: H * 0.47, w: W * 0.9, h: H * 0.075 }, P.freq, hue);
+    var m = { x: W * 0.12, y: H * 0.62, w: W * 0.06, h: H * 0.3 }, db = dbfs(eng.rms() * Math.SQRT2);
+    drawMeter(stage, m, db, hue, 'amplitude', -60);
+    var rg = regionOf(P.freq), tx = W * 0.26, ty = H * 0.66, lh = 20 * k;
+    stage.text(fmtHz(P.freq) + ', ' + noteOf(P.freq), tx, ty, { size: 13, serif: true, color: '#ece5d3' });
+    stage.text('period ' + (1000 / P.freq).toFixed(2) + ' ms', tx, ty + lh, { size: 11, color: 'rgba(236,229,211,0.7)' });
+    stage.text('wavelength ' + fmtM(C_AIR / P.freq), tx, ty + 2 * lh, { size: 11, color: 'rgba(236,229,211,0.7)' });
+    stage.text(rg.name + ': ' + rg.feel, tx, ty + 3 * lh, { size: 11, color: 'rgba(236,229,211,0.7)' });
+    stage.text('amplitude ' + P.level.toFixed(1) + ' dBFS' + (P.dist > 1.05 ? ', ' + (P.level - 20 * Math.log10(P.dist)).toFixed(1) + ' dBFS at ' + P.dist.toFixed(1) + ' m' : ' at the source'), tx, ty + 4 * lh, { size: 11, color: 'rgba(236,229,211,0.7)' });
+  },
+  readout: function () { var P = this.P; return 'Frequency <b>' + fmtHz(P.freq) + '</b> (' + noteOf(P.freq) + '): period ' + (1000 / P.freq).toFixed(2) + ' ms, wavelength ' + fmtM(C_AIR / P.freq) + ', ' + regionOf(P.freq).name + '. Amplitude <b>' + P.level.toFixed(1) + ' dBFS</b>' + (P.dist > 1.05 ? ' at the source, ' + (P.level - 20 * Math.log10(P.dist)).toFixed(1) + ' dBFS at ' + P.dist.toFixed(1) + ' m' : ''); }
+});
+
+/* F2. Phase: two copies of one signal */
+var PHASE = new FoundStation({
+  id: 'phase', title: 'Phase',
+  thesis: 'Phase is where a wave is in its cycle. Play the same signal twice: in phase, the amplitudes add and the sum is 6 dB louder; inverted, they cancel to nothing; shifted by a few milliseconds, they carve a comb of notches through the sound.',
+  notice: 'Start with the sine: slide the offset and hear the sum swell and vanish. Then switch to music or pink noise, where a single delay cannot cancel everything at once: it cancels the frequencies whose half-period matches the delay, and the notches march down the spectrum as the delay grows. This is what happens when two microphones pick up one source, or a reflection arrives just after the direct sound.',
+  more: 'Two equal sines of the same frequency sum to 2 cos(φ/2) times one of them: +6 dB at 0°, 0 at 180°. A delay τ shifts each frequency by a different phase, φ = 360·f·τ degrees, so a broadband signal gets notches at f = (2k+1)/(2τ): for 1 ms the first notch is at 500 Hz, then 1500, 2500 and so on, evenly spaced in hertz, which is why it is called a comb filter. The second copy\'s level sets the notch depth; equal levels give complete cancellation. The overlay on the spectrum is the exact response for the current delay and level.',
+  hue: function () { return 28; },
+  enter: function (app) {
+    var self = this; this.setupAudio(app); this.P = this.P || { source: 'tone', tau: 0, invert: 0, level2: 1 };
+    var c = app.eng.ctx; this.d = c.createDelay(0.05); this.g2 = c.createGain(); this.sum = c.createGain(); this.sum.gain.value = 0.5;
+    this.src.out.connect(this.sum); this.src.out.connect(this.d); this.d.connect(this.g2); this.g2.connect(this.sum); this.sum.connect(this.bus.out);
+    this.src.freq = 440; this.src.level = 0.4; this.src.set(this.P.source === 'file' && !USER.buffer ? 'tone' : this.P.source); this.apply();
+    this.controls = [
+      sourceSeg(this, [{ label: 'Sine 440 Hz', value: 'tone' }, { label: 'Music', value: 'music' }, { label: 'Pink noise', value: 'pink' }, { label: 'Your file', value: 'file' }], function () { self.P.source = self.src.kind; }),
+      ctlSlider({ label: 'Offset of the second copy', min: 0, max: 5, step: 0.005, fmt: function (v) { return v.toFixed(3) + ' ms' + (self.src.kind === 'tone' ? ' = ' + Math.round(360 * 440 * v / 1000 % 360) + '°' : ''); }, get: function () { return self.P.tau; }, set: function (v) { stopMotion(app); self.P.tau = v; self.apply(); } }),
+      ctlRow([ctlSeg({ label: 'Polarity of the second copy', options: [{ label: 'Same', value: 0 }, { label: 'Inverted', value: 1 }], get: function () { return self.P.invert; }, set: function (v) { self.P.invert = v; self.apply(); } }),
+        ctlSlider({ label: 'Second copy level', min: 0, max: 1, step: 0.01, fmt: fmtPct, get: function () { return self.P.level2; }, set: function (v) { self.P.level2 = v; self.apply(); } })]),
+      ctlFile(app.eng, function () { self.src.set('file'); self.P.source = 'file'; })
+    ];
+  },
+  leave: function () { this.teardownAudio(); },
+  apply: function () { var P = this.P, now = this.app.eng.now(); this.d.delayTime.setTargetAtTime(P.tau / 1000, now, 0.02); this.g2.gain.setTargetAtTime((P.invert ? -1 : 1) * P.level2, now, 0.02); },
+  tick: function (dt) { if (this.motion) { this.mt = (this.mt || 0) + dt; this.P.tau = 2.5 - 2.5 * Math.cos(TAU * this.mt / 30); this.apply(); } },
+  response: function (f) { var P = this.P, g = (P.invert ? -1 : 1) * P.level2, ph = TAU * f * P.tau / 1000; var re = 1 + g * Math.cos(ph), im = -g * Math.sin(ph); return 20 * Math.log10(Math.max(1e-6, Math.sqrt(re * re + im * im))); },
+  draw: function (stage, t) {
+    stage.clear(); var c = stage.ctx, W = stage.W, H = stage.H, k = stage.k, hue = this.hue(), eng = this.app.eng, self = this, P = this.P;
+    var top = { x: W * 0.05, y: H * 0.03, w: W * 0.9, h: H * 0.36 };
+    if (this.src.kind === 'tone') {
+      c.fillStyle = 'rgba(255,255,255,0.025)'; c.fillRect(top.x, top.y, top.w, top.h);
+      var ph = TAU * 440 * P.tau / 1000, g = (P.invert ? -1 : 1) * P.level2, n = 240, mid = top.y + top.h / 2, amp = top.h * 0.2;
+      var draw = function (fn, col, wd) { c.beginPath(); for (var i = 0; i < n; i++) { var u = i / (n - 1), th = TAU * 2.5 * u, x = top.x + top.w * u, y = mid - amp * fn(th); if (i) c.lineTo(x, y); else c.moveTo(x, y); } c.strokeStyle = col; c.lineWidth = wd * k; c.stroke(); };
+      draw(function (th) { return Math.sin(th); }, 'rgba(236,229,211,0.45)', 1); draw(function (th) { return g * Math.sin(th - ph); }, hsl(hue, 70, 65, 0.6), 1); draw(function (th) { return (Math.sin(th) + g * Math.sin(th - ph)) * 0.5; }, hsl(hue, 90, 72, 1), 2);
+      stage.text('grey: first copy. thin: second copy. bright: their sum, at half scale', top.x + 4, top.y + 11 * k, { size: 9.5, color: 'rgba(236,229,211,0.5)' });
+    } else drawScope(stage, eng, top, hue, 24);
+    var sp = { x: W * 0.05, y: H * 0.46, w: W * 0.9, h: H * 0.42 };
+    drawSpectrum(stage, eng, sp, hue, function (cc, fx, fy, r) {
+      cc.beginPath(); var first = true; for (var i = 0; i <= 200; i++) { var f = 20 * Math.pow(1000, i / 200), db = self.response(f), y = r.y + r.h * (1 - clamp((db + 30) / 36, 0, 1)); if (first) { cc.moveTo(fx(f), y); first = false; } else cc.lineTo(fx(f), y); } cc.strokeStyle = 'rgba(124,242,227,0.9)'; cc.lineWidth = 1.4; cc.stroke();
+      if (P.tau > 0.05 && self.src.kind !== 'tone') for (var q = 0; q < 12; q++) { var fn = (2 * q + 1) / (2 * P.tau / 1000); if (fn > 20000) break; if (fn < 25) continue; var x = fx(fn); cc.strokeStyle = 'rgba(124,242,227,0.35)'; cc.setLineDash([3, 4]); cc.beginPath(); cc.moveTo(x, r.y); cc.lineTo(x, r.y + r.h); cc.stroke(); cc.setLineDash([]); if (q < 3) stage.text(fmtHz(fn), x + 4, r.y + 26 * k + q * 11 * k, { size: 9, color: 'rgba(124,242,227,0.85)' }); }
+      stage.text('teal: exact response, +6 to -30 dB', r.x + r.w - 4, r.y + 11 * k, { size: 9, align: 'right', color: 'rgba(124,242,227,0.75)' });
+    });
+    void t;
+  },
+  readout: function () {
+    var P = this.P, g = (P.invert ? -1 : 1) * P.level2;
+    if (this.src.kind === 'tone') { var deg = Math.round(360 * 440 * P.tau / 1000) % 360; return 'Two 440 Hz sines, second copy ' + (P.invert ? 'inverted' : 'same polarity') + ' at ' + fmtPct(P.level2) + ', offset ' + P.tau.toFixed(3) + ' ms = <b>' + deg + '°</b>. Sum <b>' + fmtDb(this.response(440)) + '</b> relative to one copy'; }
+    if (P.tau < 0.02) return 'Second copy ' + (P.invert ? 'inverted' : 'aligned') + ' at ' + fmtPct(P.level2) + ': ' + (g > 0 ? 'everything ' + fmtDb(20 * Math.log10(1 + g)) : (P.level2 > 0.98 ? 'complete cancellation, silence' : 'everything ' + fmtDb(20 * Math.log10(Math.abs(1 + g)))));
+    var f1 = 1 / (2 * P.tau / 1000); return 'Delay <b>' + P.tau.toFixed(2) + ' ms</b>: comb notches at <b>' + fmtHz(P.invert ? 1 / (P.tau / 1000) : f1) + '</b>, ' + fmtHz((P.invert ? 2 : 3) * f1) + ', ' + fmtHz((P.invert ? 4 : 5) * f1) + ' and every ' + fmtHz(2 * f1) + ' after, ' + (P.level2 > 0.98 ? 'cancelling completely' : 'each ' + fmtDb(20 * Math.log10(Math.max(1e-6, 1 - P.level2))) + ' deep') + (P.invert ? '. Inverted: the notches move to the even multiples and the low end cancels' : '');
+  }
+});
+
+/* F3. Colour: same pitch, different harmonics */
+var COLOUR = new FoundStation({
+  id: 'colour', title: 'Colour',
+  thesis: 'Same pitch, same loudness, different sound. What changes is which overtones are present and how strong they are. That is timbre.',
+  notice: 'Switch between the four waves at equal loudness. The sine has one line on the spectrum; the saw has every harmonic, each a little weaker; the square has only the odd ones; the triangle has the odd ones falling away fast. Noise has no harmonics at all, only a continuous wash. The teal ticks are where each harmonic should be for the frequency you set.',
+  more: 'Any repeating wave is a sum of sines at whole-number multiples of its fundamental, the harmonics, and the ear reads the pattern of their strengths as colour. The levels here are matched by RMS, the average power, which is what loudness roughly follows: a square at the same peak as a sine is 3 dB louder because it spends all its time at the extremes. White noise has equal power per hertz and sounds bright; pink noise has equal power per octave, which is how our hearing divides the spectrum, and sounds balanced.',
+  hue: function () { return 96; },
+  enter: function (app) {
+    var self = this; this.setupAudio(app); this.P = this.P || { wave: 'sawtooth', freq: 220 };
+    this.g = app.eng.ctx.createGain(); this.src.out.connect(this.g); this.g.connect(this.bus.out); this.src.freq = this.P.freq; this.src.level = 0.28; this.apply();
+    this.controls = [
+      ctlSeg({ label: 'Wave', options: [{ label: 'Sine', value: 'sine' }, { label: 'Triangle', value: 'triangle' }, { label: 'Square', value: 'square' }, { label: 'Saw', value: 'sawtooth' }, { label: 'Pink noise', value: 'pink' }], get: function () { return self.P.wave; }, set: function (v) { self.P.wave = v; self.apply(); } }),
+      ctlSlider({ label: 'Frequency', min: 40, max: 2000, log: true, step: 0.1, fmt: fmtHz, get: function () { return self.P.freq; }, set: function (v) { self.P.freq = v; self.apply(); } })
+    ];
+  },
+  leave: function () { this.teardownAudio(); },
+  apply: function () {
+    var P = this.P, rmsGain = { sine: 1, triangle: 1.2247, square: 0.7071, sawtooth: 1.2247 };
+    if (P.wave === 'pink') { if (this.src.kind !== 'pink') this.src.set('pink'); this.g.gain.setTargetAtTime(0.9, this.app.eng.now(), 0.02); }
+    else { if (this.src.kind !== 'tone') { this.src.type = P.wave; this.src.set('tone'); } this.src.setType(P.wave); this.src.setFreq(P.freq); this.g.gain.setTargetAtTime(rmsGain[P.wave], this.app.eng.now(), 0.02); }
+  },
+  draw: function (stage) {
+    stage.clear(); var W = stage.W, H = stage.H, k = stage.k, hue = this.hue(), eng = this.app.eng, P = this.P, self = this;
+    drawScope(stage, eng, { x: W * 0.05, y: H * 0.03, w: W * 0.9, h: H * 0.3 }, hue, clamp(3000 / P.freq, 4, 40));
+    drawSpectrum(stage, eng, { x: W * 0.05, y: H * 0.39, w: W * 0.9, h: H * 0.4 }, hue, function (c, fx, fy, r) {
+      if (P.wave === 'pink') return; var amps = harmonicsOf(P.wave, 24);
+      for (var h = 1; h <= 24; h++) { var a = Math.abs(amps[h - 1]); if (a < 1e-6 || P.freq * h > SPEC_FMAX) continue; var x = fx(P.freq * h), db = 20 * Math.log10(a) - 12; c.strokeStyle = 'rgba(124,242,227,0.7)'; c.lineWidth = 1; c.beginPath(); c.moveTo(x, r.y + r.h); c.lineTo(x, fy(db)); c.stroke(); c.fillStyle = 'rgba(124,242,227,0.95)'; c.beginPath(); c.arc(x, fy(db), 2, 0, TAU); c.fill(); }
+    });
+    drawRegions(stage, { x: W * 0.05, y: H * 0.86, w: W * 0.9, h: H * 0.07 }, P.wave === 'pink' ? null : P.freq, hue);
+    void self; void k;
+  },
+  readout: function () { var P = this.P, d = { sine: 'one partial, the fundamental only', triangle: 'odd harmonics only, falling as 1/k²: soft and hollow', square: 'odd harmonics only, falling as 1/k: hollow and reedy', sawtooth: 'every harmonic, falling as 1/k: bright and full', pink: 'no harmonics: equal power in every octave' }; return '<b>' + (P.wave === 'sawtooth' ? 'saw' : P.wave) + '</b>' + (P.wave === 'pink' ? '' : ' at ' + fmtHz(P.freq)) + ': ' + d[P.wave] + '. Levels matched by RMS'; }
+});
+
+function exposureText(h) { return h >= 1 ? (h >= 10 ? h.toFixed(0) : h.toFixed(1)) + ' hours' : (h * 60 >= 1 ? (h * 60).toFixed(0) + ' minutes' : (h * 3600).toFixed(0) + ' seconds'); }
+/* F4. Ear: loudness across frequency, masking, precedence, exposure */
+var EAR = new FoundStation({
+  id: 'ear', title: 'Ear',
+  thesis: 'The ear is not a flat meter. It hears the middle of the range best, it lets loud sounds hide quiet neighbours, it trusts the first arrival, and it wears out.',
+  notice: 'Equal loudness: sweep the tone with Hold set to Same level and hear it fade at the bottom and top; set Same loudness and the app compensates by the ear\'s own curve. Masking: play the quiet tone, then switch the loud one on beside it and listen for the quiet one to vanish. Precedence: a click in the left ear and a delayed copy in the right; up to about thirty milliseconds you hear one click from the left, beyond that, an echo. Exposure: how long a level is safe for.',
+  more: 'The sensitivity curve drawn here is the A-weighting curve, the standard approximation to the ear\'s response at moderate levels, derived from the 40-phon equal-loudness contour; the true contours change shape with level, flattening as sounds get louder, which is why mixes balanced at high volume lose bass when played quietly. Masking follows the cochlea: a loud tone excites a region of the basilar membrane and quieter tones inside that region cannot be resolved; the region spreads further upward than downward. Precedence (the Haas effect) is the brain fusing arrivals within roughly 30 ms into one event located at the first. Exposure limits follow the NIOSH criterion: 85 dB(A) for eight hours, with the safe time halving for every 3 dB more. The app cannot measure your actual level; a calibrated meter can.',
+  hue: function () { return 340; },
+  enter: function (app) {
+    var self = this, c = app.eng.ctx; this.setupAudio(app); this.P = this.P || { demo: 'contour', freq: 1000, hold: 'level', probe: 1400, masker: 0, delay: 8, spl: 94 };
+    this.tone = c.createGain(); this.src.out.connect(this.tone); this.tone.connect(this.bus.out); this.src.freq = this.P.freq; this.src.level = 0.2; this.src.set('tone');
+    this.mask = c.createOscillator(); this.maskG = c.createGain(); this.maskG.gain.value = 0; this.mask.frequency.value = 1000; this.mask.connect(this.maskG); this.maskG.connect(this.bus.out); this.mask.start();
+    var buf = c.createBuffer(1, c.sampleRate / 2, c.sampleRate), d = buf.getChannelData(0); for (var i = 0; i < c.sampleRate * 0.004; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (c.sampleRate * 0.0012));
+    this.clicks = c.createBufferSource(); this.clicks.buffer = buf; this.clicks.loop = true; this.clickG = c.createGain(); this.clickG.gain.value = 0;
+    this.pL = c.createStereoPanner ? c.createStereoPanner() : c.createGain(); this.pR = c.createStereoPanner ? c.createStereoPanner() : c.createGain(); if (this.pL.pan) { this.pL.pan.value = -1; this.pR.pan.value = 1; }
+    this.cd = c.createDelay(0.1); this.clicks.connect(this.clickG); this.clickG.connect(this.pL); this.clickG.connect(this.cd); this.cd.connect(this.pR); this.pL.connect(this.bus.out); this.pR.connect(this.bus.out); this.clicks.start();
+    this.mt = 0; this.apply();
+    var demoSeg = ctlSeg({ label: 'Demonstration', options: [{ label: 'Equal loudness', value: 'contour' }, { label: 'Masking', value: 'masking' }, { label: 'Precedence', value: 'precedence' }, { label: 'Exposure', value: 'exposure' }], get: function () { return self.P.demo; }, set: function (v) { self.P.demo = v; self.apply(); } });
+    var show = function (ctl, demos) { return { el: ctl.el, refresh: function () { ctl.el.style.display = demos.indexOf(self.P.demo) >= 0 ? '' : 'none'; ctl.refresh(); } }; };
+    this.controls = [
+      demoSeg,
+      show(ctlSlider({ label: 'Tone frequency', min: 30, max: 16000, log: true, step: 0.1, fmt: fmtHz, get: function () { return self.P.freq; }, set: function (v) { stopMotion(app); self.P.freq = v; self.apply(); } }), ['contour']),
+      show(ctlSeg({ label: 'Hold', options: [{ label: 'Same level', value: 'level' }, { label: 'Same loudness', value: 'loud' }], get: function () { return self.P.hold; }, set: function (v) { self.P.hold = v; self.apply(); } }), ['contour']),
+      show(ctlRow([ctlSlider({ label: 'Quiet tone', min: 200, max: 5000, log: true, step: 1, fmt: fmtHz, get: function () { return self.P.probe; }, set: function (v) { self.P.probe = v; self.apply(); } }), ctlSeg({ label: 'Loud tone at 1 kHz', options: [{ label: 'Off', value: 0 }, { label: 'On', value: 1 }], get: function () { return self.P.masker; }, set: function (v) { self.P.masker = v; self.apply(); } })]), ['masking']),
+      show(ctlSlider({ label: 'Delay of the right-ear copy', min: 0, max: 60, step: 0.1, fmt: function (v) { return v.toFixed(1) + ' ms'; }, get: function () { return self.P.delay; }, set: function (v) { stopMotion(app); self.P.delay = v; self.apply(); } }), ['precedence']),
+      show(ctlSlider({ label: 'Level at the ear', min: 75, max: 115, step: 1, fmt: function (v) { return v + ' dB(A)'; }, get: function () { return self.P.spl; }, set: function (v) { self.P.spl = v; } }), ['exposure'])
+    ];
+  },
+  leave: function () { this.teardownAudio(); stopLater([this.mask, this.clicks], 0.05); },
+  apply: function () {
+    var P = this.P, now = this.app.eng.now(), tone = 0, mask = 0, clicks = 0;
+    if (P.demo === 'contour') { tone = fromDb(-18 + (P.hold === 'loud' ? -aWeight(P.freq) : 0)); this.src.setFreq(P.freq); }
+    else if (P.demo === 'masking') { tone = fromDb(-36); this.src.setFreq(P.probe); mask = P.masker ? fromDb(-10) : 0; }
+    else if (P.demo === 'precedence') { clicks = 0.7; this.cd.delayTime.setTargetAtTime(P.delay / 1000, now, 0.02); }
+    this.tone.gain.setTargetAtTime(Math.min(1.2, tone), now, 0.03); this.maskG.gain.setTargetAtTime(mask, now, 0.03); this.clickG.gain.setTargetAtTime(clicks, now, 0.03);
+  },
+  tick: function (dt) { if (!this.motion) return; this.mt += dt; if (this.P.demo === 'contour') { this.P.freq = 30 * Math.pow(16000 / 30, 0.5 - 0.5 * Math.cos(TAU * this.mt / 36)); this.apply(); } else if (this.P.demo === 'precedence') { this.P.delay = 30 - 30 * Math.cos(TAU * this.mt / 24); this.apply(); } },
+  draw: function (stage) {
+    stage.clear(); var c = stage.ctx, W = stage.W, H = stage.H, k = stage.k, hue = this.hue(), P = this.P, eng = this.app.eng, self = this;
+    var r = { x: W * 0.08, y: H * 0.06, w: W * 0.86, h: H * 0.5 }, fx = function (f) { return r.x + r.w * Math.log(f / 20) / Math.log(20000 / 20); };
+    if (P.demo === 'contour') {
+      var fy = function (db) { return r.y + r.h * (1 - clamp((db + 50) / 60, 0, 1)); };
+      c.fillStyle = 'rgba(255,255,255,0.025)'; c.fillRect(r.x, r.y, r.w, r.h);
+      [0, -10, -20, -30, -40].forEach(function (db) { var y = fy(db); c.strokeStyle = 'rgba(236,229,211,0.12)'; c.lineWidth = 1; c.beginPath(); c.moveTo(r.x, y); c.lineTo(r.x + r.w, y); c.stroke(); stage.text(db + ' dB', r.x - 4, y + 3, { size: 8.5, align: 'right', color: 'rgba(236,229,211,0.45)' }); });
+      c.beginPath(); for (var i = 0; i <= 160; i++) { var f = 20 * Math.pow(1000, i / 160), y = fy(aWeight(f)), x = fx(f); if (i) c.lineTo(x, y); else c.moveTo(x, y); } c.strokeStyle = hsl(hue, 80, 68, 0.95); c.lineWidth = 1.6 * k; c.stroke();
+      var xt = fx(P.freq), yt = fy(aWeight(P.freq)); stage.dot(xt, yt, 5, hue, 1);
+      stage.text('the ear\'s sensitivity relative to 1 kHz (A-weighting)', r.x + 6, r.y + 12 * k, { size: 10, color: 'rgba(236,229,211,0.6)' });
+      stage.text(fmtHz(P.freq) + ': ' + fmtDb(aWeight(P.freq)), xt + 8, yt - 6, { size: 10.5, color: '#ece5d3' });
+      [50, 100, 200, 500, 1000, 2000, 5000, 10000].forEach(function (q) { stage.text(q >= 1000 ? (q / 1000) + 'k' : String(q), fx(q), r.y + r.h + 11 * k, { size: 8.5, align: 'center', color: 'rgba(236,229,211,0.4)' }); });
+      drawMeter(stage, { x: W * 0.12, y: H * 0.66, w: W * 0.06, h: H * 0.26 }, dbfs(eng.rms() * Math.SQRT2), hue, 'level sent', -60);
+      stage.text(P.hold === 'loud' ? 'same loudness: the level is raised' : 'same level: it sounds quieter', W * 0.26, H * 0.7, { size: 11.5, serif: true, color: 'rgba(236,229,211,0.85)' });
+      stage.text('where the ear is weak', W * 0.26, H * 0.7 + 17 * k, { size: 11.5, serif: true, color: 'rgba(236,229,211,0.85)' });
+    } else if (P.demo === 'masking') {
+      drawSpectrum(stage, eng, { x: r.x, y: r.y, w: r.w, h: r.h }, hue, function (cc, fx2, fy2, rr) {
+        if (!P.masker) return; var L = -10, f0 = 1000; cc.beginPath(); var first = true;
+        for (var i = 0; i <= 200; i++) { var f = 20 * Math.pow(1000, i / 200), oct = Math.log2(f / f0), thr = L - 8 - (oct < 0 ? -oct * 26 : oct * 12); var y = fy2(thr); if (first) { cc.moveTo(fx2(f), y); first = false; } else cc.lineTo(fx2(f), y); }
+        cc.strokeStyle = 'rgba(124,242,227,0.85)'; cc.lineWidth = 1.3; cc.setLineDash([4, 4]); cc.stroke(); cc.setLineDash([]);
+        stage.text('teal: roughly where quiet tones vanish', rr.x + rr.w - 4, rr.y + 11 * k, { size: 9, align: 'right', color: 'rgba(124,242,227,0.75)' });
+      });
+      var oct = Math.log2(P.probe / 1000), thr = -18 - (oct < 0 ? -oct * 26 : oct * 12), masked = P.masker && -36 < thr;
+      stage.text(P.masker ? (masked ? 'the quiet tone at ' + fmtHz(P.probe) + ' is probably masked' : 'the quiet tone at ' + fmtHz(P.probe) + ' should still be audible') : 'loud tone off: the quiet tone at ' + fmtHz(P.probe) + ' is easy to hear', W * 0.08, H * 0.68, { size: 12, serif: true, color: 'rgba(236,229,211,0.85)' });
+    } else if (P.demo === 'precedence') {
+      var y0 = H * 0.2, y1 = H * 0.42, x0 = W * 0.1, x1 = W * 0.9, ms = 60, px = function (m) { return x0 + (x1 - x0) * m / ms; };
+      c.strokeStyle = 'rgba(236,229,211,0.15)'; c.lineWidth = 1; [y0, y1].forEach(function (y) { c.beginPath(); c.moveTo(x0, y); c.lineTo(x1, y); c.stroke(); });
+      stage.text('left ear', x0, y0 - 8 * k, { size: 10, color: 'rgba(236,229,211,0.6)' }); stage.text('right ear', x0, y1 - 8 * k, { size: 10, color: 'rgba(236,229,211,0.6)' });
+      c.fillStyle = hsl(hue, 85, 65, 0.95); c.fillRect(px(0) - 2, y0 - 22 * k, 4, 22 * k); c.fillRect(px(P.delay) - 2, y1 - 22 * k, 4, 22 * k);
+      [0, 10, 20, 30, 40, 50, 60].forEach(function (m) { stage.text(m + ' ms', px(m), y1 + 14 * k, { size: 8.5, align: 'center', color: 'rgba(236,229,211,0.4)' }); });
+      var verdict = P.delay < 1 ? 'both ears within a millisecond: one click, in the centre' : (P.delay < 30 ? 'one click, heard from the left: the first arrival wins' : 'two clicks: the second is now heard as an echo');
+      stage.text(verdict, W * 0.1, H * 0.62, { size: 12.5, serif: true, color: 'rgba(236,229,211,0.85)' });
+      stage.text('headphones needed for this one', W * 0.1, H * 0.7, { size: 10.5, color: 'rgba(236,229,211,0.5)' });
+    } else {
+      var hours = 8 * Math.pow(2, (85 - P.spl) / 3), osha = 8 * Math.pow(2, (90 - P.spl) / 5), rows = [[75, 'quiet office: no daily limit'], [85, 'busy traffic: eight hours'], [94, 'one hour'], [100, 'fifteen minutes'], [105, 'under five minutes'], [110, 'under two minutes'], [115, 'under thirty seconds']];
+      var gx = W * 0.1, gw = W * 0.8, gy = H * 0.08, rowH = H * 0.072;
+      rows.forEach(function (row, i) { var y = gy + i * rowH, on = Math.abs(row[0] - P.spl) < 2.5, len = gw * clamp((row[0] - 70) / 50, 0, 1); c.fillStyle = on ? hsl(hue, 85, 62, 0.9) : 'rgba(236,229,211,0.18)'; c.fillRect(gx, y, len, 5 * k); stage.text(row[0] + ' dB(A): ' + row[1], gx, y + 17 * k, { size: 9.5, color: on ? '#ece5d3' : 'rgba(236,229,211,0.55)' }); });
+      var tstr = exposureText(hours);
+      stage.text(hours >= 24 ? 'at ' + P.spl + ' dB(A) a whole day stays within the limit' : 'at ' + P.spl + ' dB(A), about ' + tstr + ' a day is the limit', W * 0.1, H * 0.64, { size: 12.5, serif: true, color: '#ece5d3' });
+      stage.text('NIOSH: 85 dB(A) for 8 hours, halving per 3 dB; below 80 dB(A) nothing counts toward the dose.', W * 0.1, H * 0.71, { size: 10.5, color: 'rgba(236,229,211,0.6)' });
+      stage.text('The older OSHA rule: ' + (osha >= 24 ? 'no limit at this level' : exposureText(osha) + ' a day') + '.', W * 0.1, H * 0.76, { size: 10.5, color: 'rgba(236,229,211,0.6)' });
+      stage.text('This app cannot measure sound level; a calibrated meter can.', W * 0.1, H * 0.81, { size: 10.5, color: 'rgba(236,229,211,0.6)' });
+    }
+    void self;
+  },
+  readout: function () {
+    var P = this.P;
+    if (P.demo === 'contour') return 'Tone at <b>' + fmtHz(P.freq) + '</b>: the ear is ' + fmtDb(aWeight(P.freq)) + ' relative to 1 kHz, so ' + (P.hold === 'loud' ? 'the level is raised by ' + fmtDb(-aWeight(P.freq)) + ' to keep the loudness' : 'it sounds ' + Math.abs(aWeight(P.freq)).toFixed(0) + ' dB ' + (aWeight(P.freq) < 0 ? 'quieter' : 'louder') + ' than the same level at 1 kHz');
+    if (P.demo === 'masking') return 'Quiet tone at <b>' + fmtHz(P.probe) + '</b> (-36 dBFS), loud tone at 1 kHz ' + (P.masker ? 'on (-10 dBFS)' : 'off') + '. Masking spreads further above the loud tone than below it';
+    if (P.demo === 'precedence') return 'Right-ear copy delayed <b>' + P.delay.toFixed(1) + ' ms</b>: ' + (P.delay < 1 ? 'fused and centred' : (P.delay < 30 ? 'fused, located at the earlier ear' : 'heard as a separate echo'));
+    var hours = 8 * Math.pow(2, (85 - P.spl) / 3); return '<b>' + P.spl + ' dB(A)</b>: ' + (hours >= 24 ? 'a full day stays within the recommended limit; levels below 80 dB(A) are not counted toward the daily dose' : 'about ' + exposureText(hours) + ' a day is the recommended limit');
+  }
+});
+
+/* ---------- Foundations stations B: listening, digital audio, levels, rooms ---------- */
+
+/* F5. Bands: frequency regions by ear, then a recognition game */
+var BANDS = new FoundStation({
+  id: 'bands', title: 'Bands',
+  thesis: 'Engineers talk about the spectrum in regions, and they can hear when one has been boosted or cut. That skill is trained, not given. Here is the trainer.',
+  notice: 'Explore first: pick a region and hear pink noise filtered to just that band, until each one has a character you recognise. Then start a round. The game boosts or cuts one region of the music or noise; you name the region. It starts with big moves and tightens as you get them right, and the equaliser curve is revealed after each answer.',
+  more: 'The regions follow common studio usage: sub-bass 20 to 60 Hz, bass 60 to 250, low mids 250 to 500, mids 500 to 2k, upper mids 2 to 4k, presence 4 to 6k, brilliance 6 to 20k. The game applies a single peaking equaliser centred in the chosen region with a bandwidth of about one octave; the move starts at 12 dB and narrows towards 3 dB as your streak grows, widening again after a miss, which is the adaptive pattern that ear-training research supports: many short attempts, immediate feedback, difficulty just beyond current reach. Load your own audio to practise on material you know.',
+  hue: function () { return 150; },
+  enter: function (app) {
+    var self = this, c = app.eng.ctx; this.setupAudio(app); this.P = this.P || { source: 'pink', mode: 'explore', region: -1 };
+    this.eq = c.createBiquadFilter(); this.eq.type = 'peaking'; this.eq.Q.value = 1.2; this.eq.gain.value = 0; this.bp = c.createBiquadFilter(); this.bp.type = 'bandpass'; this.bpG = c.createGain(); this.dirG = c.createGain();
+    this.src.out.connect(this.eq); this.eq.connect(this.dirG); this.src.out.connect(this.bp); this.bp.connect(this.bpG); this.dirG.connect(this.bus.out); this.bpG.connect(this.bus.out);
+    this.src.level = 0.45; this.src.set(this.P.source === 'file' && !USER.buffer ? 'pink' : this.P.source);
+    this.game = new Game(this, { question: 'Which region was changed?', choices: REGIONS.map(function (r) { return r.name; }), startLevel: 12,
+      pose: function (a, level) { self.gameRegion = a; self.gameGain = (Math.random() < 0.5 ? -1 : 1) * level; self.applyGame(); }, reveal: function () { self.applyGame(); },
+      harder: function (l) { return Math.max(3, l - 3); }, easier: function (l) { return Math.min(12, l + 3); }, onEnd: function () { self.applyGame(); } });
+    this.ref = c.createBiquadFilter(); this.ref.type = 'peaking'; this.freqs = new Float32Array(120); this.mag = new Float32Array(120); this.ph = new Float32Array(120); for (var i = 0; i < 120; i++) this.freqs[i] = 20 * Math.pow(1000, i / 119);
+    this.apply();
+    var modeSeg = ctlSeg({ label: 'Mode', options: [{ label: 'Explore the regions', value: 'explore' }, { label: 'Recognition game', value: 'game' }], get: function () { return self.P.mode; }, set: function (v) { self.P.mode = v; if (v === 'explore') self.game.end(); self.apply(); } });
+    var regionChips = ctlChips({ label: 'Hear one region of the sound', options: [{ label: 'everything', value: -1 }].concat(REGIONS.map(function (r, i) { return { label: r.name, value: i }; })), get: function () { return self.P.region; }, set: function (v) { self.P.region = v; self.apply(); } });
+    var gameCtls = this.game.controls();
+    this.controls = [
+      sourceSeg(this, [{ label: 'Pink noise', value: 'pink' }, { label: 'Music', value: 'music' }, { label: 'Your file', value: 'file' }], function () { self.P.source = self.src.kind; }),
+      modeSeg,
+      { el: regionChips.el, refresh: function () { regionChips.el.style.display = self.P.mode === 'explore' ? '' : 'none'; regionChips.refresh(); } },
+      { el: gameCtls[0].el, refresh: function () { gameCtls[0].el.style.display = self.P.mode === 'game' ? '' : 'none'; gameCtls[0].refresh(); } },
+      { el: gameCtls[1].el, refresh: function () { gameCtls[1].el.style.display = self.P.mode === 'game' ? '' : 'none'; gameCtls[1].refresh(); } },
+      ctlFile(app.eng, function () { self.src.set('file'); self.P.source = 'file'; })
+    ];
+  },
+  leave: function () { this.teardownAudio(); },
+  apply: function () {
+    var P = this.P, now = this.app.eng.now(), explore = P.mode === 'explore' && P.region >= 0, rg = explore ? REGIONS[P.region] : null;
+    if (rg) { var fc = Math.sqrt(rg.lo * rg.hi); this.bp.frequency.setTargetAtTime(fc, now, 0.02); this.bp.Q.setTargetAtTime(fc / (rg.hi - rg.lo), now, 0.02); }
+    this.bpG.gain.setTargetAtTime(explore ? 1.6 : 0, now, 0.03); this.dirG.gain.setTargetAtTime(explore ? 0 : 1, now, 0.03);
+    this.applyGame();
+  },
+  applyGame: function () { var g = this.game, now = this.app.eng.now(); if (g.on && this.gameRegion != null) { var rg = REGIONS[this.gameRegion], fc = Math.sqrt(rg.lo * rg.hi); this.eq.frequency.setTargetAtTime(fc, now, 0.02); this.eq.gain.setTargetAtTime(this.gameGain, now, 0.03); } else this.eq.gain.setTargetAtTime(0, now, 0.03); },
+  draw: function (stage) {
+    stage.clear(); var W = stage.W, H = stage.H, k = stage.k, hue = this.hue(), eng = this.app.eng, self = this, g = this.game, P = this.P;
+    drawSpectrum(stage, eng, { x: W * 0.05, y: H * 0.04, w: W * 0.9, h: H * 0.5 }, hue, function (c, fx, fy, r) {
+      if (g.on && g.revealed && self.gameRegion != null) {
+        self.ref.frequency.value = self.eq.frequency.value; self.ref.Q.value = 1.2; self.ref.gain.value = self.gameGain; self.ref.getFrequencyResponse(self.freqs, self.mag, self.ph);
+        c.beginPath(); for (var i = 0; i < 120; i++) { var db = 20 * Math.log10(Math.max(1e-4, self.mag[i])), y = r.y + r.h * (0.5 - db / 36); if (i) c.lineTo(fx(self.freqs[i]), y); else c.moveTo(fx(self.freqs[i]), y); } c.strokeStyle = 'rgba(124,242,227,0.95)'; c.lineWidth = 1.6 * k; c.stroke();
+        stage.text((self.gameGain > 0 ? 'boosted ' : 'cut ') + Math.abs(self.gameGain).toFixed(0) + ' dB in the ' + REGIONS[self.gameRegion].name, r.x + r.w - 4, r.y + 11 * k, { size: 9.5, align: 'right', color: 'rgba(124,242,227,0.9)' });
+      }
+    });
+    var hi = P.mode === 'explore' && P.region >= 0 ? Math.sqrt(REGIONS[P.region].lo * REGIONS[P.region].hi) : (g.on && g.revealed ? Math.sqrt(REGIONS[self.gameRegion].lo * REGIONS[self.gameRegion].hi) : null);
+    drawRegions(stage, { x: W * 0.05, y: H * 0.66, w: W * 0.9, h: H * 0.08 }, hi, hue);
+    var msg = g.on ? (g.revealed ? g.msg + '  Press Next for another.' : 'Listen. Which region is different?') : (P.mode === 'explore' ? (P.region >= 0 ? REGIONS[P.region].name + ': ' + REGIONS[P.region].feel : 'the whole sound, unfiltered') : 'press Start a round');
+    stage.text(msg, W * 0.5, H * 0.9, { size: 12.5, align: 'center', serif: true, color: 'rgba(236,229,211,0.85)' });
+    if (g.on) stage.text('score ' + g.score + ' of ' + g.tries + ', current move ' + g.level + ' dB', W * 0.5, H * 0.96, { size: 10, align: 'center', color: 'rgba(236,229,211,0.5)' });
+  },
+  readout: function () { var P = this.P, g = this.game; if (g.on) return (g.revealed ? g.msg : 'Round in progress: one region has been boosted or cut by ' + g.level + ' dB') + '.' + g.status(); return P.mode === 'explore' ? (P.region >= 0 ? 'Hearing only the <b>' + REGIONS[P.region].name + '</b>, ' + REGIONS[P.region].lo + ' to ' + REGIONS[P.region].hi + ' Hz: ' + REGIONS[P.region].feel : 'The whole sound. Pick a region to hear it alone') : 'Start a round to train recognition of boosts and cuts'; }
+});
+
+/* F6. Digital: sampling, aliasing, bit depth, dither */
+var DIGITAL_WORKLET = "class CymaDigital extends AudioWorkletProcessor{constructor(){super();this.rate=48000;this.bits=16;this.dither=0;this.aa=1;this.rec=1;this.acc=0;this.hold=0;this.z=[0,0,0,0];this.z2=[0,0,0,0];this.co=null;this.port.onmessage=e=>{Object.assign(this,e.data);this.design();};this.design();}\n" +
+"design(){const fc=Math.min(0.45*this.rate,0.45*sampleRate),w=2*Math.PI*fc/sampleRate,q=0.7071,a=Math.sin(w)/(2*q),c=Math.cos(w),a0=1+a;this.co={b0:(1-c)/2/a0,b1:(1-c)/a0,b2:(1-c)/2/a0,a1:-2*c/a0,a2:(1-a)/a0};}\n" +
+"bq(x,z){const c=this.co,y=c.b0*x+z[0];z[0]=c.b1*x-c.a1*y+z[1];z[1]=c.b2*x-c.a2*y;return y;}\n" +
+"process(inputs,outputs){const inp=inputs[0]&&inputs[0][0],out=outputs[0][0];if(!inp){out.fill(0);return true;}const step=this.rate/sampleRate,q=Math.pow(2,this.bits-1);\n" +
+"for(let i=0;i<inp.length;i++){let x=inp[i];if(this.aa&&this.rate<sampleRate)x=this.bq(x,this.z);this.acc+=step;if(this.acc>=1||this.rate>=sampleRate){this.acc-=1;if(this.rate>=sampleRate)this.acc=0;let v=x;if(this.dither)v+=(Math.random()-Math.random())/q;this.hold=Math.max(-1,Math.min(1,Math.round(v*q)/q));}let y=this.hold;if(this.rec&&this.rate<sampleRate)y=this.bq(y,this.z2);out[i]=y;}return true;}}\n" +
+"registerProcessor('cyma-digital',CymaDigital);";
+var DIGITAL = new FoundStation({
+  id: 'digital', title: 'Digital',
+  thesis: 'A converter measures the wave many thousand times a second and writes each measurement as a number with a fixed number of digits. Sample rate and bit depth are those two choices, and each fails in its own way.',
+  notice: 'Lower the sample rate and watch the samples thin out; keep raising the tone and the moment it passes half the sample rate it folds back down as a new, wrong frequency: aliasing. The anti-alias filter is what stops that in a real converter. Then lower the bit depth: the staircase grows, quantisation distortion appears, and dither turns that distortion into a soft, steady noise floor. Try 8 bits with and without dither.',
+  more: 'The Nyquist theorem: a sample rate of fs can represent frequencies below fs/2 and nothing above; anything higher appears mirrored, at |f − k·fs| for the nearest multiple k. Bit depth sets the number of steps, 2 to the power of the bits: 16 bits give 65,536 and a dynamic range of about 6.02 × 16 + 1.76 = 98 dB; 24 bits, 144 dB. Rounding to the nearest step is quantisation, and for quiet signals its error correlates with the signal and sounds like distortion; adding a tiny amount of noise before rounding (dither) decorrelates the error into a constant hiss that the ear tolerates far better. The processing here runs sample by sample on the audio thread: a low-pass before the sampler, sample-and-hold, rounding with optional triangular dither, and a reconstruction low-pass after. The app cannot demonstrate the difference between 96 and 192 kHz, since it runs at one rate, nor lossy codec artefacts honestly; those are DAW work.',
+  hue: function () { return 265; },
+  enter: function (app) {
+    var self = this, c = app.eng.ctx; this.setupAudio(app); this.P = this.P || { source: 'tone', freq: 1000, rate: 8000, bits: 16, dither: 0, aa: 1, rec: 1 };
+    this.state = 'loading'; this.node = null; this.sr = c.sampleRate;
+    this.src.freq = this.P.freq; this.src.level = 0.35; this.src.set(this.P.source);
+    var self2 = this;
+    if (c.audioWorklet && typeof AudioWorkletNode !== 'undefined') {
+      var url = URL.createObjectURL(new Blob([DIGITAL_WORKLET], { type: 'application/javascript' }));
+      c.audioWorklet.addModule(url).then(function () { if (!self2.bus) return; try { self2.node = new AudioWorkletNode(c, 'cyma-digital', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1] }); self2.src.out.connect(self2.node); self2.node.connect(self2.bus.out); self2.state = 'ok'; self2.apply(); } catch (e) { self2.fallback(); } }).catch(function () { self2.fallback(); });
+    } else this.fallback();
+    this.controls = [
+      sourceSeg(this, [{ label: 'Sine tone', value: 'tone' }, { label: 'Music', value: 'music' }], function () { self.P.source = self.src.kind; }),
+      ctlRow([ctlSlider({ label: 'Tone frequency', min: 100, max: 12000, log: true, step: 1, fmt: fmtHz, get: function () { return self.P.freq; }, set: function (v) { stopMotion(app); self.P.freq = v; self.src.setFreq(v); } }),
+        ctlSlider({ label: 'Sample rate', min: 2000, max: c.sampleRate, log: true, step: 10, fmt: function (v) { return v >= c.sampleRate ? 'full, ' + fmtHz(c.sampleRate) : fmtHz(v); }, get: function () { return self.P.rate; }, set: function (v) { self.P.rate = v; self.apply(); } })]),
+      ctlRow([ctlSeg({ label: 'Anti-alias filter before sampling', options: [{ label: 'Off', value: 0 }, { label: 'On', value: 1 }], get: function () { return self.P.aa; }, set: function (v) { self.P.aa = v; self.apply(); } }), ctlSeg({ label: 'Reconstruction filter after', options: [{ label: 'Off', value: 0 }, { label: 'On', value: 1 }], get: function () { return self.P.rec; }, set: function (v) { self.P.rec = v; self.apply(); } })]),
+      ctlRow([ctlSlider({ label: 'Bit depth', min: 2, max: 16, step: 1, fmt: function (v) { return v + ' bits'; }, get: function () { return self.P.bits; }, set: function (v) { self.P.bits = v; self.apply(); } }), ctlSeg({ label: 'Dither', options: [{ label: 'Off', value: 0 }, { label: 'On', value: 1 }], get: function () { return self.P.dither; }, set: function (v) { self.P.dither = v; self.apply(); } })])
+    ];
+  },
+  fallback: function () { this.state = 'fallback'; var c = this.app.eng.ctx, sh = c.createWaveShaper(); this.shaper = sh; this.src.out.connect(sh); sh.connect(this.bus.out); this.apply(); },
+  leave: function () { if (this.node) { try { this.node.disconnect(); } catch (e) {} } this.teardownAudio(); },
+  apply: function () {
+    var P = this.P;
+    if (this.state === 'ok' && this.node) this.node.port.postMessage({ rate: P.rate, bits: P.bits, dither: P.dither, aa: P.aa, rec: P.rec });
+    else if (this.state === 'fallback' && this.shaper) { var q = Math.pow(2, P.bits - 1), cur = new Float32Array(4097); for (var i = 0; i < 4097; i++) { var x = i / 2048 - 1; cur[i] = Math.round(x * q) / q; } this.shaper.curve = cur; }
+  },
+  tick: function (dt) { if (this.motion) { this.mt = (this.mt || 0) + dt; this.P.freq = 200 * Math.pow(40, 0.5 - 0.5 * Math.cos(TAU * this.mt / 40)); this.src.setFreq(this.P.freq); } },
+  alias: function () { var f = this.P.freq, fs = this.P.rate, k = Math.round(f / fs), fa = Math.abs(f - k * fs); return { above: f > fs / 2, fa: Math.min(fa, fs - fa) }; },
+  draw: function (stage) {
+    stage.clear(); var W = stage.W, H = stage.H, k = stage.k, hue = this.hue(), eng = this.app.eng, P = this.P, self = this, al = this.alias();
+    drawScope(stage, eng, { x: W * 0.05, y: H * 0.03, w: W * 0.9, h: H * 0.34 }, hue, P.source === 'tone' ? clamp(3000 / P.freq, 1.5, 24) : 24);
+    drawSpectrum(stage, eng, { x: W * 0.05, y: H * 0.43, w: W * 0.9, h: H * 0.4 }, hue, function (c, fx, fy, r) {
+      var xn = fx(Math.min(SPEC_FMAX, P.rate / 2)); c.strokeStyle = 'rgba(236,229,211,0.7)'; c.setLineDash([4, 3]); c.lineWidth = 1; c.beginPath(); c.moveTo(xn, r.y); c.lineTo(xn, r.y + r.h); c.stroke(); c.setLineDash([]);
+      var nyRight = xn > r.x + r.w * 0.65; stage.text('Nyquist ' + fmtHz(P.rate / 2), nyRight ? xn - 4 : xn + 4, r.y + 24 * k, { size: 9.5, align: nyRight ? 'right' : 'left', color: 'rgba(236,229,211,0.8)' });
+      if (P.source === 'tone') { var xt = fx(P.freq); c.strokeStyle = hsl(hue, 80, 75, 0.9); c.beginPath(); c.moveTo(xt, r.y + r.h - 10 * k); c.lineTo(xt, r.y + r.h); c.stroke(); if (al.above && al.fa >= SPEC_FMIN) { var xa = fx(al.fa); c.strokeStyle = 'rgba(255,120,120,0.95)'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(xa, r.y + 6 * k); c.lineTo(xa, r.y + r.h); c.stroke(); stage.text('alias ' + fmtHz(al.fa), xa + 4, r.y + 12 * k, { size: 9.5, color: 'rgba(255,140,140,0.95)' }); } }
+      var range = 6.02 * P.bits + 1.76, yq = fy(-range); c.strokeStyle = 'rgba(124,242,227,0.6)'; c.setLineDash([2, 4]); c.beginPath(); c.moveTo(r.x, yq); c.lineTo(r.x + r.w, yq); c.stroke(); c.setLineDash([]); if (range < 94) stage.text('quantisation floor, ' + range.toFixed(0) + ' dB down', r.x + r.w - 4, yq - 4 * k, { size: 9, align: 'right', color: 'rgba(124,242,227,0.85)' });
+    });
+    var msg = self.state === 'fallback' ? 'this browser cannot run the sampler; bit depth only' : (P.rate < self.sr ? fmtHz(P.rate) + ' sampling, ' + P.bits + ' bits' + (P.dither ? ', dithered' : '') + (P.aa ? '' : ', no anti-alias filter') : 'full rate, ' + P.bits + ' bits' + (P.dither ? ', dithered' : ''));
+    stage.text(msg, W * 0.5, H * 0.92, { size: 12, align: 'center', serif: true, color: 'rgba(236,229,211,0.85)' });
+  },
+  readout: function () {
+    var P = this.P, al = this.alias(), steps = Math.pow(2, P.bits), range = 6.02 * P.bits + 1.76, s = 'Sample rate <b>' + fmtHz(P.rate) + '</b>, Nyquist ' + fmtHz(P.rate / 2) + '. ';
+    if (P.source === 'tone') s += al.above ? 'The ' + fmtHz(P.freq) + ' tone is above Nyquist and ' + (P.aa ? 'the filter removes it; without the filter it would alias to ' : 'aliases to ') + '<b>' + fmtHz(al.fa) + '</b>. ' : 'The ' + fmtHz(P.freq) + ' tone is below Nyquist and is captured. ';
+    s += '<b>' + P.bits + ' bits</b>: ' + steps.toLocaleString() + ' steps, dynamic range ' + range.toFixed(0) + ' dB' + (P.dither ? ', dither on: the rounding error becomes steady noise' : (P.bits <= 10 ? ', dither off: the rounding error follows the signal as distortion' : ''));
+    return s;
+  }
+});
+
+/* F7. Level: signal flow and gain staging */
+var LEVELST = new FoundStation({
+  id: 'level', title: 'Level',
+  thesis: 'A signal passes through several gain stages on its way to the file. Every stage adds a little noise and every stage has a ceiling. Where you set the gain decides how much noise you keep and whether you hit the ceiling.',
+  notice: 'Three stages in a row, each with its own meter and its own noise. Turn the first stage down and the last one up: the signal comes back to the same level but the noise floor has risen with it. Push any stage past 0 dBFS and the wave flattens against the ceiling, which you hear as distortion and see as a red meter. Good gain staging is loud enough early to bury the noise, with headroom everywhere. Try your own microphone as the source.',
+  more: 'Signal levels come in families: microphone level around −40 dBu, instrument around −20 dBu, professional line level +4 dBu, consumer line level −10 dBV, and speaker level in watts; each needs the right input. Inside the digital domain the scale is dBFS, and 0 dBFS is a hard ceiling: samples cannot exceed it, so the wave is clipped flat and gains harmonics that were not there. The stages here model a microphone preamplifier, a line stage and a converter, with noise floors of −70, −80 and −88 dBFS at their inputs, set higher than good modern gear so the effect is plainly audible; the readout computes the resulting signal-to-noise ratio exactly from the gains you set. Headroom is the distance between your normal peaks and the ceiling; 18 dB of it is the professional habit in tracking, which is why −18 dBFS peaks look quiet and are right.',
+  hue: function () { return 40; },
+  enter: function (app) {
+    var self = this, c = app.eng.ctx; this.setupAudio(app); this.P = this.P || { source: 'music', g: [0, 0, 0] };
+    var mk = function (db) { var s = c.createBufferSource(); s.buffer = noiseBuffer(c); s.loop = true; var g = c.createGain(); g.gain.value = fromDb(db); s.connect(g); s.start(); return { s: s, g: g }; };
+    this.n = [mk(-70), mk(-80), mk(-88)]; this.g = [c.createGain(), c.createGain(), c.createGain()]; this.an = [c.createAnalyser(), c.createAnalyser(), c.createAnalyser(), c.createAnalyser()]; this.an.forEach(function (a) { a.fftSize = 2048; }); this.buf = new Float32Array(2048);
+    this.clip = c.createWaveShaper(); var cur = new Float32Array(1025); for (var i = 0; i < 1025; i++) cur[i] = clamp((i / 512 - 1) * 1.6, -1, 1); this.clip.curve = cur;
+    var j1 = c.createGain(), j2 = c.createGain(), j3 = c.createGain();
+    this.src.out.connect(j1); this.n[0].g.connect(j1); j1.connect(this.g[0]); this.g[0].connect(this.an[0]); this.g[0].connect(j2); this.n[1].g.connect(j2); j2.connect(this.g[1]); this.g[1].connect(this.an[1]); this.g[1].connect(this.clip); this.clip.connect(j3); this.n[2].g.connect(j3); j3.connect(this.an[2]); j3.connect(this.g[2]); this.g[2].connect(this.an[3]); this.g[2].connect(this.bus.out);
+    this.src.level = 0.5; this.src.set(this.P.source === 'mic' ? 'music' : this.P.source); this.apply(); this.peaks = [0, 0, 0, 0]; this.clipped = 0;
+    var micBtn = { el: (function () { var b = el('button', 'pressbtn', 'Use my microphone'); b.type = 'button'; b.addEventListener('click', function () { requestMic(function (ok) { if (ok) { self.src.set('mic'); self.P.source = 'mic'; self.hint = 'Microphone live. Use headphones, or the speakers will feed back.'; } else self.hint = USER.micError; }); }); return b; })(), refresh: function () {} };
+    this.controls = [
+      ctlRow([sourceSeg(this, [{ label: 'Music', value: 'music' }, { label: 'Sine 440 Hz', value: 'tone' }], function () { self.P.source = self.src.kind; self.hint = ''; }), micBtn]),
+      ctlRow([0, 1, 2].map(function (i) { return ctlSlider({ label: ['Stage 1: preamp gain', 'Stage 2: line gain', 'Stage 3: output gain'][i], min: -30, max: 30, step: 0.5, fmt: fmtDb, get: function () { return self.P.g[i]; }, set: function (v) { self.P.g[i] = v; self.apply(); } }); })),
+      { el: (function () { var b = el('button', 'pressbtn', 'Reset all gains to 0 dB'); b.type = 'button'; b.addEventListener('click', function () { self.P.g = [0, 0, 0]; self.apply(); }); return b; })(), refresh: function () {} }
+    ];
+  },
+  leave: function () { this.n.forEach(function (x) { try { x.s.stop(); } catch (e) {} }); this.teardownAudio(); },
+  apply: function () { var now = this.app.eng.now(); for (var i = 0; i < 3; i++) this.g[i].gain.setTargetAtTime(fromDb(this.P.g[i]), now, 0.02); },
+  tick: function () { var self = this; this.an.forEach(function (a, i) { a.getFloatTimeDomainData(self.buf); var pk = 0; for (var j = 0; j < self.buf.length; j++) { var v = Math.abs(self.buf[j]); if (v > pk) pk = v; } self.peaks[i] = Math.max(pk, self.peaks[i] * 0.85); }); this.clipped = this.peaks[1] >= 0.99 ? 1 : this.clipped * 0.9; },
+  snr: function () { var g = this.P.g.map(fromDb), s = 0.18 * g[0] * g[1] * g[2], n = Math.sqrt(Math.pow(fromDb(-70) * g[0] * g[1] * g[2], 2) + Math.pow(fromDb(-80) * g[1] * g[2], 2) + Math.pow(fromDb(-88) * g[2], 2)); return { snr: 20 * Math.log10(s / n), floor: 20 * Math.log10(n) }; },
+  draw: function (stage) {
+    stage.clear(); var c = stage.ctx, W = stage.W, H = stage.H, k = stage.k, hue = this.hue(), P = this.P, self = this, names = ['source + preamp', 'line stage', 'converter', 'output'];
+    var y0 = H * 0.08, bh = H * 0.42, bw = W * 0.055, slots = [0.12, 0.36, 0.6, 0.84];
+    slots.forEach(function (sx, i) { var db = dbfs(self.peaks[i]); drawMeter(stage, { x: W * sx, y: y0, w: bw, h: bh }, db, i === 2 && self.clipped > 0.3 ? 0 : hue, names[i], -60, i > 0); if (i < 3) { var x1 = W * sx + bw + 10, x2 = W * slots[i + 1] - 22; c.strokeStyle = 'rgba(236,229,211,0.35)'; c.lineWidth = 1; c.beginPath(); c.moveTo(x1, y0 + bh * 0.5); c.lineTo(x2, y0 + bh * 0.5); c.stroke(); stage.text(fmtDb(P.g[i]), (x1 + x2) / 2, y0 + bh * 0.5 - 6 * k, { size: 10, align: 'center', color: hsl(hue, 80, 70, 0.95) }); stage.text(['noise -70', 'noise -80', 'clip at 0 dBFS'][i], (x1 + x2) / 2, y0 + bh * 0.5 + 12 * k, { size: 8.5, align: 'center', color: 'rgba(236,229,211,0.5)' }); if (i === 2) stage.text('noise -88', (x1 + x2) / 2, y0 + bh * 0.5 + 23 * k, { size: 8.5, align: 'center', color: 'rgba(236,229,211,0.5)' }); } });
+    var s = this.snr();
+    stage.text('output noise floor ' + s.floor.toFixed(1) + ' dBFS, signal to noise ' + s.snr.toFixed(1) + ' dB', W * 0.5, H * 0.68, { size: 12, align: 'center', serif: true, color: '#ece5d3' });
+    stage.text(this.clipped > 0.3 ? 'the converter is clipping: peaks flattened at 0 dBFS' : (this.peaks[2] > fromDb(-6) ? 'less than 6 dB of headroom at the converter' : 'headroom at the converter: ' + (-dbfs(this.peaks[2])).toFixed(0) + ' dB'), W * 0.5, H * 0.75, { size: 11, align: 'center', color: this.clipped > 0.3 ? 'rgba(255,130,130,0.95)' : 'rgba(236,229,211,0.7)' });
+    var ref = [['mic level', 'about -40 dBu'], ['instrument level', 'about -20 dBu'], ['line, professional', '+4 dBu'], ['line, consumer', '-10 dBV'], ['speaker level', 'watts, never into an input']];
+    ref.forEach(function (t, i) { var y = H * 0.835 + i * 12 * k; stage.text(t[0] + ':  ' + t[1], W * 0.12, y, { size: 9, color: 'rgba(236,229,211,0.6)' }); });
+    if (this.hint) stage.text(this.hint, W * 0.5, H * 0.8, { size: 10, align: 'center', color: 'rgba(255,200,120,0.9)' });
+  },
+  readout: function () { var s = this.snr(), P = this.P; return 'Gains <b>' + P.g.map(function (v) { return fmtDb(v); }).join(', ') + '</b>. Noise floor at the output ' + s.floor.toFixed(1) + ' dBFS, signal to noise <b>' + s.snr.toFixed(1) + ' dB</b>' + (this.clipped > 0.3 ? '. Clipping at the converter' : ''); }
+});
+
+/* F8. Room: modes, boundary cancellation, decay, flutter */
+var ROOM = new FoundStation({
+  id: 'room', title: 'Room',
+  thesis: 'A room is a resonator. Its dimensions pick out frequencies that pile up, its walls hand back reflections that cancel others, and its surfaces decide how long every sound lingers.',
+  notice: 'Set the room\'s size and the mode frequencies appear: sweep a tone or play noise through the room and hear those frequencies boom. Move the speaker closer to the wall and a notch forms where the reflection arrives half a cycle late. Lengthen the decay and the room fills with reverberation; switch on flutter to hear the ping-pong of two hard parallel walls. Every one of these is a real acoustic effect, computed from the dimensions you set.',
+  more: 'Axial room modes fall at c/2 times n/L for each dimension L, with tangential and oblique modes from combinations; small rooms have few below 200 Hz and they are the bass problems every mixer knows. The speaker-boundary notch (SBIR) comes from the wall reflection arriving 2d/c later than the direct sound and cancelling at c/(4d): 40 cm from the wall gives a notch near 215 Hz. Decay time is RT60, the time for sound to fall 60 dB, produced here by a synthetic reverberation with that decay. Flutter echo is the repeating slap between two parallel reflective walls, a delay of 2W/c with feedback. All of this is why treatment order is bass absorption at the modes first, first-reflection points second, diffusion last.',
+  hue: function () { return 320; },
+  enter: function (app) {
+    var self = this, c = app.eng.ctx; this.setupAudio(app); this.P = this.P || { source: 'pink', L: 5, Wd: 4, Hh: 2.7, modes: 0.6, rt: 0.6, dist: 0.5, flutter: 0 };
+    this.filters = []; var prev = this.src.out; for (var i = 0; i < 10; i++) { var f = c.createBiquadFilter(); f.type = 'peaking'; f.Q.value = 18; f.gain.value = 0; prev.connect(f); prev = f; this.filters.push(f); }
+    this.sbirIn = c.createGain(); prev.connect(this.sbirIn); this.sbirD = c.createDelay(0.1); this.sbirG = c.createGain(); this.sbirG.gain.value = -0.6; this.sbirSum = c.createGain(); this.sbirIn.connect(this.sbirSum); this.sbirIn.connect(this.sbirD); this.sbirD.connect(this.sbirG); this.sbirG.connect(this.sbirSum);
+    this.flD = c.createDelay(0.2); this.flG = c.createGain(); this.flG.gain.value = 0; this.flMix = c.createGain(); this.flMix.gain.value = 0; this.sbirSum.connect(this.flD); this.flD.connect(this.flG); this.flG.connect(this.flD); this.flD.connect(this.flMix);
+    this.dry = c.createGain(); this.wet = c.createGain(); this.conv = c.createConvolver(); this.sbirSum.connect(this.dry); this.flMix.connect(this.dry); this.sbirSum.connect(this.conv); this.flMix.connect(this.conv); this.conv.connect(this.wet); this.dry.connect(this.bus.out); this.wet.connect(this.bus.out);
+    this.src.freq = 60; this.src.level = 0.35; this.src.set(this.P.source); this.rtBuilt = 0; this.apply(); this.mt = 0;
+    var dim = function (key, label) { return ctlSlider({ label: label, min: 2, max: 12, step: 0.05, fmt: function (v) { return v.toFixed(2) + ' m (' + (v * 3.281).toFixed(1) + ' ft)'; }, get: function () { return self.P[key]; }, set: function (v) { self.P[key] = v; self.apply(); } }); };
+    this.controls = [
+      sourceSeg(this, [{ label: 'Pink noise', value: 'pink' }, { label: 'Tone', value: 'tone' }, { label: 'Music', value: 'music' }], function () { self.P.source = self.src.kind; }),
+      ctlRow([dim('L', 'Length'), dim('Wd', 'Width'), dim('Hh', 'Height')]),
+      ctlRow([ctlSlider({ label: 'Mode strength', min: 0, max: 1, step: 0.01, fmt: fmtPct, get: function () { return self.P.modes; }, set: function (v) { self.P.modes = v; self.apply(); } }),
+        ctlSlider({ label: 'Decay time, RT60', min: 0.1, max: 3, log: true, step: 0.01, fmt: function (v) { return v.toFixed(2) + ' s'; }, get: function () { return self.P.rt; }, set: function (v) { self.P.rt = v; self.apply(); } }),
+        ctlSlider({ label: 'Speaker to wall', min: 0.15, max: 2.5, log: true, step: 0.01, fmt: function (v) { return fmtM(v); }, get: function () { return self.P.dist; }, set: function (v) { self.P.dist = v; self.apply(); } }),
+        ctlSeg({ label: 'Flutter echo', options: [{ label: 'Off', value: 0 }, { label: 'On', value: 1 }], get: function () { return self.P.flutter; }, set: function (v) { self.P.flutter = v; self.apply(); } })]),
+      ctlSlider({ label: 'Tone frequency', min: 30, max: 400, log: true, step: 0.1, fmt: fmtHz, get: function () { return self.src.freq; }, set: function (v) { stopMotion(app); self.src.setFreq(v); } })
+    ];
+  },
+  leave: function () { this.teardownAudio(); },
+  modeList: function () {
+    var P = this.P, out = [], dims = [['L', P.L, 'length'], ['W', P.Wd, 'width'], ['H', P.Hh, 'height']], n;
+    dims.forEach(function (d) { for (n = 1; n <= 6; n++) { var f = C_AIR / 2 * n / d[1]; if (f <= 400) out.push({ f: f, kind: 'axial ' + d[2] + ' ' + n, ax: 1 }); } });
+    for (var p = 1; p <= 3; p++) for (var q = 1; q <= 3; q++) { var f2 = C_AIR / 2 * Math.sqrt(Math.pow(p / P.L, 2) + Math.pow(q / P.Wd, 2)); if (f2 <= 400) out.push({ f: f2, kind: 'tangential ' + p + ',' + q + ',0', ax: 0 }); }
+    out.sort(function (a, b) { return a.f - b.f; }); return out;
+  },
+  apply: function () {
+    var P = this.P, now = this.app.eng.now(), modes = this.modeList().filter(function (m) { return m.ax; }).slice(0, 10), self = this;
+    this.filters.forEach(function (f, i) { if (i < modes.length) { f.frequency.setTargetAtTime(modes[i].f, now, 0.03); f.gain.setTargetAtTime(14 * P.modes, now, 0.05); } else f.gain.setTargetAtTime(0, now, 0.05); });
+    this.sbirD.delayTime.setTargetAtTime(2 * P.dist / C_AIR, now, 0.02);
+    var fl = 2 * P.Wd / C_AIR; this.flD.delayTime.setTargetAtTime(Math.min(0.19, fl), now, 0.02); this.flG.gain.setTargetAtTime(P.flutter ? 0.55 : 0, now, 0.05); this.flMix.gain.setTargetAtTime(P.flutter ? 0.8 : 0, now, 0.05);
+    this.dry.gain.setTargetAtTime(0.8, now, 0.02); this.wet.gain.setTargetAtTime(clamp(0.15 + 0.25 * Math.log10(P.rt * 10), 0.05, 0.6), now, 0.05);
+    if (Math.abs(P.rt - this.rtBuilt) > 0.02) { clearTimeout(this.rtTimer); this.rtTimer = setTimeout(function () { self.buildIR(); }, 200); }
+  },
+  buildIR: function () {
+    var c = this.app.eng.ctx, rt = this.P.rt, len = Math.floor(c.sampleRate * Math.min(4, rt * 1.1 + 0.05)), ir = c.createBuffer(2, len, c.sampleRate), tau = rt / 6.91;
+    for (var ch = 0; ch < 2; ch++) { var d = ir.getChannelData(ch); for (var i = 0; i < len; i++) { var t = i / c.sampleRate; d[i] = (Math.random() * 2 - 1) * Math.exp(-t / tau) * (t < 0.01 ? t / 0.01 : 1) * 0.35; } }
+    this.conv.buffer = ir; this.rtBuilt = rt;
+  },
+  tick: function (dt) { if (this.motion && this.src.kind === 'tone') { this.mt += dt; this.src.setFreq(30 * Math.pow(400 / 30, 0.5 - 0.5 * Math.cos(TAU * this.mt / 50))); } },
+  draw: function (stage) {
+    stage.clear(); var c = stage.ctx, W = stage.W, H = stage.H, k = stage.k, hue = this.hue(), P = this.P, modes = this.modeList(), self = this;
+    var bx = W * 0.08, by = H * 0.05, bw = W * 0.34, bh = W * 0.34 * Math.min(1.6, P.Wd / P.L) / Math.max(1, P.Wd / P.L * 0.6), sc = Math.min(bw / P.L, bh / P.Wd), rw = P.L * sc, rh = P.Wd * sc;
+    c.strokeStyle = 'rgba(236,229,211,0.5)'; c.lineWidth = 1.2 * k; c.strokeRect(bx, by, rw, rh); c.fillStyle = 'rgba(255,255,255,0.03)'; c.fillRect(bx, by, rw, rh);
+    stage.text('length ' + P.L.toFixed(1) + ' m', bx + rw / 2, by + rh + 12 * k, { size: 9.5, align: 'center', color: 'rgba(236,229,211,0.6)' }); stage.text('width ' + P.Wd.toFixed(1) + ' m', bx + 5, by + 12 * k, { size: 9.5, color: 'rgba(236,229,211,0.6)' }); stage.text('height ' + P.Hh.toFixed(1) + ' m', bx + 5, by + rh - 5 * k, { size: 9.5, color: 'rgba(236,229,211,0.6)' });
+    var spx = bx + P.dist * sc, spy = by + rh * 0.5; stage.dot(spx, spy, 4, hue, 1); stage.text('speaker', spx + 7, spy + 3, { size: 9, color: 'rgba(236,229,211,0.7)' });
+    var ax = { x: W * 0.5, y: H * 0.05, w: W * 0.45, h: H * 0.34 }, fx = function (f) { return ax.x + ax.w * Math.log(f / 20) / Math.log(400 / 20); };
+    c.fillStyle = 'rgba(255,255,255,0.025)'; c.fillRect(ax.x, ax.y, ax.w, ax.h); [20, 50, 100, 200, 400].forEach(function (q) { stage.text(String(q), fx(q), ax.y + ax.h + 11 * k, { size: 8.5, align: 'center', color: 'rgba(236,229,211,0.4)' }); });
+    modes.forEach(function (m) { var x = fx(m.f), hgt = ax.h * (m.ax ? 0.75 : 0.4); c.strokeStyle = m.ax ? hsl(hue, 80, 68, 0.9) : hsl(hue, 50, 60, 0.45); c.lineWidth = 1.6 * k; c.beginPath(); c.moveTo(x, ax.y + ax.h); c.lineTo(x, ax.y + ax.h - hgt); c.stroke(); });
+    var fn = C_AIR / (4 * P.dist); if (fn <= 400) { var xn = fx(Math.max(20, fn)), nr = xn > ax.x + ax.w * 0.6; c.strokeStyle = 'rgba(124,242,227,0.9)'; c.setLineDash([3, 3]); c.beginPath(); c.moveTo(xn, ax.y); c.lineTo(xn, ax.y + ax.h); c.stroke(); c.setLineDash([]); stage.text('notch ' + fmtHz(fn), nr ? xn - 3 : xn + 3, ax.y + 11 * k, { size: 9, align: nr ? 'right' : 'left', color: 'rgba(124,242,227,0.9)' }); }
+    if (this.src.kind === 'tone') { var xt = fx(clamp(this.src.freq, 20, 400)); c.strokeStyle = '#ece5d3'; c.lineWidth = 1; c.beginPath(); c.moveTo(xt, ax.y + ax.h * 0.15); c.lineTo(xt, ax.y + ax.h); c.stroke(); }
+    stage.text('modes below 400 Hz', ax.x, ax.y - 5 * k, { size: 9, color: 'rgba(236,229,211,0.5)' }); stage.text('tall axial, short tangential', ax.x + ax.w, ax.y + ax.h + 22 * k, { size: 8.5, align: 'right', color: 'rgba(236,229,211,0.45)' });
+    drawSpectrum(stage, this.app.eng, { x: W * 0.05, y: H * 0.5, w: W * 0.9, h: H * 0.42 }, hue, function (cc, fx2, fy2, r) { modes.filter(function (m) { return m.ax; }).slice(0, 10).forEach(function (m) { var x = fx2(m.f); cc.strokeStyle = hsl(hue, 80, 70, 0.35); cc.beginPath(); cc.moveTo(x, r.y + r.h); cc.lineTo(x, r.y + r.h * 0.55); cc.stroke(); }); });
+    void self;
+  },
+  readout: function () { var P = this.P, modes = this.modeList().filter(function (m) { return m.ax; }), fn = C_AIR / (4 * P.dist); return 'Room ' + P.L.toFixed(1) + ' by ' + P.Wd.toFixed(1) + ' by ' + P.Hh.toFixed(1) + ' m. Lowest modes <b>' + modes.slice(0, 3).map(function (m) { return m.f.toFixed(0); }).join(', ') + ' Hz</b>' + (modes.length ? ' (' + modes[0].kind + ' first)' : '') + '. Speaker ' + fmtM(P.dist) + ' from the wall: notch near <b>' + fmtHz(fn) + '</b>. Decay ' + P.rt.toFixed(2) + ' s' + (P.flutter ? ', flutter every ' + (2000 * P.Wd / C_AIR).toFixed(0) + ' ms' : ''); }
+});
+
+/* ---------- Foundations stations C: dynamics, microphones, space, meters ---------- */
+
+/* Two-choice ear-training rounds where the choice set depends on the round. */
+function Rounds(st, params, pose) { this.st = st; this.params = params; this.pose = pose; this.on = false; this.score = 0; this.tries = 0; this.param = null; this.answer = 0; this.revealed = false; this.msg = ''; }
+Rounds.prototype.begin = function () { this.on = true; this.score = 0; this.tries = 0; this.next(); };
+Rounds.prototype.end = function () { this.on = false; this.revealed = false; this.param = null; this.msg = ''; this.pose(null); };
+Rounds.prototype.next = function () { var last = this.param; do { this.param = this.params[Math.floor(Math.random() * this.params.length)]; } while (this.params.length > 1 && this.param === last); this.answer = Math.random() < 0.5 ? 0 : 1; this.revealed = false; this.msg = ''; this.pose(this.param, this.answer); };
+Rounds.prototype.guess = function (i) { if (!this.on || this.revealed) return; this.revealed = true; this.tries++; var right = i === this.answer; if (right) this.score++; this.msg = (right ? 'Right. ' : 'Not this time. ') + 'It was ' + this.param.labels[this.answer] + '.'; };
+Rounds.prototype.controls = function () {
+  var g = this, ctls = [];
+  ctls.push(ctlRow([
+    { el: (function () { var b = el('button', 'pressbtn', 'Start a round'); b.type = 'button'; b.addEventListener('click', function () { if (g.on) g.end(); else g.begin(); }); g._btn = b; return b; })(), refresh: function () { g._btn.textContent = g.on ? 'Stop the game' : 'Start a round'; } },
+    { el: (function () { var b = el('button', 'pressbtn', 'Next'); b.type = 'button'; b.addEventListener('click', function () { if (g.on) g.next(); }); g._next = b; return b; })(), refresh: function () { g._next.style.display = g.on ? '' : 'none'; } }
+  ]));
+  this.params.forEach(function (p) {
+    var chips = ctlChips({ label: p.question, options: p.labels.map(function (l, i) { return { label: l, value: i }; }), get: function () { return g.revealed && g.param === p ? g.answer : null; }, set: function (i) { g.guess(i); } });
+    ctls.push({ el: chips.el, refresh: function () { chips.el.style.display = g.on && g.param === p ? '' : 'none'; chips.refresh(); chips.el.querySelectorAll('button.chip').forEach(function (b, i) { b.classList.toggle('right', g.revealed && g.param === p && i === g.answer); b.classList.toggle('dim', g.revealed && g.param === p && i !== g.answer); }); } });
+  });
+  return ctls;
+};
+Rounds.prototype.status = function () { return this.on ? ' Game: ' + this.score + ' of ' + this.tries + (this.msg ? '. ' + this.msg : '. Listen, then choose') : ''; };
+
+/* F9. Dynamics */
+var DYNAMICS = new FoundStation({
+  id: 'dynamics', title: 'Dynamics',
+  thesis: 'A compressor turns the loud moments down. How far down is the ratio, from where is the threshold, how fast it reacts and lets go are attack and release. Each one has a sound, and the sound can be learned.',
+  notice: 'Watch the two envelopes: grey is what goes in, coloured is what comes out, red is how much the compressor is taking off. Compare with Bypass. A fast attack flattens the drum hits; a slow one lets them through and grabs what follows. A fast release breathes and pumps; a slow one holds the level down. Then play the game: the app sets one parameter fast or slow, gentle or hard, and you say which.',
+  more: 'Threshold in dBFS is the level above which gain reduction begins; ratio is how many decibels of input rise produce one decibel of output rise above it; the knee softens the corner; attack and release are the time constants of the gain change. Makeup gain restores the level so that compressed and uncompressed can be compared at equal loudness, which is the only fair comparison. The transfer curve at the right is the static input-to-output map for the current settings; the moving traces are measured from the actual signal. Artefacts to listen for: pumping and breathing from release times close to the rhythm, squashed transients from attacks under a few milliseconds, and the lifeless density of high ratios at low thresholds.',
+  hue: function () { return 12; },
+  enter: function (app) {
+    var self = this, c = app.eng.ctx; this.setupAudio(app); this.P = this.P || { source: 'music', thr: -24, ratio: 4, att: 0.01, rel: 0.2, knee: 6, makeup: 6, bypass: 0 };
+    this.comp = c.createDynamicsCompressor(); this.mk = c.createGain(); this.byp = c.createGain(); this.wetG = c.createGain();
+    this.inAn = c.createAnalyser(); this.inAn.fftSize = 2048; this.outAn = c.createAnalyser(); this.outAn.fftSize = 2048; this.buf = new Float32Array(2048);
+    this.src.out.connect(this.inAn); this.src.out.connect(this.comp); this.comp.connect(this.mk); this.mk.connect(this.wetG); this.src.out.connect(this.byp); this.wetG.connect(this.outAn); this.byp.connect(this.outAn); this.wetG.connect(this.bus.out); this.byp.connect(this.bus.out);
+    this.src.level = 0.5; this.src.set(this.P.source === 'file' && !USER.buffer ? 'music' : this.P.source); this.hist = []; this.apply();
+    this.game = new Rounds(this, [
+      { key: 'att', question: 'Attack: which was it?', labels: ['fast attack, 1 ms', 'slow attack, 60 ms'], values: [0.001, 0.06] },
+      { key: 'rel', question: 'Release: which was it?', labels: ['fast release, 40 ms', 'slow release, 900 ms'], values: [0.04, 0.9] },
+      { key: 'ratio', question: 'Ratio: which was it?', labels: ['gentle, 2:1', 'hard, 12:1'], values: [2, 12] }
+    ], function (param, a) { if (!param) { self.gameSet = null; self.apply(); return; } var g = { thr: -28, ratio: 4, att: 0.01, rel: 0.25, knee: 3 }; g[param.key] = param.values[a]; self.gameSet = g; self.apply(); });
+    var gameCtls = this.game.controls();
+    this.controls = [
+      ctlRow([sourceSeg(this, [{ label: 'Music', value: 'music' }, { label: 'Your file', value: 'file' }], function () { self.P.source = self.src.kind; }), ctlSeg({ label: 'Listen to', options: [{ label: 'Compressed', value: 0 }, { label: 'Bypass', value: 1 }], get: function () { return self.P.bypass; }, set: function (v) { self.P.bypass = v; self.apply(); } })]),
+      ctlRow([ctlSlider({ label: 'Threshold', min: -60, max: 0, step: 0.5, fmt: function (v) { return v.toFixed(1) + ' dBFS'; }, get: function () { return self.P.thr; }, set: function (v) { self.P.thr = v; self.apply(); } }), ctlSlider({ label: 'Ratio', min: 1, max: 20, log: true, step: 0.1, fmt: function (v) { return v.toFixed(1) + ':1'; }, get: function () { return self.P.ratio; }, set: function (v) { self.P.ratio = v; self.apply(); } }), ctlSlider({ label: 'Knee', min: 0, max: 30, step: 1, fmt: function (v) { return v + ' dB'; }, get: function () { return self.P.knee; }, set: function (v) { self.P.knee = v; self.apply(); } })]),
+      ctlRow([ctlSlider({ label: 'Attack', min: 0.0005, max: 0.5, log: true, step: 0.0005, fmt: fmtMs, get: function () { return self.P.att; }, set: function (v) { self.P.att = v; self.apply(); } }), ctlSlider({ label: 'Release', min: 0.02, max: 2, log: true, step: 0.005, fmt: fmtMs, get: function () { return self.P.rel; }, set: function (v) { self.P.rel = v; self.apply(); } }), ctlSlider({ label: 'Makeup gain', min: 0, max: 24, step: 0.5, fmt: fmtDb, get: function () { return self.P.makeup; }, set: function (v) { self.P.makeup = v; self.apply(); } })]),
+      ctlFile(app.eng, function () { self.src.set('file'); self.P.source = 'file'; })
+    ].concat(gameCtls);
+  },
+  leave: function () { this.teardownAudio(); },
+  apply: function () {
+    var P = this.P, g = this.gameSet || P, now = this.app.eng.now(), cp = this.comp;
+    cp.threshold.setTargetAtTime(g.thr, now, 0.02); cp.ratio.setTargetAtTime(g.ratio, now, 0.02); cp.attack.setTargetAtTime(g.att, now, 0.02); cp.release.setTargetAtTime(g.rel, now, 0.02); cp.knee.setTargetAtTime(g.knee, now, 0.02);
+    var mk = this.gameSet ? -g.thr * (1 - 1 / g.ratio) * 0.5 : P.makeup; this.mk.gain.setTargetAtTime(fromDb(mk), now, 0.02);
+    var byp = this.gameSet ? 0 : P.bypass; this.wetG.gain.setTargetAtTime(byp ? 0 : 1, now, 0.02); this.byp.gain.setTargetAtTime(byp ? 1 : 0, now, 0.02);
+  },
+  tick: function () {
+    var b = this.buf, pk = function (an) { an.getFloatTimeDomainData(b); var m = 0; for (var i = 0; i < b.length; i++) { var v = Math.abs(b[i]); if (v > m) m = v; } return m; };
+    var red = typeof this.comp.reduction === 'number' ? this.comp.reduction : (this.comp.reduction && this.comp.reduction.value) || 0;
+    this.hist.push([dbfs(pk(this.inAn)), dbfs(pk(this.outAn)), red]); if (this.hist.length > 240) this.hist.shift();
+  },
+  transfer: function (x) { var g = this.gameSet || this.P, T = g.thr, R = g.ratio, W = g.knee; if (W > 0 && x > T - W / 2 && x < T + W / 2) { var d = x - T + W / 2; return x + (1 / R - 1) * d * d / (2 * W); } return x < T ? x : T + (x - T) / R; },
+  draw: function (stage) {
+    stage.clear(); var c = stage.ctx, W = stage.W, H = stage.H, k = stage.k, hue = this.hue(), n = this.hist.length, r = { x: W * 0.05, y: H * 0.04, w: W * 0.6, h: H * 0.5 }, g = this.gameSet || this.P;
+    c.fillStyle = 'rgba(255,255,255,0.025)'; c.fillRect(r.x, r.y, r.w, r.h);
+    var fy = function (db) { return r.y + r.h * (1 - clamp((db + 48) / 48, 0, 1)); };
+    [0, -12, -24, -36].forEach(function (d) { var y = fy(d); c.strokeStyle = 'rgba(236,229,211,0.12)'; c.lineWidth = 1; c.beginPath(); c.moveTo(r.x, y); c.lineTo(r.x + r.w, y); c.stroke(); stage.text(d + '', r.x - 4, y + 3, { size: 8.5, align: 'right', color: 'rgba(236,229,211,0.45)' }); });
+    var yt = fy(g.thr); c.strokeStyle = 'rgba(124,242,227,0.6)'; c.setLineDash([3, 4]); c.beginPath(); c.moveTo(r.x, yt); c.lineTo(r.x + r.w, yt); c.stroke(); c.setLineDash([]); stage.text('threshold', r.x + 4, yt - 3, { size: 8.5, color: 'rgba(124,242,227,0.8)' });
+    var path = function (idx, col, wd) { c.beginPath(); for (var i = 0; i < n; i++) { var x = r.x + r.w * i / 239, y = fy(this.hist[i][idx]); if (i) c.lineTo(x, y); else c.moveTo(x, y); } c.strokeStyle = col; c.lineWidth = wd; c.stroke(); }.bind(this);
+    if (n > 1) { path(0, 'rgba(236,229,211,0.45)', 1); path(1, hsl(hue, 85, 68, 0.95), 1.4 * k); c.beginPath(); for (var i = 0; i < n; i++) { var x = r.x + r.w * i / 239, y = r.y + r.h * clamp(-this.hist[i][2] / 30, 0, 1) * 0.5; if (i) c.lineTo(x, y); else c.moveTo(x, y); } c.strokeStyle = 'rgba(255,110,110,0.9)'; c.lineWidth = 1.2 * k; c.stroke(); }
+    stage.text('in (grey), out (colour), gain reduction (red), last 4 s', r.x + 4, r.y + r.h + 11 * k, { size: 9, color: 'rgba(236,229,211,0.5)' });
+    var t = { x: W * 0.72, y: H * 0.04, w: W * 0.23, h: W * 0.23 }; c.fillStyle = 'rgba(255,255,255,0.025)'; c.fillRect(t.x, t.y, t.w, t.h);
+    c.strokeStyle = 'rgba(236,229,211,0.15)'; c.beginPath(); c.moveTo(t.x, t.y + t.h); c.lineTo(t.x + t.w, t.y); c.stroke();
+    c.beginPath(); for (i = 0; i <= 60; i++) { var xi = -60 + i, yo = this.transfer(xi), px = t.x + t.w * (xi + 60) / 60, py = t.y + t.h * (1 - (yo + 60) / 60); if (i) c.lineTo(px, py); else c.moveTo(px, py); } c.strokeStyle = hsl(hue, 85, 70, 0.95); c.lineWidth = 1.5 * k; c.stroke();
+    stage.text('in vs out', t.x + t.w / 2, t.y + t.h + 11 * k, { size: 9, align: 'center', color: 'rgba(236,229,211,0.5)' });
+    var red = n ? this.hist[n - 1][2] : 0; drawMeter(stage, { x: W * 0.8, y: H * 0.34, w: W * 0.07, h: H * 0.16 }, -30 - red, hue, 'GR ' + (-red).toFixed(1) + ' dB', -30, true);
+    var gm = this.game, msg = gm.on ? (gm.revealed ? gm.msg + '  Press Next.' : 'Listen. ' + gm.param.question) : (this.P.bypass ? 'bypassed: the raw signal' : 'threshold ' + this.P.thr.toFixed(0) + ' dBFS, ratio ' + this.P.ratio.toFixed(1) + ':1, attack ' + fmtMs(this.P.att) + ', release ' + fmtMs(this.P.rel));
+    stage.text(msg, W * 0.5, H * 0.76, { size: 12, align: 'center', serif: true, color: 'rgba(236,229,211,0.85)' });
+    if (gm.on) stage.text('score ' + gm.score + ' of ' + gm.tries, W * 0.5, H * 0.82, { size: 10, align: 'center', color: 'rgba(236,229,211,0.5)' });
+  },
+  readout: function () { var P = this.P, g = this.game; if (g.on) return (g.revealed ? g.msg : 'Round in progress: listen for the ' + g.param.key.replace('att', 'attack').replace('rel', 'release')) + '.' + g.status(); return 'Threshold <b>' + P.thr.toFixed(1) + ' dBFS</b>, ratio <b>' + P.ratio.toFixed(1) + ':1</b>, knee ' + P.knee + ' dB, attack ' + fmtMs(P.att) + ', release ' + fmtMs(P.rel) + ', makeup ' + fmtDb(P.makeup) + (P.bypass ? '. Bypassed' : ''); }
+});
+
+/* F10. Mic */
+var PATTERNS = { omni: [1, 0], cardioid: [0.5, 0.5], super: [0.366, 0.634], hyper: [0.25, 0.75], eight: [0, 1] };
+var PATTERN_NAMES = { omni: 'omnidirectional', cardioid: 'cardioid', super: 'supercardioid', hyper: 'hypercardioid', eight: 'figure of eight' };
+var MIC = new FoundStation({
+  id: 'mic', title: 'Mic',
+  thesis: 'A microphone hears differently in different directions, and directional ones hear more bass the closer you get. Pattern and distance are the two placement decisions behind every recording.',
+  notice: 'Drag the source around the microphone and hear it fade toward the sides and the back according to the pattern; a figure of eight hears the back as loudly as the front but with the polarity flipped. Then bring the source close: on any directional pattern the bass swells, the proximity effect, which is why singers work the distance to a cardioid and why omnis do not do this at all.',
+  more: 'Every first-order pattern is a mix of a pressure (omni) part and a pressure-gradient (figure of eight) part: response = a + b·cos θ, with a = 1, 0.5, 0.366, 0.25, 0 for omni, cardioid, supercardioid, hypercardioid and figure of eight. The gradient part measures the pressure difference across the capsule, which in the near field of a source is dominated by a term that grows as 1/(kd): the low-frequency boost is 10·log10(1 + (b/((a+b)·k·d))²) with k = 2πf/c, so it doubles per halving of distance and per halving of frequency. The exact curve is drawn; the audio uses a shelving filter fitted to it. Transducer types are a separate matter: dynamic (moving coil, robust, slower), condenser (capacitor, sensitive, detailed, needs power) and ribbon (a thin foil, natural figure of eight, fragile), and each can be built to any of these patterns.',
+  hue: function () { return 60; },
+  enter: function (app) {
+    var self = this, c = app.eng.ctx; this.setupAudio(app); this.P = this.P || { source: 'music', pattern: 'cardioid', angle: 0, dist: 0.3 };
+    this.g = c.createGain(); this.shelf = c.createBiquadFilter(); this.shelf.type = 'lowshelf'; this.src.out.connect(this.shelf); this.shelf.connect(this.g); this.g.connect(this.bus.out);
+    this.src.level = 0.45; this.src.freq = 110; this.src.set(this.P.source); this.apply();
+    this.controls = [
+      sourceSeg(this, [{ label: 'Music', value: 'music' }, { label: 'Pink noise', value: 'pink' }, { label: 'Tone 110 Hz', value: 'tone' }], function () { self.P.source = self.src.kind; }),
+      ctlSeg({ label: 'Polar pattern', options: Object.keys(PATTERNS).map(function (k2) { return { label: PATTERN_NAMES[k2], value: k2 }; }), get: function () { return self.P.pattern; }, set: function (v) { self.P.pattern = v; self.apply(); } }),
+      ctlRow([ctlSlider({ label: 'Source angle', min: 0, max: 360, step: 1, fmt: function (v) { return v + '°'; }, get: function () { return self.P.angle; }, set: function (v) { stopMotion(app); self.P.angle = v; self.apply(); } }), ctlSlider({ label: 'Distance', min: 0.02, max: 2, log: true, step: 0.005, fmt: fmtM, get: function () { return self.P.dist; }, set: function (v) { self.P.dist = v; self.apply(); } })])
+    ];
+  },
+  leave: function () { this.teardownAudio(); },
+  gainAt: function (deg) { var p = PATTERNS[this.P.pattern]; return p[0] + p[1] * Math.cos(deg * Math.PI / 180); },
+  boostDb: function (f) { var p = PATTERNS[this.P.pattern], b = p[1], a = p[0]; if (b === 0) return 0; var kd = TAU * f / C_AIR * this.P.dist; return 10 * Math.log10(1 + Math.pow(b / ((a + b) * kd), 2)); },
+  apply: function () {
+    var P = this.P, now = this.app.eng.now(), p = PATTERNS[P.pattern], g = this.gainAt(P.angle), b = p[1], a = p[0];
+    this.g.gain.setTargetAtTime(g * 0.9, now, 0.02);
+    if (b > 0) { var fc = C_AIR * b / (TAU * P.dist * (a + b)); this.shelf.frequency.setTargetAtTime(clamp(fc, 20, 4000), now, 0.02); this.shelf.gain.setTargetAtTime(Math.min(24, this.boostDb(40)), now, 0.02); } else this.shelf.gain.setTargetAtTime(0, now, 0.02);
+  },
+  pointer: function (type, u, v) { var W = this.app.stage.W, H = this.app.stage.H, cx = W * 0.3, cy = H * 0.34, R = W * 0.22, dx = u * W - cx, dy = v * H - cy, rr = Math.sqrt(dx * dx + dy * dy); if (rr > R * 1.4 && type === 'down') return; stopMotion(this.app); this.P.angle = Math.round(mod(Math.atan2(dx, -dy) * 180 / Math.PI, 360)); this.P.dist = clamp(0.02 * Math.pow(100, clamp(rr / R, 0, 1)), 0.02, 2); this.apply(); },
+  tick: function (dt) { if (this.motion) { this.P.angle = mod(this.P.angle + dt * 24, 360); this.apply(); } },
+  draw: function (stage) {
+    stage.clear(); var c = stage.ctx, W = stage.W, H = stage.H, k = stage.k, hue = this.hue(), P = this.P, cx = W * 0.3, cy = H * 0.34, R = W * 0.22, self = this;
+    c.strokeStyle = 'rgba(236,229,211,0.12)'; c.lineWidth = 1; [0.5, 1].forEach(function (q) { c.beginPath(); c.arc(cx, cy, R * q, 0, TAU); c.stroke(); }); c.beginPath(); c.moveTo(cx, cy - R); c.lineTo(cx, cy + R); c.moveTo(cx - R, cy); c.lineTo(cx + R, cy); c.stroke();
+    c.beginPath(); for (var i = 0; i <= 180; i++) { var th = i / 180 * TAU, gg = Math.abs(self.gainAt(th * 180 / Math.PI)), x = cx + Math.sin(th) * gg * R, y = cy - Math.cos(th) * gg * R; if (i) c.lineTo(x, y); else c.moveTo(x, y); } c.closePath(); c.fillStyle = hsl(hue, 80, 60, 0.18); c.fill(); c.strokeStyle = hsl(hue, 85, 68, 0.95); c.lineWidth = 1.6 * k; c.stroke();
+    var th0 = P.angle * Math.PI / 180, rr = R * clamp(Math.log(P.dist / 0.02) / Math.log(100), 0, 1), sx = cx + Math.sin(th0) * rr, sy = cy - Math.cos(th0) * rr;
+    c.fillStyle = 'rgba(236,229,211,0.9)'; c.fillRect(cx - 3, cy - 3, 6, 6); stage.text('mic', cx, cy + 16 * k, { size: 9, align: 'center', color: 'rgba(236,229,211,0.6)' }); stage.dot(sx, sy, 5, hue, 1); stage.text('source', sx + 8, sy - 6 * k, { size: 9.5, color: '#ece5d3' });
+    stage.text('front', cx, cy - R - 6 * k, { size: 9, align: 'center', color: 'rgba(236,229,211,0.5)' }); stage.text('back', cx, cy + R + 12 * k, { size: 9, align: 'center', color: 'rgba(236,229,211,0.5)' });
+    var g = this.gainAt(P.angle); stage.text(PATTERN_NAMES[P.pattern], cx, H * 0.66, { size: 12, align: 'center', serif: true, color: '#ece5d3' }); stage.text('at ' + Math.round(P.angle) + '°: ' + (Math.abs(g) < 0.001 ? 'silent' : fmtDb(20 * Math.log10(Math.abs(g))) + (g < 0 ? ', polarity inverted' : '')), cx, H * 0.66 + 16 * k, { size: 10.5, align: 'center', color: 'rgba(236,229,211,0.7)' });
+    var r = { x: W * 0.6, y: H * 0.06, w: W * 0.36, h: H * 0.5 }, fx = function (f) { return r.x + r.w * Math.log(f / 20) / Math.log(20000 / 20); }, fy = function (db) { return r.y + r.h * (1 - clamp((db + 6) / 30, 0, 1)); };
+    c.fillStyle = 'rgba(255,255,255,0.025)'; c.fillRect(r.x, r.y, r.w, r.h); [0, 6, 12, 18].forEach(function (d) { var y = fy(d); c.strokeStyle = 'rgba(236,229,211,0.12)'; c.beginPath(); c.moveTo(r.x, y); c.lineTo(r.x + r.w, y); c.stroke(); stage.text('+' + d, r.x - 3, y + 3, { size: 8.5, align: 'right', color: 'rgba(236,229,211,0.45)' }); });
+    c.beginPath(); for (i = 0; i <= 120; i++) { var f = 20 * Math.pow(1000, i / 120), y2 = fy(self.boostDb(f)), x2 = fx(f); if (i) c.lineTo(x2, y2); else c.moveTo(x2, y2); } c.strokeStyle = hsl(hue, 85, 70, 0.95); c.lineWidth = 1.5 * k; c.stroke();
+    [50, 200, 1000, 5000].forEach(function (q) { stage.text(q >= 1000 ? (q / 1000) + 'k' : String(q), fx(q), r.y + r.h + 11 * k, { size: 8.5, align: 'center', color: 'rgba(236,229,211,0.4)' }); });
+    stage.text('proximity at ' + (P.dist < 1 ? (P.dist * 100).toFixed(0) + ' cm' : P.dist.toFixed(2) + ' m'), r.x, r.y - 5 * k, { size: 9, color: 'rgba(236,229,211,0.55)' });
+    drawSpectrum(stage, this.app.eng, { x: W * 0.05, y: H * 0.74, w: W * 0.9, h: H * 0.22 }, hue, null);
+  },
+  readout: function () { var P = this.P, g = this.gainAt(P.angle), b100 = this.boostDb(100); return '<b>' + PATTERN_NAMES[P.pattern] + '</b>, source at ' + Math.round(P.angle) + '° and ' + fmtM(P.dist) + ': ' + (Math.abs(g) < 0.001 ? 'in the null, silent' : fmtDb(20 * Math.log10(Math.abs(g))) + (g < 0 ? ' with inverted polarity' : '')) + (b100 > 0.5 ? '. Proximity boost <b>' + fmtDb(b100) + '</b> at 100 Hz' : (PATTERNS[P.pattern][1] ? '. No proximity boost at this distance' : '. Omnis have no proximity effect')); }
+});
+
+/* F11. Space */
+var SPACE = new FoundStation({
+  id: 'space', title: 'Space',
+  thesis: 'Reverb, echo and width are the three tools that put a sound somewhere. Each can be recognised by ear once you have heard it in isolation.',
+  notice: 'Add reverb and lengthen the decay; add pre-delay and hear the voice step in front of the room. Add an echo and set its time to the beat. Widen the stereo and watch the figure at the right open from a line into a cloud while the correlation meter falls. Then play the game: is the decay short or long, is there pre-delay or none.',
+  more: 'The reverberation is synthetic: a stereo impulse response with sparse early reflections in the first tens of milliseconds and a dense tail whose level falls 60 dB in the RT60 you set, run through a convolver; the two channels are decorrelated so the tail has width. Pre-delay is a plain delay before the reverb, the cue the ear uses for the distance between the source and the walls. The echo is a feedback delay. Width works on the mid and side signals of the wet return: side gain up widens, down narrows to mono. The figure at the right is a goniometer, left against right, the same construction as the Lissajous figure in the Ratio journey, and the correlation coefficient beneath it is +1 for mono, 0 for unrelated channels and negative when the channels fight.',
+  hue: function () { return 230; },
+  enter: function (app) {
+    var self = this, c = app.eng.ctx; this.setupAudio(app); this.P = this.P || { source: 'music', decay: 1.2, pre: 0.02, revMix: 0.35, echo: 0.375, fb: 0.3, echoMix: 0, width: 1 };
+    this.pre = c.createDelay(0.5); this.conv = c.createConvolver(); this.conv.normalize = false; this.split = c.createChannelSplitter(2); this.merge = c.createChannelMerger(2);
+    this.mid = c.createGain(); this.side = c.createGain(); this.lm = c.createGain(); this.rm = c.createGain(); this.ls = c.createGain(); this.rs = c.createGain(); this.wet = c.createGain();
+    this.src.out.connect(this.pre); this.pre.connect(this.conv); this.conv.connect(this.split);
+    /* mid = (L+R)/2, side = (L-R)/2 scaled by width, then L = mid + side, R = mid - side */
+    this.split.connect(this.lm, 0); this.split.connect(this.rm, 1); this.lm.gain.value = 0.5; this.rm.gain.value = 0.5; this.lm.connect(this.mid); this.rm.connect(this.mid);
+    this.split.connect(this.ls, 0); this.split.connect(this.rs, 1); this.ls.gain.value = 0.5; this.rs.gain.value = -0.5; this.ls.connect(this.side); this.rs.connect(this.side);
+    this.sideNeg = c.createGain(); this.sideNeg.gain.value = -1; this.side.connect(this.sideNeg);
+    this.mid.connect(this.merge, 0, 0); this.side.connect(this.merge, 0, 0); this.mid.connect(this.merge, 0, 1); this.sideNeg.connect(this.merge, 0, 1); this.merge.connect(this.wet);
+    this.ech = c.createDelay(2); this.echG = c.createGain(); this.echMix = c.createGain(); this.src.out.connect(this.ech); this.ech.connect(this.echG); this.echG.connect(this.ech); this.ech.connect(this.echMix);
+    this.dry = c.createGain(); this.src.out.connect(this.dry); this.out = c.createGain(); this.dry.connect(this.out); this.wet.connect(this.out); this.echMix.connect(this.out); this.out.connect(this.bus.out);
+    this.spl = c.createChannelSplitter(2); this.out.connect(this.spl); this.anL = c.createAnalyser(); this.anR = c.createAnalyser(); this.anL.fftSize = 1024; this.anR.fftSize = 1024; this.spl.connect(this.anL, 0); this.spl.connect(this.anR, 1); this.bL = new Float32Array(1024); this.bR = new Float32Array(1024);
+    this.src.level = 0.45; this.src.set(this.P.source === 'file' && !USER.buffer ? 'music' : this.P.source); this.irKey = ''; this.apply(); this.corr = 1;
+    this.game = new Rounds(this, [
+      { key: 'decay', question: 'Decay: which was it?', labels: ['short, 0.4 s', 'long, 2.5 s'], values: [0.4, 2.5] },
+      { key: 'pre', question: 'Pre-delay: which was it?', labels: ['none', 'long, 90 ms'], values: [0, 0.09] }
+    ], function (param, a) { if (!param) { self.gameSet = null; self.apply(); return; } var g = { decay: 1.0, pre: 0.01, revMix: 0.45, echoMix: 0, width: 1 }; g[param.key] = param.values[a]; self.gameSet = g; self.apply(); });
+    var gameCtls = this.game.controls();
+    this.controls = [
+      sourceSeg(this, [{ label: 'Music', value: 'music' }, { label: 'Your file', value: 'file' }], function () { self.P.source = self.src.kind; }),
+      ctlRow([ctlSlider({ label: 'Reverb decay, RT60', min: 0.2, max: 6, log: true, step: 0.01, fmt: function (v) { return v.toFixed(2) + ' s'; }, get: function () { return self.P.decay; }, set: function (v) { self.P.decay = v; self.apply(); } }), ctlSlider({ label: 'Pre-delay', min: 0, max: 0.15, step: 0.001, fmt: function (v) { return Math.round(v * 1000) + ' ms'; }, get: function () { return self.P.pre; }, set: function (v) { self.P.pre = v; self.apply(); } }), ctlSlider({ label: 'Reverb mix', min: 0, max: 1, step: 0.01, fmt: fmtPct, get: function () { return self.P.revMix; }, set: function (v) { self.P.revMix = v; self.apply(); } })]),
+      ctlRow([ctlSlider({ label: 'Echo time', min: 0.05, max: 1.2, log: true, step: 0.001, fmt: function (v) { return Math.round(v * 1000) + ' ms'; }, get: function () { return self.P.echo; }, set: function (v) { self.P.echo = v; self.apply(); } }), ctlSlider({ label: 'Echo feedback', min: 0, max: 0.85, step: 0.01, fmt: fmtPct, get: function () { return self.P.fb; }, set: function (v) { self.P.fb = v; self.apply(); } }), ctlSlider({ label: 'Echo mix', min: 0, max: 1, step: 0.01, fmt: fmtPct, get: function () { return self.P.echoMix; }, set: function (v) { self.P.echoMix = v; self.apply(); } })]),
+      ctlSlider({ label: 'Stereo width of the reverb', min: 0, max: 2, step: 0.01, fmt: function (v) { return v === 0 ? 'mono' : Math.round(v * 100) + '%'; }, get: function () { return self.P.width; }, set: function (v) { self.P.width = v; self.apply(); } }),
+      ctlFile(app.eng, function () { self.src.set('file'); self.P.source = 'file'; })
+    ].concat(gameCtls);
+  },
+  leave: function () { this.teardownAudio(); },
+  buildIR: function (decay) {
+    var c = this.app.eng.ctx, sr = c.sampleRate, len = Math.floor(sr * Math.min(7, decay * 1.05 + 0.1)), ir = c.createBuffer(2, len, sr), tau = decay / 6.91, k;
+    for (var ch = 0; ch < 2; ch++) {
+      var d = ir.getChannelData(ch), seed = ch ? 0.37 : 0.61;
+      for (k = 0; k < 7; k++) { var t = 0.008 + 0.06 * mod(seed * (k + 1) * 1.618, 1), idx = Math.floor(t * sr); if (idx < len) d[idx] += (0.35 - 0.04 * k) * (mod(seed * k * 2.3, 1) > 0.5 ? 1 : -1); }
+      for (var i = Math.floor(0.02 * sr); i < len; i++) { var tt = i / sr; d[i] += (Math.random() * 2 - 1) * Math.exp(-tt / tau) * 0.22 * Math.min(1, (tt - 0.02) / 0.03 + 0.3); }
+    }
+    this.conv.buffer = ir;
+  },
+  apply: function () {
+    var P = this.P, g = this.gameSet || P, now = this.app.eng.now(), key = g.decay.toFixed(2);
+    if (key !== this.irKey) { this.irKey = key; this.buildIR(g.decay); }
+    this.pre.delayTime.setTargetAtTime(g.pre, now, 0.02); this.wet.gain.setTargetAtTime(g.revMix * 1.4, now, 0.03); this.dry.gain.setTargetAtTime(1 - 0.3 * g.revMix, now, 0.03);
+    var w = g.width == null ? P.width : g.width; this.ls.gain.setTargetAtTime(0.5 * w, now, 0.02); this.rs.gain.setTargetAtTime(-0.5 * w, now, 0.02);
+    var em = g.echoMix == null ? P.echoMix : g.echoMix; this.ech.delayTime.setTargetAtTime(P.echo, now, 0.02); this.echG.gain.setTargetAtTime(em > 0 ? P.fb : 0, now, 0.02); this.echMix.gain.setTargetAtTime(em, now, 0.03);
+  },
+  tick: function () { this.anL.getFloatTimeDomainData(this.bL); this.anR.getFloatTimeDomainData(this.bR); var sl = 0, sr2 = 0, slr = 0; for (var i = 0; i < 1024; i++) { sl += this.bL[i] * this.bL[i]; sr2 += this.bR[i] * this.bR[i]; slr += this.bL[i] * this.bR[i]; } this.corr = sl > 1e-9 && sr2 > 1e-9 ? slr / Math.sqrt(sl * sr2) : 1; },
+  draw: function (stage) {
+    stage.clear(); var c = stage.ctx, W = stage.W, H = stage.H, k = stage.k, hue = this.hue(), P = this.gameSet || this.P, self = this;
+    var r = { x: W * 0.13, y: H * 0.05, w: W * 0.47, h: H * 0.42 }; c.fillStyle = 'rgba(255,255,255,0.025)'; c.fillRect(r.x, r.y, r.w, r.h);
+    var tmax = Math.max(0.6, P.decay * 1.1), fx = function (t) { return r.x + r.w * t / tmax; }, fy = function (db) { return r.y + r.h * (1 - clamp((db + 60) / 60, 0, 1)); };
+    c.strokeStyle = 'rgba(236,229,211,0.12)'; c.lineWidth = 1; [0, -20, -40].forEach(function (d) { var y = fy(d); c.beginPath(); c.moveTo(r.x, y); c.lineTo(r.x + r.w, y); c.stroke(); stage.text(d + ' dB', r.x - 3, y + 3, { size: 8.5, align: 'right', color: 'rgba(236,229,211,0.45)' }); });
+    c.fillStyle = hsl(hue, 80, 65, 0.9); c.fillRect(fx(0) - 1, fy(0), 2 * k, r.y + r.h - fy(0));
+    c.beginPath(); c.moveTo(fx(P.pre + 0.01), fy(-6)); c.lineTo(fx(P.pre + 0.01 + P.decay), fy(-66)); c.strokeStyle = hsl(hue, 85, 70, 0.95); c.lineWidth = 1.6 * k; c.stroke();
+    if (P.pre > 0.002) { c.strokeStyle = 'rgba(124,242,227,0.8)'; c.setLineDash([3, 3]); c.beginPath(); c.moveTo(fx(P.pre), r.y); c.lineTo(fx(P.pre), r.y + r.h); c.stroke(); c.setLineDash([]); stage.text('pre-delay ' + Math.round(P.pre * 1000) + ' ms', fx(P.pre) + 3, r.y + 11 * k, { size: 9, color: 'rgba(124,242,227,0.9)' }); }
+    stage.text('tail falls 60 dB in ' + P.decay.toFixed(2) + ' s', r.x + 4, r.y + r.h + 11 * k, { size: 9, color: 'rgba(236,229,211,0.5)' });
+    [0, tmax / 2, tmax].forEach(function (t) { stage.text(t.toFixed(1) + ' s', fx(t), r.y + r.h + 22 * k, { size: 8.5, align: t === 0 ? 'left' : (t === tmax ? 'right' : 'center'), color: 'rgba(236,229,211,0.4)' }); });
+    var gx = W * 0.79, gy = H * 0.26, R = W * 0.16; c.strokeStyle = 'rgba(236,229,211,0.15)'; c.beginPath(); c.arc(gx, gy, R, 0, TAU); c.stroke(); c.beginPath(); c.moveTo(gx - R, gy + R); c.lineTo(gx + R, gy - R); c.moveTo(gx + R, gy + R); c.lineTo(gx - R, gy - R); c.stroke();
+    c.fillStyle = hsl(hue, 85, 72, 0.55); var mx = 1e-6; for (var i = 0; i < 1024; i++) mx = Math.max(mx, Math.abs(this.bL[i]), Math.abs(this.bR[i])); var sc = R * 0.95 / mx;
+    for (i = 0; i < 1024; i += 2) { var l = this.bL[i] * sc, rr = this.bR[i] * sc, x = gx + (rr - l) * 0.7071, y = gy - (l + rr) * 0.7071; c.fillRect(x, y, 1.2 * k, 1.2 * k); }
+    stage.text('left vs right', gx, gy + R + 12 * k, { size: 9, align: 'center', color: 'rgba(236,229,211,0.5)' }); stage.text('correlation ' + (this.corr >= 0 ? '+' : '') + this.corr.toFixed(2), gx, gy + R + 24 * k, { size: 10.5, align: 'center', color: '#ece5d3' });
+    var gm = this.game, msg = gm.on ? (gm.revealed ? gm.msg + '  Press Next.' : 'Listen. ' + gm.param.question) : 'reverb ' + fmtPct(this.P.revMix) + ', decay ' + this.P.decay.toFixed(2) + ' s, pre-delay ' + Math.round(this.P.pre * 1000) + ' ms' + (this.P.echoMix ? ', echo ' + Math.round(this.P.echo * 1000) + ' ms' : '') + ', width ' + Math.round(this.P.width * 100) + '%';
+    stage.text(msg, W * 0.5, H * 0.7, { size: 12, align: 'center', serif: true, color: 'rgba(236,229,211,0.85)' });
+    if (gm.on) stage.text('score ' + gm.score + ' of ' + gm.tries, W * 0.5, H * 0.76, { size: 10, align: 'center', color: 'rgba(236,229,211,0.5)' });
+    drawSpectrum(stage, this.app.eng, { x: W * 0.05, y: H * 0.8, w: W * 0.9, h: H * 0.17 }, hue, null); void self;
+  },
+  readout: function () { var P = this.P, g = this.game; if (g.on) return (g.revealed ? g.msg : 'Round in progress: listen to the room') + '.' + g.status(); return 'Reverb <b>' + P.decay.toFixed(2) + ' s</b> decay, pre-delay ' + Math.round(P.pre * 1000) + ' ms, mix ' + fmtPct(P.revMix) + (P.echoMix ? '. Echo ' + Math.round(P.echo * 1000) + ' ms, feedback ' + fmtPct(P.fb) : '') + '. Width ' + Math.round(P.width * 100) + '%, correlation <b>' + (this.corr >= 0 ? '+' : '') + this.corr.toFixed(2) + '</b>'; }
+});
+
+/* F12. Meters */
+/* ITU-R BS.1770 K-weighting designed for the running sample rate (De Man's closed form, which reproduces the
+   published 48 kHz coefficients exactly): a high shelf near 1.7 kHz and a high-pass near 38 Hz. */
+function kWeightCoeffs(sr) {
+  var f1 = 1681.974450955533, G = 3.999843853973347, Q1 = 0.7071752369554196, K = Math.tan(Math.PI * f1 / sr), Vh = Math.pow(10, G / 20), Vb = Math.pow(Vh, 0.4996667741545416), a0 = 1 + K / Q1 + K * K;
+  var s1 = { b: [(Vh + Vb * K / Q1 + K * K) / a0, 2 * (K * K - Vh) / a0, (Vh - Vb * K / Q1 + K * K) / a0], a: [1, 2 * (K * K - 1) / a0, (1 - K / Q1 + K * K) / a0] };
+  var f2 = 38.13547087602444, Q2 = 0.5003270373238773, K2 = Math.tan(Math.PI * f2 / sr), d0 = 1 + K2 / Q2 + K2 * K2;
+  var s2 = { b: [1, -2, 1], a: [1, 2 * (K2 * K2 - 1) / d0, (1 - K2 / Q2 + K2 * K2) / d0] };
+  return [s1, s2];
+}
+var METERS = new FoundStation({
+  id: 'meters', title: 'Meters',
+  thesis: 'Peak tells you whether the file will clip. Loudness tells you how it will sound next to everything else. They are different questions, and streaming platforms answer the second one for you.',
+  notice: 'Play the music and watch four meters disagree: sample peak, true peak, RMS and loudness in LUFS. Switch on Squash: the peaks stay where they were while the loudness jumps, which is the whole story of the loudness war in one gesture. The integrated loudness at the right averages the programme, the way Spotify and Apple measure it before turning it down to their target.',
+  more: 'Sample peak is the largest sample; true peak estimates the waveform between samples, since a converter\'s reconstruction can overshoot by up to 3 dB above the samples. RMS is the average power over a short window. LUFS follows ITU-R BS.1770: the signal is K-weighted (a high shelf around 1.7 kHz and a high-pass near 38 Hz, designed here exactly for the running sample rate), its mean square is taken over 400 ms for momentary and 3 s for short-term loudness, and integrated loudness is the gated average of the momentary blocks, ignoring silence and anything more than 10 dB below the running average. A full-scale 1 kHz sine reads −3.01 LUFS. Streaming targets are about −14 LUFS integrated with a −1 dBTP ceiling; a master louder than that is simply turned down on playback, so the squash bought nothing. Your own file or microphone can be metered here.',
+  hue: function () { return 180; },
+  enter: function (app) {
+    var self = this, c = app.eng.ctx; this.setupAudio(app); this.P = this.P || { source: 'music', squash: 0 };
+    this.sq = c.createDynamicsCompressor(); this.sq.threshold.value = -30; this.sq.ratio.value = 12; this.sq.attack.value = 0.002; this.sq.release.value = 0.1; this.sq.knee.value = 2; this.sqG = c.createGain(); this.sqG.gain.value = fromDb(14); this.dryG = c.createGain();
+    this.out = c.createGain(); this.src.out.connect(this.sq); this.sq.connect(this.sqG); this.sqG.connect(this.out); this.src.out.connect(this.dryG); this.dryG.connect(this.out); this.out.connect(this.bus.out);
+    this.an = c.createAnalyser(); this.an.fftSize = 2048; this.out.connect(this.an); this.buf = new Float32Array(2048);
+    var co = kWeightCoeffs(c.sampleRate); this.kw = null;
+    try { var f1 = c.createIIRFilter(co[0].b, co[0].a), f2 = c.createIIRFilter(co[1].b, co[1].a); this.out.connect(f1); f1.connect(f2); this.kw = f2; this.kExact = true; } catch (e) { var s1 = c.createBiquadFilter(); s1.type = 'highshelf'; s1.frequency.value = 1681.97; s1.gain.value = 4; var s2 = c.createBiquadFilter(); s2.type = 'highpass'; s2.frequency.value = 38.14; s2.Q.value = 0.5; this.out.connect(s1); s1.connect(s2); this.kw = s2; this.kExact = false; }
+    this.kAn = c.createAnalyser(); this.kAn.fftSize = 2048; this.kw.connect(this.kAn); this.kbuf = new Float32Array(2048);
+    this.ms = []; this.blocks = []; this.peak = -100; this.tpeak = -100; this.rms = -100; this.mom = -100; this.short = -100; this.integ = null; this.hist = [];
+    this.src.level = 0.5; this.src.set(this.P.source === 'file' && !USER.buffer ? 'music' : (this.P.source === 'mic' ? 'music' : this.P.source)); this.apply();
+    var micBtn = { el: (function () { var b = el('button', 'pressbtn', 'Use my microphone'); b.type = 'button'; b.addEventListener('click', function () { requestMic(function (ok) { if (ok) { self.src.set('mic'); self.P.source = 'mic'; self.hint = 'Microphone live: use headphones.'; self.reset(); } else self.hint = USER.micError; }); }); return b; })(), refresh: function () {} };
+    this.controls = [
+      ctlRow([sourceSeg(this, [{ label: 'Music', value: 'music' }, { label: 'Your file', value: 'file' }, { label: 'Sine 1 kHz', value: 'tone' }], function () { self.P.source = self.src.kind; self.hint = ''; self.reset(); }), micBtn]),
+      ctlRow([ctlSeg({ label: 'Dynamics', options: [{ label: 'Natural', value: 0 }, { label: 'Squash', value: 1 }], get: function () { return self.P.squash; }, set: function (v) { self.P.squash = v; self.apply(); self.reset(); } }), { el: (function () { var b = el('button', 'pressbtn', 'Reset integrated'); b.type = 'button'; b.addEventListener('click', function () { self.reset(); }); return b; })(), refresh: function () {} }]),
+      ctlFile(app.eng, function () { self.src.set('file'); self.P.source = 'file'; self.reset(); })
+    ];
+    this.src.freq = 1000;
+  },
+  leave: function () { this.teardownAudio(); },
+  reset: function () { this.blocks = []; this.ms = []; this.integ = null; this.hist = []; },
+  apply: function () { var now = this.app.eng.now(); this.sqG.gain.setTargetAtTime(this.P.squash ? fromDb(14) : 0, now, 0.03); this.dryG.gain.setTargetAtTime(this.P.squash ? 0 : 1, now, 0.03); },
+  tick: function (dt) {
+    var b = this.buf, kb = this.kbuf, n = b.length, i; this.an.getFloatTimeDomainData(b); this.kAn.getFloatTimeDomainData(kb);
+    var pk = 0, sq = 0, tp = 0; for (i = 0; i < n; i++) { var v = Math.abs(b[i]); if (v > pk) pk = v; sq += b[i] * b[i]; }
+    for (i = 1; i < n - 2; i++) { var y0 = b[i - 1], y1 = b[i], y2 = b[i + 1], y3 = b[i + 2]; for (var q = 1; q < 4; q++) { var t = q / 4, a0 = y1, a1 = 0.5 * (y2 - y0), a2 = y0 - 2.5 * y1 + 2 * y2 - 0.5 * y3, a3 = 0.5 * (y3 - y0) + 1.5 * (y1 - y2), yv = Math.abs(((a3 * t + a2) * t + a1) * t + a0); if (yv > tp) tp = yv; } }
+    var kms = 0; for (i = 0; i < n; i++) kms += kb[i] * kb[i]; kms /= n;
+    this.peak = Math.max(dbfs(pk), this.peak - 12 * dt); this.tpeak = Math.max(dbfs(Math.max(pk, tp)), this.tpeak - 12 * dt); this.rms = dbfs(Math.sqrt(sq / n));
+    this.ms.push(kms); var per400 = Math.max(1, Math.round(0.4 / (n / this.app.eng.sr))), per3 = Math.max(1, Math.round(3 / (n / this.app.eng.sr))); if (this.ms.length > per3) this.ms.shift();
+    var m400 = 0, c400 = Math.min(per400, this.ms.length); for (i = this.ms.length - c400; i < this.ms.length; i++) m400 += this.ms[i]; m400 /= c400; var m3 = 0; for (i = 0; i < this.ms.length; i++) m3 += this.ms[i]; m3 /= this.ms.length;
+    this.mom = -0.691 + 10 * Math.log10(Math.max(1e-12, m400)); this.short = -0.691 + 10 * Math.log10(Math.max(1e-12, m3));
+    this.acc = (this.acc || 0) + dt; if (this.acc >= 0.1 && this.ms.length >= c400) { this.acc = 0; if (this.mom > -70) this.blocks.push(m400); if (this.blocks.length) { var mean = 0; for (i = 0; i < this.blocks.length; i++) mean += this.blocks[i]; mean /= this.blocks.length; var gate = mean * Math.pow(10, -1), sum = 0, cnt = 0; for (i = 0; i < this.blocks.length; i++) if (this.blocks[i] >= gate) { sum += this.blocks[i]; cnt++; } this.integ = cnt ? -0.691 + 10 * Math.log10(sum / cnt) : null; } this.hist.push([this.mom, this.tpeak]); if (this.hist.length > 120) this.hist.shift(); }
+  },
+  draw: function (stage) {
+    stage.clear(); var c = stage.ctx, W = stage.W, H = stage.H, k = stage.k, hue = this.hue(), self = this;
+    var vals = [[this.peak, 'peak dBFS', 'dBFS'], [this.tpeak, 'true pk dBTP', 'dBTP'], [this.rms, 'RMS dBFS', 'dBFS'], [this.mom, 'LUFS M', 'LUFS']], xs = [0.09, 0.24, 0.39, 0.54];
+    vals.forEach(function (v, i) { drawMeter(stage, { x: W * xs[i], y: H * 0.08, w: W * 0.065, h: H * 0.36 }, v[0], hue, v[1], -60, i > 0); stage.text(v[0] > -99 ? v[0].toFixed(1) : '', W * xs[i] + W * 0.0325, H * 0.08 - 6 * k, { size: 9.5, align: 'center', color: '#ece5d3' }); });
+    var rx = W * 0.95, ry = H * 0.14;
+    stage.text('short-term', rx, ry, { size: 9, align: 'right', color: 'rgba(236,229,211,0.55)' }); stage.text(this.short > -99 ? this.short.toFixed(1) + ' LUFS' : '', rx, ry + 12 * k, { size: 10.5, align: 'right', color: '#ece5d3' });
+    stage.text('integrated', rx, ry + 30 * k, { size: 9, align: 'right', color: 'rgba(236,229,211,0.55)' }); stage.text(this.integ == null ? 'measuring' : this.integ.toFixed(1) + ' LUFS', rx, ry + 42 * k, { size: 10.5, align: 'right', color: '#ece5d3' });
+    stage.text('crest ' + (this.tpeak - this.rms).toFixed(1) + ' dB', rx, ry + 62 * k, { size: 9.5, align: 'right', color: 'rgba(236,229,211,0.75)' });
+    stage.text('target -14 LUFS', rx, ry + 76 * k, { size: 9, align: 'right', color: 'rgba(236,229,211,0.5)' }); stage.text('ceiling -1 dBTP', rx, ry + 88 * k, { size: 9, align: 'right', color: 'rgba(236,229,211,0.5)' });
+    var r = { x: W * 0.05, y: H * 0.58, w: W * 0.9, h: H * 0.3 }, n = this.hist.length; c.fillStyle = 'rgba(255,255,255,0.025)'; c.fillRect(r.x, r.y, r.w, r.h);
+    var fy = function (db) { return r.y + r.h * (1 - clamp((db + 48) / 48, 0, 1)); }; [0, -14, -24, -36].forEach(function (d) { var y = fy(d); c.strokeStyle = d === -14 ? 'rgba(124,242,227,0.5)' : 'rgba(236,229,211,0.12)'; c.lineWidth = 1; c.beginPath(); c.moveTo(r.x, y); c.lineTo(r.x + r.w, y); c.stroke(); stage.text(d + '', r.x - 3, y + 3, { size: 8.5, align: 'right', color: 'rgba(236,229,211,0.45)' }); });
+    if (n > 1) { [1, 0].forEach(function (idx) { c.beginPath(); for (var i = 0; i < n; i++) { var x = r.x + r.w * i / 119, y = fy(self.hist[i][idx]); if (i) c.lineTo(x, y); else c.moveTo(x, y); } c.strokeStyle = idx ? 'rgba(236,229,211,0.5)' : hsl(hue, 85, 70, 0.95); c.lineWidth = idx ? 1 : 1.5 * k; c.stroke(); }); }
+    stage.text('loudness (colour), true peak (grey), last 12 s; teal: -14 LUFS', r.x + 4, r.y + r.h + 11 * k, { size: 9, color: 'rgba(236,229,211,0.5)' });
+    if (this.hint) stage.text(this.hint, W * 0.5, H * 0.53, { size: 10, align: 'center', color: 'rgba(255,200,120,0.9)' });
+    if (!this.kExact) stage.text('approximate K-weighting in this browser', W * 0.5, H * 0.96, { size: 9, align: 'center', color: 'rgba(236,229,211,0.45)' });
+  },
+  readout: function () { return 'Sample peak <b>' + this.peak.toFixed(1) + ' dBFS</b>, true peak ' + this.tpeak.toFixed(1) + ' dBTP, RMS ' + this.rms.toFixed(1) + ' dBFS, momentary <b>' + this.mom.toFixed(1) + ' LUFS</b>, short-term ' + this.short.toFixed(1) + ', integrated ' + (this.integ == null ? 'measuring' : this.integ.toFixed(1) + ' LUFS') + (this.P.squash ? '. Squashed: peaks held, loudness up' : ''); }
+});
+
 /* ---------- Plain-language explanations, one per station ---------- */
 var PLAIN = {
   ratio: 'Two tones are playing. The picture plots one against the other: the lower tone moves the pen left and right, the upper tone moves it up and down. When the two frequencies are in a simple whole-number relationship, such as 3 to 2 for a perfect fifth, the pen retraces the same path and you see a closed shape. The phase slider shifts the timing of one tone against the other. That does not change the interval you hear, but it changes which member of the shape family you see, and twice per cycle the shape collapses to a line. Switch to equal temperament and the fifth is no longer exactly 3 to 2, so the shape never closes: it slowly cycles through all its forms, at the same rate the interval\'s overtones beat. Tone: Harmonics adds overtones to both notes, and the shape becomes the plot of those richer waveforms.',
@@ -2668,11 +3541,24 @@ var PLAIN = {
   additive: 'Instead of starting rich and filtering down, additive synthesis builds a sound from sine waves, one per partial. Drag across the panel to set the level of each of the twelve partials, like organ drawbars. Two things make it come alive. First, let the higher partials die away faster than the low ones, and the tone loses brightness as it rings, the way real struck and plucked sounds do. Second, stretch the partials so they are no longer exact multiples of the fundamental, and the same levels turn from a pipe organ into a bell. The teal ticks show where each partial should sit. Twelve partials already need twelve envelopes, which is why additive synths are powerful but tedious to program.',
   grains: 'Take a recorded sound, cut it into slices a few dozen milliseconds long, and play the slices one after another, each with a soft fade in and out so it does not click. Now you can do things ordinary playback cannot. Move the playback point slowly and the sound lasts longer without dropping in pitch; stop it, and one moment freezes. Play the slices at a different speed and the pitch changes without the timing changing. Scatter where the slices are taken from and the sound turns into a cloud. The panel shows the source sound with the marker, the spray range and the grains flying out. The three sources were synthesised inside the app, so there is nothing to upload.',
   models: 'Instead of describing the sound, describe the thing that makes it. A plucked string is a wave running back and forth along the string, losing a little energy and a little brightness on every trip. The app does exactly that in a loop, and the white curve is the string\'s shape read out of that loop. Brightness is how much high frequency survives each trip, decay is how fast the energy goes, and pick position adds the comb-shaped hole in the spectrum you get from plucking near the bridge or near the middle. Bars and drum heads are built from their vibration modes: a uniform bar rings at 1 : 2.76 : 5.40, a marimba bar is carved underneath so it rings at 1 : 4 : 10 and sounds like wood, and a drum head has inharmonic modes and a pitch that dips after the stroke. A little noise at the moment of the strike gives each one its attack.',
+  wave: 'Sound is air pressure swinging back and forth. The wave you see is that swing drawn against time: left to right is time in milliseconds, up and down is pressure. Frequency is how many swings happen each second, measured in hertz; more of them, and the note is higher. The period is the time one swing takes. Amplitude is how far the pressure swings; the bigger the swing, the louder the sound. Engineers state amplitude as a level in decibels, and the scale used here is dBFS, decibels below the loudest a digital file can hold. Wavelength is how far the sound travels in the air during one swing: bass notes are metres long, treble notes centimetres long, which is why bass is hard to absorb and why moving a microphone a few centimetres changes the sound of a voice. Move away from a source and its amplitude halves every time you double the distance, a drop of 6 dB.',
+  phase: 'Play the same sound twice at once. If the two copies line up exactly, every peak meets a peak and the result is twice as big, which is 6 dB louder. Flip one copy upside down and every peak meets a trough: they cancel and you hear nothing. Slide one copy a little later in time and something in between happens, and it depends on frequency. A one millisecond delay is half a cycle for a 500 Hz tone, so 500 Hz cancels, and so does 1500 Hz, and 2500 Hz, all the way up. On music or noise those cancelled frequencies become notches in the spectrum, evenly spaced like the teeth of a comb. This is exactly what happens when two microphones hear the same singer from slightly different distances, or when a reflection off the desk arrives just after the direct sound.',
+  colour: 'Play a sine and you hear one pure pitch. Play a saw at the same pitch and it sounds brighter and buzzier, even though the note is the same. The difference is overtones: the saw is really that sine plus a stack of quieter sines at two, three, four times the frequency and so on. Which overtones are present and how loud they are is what we hear as the colour of a sound, its timbre. The square has only the odd-numbered overtones and sounds hollow. The triangle has the odd ones too but much quieter, so it sounds soft. Noise has no repeating pattern at all, so no overtones, only a wash across every frequency. The levels are matched by average power so that only the colour changes, not the loudness.',
+  ear: 'Your ears are sharpest between about 2 and 5 kHz, where speech lives, and much less sensitive at the very bottom and very top of the range. A tone at the same level sounds quieter at 50 Hz than at 1 kHz; the curve shows by how much. When a loud sound and a quieter one are close in frequency, the loud one hides the quiet one completely: that is masking, and it is why a busy mix loses parts you know are there. When the same sound reaches you twice within about thirty milliseconds, you hear one sound, coming from wherever the first copy came from; beyond that gap you hear an echo. And loud listening adds up: 85 dB for eight hours is the accepted daily limit, and every 3 dB louder halves the time. Turn it down, take breaks, and never trust a phone to tell you the level.',
+  bands: 'Professionals divide the range of hearing into a handful of regions and learn what each one sounds like: sub-bass you feel more than hear, bass where the fundamentals of most instruments live, low mids that give warmth or mud, mids where voices and intelligibility sit, upper mids that add clarity or harshness, presence for definition and sibilance, brilliance for air. Explore each region on filtered noise until it is familiar. Then play the game: the app boosts or cuts one region of the music and you say which. It starts with big, obvious changes and makes them smaller as you get better, and shows you the answer on the spectrum every time. Ten minutes a day of this is how ears get trained.',
+  digital: 'To store sound in a computer, a converter measures the wave many thousand times a second, and each measurement becomes a number. How often it measures is the sample rate; the finest detail it can capture is anything below half that rate. Push a tone above that limit and it comes back as a different, wrong frequency, which is called aliasing, and it is why converters put a filter in front of the sampler. How precisely each measurement is written is the bit depth: 16 bits gives 65,536 possible values, 24 bits gives millions. Too few bits and the wave becomes a staircase and quiet passages turn gritty; a tiny amount of noise added before rounding, called dither, turns that grit into a smooth, steady hiss that is far less noticeable. Both are things you can hear here.',
+  level: 'Between a microphone and a finished file the signal passes through several volume controls in a row: a preamp, a line stage, a converter. Each one adds a little hiss of its own, and each has a ceiling. If you keep the early stages low and turn up the end, the hiss from every stage gets turned up too, and the recording is noisy. If you turn any stage up past the ceiling, the tops of the waves get flattened, which you hear as a hard, buzzy distortion; in digital audio that ceiling is 0 dBFS and it is absolute. The skill is to set each stage loud enough to leave the noise behind and quiet enough to leave room for peaks, which engineers call headroom. Signals also come in standard sizes, mic level, instrument level, line level, speaker level, and plugging one kind into the input meant for another is the most common beginner mistake.',
+  room: 'Every room has notes it likes. Sound bouncing between two parallel walls reinforces itself at the frequencies whose half-wavelength fits the distance, so a room booms at those pitches and starves at others; the smaller the room, the higher and more separated they are, and they are why bass sounds different in every corner. A speaker near a wall gets its own reflection back a moment later, and at the frequency where that reflection arrives half a cycle late the two cancel, cutting a notch out of the bass. Hard surfaces keep sound alive for a long time, which we hear as reverberation, and two hard parallel walls make a rapid ping-pong called flutter echo. Move the sliders and every one of these is calculated and played from the dimensions you set.',
+  dynamics: 'A compressor is an automatic volume control that turns things down when they get loud. Threshold is the level where it starts working. Ratio is how hard it pushes back: at 2 to 1, a sound that goes 10 dB over the threshold comes out only 5 dB over; at 10 to 1 it barely gets over at all. Attack is how quickly it reacts once a sound crosses the line: fast, and the sharp front of a drum hit is flattened; slow, and the hit gets through before the compressor catches up. Release is how quickly it lets go: fast release makes the level pump up and down with the rhythm; slow release holds it down. Makeup gain brings the quieter result back up so you can compare fairly. The grey and coloured traces show the sound going in and coming out, and the red trace shows how much is being taken off at each moment. Learn to hear each parameter here and you will hear it on every record.',
+  mic: 'Microphones do not hear equally in all directions. An omnidirectional mic hears the same all around. A cardioid hears the front, less from the sides, almost nothing from behind, which is why it is the everyday stage and studio choice. Supercardioid and hypercardioid are tighter at the front but pick up a little from directly behind. A figure of eight hears front and back equally and nothing from the sides, and the sound from behind comes out with its polarity flipped. Drag the source around the mic to hear all of this. The second effect is the proximity effect: any directional mic gives more bass the closer the source gets, a lot more within a few centimetres. Singers use it on purpose; announcers fight it with a pop filter and distance. Omnis do not do it at all.',
+  space: 'Three effects tell the ear where a sound is. Reverb is the wash of reflections a room adds; its decay time says how big and how hard the room is, and the little gap before it starts, the pre-delay, says how far the sound is from the walls. Echo is a distinct repeat, and repeats of repeats when feedback is turned up. Width is how different the left and right channels are: identical channels sit in the centre as a point, different channels spread across the speakers. The figure on the right plots left against right: a thin line means mono, a cloud means wide, and the correlation number under it puts that on a scale from +1 (identical) through 0 (unrelated) to negative (the two channels fighting, which collapses badly in mono). The game asks you to hear whether a decay is short or long and whether there is pre-delay, which is exactly what you are judging when you choose a reverb preset.',
+  meters: 'Two different questions get confused all the time: how big are the peaks, and how loud does it sound. Peaks matter because a digital file cannot go above 0 dBFS; the sample peak meter reads the biggest sample and the true peak meter estimates the wave between samples, which can be a little higher. RMS is an average level. Loudness in LUFS is the modern answer to the second question: it weights frequencies the way the ear does, averages over time, and matches how loud things actually sound. Turn on Squash and watch: the peaks stay put, the loudness jumps. That was the trick behind the loudness war, and streaming services ended it by measuring every track in LUFS and turning the loud ones down to the same target, about −14 LUFS. Master for that target and leave a decibel of headroom for true peaks, and your work will sound the same everywhere.',
   shape: 'Three of the most common processors, in a row. Waveshaping bends the waveform through a curve: a gentle curve adds warmth, a hard one clips and turns fierce, a folding one sends the peaks back down and invents new partials. The panel draws the curve, and the spectrum shows new harmonics appear as you raise the drive. The compressor turns down the loud moments: threshold is where it starts, ratio is how hard, attack and release are how fast, and the meter shows how many decibels it is removing right now. The chorus mixes the sound with a slightly delayed copy whose delay is swept by an LFO; the copy\'s pitch wobbles, and against the original it shimmers. Shorten the delay and it becomes a flanger.'
 };
 
 /* ---------- App shell ---------- */
 var JOURNEYS = {
+  found: { key: 'found', title: 'Foundations', stations: [WAVE, PHASE, COLOUR, EAR, BANDS, DIGITAL, LEVELST, ROOM, DYNAMICS, MIC, SPACE, METERS] },
   ratio: { key: 'ratio', title: 'Ratio', stations: [RATIO, ORBIT, SERIES, DRIFT, GLIDE, PHANTOM, PLATE, ASCENT] },
   synth: { key: 'synth', title: 'Synthesis', stations: [TIMBRE, VOICE, MOTION, FM, WAVETABLE, ADDITIVE, GRAINS, MODELS, SHAPE] }
 };
@@ -2688,7 +3574,7 @@ function App() {
   var $ = function (id) { return document.getElementById(id); };
   this.dom = { intro: $('intro'), begin: $('begin'), beginSynth: $('begin-synth'), fine: $('fine'), progress: $('progress'), motion: $('motionbtn'), mute: $('mutebtn'), jr: $('jr-ratio'), js: $('jr-synth'),
     well: $('well'), canvas: $('stage'), title: $('title'), count: $('count'), readout: $('readout'), thesis: $('thesis'), notice: $('notice'),
-    more: $('more'), morebtn: $('morebtn'), plain: $('plain'), plainbtn: $('plainbtn'), controls: $('controls'), prev: $('prev'), next: $('next'), panel: $('panel') };
+    more: $('more'), morebtn: $('morebtn'), plain: $('plain'), plainbtn: $('plainbtn'), controls: $('controls'), prev: $('prev'), next: $('next'), panel: $('panel'), jf: $('jr-found'), beginFound: $('begin-found') };
   this.stage = new Stage(this.dom.canvas, this.dom.well);
   this.buildHeader(); this.bind();
 }
@@ -2699,7 +3585,7 @@ App.prototype.buildHeader = function () {
     b.addEventListener('click', function () { self.go(i); }); prog.appendChild(b); return b;
   });
   this.dom.motion.innerHTML = ICON_MOTION; this.dom.mute.innerHTML = ICON_SOUND;
-  this.dom.jr.classList.toggle('on', this.journey.key === 'ratio'); this.dom.js.classList.toggle('on', this.journey.key === 'synth');
+  this.dom.jr.classList.toggle('on', this.journey.key === 'ratio'); this.dom.js.classList.toggle('on', this.journey.key === 'synth'); this.dom.jf.classList.toggle('on', this.journey.key === 'found');
 };
 App.prototype.setJourney = function (key, index) {
   if (this.journey.key === key && this.index >= 0) return;
@@ -2710,7 +3596,7 @@ App.prototype.bind = function () {
   var self = this, d = this.dom;
   d.begin.addEventListener('click', function () { self.start('ratio'); });
   d.beginSynth.addEventListener('click', function () { self.start('synth'); });
-  d.jr.addEventListener('click', function () { self.setJourney('ratio'); }); d.js.addEventListener('click', function () { self.setJourney('synth'); });
+  d.jr.addEventListener('click', function () { self.setJourney('ratio'); }); d.js.addEventListener('click', function () { self.setJourney('synth'); }); d.jf.addEventListener('click', function () { self.setJourney('found'); }); d.beginFound.addEventListener('click', function () { self.start('found'); });
   d.motion.addEventListener('click', function () { self.setMotion(!self.motion); });
   d.mute.addEventListener('click', function () { self.setMuted(!self.eng.muted); });
   var fold = function (btn, box) { btn.addEventListener('click', function () { var open = box.classList.toggle('open'); btn.setAttribute('aria-expanded', open ? 'true' : 'false'); }); };
