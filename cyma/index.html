@@ -196,7 +196,7 @@ label .filebtn+.val{font-weight:400;color:var(--ink-3)}
     <div class="journeys" role="tablist" aria-label="Journeys"><button id="jr-found" type="button" role="tab">Foundations</button><button id="jr-ratio" type="button" role="tab">Ratio</button><button id="jr-synth" type="button" role="tab">Synthesis</button></div>
     <span class="brk" aria-hidden="true"></span>
     <div class="progress" id="progress" role="navigation" aria-label="Stations"></div>
-    <button class="iconbtn" id="motionbtn" type="button" aria-pressed="false" title="Motion: let the station sweep itself slowly" aria-label="Motion off. Let the station sweep itself slowly"></button>
+    <button class="motionbtn" id="motionbtn" type="button" aria-pressed="false" title="Motion: let the station sweep itself slowly" aria-label="Motion off. Let the station sweep itself slowly"></button>
     <button class="iconbtn" id="mutebtn" type="button" aria-pressed="false" title="Mute" aria-label="Sound on. Mute"></button>
   </header>
   <div class="stage">
@@ -3630,7 +3630,7 @@ App.prototype.buildHeader = function () {
     var b = el('button'); b.type = 'button'; b.setAttribute('aria-label', 'Station ' + (i + 1) + ', ' + st.title); b.appendChild(el('i'));
     b.addEventListener('click', function () { self.go(i); }); prog.appendChild(b); return b;
   });
-  this.dom.motion.innerHTML = ICON_MOTION; this.dom.mute.innerHTML = ICON_SOUND;
+  this.dom.motion.innerHTML = ICON_MOTION + '<span class="lbl">Motion</span>'; this.dom.mute.innerHTML = ICON_SOUND;
   this.dom.jr.classList.toggle('on', this.journey.key === 'ratio'); this.dom.js.classList.toggle('on', this.journey.key === 'synth'); this.dom.jf.classList.toggle('on', this.journey.key === 'found');
 };
 App.prototype.setJourney = function (key, index) {
@@ -3704,7 +3704,7 @@ App.prototype.setAccent = function (hue) {
   r.setProperty('--accent', hsl(hue, 85, 62)); r.setProperty('--accent-soft', hsl(hue, 60, 40, 0.35));
 };
 App.prototype.setMotion = function (on) {
-  this.motion = on; this.dom.motion.setAttribute('aria-pressed', on ? 'true' : 'false');
+  this.motion = on; this.dom.motion.setAttribute('aria-pressed', on ? 'true' : 'false'); var lbl = this.dom.motion.querySelector('.lbl'); if (lbl) lbl.textContent = on ? 'Sweeping' : 'Motion';
   this.dom.motion.setAttribute('aria-label', on ? 'Motion on. Stop the slow sweep' : 'Motion off. Let the station sweep itself slowly');
   if (this.cur && this.cur.hasMotion) this.cur.setMotion(on);
 };
