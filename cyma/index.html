@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#14171b">
-<meta name="description" content="CYMA. Sound made visible: eight playable stations on ratio, resonance and hearing. Lissajous figures, rotary roses, the harmonic series, temperament, roughness, the missing fundamental, a vibrating plate and the endless glissando.">
+<meta name="description" content="CYMA. Sound made visible: a single-file browser instrument in three journeys. Foundations, thirteen stations on what sound is and how we hear it, from frequency and amplitude to loudness metering; Ratio, eight stations on interval, resonance and vibrating plates; Synthesis, nine playable stations from the subtractive voice to physical modeling.">
 <title>CYMA</title>
 <style>
 :root{
@@ -182,7 +182,7 @@ label .filebtn+.val{font-weight:400;color:var(--ink-3)}
   <div class="intro-inner">
     <div class="wordmark">CYMA</div>
     <p class="lede">Sound made visible. Three journeys, every station an instrument you can play.</p>
-    <p><b>Foundations</b>: what sound is and how we hear it, for anyone starting out: frequency and level, phase, timbre, the ear, and on through digital audio, levels, rooms, dynamics, microphones, space and meters.</p>
+    <p><b>Foundations</b>: what sound is and how we hear it, for anyone starting out: frequency and amplitude, phase, timbre, equalization, the ear, and on through digital audio, levels, rooms, dynamics, microphones, space and meters.</p>
     <p><b>Ratio</b>: eight stations on interval, resonance and the ear, from the Lissajous figure to the vibrating plate. Every figure is computed from the tones actually sounding.</p>
     <p><b>Synthesis</b>: nine stations on timbre, the subtractive voice, envelopes and LFOs, FM, wavetable, additive, granular, physical modeling and processing. Play them from the screen, the computer keyboard, or a MIDI controller.</p>
     <p>Headphones help.</p>
@@ -1432,7 +1432,7 @@ function dishProfile(z) {
 var PLATE = new Station({
   id: 'plate', title: 'Matter',
   thesis: 'Sound in matter. A square or round plate strewn with powder, or a dish of water lit from the side: each shows the standing wave a single tone sets up.',
-  notice: 'Sweep the frequency or tap a resonance. On a plate the powder gathers where the plate stands still. The square plate driven at its center gives the classic Chladni figures; drag the driver off center and a second family of modes appears. On the round plate the center speaks only to the ring modes. Enlarge either plate and the figures grow intricate at the same pitch. In water the surface itself is the picture: the bright lines are where the slope of the wave throws the light back at you, so each cell of the pattern is ringed like a contour map.',
+  notice: 'Sweep the frequency or tap a resonance. On a plate the powder gathers where the plate stands still; grains shaken off the edge are replaced, and a fresh pinch is sprinkled whenever the figure changes, as an experimenter would. The square plate driven at its center gives the classic Chladni figures; drag the driver off center and a second family of modes appears. On the round plate the center speaks only to the ring modes. Enlarge either plate and the figures grow intricate at the same pitch. In water the surface itself is the picture: the bright lines are where the slope of the wave throws the light back at you, so each cell of the pattern is ringed like a contour map.',
   more: 'The square plate is a thin free-edged Kirchhoff plate solved by the Rayleigh-Ritz method with Legendre polynomials, one eigenproblem per symmetry class; its frequency parameters (13.468, 19.596, 24.270, 34.801 for the first modes) agree with the published values to four digits. The round plate is a thin free-edged circular Kirchhoff plate, solved exactly: modes J and I Bessel combinations satisfying zero moment and zero shear at the rim, frequencies from the roots of that condition (Poisson ratio 0.33), checked against an independent Rayleigh-Ritz calculation to five digits. Both plates are 1.35 mm steel, so their figures can be compared at equal size. Frequencies scale as thickness over size squared, so the size control moves the whole spectrum: the reference round plate is 24 cm across with its (2,0) mode at 120 Hz, and a 36 cm plate brings the intricate high modes down into the audible range, which is how Chladni and Jenny got their richest figures. The response is a steady-state modal sum for the point you drive, with light damping; the powder is a particle model with static friction. The water is a 24 mm dish, 6 mm deep. A vertically shaken dish answers with Faraday waves at half the driving frequency; the picture is the surface mode whose frequency, from the capillary-gravity dispersion relation, lies nearest that half frequency, with the wavelength this implies. Real dishes select patterns nonlinearly and can show several modes at once; treat this as the ideal case. The lighting is a rendering: bright where the surface slope reflects a ring of light into the camera.',
   hue: function () { return this.view === 'water' ? 196 : 42; },
   enter: function (app) {
@@ -1491,6 +1491,10 @@ var PLATE = new Station({
     var f = this.freq; this.waterChips.forEach(function (b) { b.classList.toggle('on', Math.abs(b._f - f) < 0.6); });
   },
   setFreq: function (f) { this.freq = f; this.dirty = true; this.wdirty = true; this.bank.set(0, f, 0.2, 0.03); },
+  /* One grain, placed at random on the plate: fresh powder from the experimenter's hand. */
+  respawn: function (i) { if (this.view === 'square') { this.px[i] = 1 + Math.random() * (this.G - 2); this.py[i] = 1 + Math.random() * (this.G - 2); } else { var r = Math.sqrt(Math.random()) * 0.96, a = Math.random() * TAU; this.px[i] = (1 + r * Math.cos(a)) * this.G / 2; this.py[i] = (1 + r * Math.sin(a)) * this.G / 2; } this.vx[i] = 0; this.vy[i] = 0; },
+  /* Re-sprinkle a fraction of the grains, chosen at random, when the figure changes. */
+  sprinkle: function (frac) { for (var i = 0; i < this.NP; i++) if (Math.random() < frac) this.respawn(i); },
   resetSand: function () { for (var i = 0; i < this.NP; i++) { if (this.view === 'square') { this.px[i] = 1 + Math.random() * (this.G - 2); this.py[i] = 1 + Math.random() * (this.G - 2); } else { var r = Math.sqrt(Math.random()) * 0.96, a = Math.random() * TAU; this.px[i] = (1 + r * Math.cos(a)) * this.G / 2; this.py[i] = (1 + r * Math.sin(a)) * this.G / 2; } this.vx[i] = 0; this.vy[i] = 0; } },
   pointer: function (type, u, v) {
     if (this.view === 'water') { if (type === 'down') { stopMotion(this.app); this.u0 = u; this.f0 = this.freq; } else if (type === 'move' && this.u0 != null) this.setFreq(clamp(this.f0 * Math.pow(40, u - this.u0), 60, 2400)); return; }
@@ -1517,6 +1521,7 @@ var PLATE = new Station({
     var Gx = this.Gx, Gy = this.Gy;
     for (var j = 0; j < G; j++) for (i = 0; i < G; i++) { var idx = j * G + i, l = i ? E[idx - 1] : E[idx], rr = i < G - 1 ? E[idx + 1] : E[idx], u = j ? E[idx - G] : E[idx], d = j < G - 1 ? E[idx + G] : E[idx]; Gx[idx] = (rr - l) * 0.5; Gy[idx] = (d - u) * 0.5; }
     var sum = 0; for (k = 0; k < kept.length; k++) sum += kept[k].mag; this.share = kept.length ? kept[0].mag / sum : 0;
+    var mk = this.view + ':' + (kept.length ? Math.round(kept[0].fm || (kept[0].m && kept[0].m.f) || 0) : 'none'); if (this.modeKey !== undefined && mk !== this.modeKey) this.freshPowder = true; this.modeKey = mk;
     var px = this.idata.data;
     for (var q = 0; q < G * G; q++) { var ee = Math.pow(E[q], 1.6); px[4 * q] = 90; px[4 * q + 1] = 120; px[4 * q + 2] = 150; px[4 * q + 3] = Math.round(ee * 62); }
     this.ictx.putImageData(this.idata, 0, 0);
@@ -1548,6 +1553,7 @@ var PLATE = new Station({
     var Gx = this.Gx, Gy = this.Gy;
     for (var j = 0; j < G; j++) for (i = 0; i < G; i++) { var idx = j * G + i, l = i ? E[idx - 1] : E[idx], rr = i < G - 1 ? E[idx + 1] : E[idx], u = j ? E[idx - G] : E[idx], d = j < G - 1 ? E[idx + G] : E[idx]; Gx[idx] = (rr - l) * 0.5; Gy[idx] = (d - u) * 0.5; }
     var sum = 0; for (k = 0; k < kept.length; k++) sum += kept[k].mag; this.share = kept.length ? kept[0].mag / sum : 0;
+    var mk = this.view + ':' + (kept.length ? Math.round(kept[0].fm || (kept[0].m && kept[0].m.f) || 0) : 'none'); if (this.modeKey !== undefined && mk !== this.modeKey) this.freshPowder = true; this.modeKey = mk;
     var px = this.idata.data;
     for (var q = 0; q < G * G; q++) { var ee = rho[q] > 1 ? 0 : Math.pow(E[q], 1.6); px[4 * q] = 90; px[4 * q + 1] = 120; px[4 * q + 2] = 150; px[4 * q + 3] = Math.round(ee * 62); }
     this.ictx.putImageData(this.idata, 0, 0);
@@ -1623,6 +1629,8 @@ var PLATE = new Station({
     if (this.dirty && (!this.motion || this.frame % 2 === 0)) { this.dirty = false; this.computeField(); }
     var G = this.G, E = this.E, Gx = this.Gx, Gy = this.Gy, px = this.px, py = this.py, vx = this.vx, vy = this.vy, N = this.NP;
     var k = Math.min(2, dt * 60), KF = 3.4 * k, KJ = 1.7 * k, damp = Math.pow(0.78, k), R = G / 2 - 1.5, cx = G / 2, cy = G / 2, square = this.view === 'square', lim = G - 1.5;
+    if (this.freshPowder) { this.freshPowder = false; this.sprinkle(0.45); }
+    var lost = 0;
     for (var i = 0; i < N; i++) {
       var x = px[i], y = py[i], ix = x | 0, iy = y | 0, fx = x - ix, fy = y - iy, i00 = iy * G + ix, i10 = i00 + (ix < G - 1 ? 1 : 0), i01 = i00 + (iy < G - 1 ? G : 0), i11 = i01 + (ix < G - 1 ? 1 : 0);
       var w00 = (1 - fx) * (1 - fy), w10 = fx * (1 - fy), w01 = (1 - fx) * fy, w11 = fx * fy;
@@ -1633,8 +1641,8 @@ var PLATE = new Station({
       var ny = (vy[i] * damp - gy * KF + (Math.random() - 0.5) * KJ * e) * mob;
       var sp = Math.sqrt(nx * nx + ny * ny); if (sp > 2.5) { nx *= 2.5 / sp; ny *= 2.5 / sp; }
       x += nx; y += ny;
-      if (square) { if (x < 0.5) { x = 0.5; nx = -nx * 0.5; } else if (x > lim) { x = lim; nx = -nx * 0.5; } if (y < 0.5) { y = 0.5; ny = -ny * 0.5; } else if (y > lim) { y = lim; ny = -ny * 0.5; } }
-      else { var dx = x - cx, dy = y - cy, rr = Math.sqrt(dx * dx + dy * dy); if (rr > R) { x = cx + dx / rr * R; y = cy + dy / rr * R; var dn = (nx * dx + ny * dy) / (rr * rr); nx -= 1.5 * dn * dx; ny -= 1.5 * dn * dy; } }
+      var off = square ? (x < 0.5 || x > lim || y < 0.5 || y > lim) : ((x - cx) * (x - cx) + (y - cy) * (y - cy) > R * R);
+      if (off) { this.respawn(i); lost++; continue; }
       px[i] = x; py[i] = y; vx[i] = nx; vy[i] = ny;
     }
   },
@@ -2385,7 +2393,7 @@ var ADDITIVE = new SynthStation({
   id: 'additive', title: 'Additive',
   thesis: 'Build the sound one partial at a time: each sine has its own level, its own decay, and its own frequency ratio to the fundamental.',
   notice: 'Drag across the panel to set the twelve partial levels like drawbars. Make the higher partials decay faster and the tone loses brightness as it rings, the way struck and plucked sounds do. Stretch the ratios away from integers and the same levels turn into a bell.',
-  more: 'Additive principles, harmonic versus inharmonic partials, per-partial envelopes, and the practical cost of the method. Twelve partials is a small additive instrument, but it already needs twelve envelopes, which is exactly the point the lecture makes about why additive interfaces are hard. The teal marks on the spectrum show where each partial should sit for the current stretch.',
+  more: 'Additive principles, harmonic versus inharmonic partials, per-partial envelopes, and the practical cost of the method. Twelve partials is a small additive instrument, but it already needs twelve envelopes, which is exactly why additive interfaces are hard to design. The teal marks on the spectrum show where each partial should sit for the current stretch.',
   hue: function () { return 96; },
   enter: function (app) {
     var self = this; this.setupAudio(app);
@@ -2888,7 +2896,7 @@ var PHASE = new FoundStation({
       ctlSlider({ label: 'Offset of the second copy', min: 0, max: 5, step: 0.005, fmt: function (v) { return v.toFixed(3) + ' ms' + (self.src.kind === 'tone' ? ' = ' + Math.round(360 * 440 * v / 1000 % 360) + '°' : ''); }, get: function () { return self.P.tau; }, set: function (v) { stopMotion(app); self.P.tau = v; self.apply(); } }),
       ctlRow([ctlSeg({ label: 'Polarity of the second copy', options: [{ label: 'Same', value: 0 }, { label: 'Inverted', value: 1 }], get: function () { return self.P.invert; }, set: function (v) { self.P.invert = v; self.apply(); } }),
         ctlSlider({ label: 'Second copy level', min: 0, max: 1, step: 0.01, fmt: fmtPct, get: function () { return self.P.level2; }, set: function (v) { self.P.level2 = v; self.apply(); } })]),
-      ctlFile(app.eng, function () { self.src.set('file'); self.P.source = 'file'; })
+      ctlFile(app.eng, function () { self.src.set('file'); self.P.source = 'file'; self.hint = ''; })
     ];
   },
   leave: function () { this.teardownAudio(); },
@@ -3073,7 +3081,7 @@ var EQ = new FoundStation({
       ctlRow([ctlSlider({ label: 'Frequency', min: 30, max: 16000, log: true, step: 1, fmt: fmtHz, get: function () { return band().f; }, set: function (v) { stopMotion(app); band().f = v; self.presetIndex = null; self.apply(); } }),
         ctlSlider({ label: 'Gain', min: -18, max: 18, step: 0.5, fmt: fmtDb, get: function () { return band().g; }, set: function (v) { band().g = v; self.presetIndex = null; self.apply(); } }),
         ctlSlider({ label: 'Q, narrowness', min: 0.3, max: 12, log: true, step: 0.01, fmt: function (v) { return 'Q ' + v.toFixed(2) + (v < 0.8 ? ', broad' : (v > 4 ? ', narrow' : ', about an octave')); }, get: function () { return band().q; }, set: function (v) { band().q = v; self.presetIndex = null; self.apply(); } })]),
-      ctlFile(app.eng, function () { self.src.set('file'); self.P.source = 'file'; })
+      ctlFile(app.eng, function () { self.src.set('file'); self.P.source = 'file'; self.hint = ''; })
     ];
   },
   leave: function () { this.teardownAudio(); },
@@ -3139,7 +3147,7 @@ var BANDS = new FoundStation({
       { el: regionChips.el, refresh: function () { regionChips.el.style.display = self.P.mode === 'explore' ? '' : 'none'; regionChips.refresh(); } },
       { el: gameCtls[0].el, refresh: function () { gameCtls[0].el.style.display = self.P.mode === 'game' ? '' : 'none'; gameCtls[0].refresh(); } },
       { el: gameCtls[1].el, refresh: function () { gameCtls[1].el.style.display = self.P.mode === 'game' ? '' : 'none'; gameCtls[1].refresh(); } },
-      ctlFile(app.eng, function () { self.src.set('file'); self.P.source = 'file'; })
+      ctlFile(app.eng, function () { self.src.set('file'); self.P.source = 'file'; self.hint = ''; })
     ];
   },
   leave: function () { this.teardownAudio(); },
@@ -3350,7 +3358,7 @@ var DYNAMICS = new FoundStation({
       ctlRow([sourceSeg(this, [{ label: 'Music', value: 'music' }, { label: 'Your file', value: 'file' }], function () { self.P.source = self.src.kind; }), ctlSeg({ label: 'Listen to', options: [{ label: 'Compressed', value: 0 }, { label: 'Bypass', value: 1 }], get: function () { return self.P.bypass; }, set: function (v) { self.P.bypass = v; self.apply(); } })]),
       ctlRow([ctlSlider({ label: 'Threshold', min: -60, max: 0, step: 0.5, fmt: function (v) { return v.toFixed(1) + ' dBFS'; }, get: function () { return self.P.thr; }, set: function (v) { self.P.thr = v; self.apply(); } }), ctlSlider({ label: 'Ratio', min: 1, max: 20, log: true, step: 0.1, fmt: function (v) { return v.toFixed(1) + ':1'; }, get: function () { return self.P.ratio; }, set: function (v) { self.P.ratio = v; self.apply(); } }), ctlSlider({ label: 'Knee', min: 0, max: 30, step: 1, fmt: function (v) { return v + ' dB'; }, get: function () { return self.P.knee; }, set: function (v) { self.P.knee = v; self.apply(); } })]),
       ctlRow([ctlSlider({ label: 'Attack', min: 0.0005, max: 0.5, log: true, step: 0.0005, fmt: fmtMs, get: function () { return self.P.att; }, set: function (v) { self.P.att = v; self.apply(); } }), ctlSlider({ label: 'Release', min: 0.02, max: 2, log: true, step: 0.005, fmt: fmtMs, get: function () { return self.P.rel; }, set: function (v) { self.P.rel = v; self.apply(); } }), ctlSlider({ label: 'Makeup gain', min: 0, max: 24, step: 0.5, fmt: fmtDb, get: function () { return self.P.makeup; }, set: function (v) { self.P.makeup = v; self.apply(); } })]),
-      ctlFile(app.eng, function () { self.src.set('file'); self.P.source = 'file'; })
+      ctlFile(app.eng, function () { self.src.set('file'); self.P.source = 'file'; self.hint = ''; })
     ];
   },
   leave: function () { this.teardownAudio(); },
@@ -3360,10 +3368,10 @@ var DYNAMICS = new FoundStation({
     this.mk.gain.setTargetAtTime(fromDb(P.makeup), now, 0.02);
     var byp = P.bypass; this.wetG.gain.setTargetAtTime(byp ? 0 : 1, now, 0.02); this.byp.gain.setTargetAtTime(byp ? 1 : 0, now, 0.02);
   },
-  tick: function () {
+  tick: function (dt) {
     var b = this.buf, pk = function (an) { an.getFloatTimeDomainData(b); var m = 0; for (var i = 0; i < b.length; i++) { var v = Math.abs(b[i]); if (v > m) m = v; } return m; };
     var red = typeof this.comp.reduction === 'number' ? this.comp.reduction : (this.comp.reduction && this.comp.reduction.value) || 0;
-    this.hist.push([dbfs(pk(this.inAn)), dbfs(pk(this.outAn)), red]); if (this.hist.length > 240) this.hist.shift();
+    this.clockT = (this.clockT || 0) + dt; this.hist.push([dbfs(pk(this.inAn)), dbfs(pk(this.outAn)), red, this.clockT]); while (this.hist.length > 1 && this.hist[0][3] < this.clockT - 4) this.hist.shift();
   },
   transfer: function (x) { var g = this.P, T = g.thr, R = g.ratio, W = g.knee; if (W > 0 && x > T - W / 2 && x < T + W / 2) { var d = x - T + W / 2; return x + (1 / R - 1) * d * d / (2 * W); } return x < T ? x : T + (x - T) / R; },
   draw: function (stage) {
@@ -3372,8 +3380,9 @@ var DYNAMICS = new FoundStation({
     var fy = function (db) { return r.y + r.h * (1 - clamp((db + 48) / 48, 0, 1)); };
     [0, -12, -24, -36].forEach(function (d) { var y = fy(d); c.strokeStyle = 'rgba(236,229,211,0.12)'; c.lineWidth = 1; c.beginPath(); c.moveTo(r.x, y); c.lineTo(r.x + r.w, y); c.stroke(); stage.text(d + '', r.x - 4, y + 3, { size: 8.5, align: 'right', color: 'rgba(236,229,211,0.45)' }); });
     var yt = fy(g.thr); c.strokeStyle = 'rgba(124,242,227,0.6)'; c.setLineDash([3, 4]); c.beginPath(); c.moveTo(r.x, yt); c.lineTo(r.x + r.w, yt); c.stroke(); c.setLineDash([]); stage.text('threshold', r.x + 4, yt - 3, { size: 8.5, color: 'rgba(124,242,227,0.8)' });
-    var path = function (idx, col, wd) { c.beginPath(); for (var i = 0; i < n; i++) { var x = r.x + r.w * i / 239, y = fy(this.hist[i][idx]); if (i) c.lineTo(x, y); else c.moveTo(x, y); } c.strokeStyle = col; c.lineWidth = wd; c.stroke(); }.bind(this);
-    if (n > 1) { path(0, 'rgba(236,229,211,0.45)', 1); path(1, hsl(hue, 85, 68, 0.95), 1.4 * k); c.beginPath(); for (var i = 0; i < n; i++) { var x = r.x + r.w * i / 239, y = r.y + r.h * clamp(-this.hist[i][2] / 30, 0, 1) * 0.5; if (i) c.lineTo(x, y); else c.moveTo(x, y); } c.strokeStyle = 'rgba(255,110,110,0.9)'; c.lineWidth = 1.2 * k; c.stroke(); }
+    var tNow = this.clockT || 0, hx = function (h) { return r.x + r.w * clamp(1 - (tNow - h[3]) / 4, 0, 1); };
+    var path = function (idx, col, wd) { c.beginPath(); for (var i = 0; i < n; i++) { var x = hx(this.hist[i]), y = fy(this.hist[i][idx]); if (i) c.lineTo(x, y); else c.moveTo(x, y); } c.strokeStyle = col; c.lineWidth = wd; c.stroke(); }.bind(this);
+    if (n > 1) { path(0, 'rgba(236,229,211,0.45)', 1); path(1, hsl(hue, 85, 68, 0.95), 1.4 * k); c.beginPath(); for (var i = 0; i < n; i++) { var x = hx(this.hist[i]), y = r.y + r.h * clamp(-this.hist[i][2] / 30, 0, 1) * 0.5; if (i) c.lineTo(x, y); else c.moveTo(x, y); } c.strokeStyle = 'rgba(255,110,110,0.9)'; c.lineWidth = 1.2 * k; c.stroke(); }
     stage.text('in (gray), out (color), gain reduction (red), last 4 s', r.x + 4, r.y + r.h + 11 * k, { size: 9, color: 'rgba(236,229,211,0.5)' });
     var t = { x: W * 0.72, y: H * 0.04, w: W * 0.23, h: W * 0.23 }; c.fillStyle = 'rgba(255,255,255,0.025)'; c.fillRect(t.x, t.y, t.w, t.h);
     c.strokeStyle = 'rgba(236,229,211,0.15)'; c.beginPath(); c.moveTo(t.x, t.y + t.h); c.lineTo(t.x + t.w, t.y); c.stroke();
@@ -3459,7 +3468,7 @@ var SPACE = new FoundStation({
       ctlRow([ctlSlider({ label: 'Reverb decay, RT60', min: 0.2, max: 6, log: true, step: 0.01, fmt: function (v) { return v.toFixed(2) + ' s'; }, get: function () { return self.P.decay; }, set: function (v) { self.P.decay = v; self.apply(); } }), ctlSlider({ label: 'Pre-delay', min: 0, max: 0.15, step: 0.001, fmt: function (v) { return Math.round(v * 1000) + ' ms'; }, get: function () { return self.P.pre; }, set: function (v) { self.P.pre = v; self.apply(); } }), ctlSlider({ label: 'Reverb mix', min: 0, max: 1, step: 0.01, fmt: fmtPct, get: function () { return self.P.revMix; }, set: function (v) { self.P.revMix = v; self.apply(); } })]),
       ctlRow([ctlSlider({ label: 'Echo time', min: 0.05, max: 1.2, log: true, step: 0.001, fmt: function (v) { return Math.round(v * 1000) + ' ms'; }, get: function () { return self.P.echo; }, set: function (v) { self.P.echo = v; self.apply(); } }), ctlSlider({ label: 'Echo feedback', min: 0, max: 0.85, step: 0.01, fmt: fmtPct, get: function () { return self.P.fb; }, set: function (v) { self.P.fb = v; self.apply(); } }), ctlSlider({ label: 'Echo mix', min: 0, max: 1, step: 0.01, fmt: fmtPct, get: function () { return self.P.echoMix; }, set: function (v) { self.P.echoMix = v; self.apply(); } })]),
       ctlSlider({ label: 'Stereo width of the reverb', min: 0, max: 2, step: 0.01, fmt: function (v) { return v === 0 ? 'mono' : Math.round(v * 100) + '%'; }, get: function () { return self.P.width; }, set: function (v) { self.P.width = v; self.apply(); } }),
-      ctlFile(app.eng, function () { self.src.set('file'); self.P.source = 'file'; })
+      ctlFile(app.eng, function () { self.src.set('file'); self.P.source = 'file'; self.hint = ''; })
     ];
   },
   leave: function () { this.teardownAudio(); },
@@ -3531,7 +3540,7 @@ var METERS = new FoundStation({
     this.controls = [
       ctlRow([sourceSeg(this, [{ label: 'Music', value: 'music' }, { label: 'Your file', value: 'file' }, { label: 'Sine 1 kHz', value: 'tone' }], function () { self.P.source = self.src.kind; self.hint = ''; self.reset(); }), micBtn]),
       ctlRow([ctlSeg({ label: 'Dynamics', options: [{ label: 'Natural', value: 0 }, { label: 'Squash', value: 1 }], get: function () { return self.P.squash; }, set: function (v) { self.P.squash = v; self.apply(); self.reset(); } }), { el: (function () { var b = el('button', 'pressbtn', 'Reset integrated'); b.type = 'button'; b.addEventListener('click', function () { self.reset(); }); return b; })(), refresh: function () {} }]),
-      ctlFile(app.eng, function () { self.src.set('file'); self.P.source = 'file'; self.reset(); })
+      ctlFile(app.eng, function () { self.src.set('file'); self.P.source = 'file'; self.hint = ''; self.reset(); })
     ];
     this.src.freq = 1000;
   },
@@ -3544,10 +3553,10 @@ var METERS = new FoundStation({
     for (i = 1; i < n - 2; i++) { var y0 = b[i - 1], y1 = b[i], y2 = b[i + 1], y3 = b[i + 2]; for (var q = 1; q < 4; q++) { var t = q / 4, a0 = y1, a1 = 0.5 * (y2 - y0), a2 = y0 - 2.5 * y1 + 2 * y2 - 0.5 * y3, a3 = 0.5 * (y3 - y0) + 1.5 * (y1 - y2), yv = Math.abs(((a3 * t + a2) * t + a1) * t + a0); if (yv > tp) tp = yv; } }
     var kms = 0; for (i = 0; i < n; i++) kms += kb[i] * kb[i]; kms /= n;
     this.peak = Math.max(dbfs(pk), this.peak - 12 * dt); this.tpeak = Math.max(dbfs(Math.max(pk, tp)), this.tpeak - 12 * dt); this.rms = dbfs(Math.sqrt(sq / n));
-    this.ms.push(kms); var per400 = Math.max(1, Math.round(0.4 / (n / this.app.eng.sr))), per3 = Math.max(1, Math.round(3 / (n / this.app.eng.sr))); if (this.ms.length > per3) this.ms.shift();
-    var m400 = 0, c400 = Math.min(per400, this.ms.length); for (i = this.ms.length - c400; i < this.ms.length; i++) m400 += this.ms[i]; m400 /= c400; var m3 = 0; for (i = 0; i < this.ms.length; i++) m3 += this.ms[i]; m3 /= this.ms.length;
+    this.clockT = (this.clockT || 0) + dt; this.ms.push({ t: this.clockT, v: kms }); while (this.ms.length > 1 && this.ms[0].t < this.clockT - 3) this.ms.shift();
+    var m400 = 0, c400 = 0, m3 = 0; for (i = 0; i < this.ms.length; i++) { m3 += this.ms[i].v; if (this.ms[i].t >= this.clockT - 0.4) { m400 += this.ms[i].v; c400++; } } m3 /= this.ms.length; m400 /= Math.max(1, c400);
     this.mom = -0.691 + 10 * Math.log10(Math.max(1e-12, m400)); this.short = -0.691 + 10 * Math.log10(Math.max(1e-12, m3));
-    this.acc = (this.acc || 0) + dt; if (this.acc >= 0.1 && this.ms.length >= c400) { this.acc = 0; if (this.mom > -70) this.blocks.push(m400); if (this.blocks.length) { var mean = 0; for (i = 0; i < this.blocks.length; i++) mean += this.blocks[i]; mean /= this.blocks.length; var gate = mean * Math.pow(10, -1), sum = 0, cnt = 0; for (i = 0; i < this.blocks.length; i++) if (this.blocks[i] >= gate) { sum += this.blocks[i]; cnt++; } this.integ = cnt ? -0.691 + 10 * Math.log10(sum / cnt) : null; } this.hist.push([this.mom, this.tpeak]); if (this.hist.length > 120) this.hist.shift(); }
+    this.acc = (this.acc || 0) + dt; if (this.acc >= 0.1 && this.clockT >= 0.4) { this.acc = 0; if (this.mom > -70) this.blocks.push(m400); if (this.blocks.length) { var mean = 0; for (i = 0; i < this.blocks.length; i++) mean += this.blocks[i]; mean /= this.blocks.length; var gate = mean * Math.pow(10, -1), sum = 0, cnt = 0; for (i = 0; i < this.blocks.length; i++) if (this.blocks[i] >= gate) { sum += this.blocks[i]; cnt++; } this.integ = cnt ? -0.691 + 10 * Math.log10(sum / cnt) : null; } this.hist.push([this.mom, this.tpeak]); if (this.hist.length > 120) this.hist.shift(); }
   },
   draw: function (stage) {
     stage.clear(); var c = stage.ctx, W = stage.W, H = stage.H, k = stage.k, hue = this.hue(), self = this;
@@ -3687,6 +3696,8 @@ App.prototype.start = function (journey) {
   if (!this.eng.init()) { this.dom.fine.textContent = 'This browser has no Web Audio support, so the instruments cannot sound. Try a current Safari, Chrome, Firefox or Edge.'; return; }
   this.eng.resume(); this.started = true; this.lastFrameAt = 0; this.lastClockAt = 0; this.bgT = null;
   var app = this; this.eng.startClock(function () { app.onClock(); });
+  /* Tell the operating system this page is a media player: lock-screen controls, and the strongest signal iOS accepts for keeping audio alive across app switches. */
+  if (navigator.mediaSession) { try { navigator.mediaSession.metadata = new MediaMetadata({ title: 'CYMA', artist: 'Sound made visible' }); navigator.mediaSession.setActionHandler('play', function () { app.setMuted(false); app.eng.resume(); }); navigator.mediaSession.setActionHandler('pause', function () { app.setMuted(true); }); navigator.mediaSession.playbackState = 'playing'; } catch (e) {} }
   this.dom.intro.classList.add('hidden');
   this.stage.resize(); this.journey = JOURNEYS[journey || 'ratio']; this.stations = this.journey.stations; this.buildHeader(); this.go(0);
   var self = this; this.raf = requestAnimationFrame(function (ts) { self.frame(ts); });
@@ -3738,7 +3749,7 @@ App.prototype.go = function (i) {
   document.body.classList.toggle('synth', !!st.synth);
 };
 App.prototype.updateReadout = function () {
-  var s = this.cur ? this.cur.readout() : '';
+  var s = this.cur ? this.cur.readout() : ''; if (this.cur && this.cur.hint) s += ' <b>' + this.cur.hint + '</b>';
   if (s !== this.lastReadout) { this.lastReadout = s; this.dom.readout.innerHTML = s; }
 };
 App.prototype.step = function (dt) {
