@@ -3035,7 +3035,7 @@ var EAR = new FoundStation({
 });
 
 /* F3b. EQ: an equaliser adjusts the amplitude of a range of frequencies */
-var EQ_BANDS = [{ type: 'lowshelf', f: 120, g: 0, q: 0.7, name: 'low shelf' }, { type: 'peaking', f: 300, g: 0, q: 1.2, name: 'band 1' }, { type: 'peaking', f: 1200, g: 0, q: 1.2, name: 'band 2' }, { type: 'peaking', f: 4000, g: 0, q: 1.2, name: 'band 3' }, { type: 'highshelf', f: 9000, g: 0, q: 0.7, name: 'high shelf' }];
+var EQ_BANDS = [{ type: 'lowshelf', f: 120, g: 0, q: 0.7, name: '1, low shelf' }, { type: 'peaking', f: 300, g: 0, q: 1.2, name: '2' }, { type: 'peaking', f: 1200, g: 0, q: 1.2, name: '3' }, { type: 'peaking', f: 4000, g: 0, q: 1.2, name: '4' }, { type: 'highshelf', f: 9000, g: 0, q: 0.7, name: '5, high shelf' }];
 var EQ = new FoundStation({
   id: 'eq', title: 'EQ',
   thesis: 'Sound is frequency and amplitude, and an equaliser changes the amplitude of a chosen range of frequencies while leaving the rest alone. Every tone control, every mixing desk, every plug-in EQ is this.',
@@ -3056,7 +3056,7 @@ var EQ = new FoundStation({
     this.controls = [
       ctlRow([sourceSeg(this, [{ label: 'Music', value: 'music' }, { label: 'Pink noise', value: 'pink' }, { label: 'Your file', value: 'file' }], function () { self.P.source = self.src.kind; }), ctlSeg({ label: 'Listen to', options: [{ label: 'Equalised', value: 0 }, { label: 'Bypass', value: 1 }], get: function () { return self.P.bypass; }, set: function (v) { self.P.bypass = v; self.apply(); } })]),
       ctlChips({ label: 'Examples', options: presets.map(function (p, i) { return { label: p.name, value: i }; }), get: function () { return self.presetIndex == null ? null : self.presetIndex; }, set: function (i) { self.presetIndex = i; var p = presets[i]; self.P.bands.forEach(function (b, k) { b.g = p.g[k]; if (p.f) b.f = p.f[k]; else b.f = EQ_BANDS[k].f; b.q = p.q ? p.q[k] : EQ_BANDS[k].q; }); self.apply(); } }),
-      ctlChips({ label: 'Band', options: this.P.bands.map(function (b, i) { return { label: b.name, value: i }; }), get: function () { return self.P.sel; }, set: function (v) { self.P.sel = v; } }),
+      ctlChips({ label: 'Band', options: this.P.bands.map(function (b, i) { return { label: 'band ' + b.name, value: i }; }), get: function () { return self.P.sel; }, set: function (v) { self.P.sel = v; } }),
       ctlRow([ctlSlider({ label: 'Frequency', min: 30, max: 16000, log: true, step: 1, fmt: fmtHz, get: function () { return band().f; }, set: function (v) { band().f = v; self.presetIndex = null; self.apply(); } }),
         ctlSlider({ label: 'Gain', min: -18, max: 18, step: 0.5, fmt: fmtDb, get: function () { return band().g; }, set: function (v) { band().g = v; self.presetIndex = null; self.apply(); } }),
         ctlSlider({ label: 'Q, narrowness', min: 0.3, max: 12, log: true, step: 0.01, fmt: function (v) { return 'Q ' + v.toFixed(2) + (v < 0.8 ? ', broad' : (v > 4 ? ', narrow' : ', about an octave')); }, get: function () { return band().q; }, set: function (v) { band().q = v; self.presetIndex = null; self.apply(); } })]),
@@ -3091,10 +3091,10 @@ var EQ = new FoundStation({
     });
     drawRegions(stage, { x: W * 0.05, y: H * 0.66, w: W * 0.9, h: H * 0.075 }, P.bands[P.sel].f, hue);
     var b = P.bands[P.sel];
-    stage.text(b.name + ': ' + fmtHz(b.f) + ', ' + fmtDb(b.g) + (b.type === 'peaking' ? ', Q ' + b.q.toFixed(2) : ''), W * 0.5, H * 0.9, { size: 12.5, align: 'center', serif: true, color: 'rgba(236,229,211,0.88)' });
+    stage.text('band ' + b.name + ': ' + fmtHz(b.f) + ', ' + fmtDb(b.g) + (b.type === 'peaking' ? ', Q ' + b.q.toFixed(2) : ''), W * 0.5, H * 0.9, { size: 12.5, align: 'center', serif: true, color: 'rgba(236,229,211,0.88)' });
     stage.text('drag the dots; teal is the exact response of what you hear', W * 0.5, H * 0.96, { size: 9.5, align: 'center', color: 'rgba(236,229,211,0.45)' });
   },
-  readout: function () { var P = this.P, act = P.bands.filter(function (b) { return Math.abs(b.g) >= 0.5; }); if (P.bypass) return 'Bypassed: the source as it is'; if (!act.length) return 'Flat: every band at 0 dB, so the equaliser changes nothing. Drag a dot to start'; return act.map(function (b) { return '<b>' + fmtDb(b.g) + '</b> at ' + fmtHz(b.f) + ' (' + b.name + (b.type === 'peaking' ? ', Q ' + b.q.toFixed(1) : '') + ')'; }).join('; '); }
+  readout: function () { var P = this.P, act = P.bands.filter(function (b) { return Math.abs(b.g) >= 0.5; }); if (P.bypass) return 'Bypassed: the source as it is'; if (!act.length) return 'Flat: every band at 0 dB, so the equaliser changes nothing. Drag a dot to start'; return act.map(function (b) { return '<b>' + fmtDb(b.g) + '</b> at ' + fmtHz(b.f) + ' (band ' + b.name + (b.type === 'peaking' ? ', Q ' + b.q.toFixed(1) : '') + ')'; }).join('; '); }
 });
 
 /* ---------- Foundations stations B: listening, digital audio, levels, rooms ---------- */
