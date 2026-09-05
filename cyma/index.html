@@ -161,6 +161,7 @@ label .filebtn+.val{font-weight:400;color:var(--ink-3)}
 @media(max-width:600px){.journeys button{padding:5px 7px;font-size:12px}header .wordmark{font-size:16px;letter-spacing:.18em}}
 
 .brk{display:none}
+.chip.wrong{border-color:hsl(0,80%,62%);color:hsl(0,80%,72%);opacity:1}
 
 </style>
 </head>
@@ -2786,22 +2787,22 @@ function drawMeter(stage, r, db, hue, label, floor, noScale) {
 function Game(st, cfg) { this.st = st; this.cfg = cfg; this.score = 0; this.tries = 0; this.streak = 0; this.level = cfg.startLevel; this.answer = null; this.revealed = false; this.msg = ''; this.on = false; }
 Game.prototype.begin = function () { this.on = true; this.score = 0; this.tries = 0; this.streak = 0; this.level = this.cfg.startLevel; this.next(); };
 Game.prototype.end = function () { this.on = false; this.revealed = false; this.answer = null; this.msg = ''; if (this.cfg.onEnd) this.cfg.onEnd(); };
-Game.prototype.next = function () { this.revealed = false; var last = this.answer; var a; do { a = Math.floor(Math.random() * this.cfg.choices.length); } while (this.cfg.choices.length > 2 && a === last); this.answer = a; this.msg = ''; this.cfg.pose(a, this.level); };
+Game.prototype.next = function () { this.revealed = false; this.choice = null; var last = this.answer; var a; do { a = Math.floor(Math.random() * this.cfg.choices.length); } while (this.cfg.choices.length > 2 && a === last); this.answer = a; this.msg = ''; this.cfg.pose(a, this.level); };
 Game.prototype.guess = function (i) {
   if (!this.on || this.revealed) return;
-  this.revealed = true; this.tries++; var right = i === this.answer;
+  this.choice = i; this.revealed = true; this.tries++; var right = i === this.answer;
   if (right) { this.score++; this.streak++; if (this.streak >= 2 && this.cfg.harder) { this.level = this.cfg.harder(this.level); this.streak = 0; } }
   else { this.streak = 0; if (this.cfg.easier) this.level = this.cfg.easier(this.level); }
-  this.msg = right ? 'Right. ' : 'Not this time. '; this.msg += 'It was ' + this.cfg.choices[this.answer] + '.'; if (this.cfg.reveal) this.cfg.reveal(this.answer, right);
+  this.msg = right ? 'Right: ' + this.cfg.choices[this.answer] + '.' : 'Not this time. You chose ' + this.cfg.choices[i] + '; it was ' + this.cfg.choices[this.answer] + '.'; if (this.cfg.reveal) this.cfg.reveal(this.answer, right);
 };
 Game.prototype.controls = function () {
   var g = this, cfg = this.cfg;
   var chips = ctlChips({ label: cfg.question, options: cfg.choices.map(function (c, i) { return { label: c, value: i }; }), get: function () { return g.revealed ? g.answer : null; }, set: function (i) { g.guess(i); } });
   var bar = ctlRow([
-    { el: (function () { var b = el('button', 'pressbtn', 'Start a round'); b.type = 'button'; b.addEventListener('click', function () { if (g.on) g.end(); else g.begin(); }); g._btn = b; return b; })(), refresh: function () { g._btn.textContent = g.on ? 'Stop the game' : 'Start a round'; g._btn.setAttribute('aria-pressed', g.on ? 'true' : 'false'); } },
-    { el: (function () { var b = el('button', 'pressbtn', 'Next'); b.type = 'button'; b.addEventListener('click', function () { if (g.on) g.next(); }); g._next = b; return b; })(), refresh: function () { g._next.style.display = g.on ? '' : 'none'; } }
+    { el: (function () { var b = el('button', 'pressbtn', 'Start a round'); b.type = 'button'; b.addEventListener('click', function () { if (g.on) g.end(); else g.begin(); }); g._btn = b; return b; })(), refresh: function () { var t = g.on ? 'Stop the game' : 'Start a round'; if (g._btn.textContent !== t) g._btn.textContent = t; var p = g.on ? 'true' : 'false'; if (g._btn.getAttribute('aria-pressed') !== p) g._btn.setAttribute('aria-pressed', p); } },
+    { el: (function () { var b = el('button', 'pressbtn', 'Next'); b.type = 'button'; b.addEventListener('click', function () { if (g.on) g.next(); }); g._next = b; return b; })(), refresh: function () { var d = g.on ? '' : 'none'; if (g._next.style.display !== d) g._next.style.display = d; } }
   ]);
-  var wrap = { el: chips.el, refresh: function () { chips.el.style.display = g.on ? '' : 'none'; chips.refresh(); var bs = chips.el.querySelectorAll('button.chip'); bs.forEach(function (b, i) { b.classList.toggle('right', g.revealed && i === g.answer); b.classList.toggle('dim', g.revealed && i !== g.answer); }); } };
+  var wrap = { el: chips.el, refresh: function () { var d = g.on ? '' : 'none'; if (chips.el.style.display !== d) chips.el.style.display = d; chips.refresh(); var bs = chips.el.querySelectorAll('button.chip'); bs.forEach(function (b, i) { b.classList.toggle('right', g.revealed && i === g.answer); b.classList.toggle('wrong', g.revealed && i === g.choice && i !== g.answer); b.classList.toggle('dim', g.revealed && i !== g.answer && i !== g.choice); }); } };
   return [bar, wrap];
 };
 Game.prototype.status = function () { if (!this.on) return ''; return ' Game: ' + this.score + ' of ' + this.tries + (this.msg ? '. ' + this.msg : '. Listen, then choose'); };
@@ -3033,6 +3034,69 @@ var EAR = new FoundStation({
   }
 });
 
+/* F3b. EQ: an equaliser adjusts the amplitude of a range of frequencies */
+var EQ_BANDS = [{ type: 'lowshelf', f: 120, g: 0, q: 0.7, name: 'low shelf' }, { type: 'peaking', f: 300, g: 0, q: 1.2, name: 'band 1' }, { type: 'peaking', f: 1200, g: 0, q: 1.2, name: 'band 2' }, { type: 'peaking', f: 4000, g: 0, q: 1.2, name: 'band 3' }, { type: 'highshelf', f: 9000, g: 0, q: 0.7, name: 'high shelf' }];
+var EQ = new FoundStation({
+  id: 'eq', title: 'EQ',
+  thesis: 'Sound is frequency and amplitude, and an equaliser changes the amplitude of a chosen range of frequencies while leaving the rest alone. Every tone control, every mixing desk, every plug-in EQ is this.',
+  notice: 'Drag a band\'s dot on the spectrum: left and right moves its centre frequency, up and down its gain. The teal curve is the exact combined response of the five filters you are hearing. Narrow a band with Q to pinpoint a problem, widen it to shape the tone. Try the examples, then Bypass to hear what you did. Cutting mud at 300 Hz and adding air above 8 kHz are the two moves most beginners learn first.',
+  more: 'A parametric equaliser has, per band, a centre frequency, a gain in decibels and a bandwidth, here as Q: centre frequency divided by the width of the region affected, so Q 1.4 spans about an octave and Q 8 about a semitone. Shelving bands lift or lower everything above or below their corner. The filters are second-order sections, the same building block as in every digital EQ; the curve on the spectrum is read back from the running filter nodes, not calculated separately, so what you see is what you hear. Boosting narrows the headroom by the boost amount; cutting is the safer habit. Small moves, 2 to 3 dB, are the professional norm; the 12 dB moves in the Bands game are training wheels.',
+  hue: function () { return 130; },
+  enter: function (app) {
+    var self = this, c = app.eng.ctx; this.setupAudio(app);
+    this.P = this.P || { source: 'music', bypass: 0, sel: 1, bands: EQ_BANDS.map(function (b) { return { type: b.type, f: b.f, g: b.g, q: b.q, name: b.name }; }) };
+    this.f = this.P.bands.map(function (b) { var n = c.createBiquadFilter(); n.type = b.type; return n; });
+    this.wet = c.createGain(); this.dryB = c.createGain(); var prev = this.src.out; this.f.forEach(function (n) { prev.connect(n); prev = n; }); prev.connect(this.wet); this.wet.connect(this.bus.out); this.src.out.connect(this.dryB); this.dryB.connect(this.bus.out);
+    this.freqs = new Float32Array(160); for (var i = 0; i < 160; i++) this.freqs[i] = SPEC_FMIN * Math.pow(SPEC_FMAX / SPEC_FMIN, i / 159); this.mag = new Float32Array(160); this.ph = new Float32Array(160); this.total = new Float32Array(160);
+    this.src.level = 0.45; this.src.set(this.P.source === 'file' && !USER.buffer ? 'music' : this.P.source); this.apply();
+    var presets = [
+      { name: 'Flat', g: [0, 0, 0, 0, 0] }, { name: 'Warmth', g: [3, 0, 0, 0, 0] }, { name: 'Cut the mud', g: [0, -4, 0, 0, 0], f: [120, 300, 1200, 4000, 9000] }, { name: 'Presence', g: [0, 0, 0, 3, 0], f: [120, 300, 1200, 3200, 9000] }, { name: 'Air', g: [0, 0, 0, 0, 3] }, { name: 'Telephone', g: [-18, 0, 6, 0, -18], f: [300, 300, 1500, 4000, 3000], q: [0.7, 1.2, 0.8, 1.2, 0.7] }
+    ];
+    var band = function () { return self.P.bands[self.P.sel]; };
+    this.controls = [
+      ctlRow([sourceSeg(this, [{ label: 'Music', value: 'music' }, { label: 'Pink noise', value: 'pink' }, { label: 'Your file', value: 'file' }], function () { self.P.source = self.src.kind; }), ctlSeg({ label: 'Listen to', options: [{ label: 'Equalised', value: 0 }, { label: 'Bypass', value: 1 }], get: function () { return self.P.bypass; }, set: function (v) { self.P.bypass = v; self.apply(); } })]),
+      ctlChips({ label: 'Examples', options: presets.map(function (p, i) { return { label: p.name, value: i }; }), get: function () { return self.presetIndex == null ? null : self.presetIndex; }, set: function (i) { self.presetIndex = i; var p = presets[i]; self.P.bands.forEach(function (b, k) { b.g = p.g[k]; if (p.f) b.f = p.f[k]; else b.f = EQ_BANDS[k].f; b.q = p.q ? p.q[k] : EQ_BANDS[k].q; }); self.apply(); } }),
+      ctlChips({ label: 'Band', options: this.P.bands.map(function (b, i) { return { label: b.name, value: i }; }), get: function () { return self.P.sel; }, set: function (v) { self.P.sel = v; } }),
+      ctlRow([ctlSlider({ label: 'Frequency', min: 30, max: 16000, log: true, step: 1, fmt: fmtHz, get: function () { return band().f; }, set: function (v) { band().f = v; self.presetIndex = null; self.apply(); } }),
+        ctlSlider({ label: 'Gain', min: -18, max: 18, step: 0.5, fmt: fmtDb, get: function () { return band().g; }, set: function (v) { band().g = v; self.presetIndex = null; self.apply(); } }),
+        ctlSlider({ label: 'Q, narrowness', min: 0.3, max: 12, log: true, step: 0.01, fmt: function (v) { return 'Q ' + v.toFixed(2) + (v < 0.8 ? ', broad' : (v > 4 ? ', narrow' : ', about an octave')); }, get: function () { return band().q; }, set: function (v) { band().q = v; self.presetIndex = null; self.apply(); } })]),
+      ctlFile(app.eng, function () { self.src.set('file'); self.P.source = 'file'; })
+    ];
+  },
+  leave: function () { this.teardownAudio(); },
+  apply: function () {
+    var P = this.P, now = this.app.eng.now(), self = this;
+    this.f.forEach(function (n, i) { var b = P.bands[i]; n.frequency.setTargetAtTime(b.f, now, 0.02); n.gain.setTargetAtTime(b.g, now, 0.02); if (b.type === 'peaking') n.Q.setTargetAtTime(b.q, now, 0.02); });
+    this.wet.gain.setTargetAtTime(P.bypass ? 0 : 1, now, 0.02); this.dryB.gain.setTargetAtTime(P.bypass ? 1 : 0, now, 0.02); void self;
+  },
+  region: function () { var W = this.app.stage.W, H = this.app.stage.H; return { x: W * 0.05, y: H * 0.04, w: W * 0.9, h: H * 0.5 }; },
+  gainY: function (r, g) { return r.y + r.h * (0.5 - g / 40); },
+  pointer: function (type, u, v) {
+    var r = this.region(), x = u * this.app.stage.W, y = v * this.app.stage.H, P = this.P, self = this;
+    if (type === 'down') { var best = 1e9, sel = null; P.bands.forEach(function (b, i) { var dx = specX(r.x, r.w, b.f) - x, dy = self.gainY(r, b.g) - y, d = Math.sqrt(dx * dx + dy * dy); if (d < best) { best = d; sel = i; } }); if (sel != null && best < 30 * this.app.stage.k) P.sel = sel; this.dragging = true; }
+    if (!this.dragging || y < r.y - 10 || y > r.y + r.h + 10) return;
+    var b = P.bands[P.sel]; b.f = clamp(specF(r.x, r.w, x), 30, 16000); b.g = clamp(Math.round((0.5 - (y - r.y) / r.h) * 40 * 2) / 2, -18, 18); this.presetIndex = null; this.apply();
+    if (type === 'up') this.dragging = false;
+  },
+  draw: function (stage) {
+    stage.clear(); var W = stage.W, H = stage.H, k = stage.k, hue = this.hue(), eng = this.app.eng, self = this, P = this.P, r = this.region();
+    drawSpectrum(stage, eng, r, hue, function (c, fx, fy, rr) {
+      var tot = self.total; for (var i = 0; i < 160; i++) tot[i] = 1;
+      self.f.forEach(function (n) { n.getFrequencyResponse(self.freqs, self.mag, self.ph); for (var i = 0; i < 160; i++) tot[i] *= self.mag[i]; });
+      [-12, -6, 6, 12].forEach(function (g) { var y = self.gainY(rr, g); c.strokeStyle = 'rgba(236,229,211,0.08)'; c.lineWidth = 1; c.beginPath(); c.moveTo(rr.x, y); c.lineTo(rr.x + rr.w, y); c.stroke(); stage.text(fmtSigned(g, 0), rr.x + rr.w - 3, y - 2, { size: 8.5, align: 'right', color: 'rgba(236,229,211,0.4)' }); });
+      var y0 = self.gainY(rr, 0); c.strokeStyle = 'rgba(236,229,211,0.2)'; c.beginPath(); c.moveTo(rr.x, y0); c.lineTo(rr.x + rr.w, y0); c.stroke();
+      c.beginPath(); for (i = 0; i < 160; i++) { var db = 20 * Math.log10(Math.max(1e-4, tot[i])), y = self.gainY(rr, clamp(db, -20, 20)); if (i) c.lineTo(fx(self.freqs[i]), y); else c.moveTo(fx(self.freqs[i]), y); } c.strokeStyle = P.bypass ? 'rgba(124,242,227,0.35)' : 'rgba(124,242,227,0.95)'; c.lineWidth = 1.8 * k; c.stroke();
+      P.bands.forEach(function (b, i) { var x = fx(b.f), y = self.gainY(rr, b.g), on = i === P.sel; c.fillStyle = on ? '#ece5d3' : 'rgba(124,242,227,0.9)'; c.beginPath(); c.arc(x, y, (on ? 6 : 4.5) * k, 0, TAU); c.fill(); if (on) { c.strokeStyle = 'rgba(236,229,211,0.5)'; c.lineWidth = 1; c.beginPath(); c.arc(x, y, 11 * k, 0, TAU); c.stroke(); } stage.text(String(i + 1), x, y - 9 * k, { size: 9, align: 'center', color: on ? '#ece5d3' : 'rgba(124,242,227,0.9)' }); });
+      if (P.bypass) stage.text('bypassed', rr.x + rr.w - 4, rr.y + 11 * k, { size: 9.5, align: 'right', color: 'rgba(236,229,211,0.6)' });
+    });
+    drawRegions(stage, { x: W * 0.05, y: H * 0.66, w: W * 0.9, h: H * 0.075 }, P.bands[P.sel].f, hue);
+    var b = P.bands[P.sel];
+    stage.text(b.name + ': ' + fmtHz(b.f) + ', ' + fmtDb(b.g) + (b.type === 'peaking' ? ', Q ' + b.q.toFixed(2) : ''), W * 0.5, H * 0.9, { size: 12.5, align: 'center', serif: true, color: 'rgba(236,229,211,0.88)' });
+    stage.text('drag the dots; teal is the exact response of what you hear', W * 0.5, H * 0.96, { size: 9.5, align: 'center', color: 'rgba(236,229,211,0.45)' });
+  },
+  readout: function () { var P = this.P, act = P.bands.filter(function (b) { return Math.abs(b.g) >= 0.5; }); if (P.bypass) return 'Bypassed: the source as it is'; if (!act.length) return 'Flat: every band at 0 dB, so the equaliser changes nothing. Drag a dot to start'; return act.map(function (b) { return '<b>' + fmtDb(b.g) + '</b> at ' + fmtHz(b.f) + ' (' + b.name + (b.type === 'peaking' ? ', Q ' + b.q.toFixed(1) : '') + ')'; }).join('; '); }
+});
+
 /* ---------- Foundations stations B: listening, digital audio, levels, rooms ---------- */
 
 /* F5. Bands: frequency regions by ear, then a recognition game */
@@ -3083,9 +3147,9 @@ var BANDS = new FoundStation({
     });
     var hi = P.mode === 'explore' && P.region >= 0 ? Math.sqrt(REGIONS[P.region].lo * REGIONS[P.region].hi) : (g.on && g.revealed ? Math.sqrt(REGIONS[self.gameRegion].lo * REGIONS[self.gameRegion].hi) : null);
     drawRegions(stage, { x: W * 0.05, y: H * 0.66, w: W * 0.9, h: H * 0.08 }, hi, hue);
-    var msg = g.on ? (g.revealed ? g.msg + '  Press Next for another.' : 'Listen. Which region is different?') : (P.mode === 'explore' ? (P.region >= 0 ? REGIONS[P.region].name + ': ' + REGIONS[P.region].feel : 'the whole sound, unfiltered') : 'press Start a round');
-    stage.text(msg, W * 0.5, H * 0.9, { size: 12.5, align: 'center', serif: true, color: 'rgba(236,229,211,0.85)' });
-    if (g.on) stage.text('score ' + g.score + ' of ' + g.tries + ', current move ' + g.level + ' dB', W * 0.5, H * 0.96, { size: 10, align: 'center', color: 'rgba(236,229,211,0.5)' });
+    var msg = g.on ? (g.revealed ? g.msg : 'Listen. Which region is different?') : (P.mode === 'explore' ? (P.region >= 0 ? REGIONS[P.region].name + ': ' + REGIONS[P.region].feel : 'the whole sound, unfiltered') : 'press Start a round');
+    stage.text(msg, W * 0.5, H * 0.89, { size: 11.5, align: 'center', serif: true, color: 'rgba(236,229,211,0.88)' });
+    if (g.on) stage.text((g.revealed ? 'press Next for another. ' : '') + 'score ' + g.score + ' of ' + g.tries + ', move ' + g.level + ' dB', W * 0.5, H * 0.955, { size: 10, align: 'center', color: 'rgba(236,229,211,0.5)' });
   },
   readout: function () { var P = this.P, g = this.game; if (g.on) return (g.revealed ? g.msg : 'Round in progress: one region has been boosted or cut by ' + g.level + ' dB') + '.' + g.status(); return P.mode === 'explore' ? (P.region >= 0 ? 'Hearing only the <b>' + REGIONS[P.region].name + '</b>, ' + REGIONS[P.region].lo + ' to ' + REGIONS[P.region].hi + ' Hz: ' + REGIONS[P.region].feel : 'The whole sound. Pick a region to hear it alone') : 'Start a round to train recognition of boosts and cuts'; }
 });
@@ -3255,31 +3319,11 @@ var ROOM = new FoundStation({
 
 /* ---------- Foundations stations C: dynamics, microphones, space, meters ---------- */
 
-/* Two-choice ear-training rounds where the choice set depends on the round. */
-function Rounds(st, params, pose) { this.st = st; this.params = params; this.pose = pose; this.on = false; this.score = 0; this.tries = 0; this.param = null; this.answer = 0; this.revealed = false; this.msg = ''; }
-Rounds.prototype.begin = function () { this.on = true; this.score = 0; this.tries = 0; this.next(); };
-Rounds.prototype.end = function () { this.on = false; this.revealed = false; this.param = null; this.msg = ''; this.pose(null); };
-Rounds.prototype.next = function () { var last = this.param; do { this.param = this.params[Math.floor(Math.random() * this.params.length)]; } while (this.params.length > 1 && this.param === last); this.answer = Math.random() < 0.5 ? 0 : 1; this.revealed = false; this.msg = ''; this.pose(this.param, this.answer); };
-Rounds.prototype.guess = function (i) { if (!this.on || this.revealed) return; this.revealed = true; this.tries++; var right = i === this.answer; if (right) this.score++; this.msg = (right ? 'Right. ' : 'Not this time. ') + 'It was ' + this.param.labels[this.answer] + '.'; };
-Rounds.prototype.controls = function () {
-  var g = this, ctls = [];
-  ctls.push(ctlRow([
-    { el: (function () { var b = el('button', 'pressbtn', 'Start a round'); b.type = 'button'; b.addEventListener('click', function () { if (g.on) g.end(); else g.begin(); }); g._btn = b; return b; })(), refresh: function () { g._btn.textContent = g.on ? 'Stop the game' : 'Start a round'; } },
-    { el: (function () { var b = el('button', 'pressbtn', 'Next'); b.type = 'button'; b.addEventListener('click', function () { if (g.on) g.next(); }); g._next = b; return b; })(), refresh: function () { g._next.style.display = g.on ? '' : 'none'; } }
-  ]));
-  this.params.forEach(function (p) {
-    var chips = ctlChips({ label: p.question, options: p.labels.map(function (l, i) { return { label: l, value: i }; }), get: function () { return g.revealed && g.param === p ? g.answer : null; }, set: function (i) { g.guess(i); } });
-    ctls.push({ el: chips.el, refresh: function () { chips.el.style.display = g.on && g.param === p ? '' : 'none'; chips.refresh(); chips.el.querySelectorAll('button.chip').forEach(function (b, i) { b.classList.toggle('right', g.revealed && g.param === p && i === g.answer); b.classList.toggle('dim', g.revealed && g.param === p && i !== g.answer); }); } });
-  });
-  return ctls;
-};
-Rounds.prototype.status = function () { return this.on ? ' Game: ' + this.score + ' of ' + this.tries + (this.msg ? '. ' + this.msg : '. Listen, then choose') : ''; };
-
 /* F9. Dynamics */
 var DYNAMICS = new FoundStation({
   id: 'dynamics', title: 'Dynamics',
   thesis: 'A compressor turns the loud moments down. How far down is the ratio, from where is the threshold, how fast it reacts and lets go are attack and release. Each one has a sound, and the sound can be learned.',
-  notice: 'Watch the two envelopes: grey is what goes in, coloured is what comes out, red is how much the compressor is taking off. Compare with Bypass. A fast attack flattens the drum hits; a slow one lets them through and grabs what follows. A fast release breathes and pumps; a slow one holds the level down. Then play the game: the app sets one parameter fast or slow, gentle or hard, and you say which.',
+  notice: 'Watch the two envelopes: grey is what goes in, coloured is what comes out, red is how much the compressor is taking off. Compare with Bypass. A fast attack flattens the drum hits; a slow one lets them through and grabs what follows. A fast release breathes and pumps; a slow one holds the level down. Try the extremes of each control on its own, with Bypass to compare, until you can name what changed.',
   more: 'Threshold in dBFS is the level above which gain reduction begins; ratio is how many decibels of input rise produce one decibel of output rise above it; the knee softens the corner; attack and release are the time constants of the gain change. Makeup gain restores the level so that compressed and uncompressed can be compared at equal loudness, which is the only fair comparison. The transfer curve at the right is the static input-to-output map for the current settings; the moving traces are measured from the actual signal. Artefacts to listen for: pumping and breathing from release times close to the rhythm, squashed transients from attacks under a few milliseconds, and the lifeless density of high ratios at low thresholds.',
   hue: function () { return 12; },
   enter: function (app) {
@@ -3288,34 +3332,28 @@ var DYNAMICS = new FoundStation({
     this.inAn = c.createAnalyser(); this.inAn.fftSize = 2048; this.outAn = c.createAnalyser(); this.outAn.fftSize = 2048; this.buf = new Float32Array(2048);
     this.src.out.connect(this.inAn); this.src.out.connect(this.comp); this.comp.connect(this.mk); this.mk.connect(this.wetG); this.src.out.connect(this.byp); this.wetG.connect(this.outAn); this.byp.connect(this.outAn); this.wetG.connect(this.bus.out); this.byp.connect(this.bus.out);
     this.src.level = 0.5; this.src.set(this.P.source === 'file' && !USER.buffer ? 'music' : this.P.source); this.hist = []; this.apply();
-    this.game = new Rounds(this, [
-      { key: 'att', question: 'Attack: which was it?', labels: ['fast attack, 1 ms', 'slow attack, 60 ms'], values: [0.001, 0.06] },
-      { key: 'rel', question: 'Release: which was it?', labels: ['fast release, 40 ms', 'slow release, 900 ms'], values: [0.04, 0.9] },
-      { key: 'ratio', question: 'Ratio: which was it?', labels: ['gentle, 2:1', 'hard, 12:1'], values: [2, 12] }
-    ], function (param, a) { if (!param) { self.gameSet = null; self.apply(); return; } var g = { thr: -28, ratio: 4, att: 0.01, rel: 0.25, knee: 3 }; g[param.key] = param.values[a]; self.gameSet = g; self.apply(); });
-    var gameCtls = this.game.controls();
     this.controls = [
       ctlRow([sourceSeg(this, [{ label: 'Music', value: 'music' }, { label: 'Your file', value: 'file' }], function () { self.P.source = self.src.kind; }), ctlSeg({ label: 'Listen to', options: [{ label: 'Compressed', value: 0 }, { label: 'Bypass', value: 1 }], get: function () { return self.P.bypass; }, set: function (v) { self.P.bypass = v; self.apply(); } })]),
       ctlRow([ctlSlider({ label: 'Threshold', min: -60, max: 0, step: 0.5, fmt: function (v) { return v.toFixed(1) + ' dBFS'; }, get: function () { return self.P.thr; }, set: function (v) { self.P.thr = v; self.apply(); } }), ctlSlider({ label: 'Ratio', min: 1, max: 20, log: true, step: 0.1, fmt: function (v) { return v.toFixed(1) + ':1'; }, get: function () { return self.P.ratio; }, set: function (v) { self.P.ratio = v; self.apply(); } }), ctlSlider({ label: 'Knee', min: 0, max: 30, step: 1, fmt: function (v) { return v + ' dB'; }, get: function () { return self.P.knee; }, set: function (v) { self.P.knee = v; self.apply(); } })]),
       ctlRow([ctlSlider({ label: 'Attack', min: 0.0005, max: 0.5, log: true, step: 0.0005, fmt: fmtMs, get: function () { return self.P.att; }, set: function (v) { self.P.att = v; self.apply(); } }), ctlSlider({ label: 'Release', min: 0.02, max: 2, log: true, step: 0.005, fmt: fmtMs, get: function () { return self.P.rel; }, set: function (v) { self.P.rel = v; self.apply(); } }), ctlSlider({ label: 'Makeup gain', min: 0, max: 24, step: 0.5, fmt: fmtDb, get: function () { return self.P.makeup; }, set: function (v) { self.P.makeup = v; self.apply(); } })]),
       ctlFile(app.eng, function () { self.src.set('file'); self.P.source = 'file'; })
-    ].concat(gameCtls);
+    ];
   },
   leave: function () { this.teardownAudio(); },
   apply: function () {
-    var P = this.P, g = this.gameSet || P, now = this.app.eng.now(), cp = this.comp;
+    var P = this.P, g = P, now = this.app.eng.now(), cp = this.comp;
     cp.threshold.setTargetAtTime(g.thr, now, 0.02); cp.ratio.setTargetAtTime(g.ratio, now, 0.02); cp.attack.setTargetAtTime(g.att, now, 0.02); cp.release.setTargetAtTime(g.rel, now, 0.02); cp.knee.setTargetAtTime(g.knee, now, 0.02);
-    var mk = this.gameSet ? -g.thr * (1 - 1 / g.ratio) * 0.5 : P.makeup; this.mk.gain.setTargetAtTime(fromDb(mk), now, 0.02);
-    var byp = this.gameSet ? 0 : P.bypass; this.wetG.gain.setTargetAtTime(byp ? 0 : 1, now, 0.02); this.byp.gain.setTargetAtTime(byp ? 1 : 0, now, 0.02);
+    this.mk.gain.setTargetAtTime(fromDb(P.makeup), now, 0.02);
+    var byp = P.bypass; this.wetG.gain.setTargetAtTime(byp ? 0 : 1, now, 0.02); this.byp.gain.setTargetAtTime(byp ? 1 : 0, now, 0.02);
   },
   tick: function () {
     var b = this.buf, pk = function (an) { an.getFloatTimeDomainData(b); var m = 0; for (var i = 0; i < b.length; i++) { var v = Math.abs(b[i]); if (v > m) m = v; } return m; };
     var red = typeof this.comp.reduction === 'number' ? this.comp.reduction : (this.comp.reduction && this.comp.reduction.value) || 0;
     this.hist.push([dbfs(pk(this.inAn)), dbfs(pk(this.outAn)), red]); if (this.hist.length > 240) this.hist.shift();
   },
-  transfer: function (x) { var g = this.gameSet || this.P, T = g.thr, R = g.ratio, W = g.knee; if (W > 0 && x > T - W / 2 && x < T + W / 2) { var d = x - T + W / 2; return x + (1 / R - 1) * d * d / (2 * W); } return x < T ? x : T + (x - T) / R; },
+  transfer: function (x) { var g = this.P, T = g.thr, R = g.ratio, W = g.knee; if (W > 0 && x > T - W / 2 && x < T + W / 2) { var d = x - T + W / 2; return x + (1 / R - 1) * d * d / (2 * W); } return x < T ? x : T + (x - T) / R; },
   draw: function (stage) {
-    stage.clear(); var c = stage.ctx, W = stage.W, H = stage.H, k = stage.k, hue = this.hue(), n = this.hist.length, r = { x: W * 0.05, y: H * 0.04, w: W * 0.6, h: H * 0.5 }, g = this.gameSet || this.P;
+    stage.clear(); var c = stage.ctx, W = stage.W, H = stage.H, k = stage.k, hue = this.hue(), n = this.hist.length, r = { x: W * 0.05, y: H * 0.04, w: W * 0.6, h: H * 0.5 }, g = this.P;
     c.fillStyle = 'rgba(255,255,255,0.025)'; c.fillRect(r.x, r.y, r.w, r.h);
     var fy = function (db) { return r.y + r.h * (1 - clamp((db + 48) / 48, 0, 1)); };
     [0, -12, -24, -36].forEach(function (d) { var y = fy(d); c.strokeStyle = 'rgba(236,229,211,0.12)'; c.lineWidth = 1; c.beginPath(); c.moveTo(r.x, y); c.lineTo(r.x + r.w, y); c.stroke(); stage.text(d + '', r.x - 4, y + 3, { size: 8.5, align: 'right', color: 'rgba(236,229,211,0.45)' }); });
@@ -3328,11 +3366,10 @@ var DYNAMICS = new FoundStation({
     c.beginPath(); for (i = 0; i <= 60; i++) { var xi = -60 + i, yo = this.transfer(xi), px = t.x + t.w * (xi + 60) / 60, py = t.y + t.h * (1 - (yo + 60) / 60); if (i) c.lineTo(px, py); else c.moveTo(px, py); } c.strokeStyle = hsl(hue, 85, 70, 0.95); c.lineWidth = 1.5 * k; c.stroke();
     stage.text('in vs out', t.x + t.w / 2, t.y + t.h + 11 * k, { size: 9, align: 'center', color: 'rgba(236,229,211,0.5)' });
     var red = n ? this.hist[n - 1][2] : 0; drawMeter(stage, { x: W * 0.8, y: H * 0.34, w: W * 0.07, h: H * 0.16 }, -30 - red, hue, 'GR ' + (-red).toFixed(1) + ' dB', -30, true);
-    var gm = this.game, msg = gm.on ? (gm.revealed ? gm.msg + '  Press Next.' : 'Listen. ' + gm.param.question) : (this.P.bypass ? 'bypassed: the raw signal' : 'threshold ' + this.P.thr.toFixed(0) + ' dBFS, ratio ' + this.P.ratio.toFixed(1) + ':1, attack ' + fmtMs(this.P.att) + ', release ' + fmtMs(this.P.rel));
+    var msg = this.P.bypass ? 'bypassed: the raw signal' : 'threshold ' + this.P.thr.toFixed(0) + ' dBFS, ratio ' + this.P.ratio.toFixed(1) + ':1, attack ' + fmtMs(this.P.att) + ', release ' + fmtMs(this.P.rel);
     stage.text(msg, W * 0.5, H * 0.76, { size: 12, align: 'center', serif: true, color: 'rgba(236,229,211,0.85)' });
-    if (gm.on) stage.text('score ' + gm.score + ' of ' + gm.tries, W * 0.5, H * 0.82, { size: 10, align: 'center', color: 'rgba(236,229,211,0.5)' });
   },
-  readout: function () { var P = this.P, g = this.game; if (g.on) return (g.revealed ? g.msg : 'Round in progress: listen for the ' + g.param.key.replace('att', 'attack').replace('rel', 'release')) + '.' + g.status(); return 'Threshold <b>' + P.thr.toFixed(1) + ' dBFS</b>, ratio <b>' + P.ratio.toFixed(1) + ':1</b>, knee ' + P.knee + ' dB, attack ' + fmtMs(P.att) + ', release ' + fmtMs(P.rel) + ', makeup ' + fmtDb(P.makeup) + (P.bypass ? '. Bypassed' : ''); }
+  readout: function () { var P = this.P; return 'Threshold <b>' + P.thr.toFixed(1) + ' dBFS</b>, ratio <b>' + P.ratio.toFixed(1) + ':1</b>, knee ' + P.knee + ' dB, attack ' + fmtMs(P.att) + ', release ' + fmtMs(P.rel) + ', makeup ' + fmtDb(P.makeup) + (P.bypass ? '. Bypassed' : ''); }
 });
 
 /* F10. Mic */
@@ -3385,8 +3422,8 @@ var MIC = new FoundStation({
 /* F11. Space */
 var SPACE = new FoundStation({
   id: 'space', title: 'Space',
-  thesis: 'Reverb, echo and width are the three tools that put a sound somewhere. Each can be recognised by ear once you have heard it in isolation.',
-  notice: 'Add reverb and lengthen the decay; add pre-delay and hear the voice step in front of the room. Add an echo and set its time to the beat. Widen the stereo and watch the figure at the right open from a line into a cloud while the correlation meter falls. Then play the game: is the decay short or long, is there pre-delay or none.',
+  thesis: 'Reverb, echo and width are the three tools that put a sound somewhere. Each has a signature you can learn to hear once you have heard it on its own.',
+  notice: 'Add reverb and lengthen the decay; add pre-delay and hear the voice step in front of the room. Add an echo and set its time to the beat. Widen the stereo and watch the figure at the right open from a line into a cloud while the correlation meter falls. Compare a short decay with a long one, and no pre-delay with a long one, until each is a sound you recognise.',
   more: 'The reverberation is synthetic: a stereo impulse response with sparse early reflections in the first tens of milliseconds and a dense tail whose level falls 60 dB in the RT60 you set, run through a convolver; the two channels are decorrelated so the tail has width. Pre-delay is a plain delay before the reverb, the cue the ear uses for the distance between the source and the walls. The echo is a feedback delay. Width works on the mid and side signals of the wet return: side gain up widens, down narrows to mono. The figure at the right is a goniometer, left against right, the same construction as the Lissajous figure in the Ratio journey, and the correlation coefficient beneath it is +1 for mono, 0 for unrelated channels and negative when the channels fight.',
   hue: function () { return 230; },
   enter: function (app) {
@@ -3403,18 +3440,13 @@ var SPACE = new FoundStation({
     this.dry = c.createGain(); this.src.out.connect(this.dry); this.out = c.createGain(); this.dry.connect(this.out); this.wet.connect(this.out); this.echMix.connect(this.out); this.out.connect(this.bus.out);
     this.spl = c.createChannelSplitter(2); this.out.connect(this.spl); this.anL = c.createAnalyser(); this.anR = c.createAnalyser(); this.anL.fftSize = 1024; this.anR.fftSize = 1024; this.spl.connect(this.anL, 0); this.spl.connect(this.anR, 1); this.bL = new Float32Array(1024); this.bR = new Float32Array(1024);
     this.src.level = 0.45; this.src.set(this.P.source === 'file' && !USER.buffer ? 'music' : this.P.source); this.irKey = ''; this.apply(); this.corr = 1;
-    this.game = new Rounds(this, [
-      { key: 'decay', question: 'Decay: which was it?', labels: ['short, 0.4 s', 'long, 2.5 s'], values: [0.4, 2.5] },
-      { key: 'pre', question: 'Pre-delay: which was it?', labels: ['none', 'long, 90 ms'], values: [0, 0.09] }
-    ], function (param, a) { if (!param) { self.gameSet = null; self.apply(); return; } var g = { decay: 1.0, pre: 0.01, revMix: 0.45, echoMix: 0, width: 1 }; g[param.key] = param.values[a]; self.gameSet = g; self.apply(); });
-    var gameCtls = this.game.controls();
     this.controls = [
       sourceSeg(this, [{ label: 'Music', value: 'music' }, { label: 'Your file', value: 'file' }], function () { self.P.source = self.src.kind; }),
       ctlRow([ctlSlider({ label: 'Reverb decay, RT60', min: 0.2, max: 6, log: true, step: 0.01, fmt: function (v) { return v.toFixed(2) + ' s'; }, get: function () { return self.P.decay; }, set: function (v) { self.P.decay = v; self.apply(); } }), ctlSlider({ label: 'Pre-delay', min: 0, max: 0.15, step: 0.001, fmt: function (v) { return Math.round(v * 1000) + ' ms'; }, get: function () { return self.P.pre; }, set: function (v) { self.P.pre = v; self.apply(); } }), ctlSlider({ label: 'Reverb mix', min: 0, max: 1, step: 0.01, fmt: fmtPct, get: function () { return self.P.revMix; }, set: function (v) { self.P.revMix = v; self.apply(); } })]),
       ctlRow([ctlSlider({ label: 'Echo time', min: 0.05, max: 1.2, log: true, step: 0.001, fmt: function (v) { return Math.round(v * 1000) + ' ms'; }, get: function () { return self.P.echo; }, set: function (v) { self.P.echo = v; self.apply(); } }), ctlSlider({ label: 'Echo feedback', min: 0, max: 0.85, step: 0.01, fmt: fmtPct, get: function () { return self.P.fb; }, set: function (v) { self.P.fb = v; self.apply(); } }), ctlSlider({ label: 'Echo mix', min: 0, max: 1, step: 0.01, fmt: fmtPct, get: function () { return self.P.echoMix; }, set: function (v) { self.P.echoMix = v; self.apply(); } })]),
       ctlSlider({ label: 'Stereo width of the reverb', min: 0, max: 2, step: 0.01, fmt: function (v) { return v === 0 ? 'mono' : Math.round(v * 100) + '%'; }, get: function () { return self.P.width; }, set: function (v) { self.P.width = v; self.apply(); } }),
       ctlFile(app.eng, function () { self.src.set('file'); self.P.source = 'file'; })
-    ].concat(gameCtls);
+    ];
   },
   leave: function () { this.teardownAudio(); },
   buildIR: function (decay) {
@@ -3427,15 +3459,15 @@ var SPACE = new FoundStation({
     this.conv.buffer = ir;
   },
   apply: function () {
-    var P = this.P, g = this.gameSet || P, now = this.app.eng.now(), key = g.decay.toFixed(2);
+    var P = this.P, g = P, now = this.app.eng.now(), key = g.decay.toFixed(2);
     if (key !== this.irKey) { this.irKey = key; this.buildIR(g.decay); }
     this.pre.delayTime.setTargetAtTime(g.pre, now, 0.02); this.wet.gain.setTargetAtTime(g.revMix * 1.4, now, 0.03); this.dry.gain.setTargetAtTime(1 - 0.3 * g.revMix, now, 0.03);
-    var w = g.width == null ? P.width : g.width; this.ls.gain.setTargetAtTime(0.5 * w, now, 0.02); this.rs.gain.setTargetAtTime(-0.5 * w, now, 0.02);
-    var em = g.echoMix == null ? P.echoMix : g.echoMix; this.ech.delayTime.setTargetAtTime(P.echo, now, 0.02); this.echG.gain.setTargetAtTime(em > 0 ? P.fb : 0, now, 0.02); this.echMix.gain.setTargetAtTime(em, now, 0.03);
+    var w = P.width; this.ls.gain.setTargetAtTime(0.5 * w, now, 0.02); this.rs.gain.setTargetAtTime(-0.5 * w, now, 0.02);
+    var em = P.echoMix; this.ech.delayTime.setTargetAtTime(P.echo, now, 0.02); this.echG.gain.setTargetAtTime(em > 0 ? P.fb : 0, now, 0.02); this.echMix.gain.setTargetAtTime(em, now, 0.03);
   },
   tick: function () { this.anL.getFloatTimeDomainData(this.bL); this.anR.getFloatTimeDomainData(this.bR); var sl = 0, sr2 = 0, slr = 0; for (var i = 0; i < 1024; i++) { sl += this.bL[i] * this.bL[i]; sr2 += this.bR[i] * this.bR[i]; slr += this.bL[i] * this.bR[i]; } this.corr = sl > 1e-9 && sr2 > 1e-9 ? slr / Math.sqrt(sl * sr2) : 1; },
   draw: function (stage) {
-    stage.clear(); var c = stage.ctx, W = stage.W, H = stage.H, k = stage.k, hue = this.hue(), P = this.gameSet || this.P, self = this;
+    stage.clear(); var c = stage.ctx, W = stage.W, H = stage.H, k = stage.k, hue = this.hue(), P = this.P, self = this;
     var r = { x: W * 0.13, y: H * 0.05, w: W * 0.47, h: H * 0.42 }; c.fillStyle = 'rgba(255,255,255,0.025)'; c.fillRect(r.x, r.y, r.w, r.h);
     var tmax = Math.max(0.6, P.decay * 1.1), fx = function (t) { return r.x + r.w * t / tmax; }, fy = function (db) { return r.y + r.h * (1 - clamp((db + 60) / 60, 0, 1)); };
     c.strokeStyle = 'rgba(236,229,211,0.12)'; c.lineWidth = 1; [0, -20, -40].forEach(function (d) { var y = fy(d); c.beginPath(); c.moveTo(r.x, y); c.lineTo(r.x + r.w, y); c.stroke(); stage.text(d + ' dB', r.x - 3, y + 3, { size: 8.5, align: 'right', color: 'rgba(236,229,211,0.45)' }); });
@@ -3448,12 +3480,11 @@ var SPACE = new FoundStation({
     c.fillStyle = hsl(hue, 85, 72, 0.55); var mx = 1e-6; for (var i = 0; i < 1024; i++) mx = Math.max(mx, Math.abs(this.bL[i]), Math.abs(this.bR[i])); var sc = R * 0.95 / mx;
     for (i = 0; i < 1024; i += 2) { var l = this.bL[i] * sc, rr = this.bR[i] * sc, x = gx + (rr - l) * 0.7071, y = gy - (l + rr) * 0.7071; c.fillRect(x, y, 1.2 * k, 1.2 * k); }
     stage.text('left vs right', gx, gy + R + 12 * k, { size: 9, align: 'center', color: 'rgba(236,229,211,0.5)' }); stage.text('correlation ' + (this.corr >= 0 ? '+' : '') + this.corr.toFixed(2), gx, gy + R + 24 * k, { size: 10.5, align: 'center', color: '#ece5d3' });
-    var gm = this.game, msg = gm.on ? (gm.revealed ? gm.msg + '  Press Next.' : 'Listen. ' + gm.param.question) : 'reverb ' + fmtPct(this.P.revMix) + ', decay ' + this.P.decay.toFixed(2) + ' s, pre-delay ' + Math.round(this.P.pre * 1000) + ' ms' + (this.P.echoMix ? ', echo ' + Math.round(this.P.echo * 1000) + ' ms' : '') + ', width ' + Math.round(this.P.width * 100) + '%';
+    var msg = 'reverb ' + fmtPct(this.P.revMix) + ', decay ' + this.P.decay.toFixed(2) + ' s, pre-delay ' + Math.round(this.P.pre * 1000) + ' ms' + (this.P.echoMix ? ', echo ' + Math.round(this.P.echo * 1000) + ' ms' : '') + ', width ' + Math.round(this.P.width * 100) + '%';
     stage.text(msg, W * 0.5, H * 0.7, { size: 12, align: 'center', serif: true, color: 'rgba(236,229,211,0.85)' });
-    if (gm.on) stage.text('score ' + gm.score + ' of ' + gm.tries, W * 0.5, H * 0.76, { size: 10, align: 'center', color: 'rgba(236,229,211,0.5)' });
     drawSpectrum(stage, this.app.eng, { x: W * 0.05, y: H * 0.8, w: W * 0.9, h: H * 0.17 }, hue, null); void self;
   },
-  readout: function () { var P = this.P, g = this.game; if (g.on) return (g.revealed ? g.msg : 'Round in progress: listen to the room') + '.' + g.status(); return 'Reverb <b>' + P.decay.toFixed(2) + ' s</b> decay, pre-delay ' + Math.round(P.pre * 1000) + ' ms, mix ' + fmtPct(P.revMix) + (P.echoMix ? '. Echo ' + Math.round(P.echo * 1000) + ' ms, feedback ' + fmtPct(P.fb) : '') + '. Width ' + Math.round(P.width * 100) + '%, correlation <b>' + (this.corr >= 0 ? '+' : '') + this.corr.toFixed(2) + '</b>'; }
+  readout: function () { var P = this.P; return 'Reverb <b>' + P.decay.toFixed(2) + ' s</b> decay, pre-delay ' + Math.round(P.pre * 1000) + ' ms, mix ' + fmtPct(P.revMix) + (P.echoMix ? '. Echo ' + Math.round(P.echo * 1000) + ' ms, feedback ' + fmtPct(P.fb) : '') + '. Width ' + Math.round(P.width * 100) + '%, correlation <b>' + (this.corr >= 0 ? '+' : '') + this.corr.toFixed(2) + '</b>'; }
 });
 
 /* F12. Meters */
@@ -3544,6 +3575,7 @@ var PLAIN = {
   wave: 'Sound is air pressure swinging back and forth. The wave you see is that swing drawn against time: left to right is time in milliseconds, up and down is pressure. Frequency is how many swings happen each second, measured in hertz; more of them, and the note is higher. The period is the time one swing takes. Amplitude is how far the pressure swings; the bigger the swing, the louder the sound. Engineers state amplitude as a level in decibels, and the scale used here is dBFS, decibels below the loudest a digital file can hold. Wavelength is how far the sound travels in the air during one swing: bass notes are metres long, treble notes centimetres long, which is why bass is hard to absorb and why moving a microphone a few centimetres changes the sound of a voice. Move away from a source and its amplitude halves every time you double the distance, a drop of 6 dB.',
   phase: 'Play the same sound twice at once. If the two copies line up exactly, every peak meets a peak and the result is twice as big, which is 6 dB louder. Flip one copy upside down and every peak meets a trough: they cancel and you hear nothing. Slide one copy a little later in time and something in between happens, and it depends on frequency. A one millisecond delay is half a cycle for a 500 Hz tone, so 500 Hz cancels, and so does 1500 Hz, and 2500 Hz, all the way up. On music or noise those cancelled frequencies become notches in the spectrum, evenly spaced like the teeth of a comb. This is exactly what happens when two microphones hear the same singer from slightly different distances, or when a reflection off the desk arrives just after the direct sound.',
   colour: 'Play a sine and you hear one pure pitch. Play a saw at the same pitch and it sounds brighter and buzzier, even though the note is the same. The difference is overtones: the saw is really that sine plus a stack of quieter sines at two, three, four times the frequency and so on. Which overtones are present and how loud they are is what we hear as the colour of a sound, its timbre. The square has only the odd-numbered overtones and sounds hollow. The triangle has the odd ones too but much quieter, so it sounds soft. Noise has no repeating pattern at all, so no overtones, only a wash across every frequency. The levels are matched by average power so that only the colour changes, not the loudness.',
+  eq: 'If sound is frequency and amplitude, an equaliser is the tool that changes the amplitude of some frequencies and not others. Each band has a centre frequency, a gain that raises or lowers everything near that frequency, and a width, called Q, that says how wide near is. Shelves at the two ends lift or lower everything beyond their corner. Drag the dots and listen: a little cut around 300 Hz clears mud from almost any mix, a lift above 8 kHz adds air, a boost around 3 kHz brings a voice forward, and the telephone example shows what taking away both ends does. The curve is measured from the very filters you are hearing. Cuts are safer than boosts, small moves are the professional habit, and the Bands station next door trains your ear to hear these moves without looking.',
   ear: 'Your ears are sharpest between about 2 and 5 kHz, where speech lives, and much less sensitive at the very bottom and very top of the range. A tone at the same level sounds quieter at 50 Hz than at 1 kHz; the curve shows by how much. When a loud sound and a quieter one are close in frequency, the loud one hides the quiet one completely: that is masking, and it is why a busy mix loses parts you know are there. When the same sound reaches you twice within about thirty milliseconds, you hear one sound, coming from wherever the first copy came from; beyond that gap you hear an echo. And loud listening adds up: 85 dB for eight hours is the accepted daily limit, and every 3 dB louder halves the time. Turn it down, take breaks, and never trust a phone to tell you the level.',
   bands: 'Professionals divide the range of hearing into a handful of regions and learn what each one sounds like: sub-bass you feel more than hear, bass where the fundamentals of most instruments live, low mids that give warmth or mud, mids where voices and intelligibility sit, upper mids that add clarity or harshness, presence for definition and sibilance, brilliance for air. Explore each region on filtered noise until it is familiar. Then play the game: the app boosts or cuts one region of the music and you say which. It starts with big, obvious changes and makes them smaller as you get better, and shows you the answer on the spectrum every time. Ten minutes a day of this is how ears get trained.',
   digital: 'To store sound in a computer, a converter measures the wave many thousand times a second, and each measurement becomes a number. How often it measures is the sample rate; the finest detail it can capture is anything below half that rate. Push a tone above that limit and it comes back as a different, wrong frequency, which is called aliasing, and it is why converters put a filter in front of the sampler. How precisely each measurement is written is the bit depth: 16 bits gives 65,536 possible values, 24 bits gives millions. Too few bits and the wave becomes a staircase and quiet passages turn gritty; a tiny amount of noise added before rounding, called dither, turns that grit into a smooth, steady hiss that is far less noticeable. Both are things you can hear here.',
@@ -3551,14 +3583,14 @@ var PLAIN = {
   room: 'Every room has notes it likes. Sound bouncing between two parallel walls reinforces itself at the frequencies whose half-wavelength fits the distance, so a room booms at those pitches and starves at others; the smaller the room, the higher and more separated they are, and they are why bass sounds different in every corner. A speaker near a wall gets its own reflection back a moment later, and at the frequency where that reflection arrives half a cycle late the two cancel, cutting a notch out of the bass. Hard surfaces keep sound alive for a long time, which we hear as reverberation, and two hard parallel walls make a rapid ping-pong called flutter echo. Move the sliders and every one of these is calculated and played from the dimensions you set.',
   dynamics: 'A compressor is an automatic volume control that turns things down when they get loud. Threshold is the level where it starts working. Ratio is how hard it pushes back: at 2 to 1, a sound that goes 10 dB over the threshold comes out only 5 dB over; at 10 to 1 it barely gets over at all. Attack is how quickly it reacts once a sound crosses the line: fast, and the sharp front of a drum hit is flattened; slow, and the hit gets through before the compressor catches up. Release is how quickly it lets go: fast release makes the level pump up and down with the rhythm; slow release holds it down. Makeup gain brings the quieter result back up so you can compare fairly. The grey and coloured traces show the sound going in and coming out, and the red trace shows how much is being taken off at each moment. Learn to hear each parameter here and you will hear it on every record.',
   mic: 'Microphones do not hear equally in all directions. An omnidirectional mic hears the same all around. A cardioid hears the front, less from the sides, almost nothing from behind, which is why it is the everyday stage and studio choice. Supercardioid and hypercardioid are tighter at the front but pick up a little from directly behind. A figure of eight hears front and back equally and nothing from the sides, and the sound from behind comes out with its polarity flipped. Drag the source around the mic to hear all of this. The second effect is the proximity effect: any directional mic gives more bass the closer the source gets, a lot more within a few centimetres. Singers use it on purpose; announcers fight it with a pop filter and distance. Omnis do not do it at all.',
-  space: 'Three effects tell the ear where a sound is. Reverb is the wash of reflections a room adds; its decay time says how big and how hard the room is, and the little gap before it starts, the pre-delay, says how far the sound is from the walls. Echo is a distinct repeat, and repeats of repeats when feedback is turned up. Width is how different the left and right channels are: identical channels sit in the centre as a point, different channels spread across the speakers. The figure on the right plots left against right: a thin line means mono, a cloud means wide, and the correlation number under it puts that on a scale from +1 (identical) through 0 (unrelated) to negative (the two channels fighting, which collapses badly in mono). The game asks you to hear whether a decay is short or long and whether there is pre-delay, which is exactly what you are judging when you choose a reverb preset.',
+  space: 'Three effects tell the ear where a sound is. Reverb is the wash of reflections a room adds; its decay time says how big and how hard the room is, and the little gap before it starts, the pre-delay, says how far the sound is from the walls. Echo is a distinct repeat, and repeats of repeats when feedback is turned up. Width is how different the left and right channels are: identical channels sit in the centre as a point, different channels spread across the speakers. The figure on the right plots left against right: a thin line means mono, a cloud means wide, and the correlation number under it puts that on a scale from +1 (identical) through 0 (unrelated) to negative (the two channels fighting, which collapses badly in mono). Judging decay length and pre-delay by ear is exactly what you do every time you choose a reverb preset.',
   meters: 'Two different questions get confused all the time: how big are the peaks, and how loud does it sound. Peaks matter because a digital file cannot go above 0 dBFS; the sample peak meter reads the biggest sample and the true peak meter estimates the wave between samples, which can be a little higher. RMS is an average level. Loudness in LUFS is the modern answer to the second question: it weights frequencies the way the ear does, averages over time, and matches how loud things actually sound. Turn on Squash and watch: the peaks stay put, the loudness jumps. That was the trick behind the loudness war, and streaming services ended it by measuring every track in LUFS and turning the loud ones down to the same target, about −14 LUFS. Master for that target and leave a decibel of headroom for true peaks, and your work will sound the same everywhere.',
   shape: 'Three of the most common processors, in a row. Waveshaping bends the waveform through a curve: a gentle curve adds warmth, a hard one clips and turns fierce, a folding one sends the peaks back down and invents new partials. The panel draws the curve, and the spectrum shows new harmonics appear as you raise the drive. The compressor turns down the loud moments: threshold is where it starts, ratio is how hard, attack and release are how fast, and the meter shows how many decibels it is removing right now. The chorus mixes the sound with a slightly delayed copy whose delay is swept by an LFO; the copy\'s pitch wobbles, and against the original it shimmers. Shorten the delay and it becomes a flanger.'
 };
 
 /* ---------- App shell ---------- */
 var JOURNEYS = {
-  found: { key: 'found', title: 'Foundations', stations: [WAVE, PHASE, COLOUR, EAR, BANDS, DIGITAL, LEVELST, ROOM, DYNAMICS, MIC, SPACE, METERS] },
+  found: { key: 'found', title: 'Foundations', stations: [WAVE, PHASE, COLOUR, EQ, EAR, BANDS, DIGITAL, LEVELST, ROOM, DYNAMICS, MIC, SPACE, METERS] },
   ratio: { key: 'ratio', title: 'Ratio', stations: [RATIO, ORBIT, SERIES, DRIFT, GLIDE, PHANTOM, PLATE, ASCENT] },
   synth: { key: 'synth', title: 'Synthesis', stations: [TIMBRE, VOICE, MOTION, FM, WAVETABLE, ADDITIVE, GRAINS, MODELS, SHAPE] }
 };
