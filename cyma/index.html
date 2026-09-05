@@ -175,6 +175,7 @@ label .filebtn+.val{font-weight:400;color:var(--ink-3)}
 @media(max-width:600px){.motionbtn{padding:6px 10px 6px 8px;font-size:12px}}
 @media(prefers-reduced-motion:reduce){.motionbtn.hello,.motionbtn[aria-pressed=true] svg{animation:none}}
 .filerow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.build{color:var(--ink-3);opacity:.7;white-space:nowrap}
 
 </style>
 </head>
@@ -188,7 +189,7 @@ label .filebtn+.val{font-weight:400;color:var(--ink-3)}
     <p><b>Synthesis</b>: nine stations on timbre, the subtractive voice, envelopes and LFOs, FM, wavetable, additive, granular, physical modeling and processing. Play them from the screen, the computer keyboard, or a MIDI controller.</p>
     <p>Headphones help.</p>
     <div class="begins"><button class="begin" id="begin-found" type="button">Begin with Foundations</button><button class="begin alt" id="begin" type="button">Begin with Ratio</button><button class="begin alt" id="begin-synth" type="button">Begin with Synthesis</button></div>
-    <p class="fine" id="fine">Sound starts when you press begin. Arrow keys move between stations. In Synthesis, Z to M and Q to P play notes, minus and equals shift the octave.</p>
+    <p class="fine" id="fine">Sound starts when you press begin. Arrow keys move between stations. In Synthesis, Z to M and Q to P play notes, minus and equals shift the octave. <span class="build">Build 2026-09-05 22:56 UTC</span></p>
   </div>
 </div>
 <div class="app" id="app">
@@ -1528,7 +1529,7 @@ var PLATE = new Station({
     var Gx = this.Gx, Gy = this.Gy;
     for (var j = 0; j < G; j++) for (i = 0; i < G; i++) { var idx = j * G + i, l = i ? E[idx - 1] : E[idx], rr = i < G - 1 ? E[idx + 1] : E[idx], u = j ? E[idx - G] : E[idx], d = j < G - 1 ? E[idx + G] : E[idx]; Gx[idx] = (rr - l) * 0.5; Gy[idx] = (d - u) * 0.5; }
     var sum = 0; for (k = 0; k < kept.length; k++) sum += kept[k].mag; this.share = kept.length ? kept[0].mag / sum : 0;
-    var mk = this.view + ':' + (kept.length ? Math.round(kept[0].fm || (kept[0].m && kept[0].m.f) || 0) : 'none'); if (this.modeKey !== undefined && mk !== this.modeKey) this.freshPowder = true; this.modeKey = mk;
+    var mk = this.view + ':' + (kept.length ? (kept[0].fm != null ? Math.round(kept[0].fm) : (kept[0].m ? kept[0].m.n + ',' + kept[0].m.s : 'x')) : 'none'); if (this.modeKey !== undefined && mk !== this.modeKey) this.freshPowder = true; this.modeKey = mk;
     var px = this.idata.data;
     for (var q = 0; q < G * G; q++) { var ee = Math.pow(E[q], 1.6); px[4 * q] = 90; px[4 * q + 1] = 120; px[4 * q + 2] = 150; px[4 * q + 3] = Math.round(ee * 62); }
     this.ictx.putImageData(this.idata, 0, 0);
@@ -1560,7 +1561,7 @@ var PLATE = new Station({
     var Gx = this.Gx, Gy = this.Gy;
     for (var j = 0; j < G; j++) for (i = 0; i < G; i++) { var idx = j * G + i, l = i ? E[idx - 1] : E[idx], rr = i < G - 1 ? E[idx + 1] : E[idx], u = j ? E[idx - G] : E[idx], d = j < G - 1 ? E[idx + G] : E[idx]; Gx[idx] = (rr - l) * 0.5; Gy[idx] = (d - u) * 0.5; }
     var sum = 0; for (k = 0; k < kept.length; k++) sum += kept[k].mag; this.share = kept.length ? kept[0].mag / sum : 0;
-    var mk = this.view + ':' + (kept.length ? Math.round(kept[0].fm || (kept[0].m && kept[0].m.f) || 0) : 'none'); if (this.modeKey !== undefined && mk !== this.modeKey) this.freshPowder = true; this.modeKey = mk;
+    var mk = this.view + ':' + (kept.length ? (kept[0].fm != null ? Math.round(kept[0].fm) : (kept[0].m ? kept[0].m.n + ',' + kept[0].m.s : 'x')) : 'none'); if (this.modeKey !== undefined && mk !== this.modeKey) this.freshPowder = true; this.modeKey = mk;
     var px = this.idata.data;
     for (var q = 0; q < G * G; q++) { var ee = rho[q] > 1 ? 0 : Math.pow(E[q], 1.6); px[4 * q] = 90; px[4 * q + 1] = 120; px[4 * q + 2] = 150; px[4 * q + 3] = Math.round(ee * 62); }
     this.ictx.putImageData(this.idata, 0, 0);
