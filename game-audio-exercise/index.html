@@ -1,0 +1,2417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Space Invaders: Game Audio Lab</title>
+<style>
+:root{
+  --panel:#34383d; --panel-deep:#26292d; --panel-raised:#3f444b; --panel-line:#4a5058; --panel-hover:#4a5059;
+  --ink:#ece6d8; --ink-dim:#aaa598; --ink-faint:#7e7a70;
+  --amber:#f2b134; --amber-dim:#7a5a1e; --green:#8fd98f; --green-dim:#2f5a2f; --red:#e0533f;
+  --font:-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--panel);color:var(--ink);font:14px/1.45 var(--font)}
+h1,h2,h3{font-weight:600;line-height:1.2;margin:0}
+p{margin:0}
+code{font:12px var(--mono);background:#1d1f22;padding:1px 5px;border-radius:3px;color:var(--ink)}
+button{font:inherit}
+
+.top{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;padding:16px 22px 12px;border-bottom:1px solid var(--panel-line)}
+.top h1{font-size:22px;letter-spacing:.01em}
+.top .sub{color:var(--ink-dim);font-size:13px;margin-top:2px}
+.master{display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--ink-dim)}
+.master label{display:flex;align-items:center;gap:8px}
+.master input[type=range]{width:120px;accent-color:var(--amber)}
+.check{display:flex;align-items:center;gap:6px;cursor:pointer}
+.check input{accent-color:var(--amber);width:15px;height:15px;margin:0}
+
+.layout{display:grid;grid-template-columns:minmax(300px,36%) minmax(0,1fr);gap:22px;padding:18px 22px 60px;align-items:start}
+.cabinet{position:sticky;top:12px}
+.bezel{background:#000;padding:14px;border-radius:14px;box-shadow:inset 0 0 0 2px #1b1d20,0 8px 24px rgba(0,0,0,.45);
+  max-width:min(100%,calc((100vh - 400px) * .875 + 28px));margin:0 auto}
+canvas#screen{display:block;width:100%;height:auto;aspect-ratio:224/256;image-rendering:pixelated;image-rendering:crisp-edges;background:#000;outline:none;border-radius:4px}
+canvas#screen:focus-visible{box-shadow:0 0 0 2px var(--amber)}
+.hint{margin:10px 0 0;padding:7px 10px;border-radius:6px;background:#3a3626;color:var(--amber);font-size:13px}
+.hint[hidden]{display:none}
+.status{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin:10px 2px 6px;font-size:13px;color:var(--ink-dim)}
+#lastEvent{font:12px var(--mono);color:var(--amber);min-height:1.4em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.keys{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;font-size:12px;color:var(--ink-dim);margin:0 2px 12px}
+.keys .btn{margin-left:auto}
+.touch{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;margin:12px 0 4px;touch-action:none;user-select:none;-webkit-user-select:none}
+.touch[hidden]{display:none}
+.tc-group{display:flex;gap:8px}
+.tc{min-width:50px;min-height:50px;padding:0 10px;border-radius:12px;border:1px solid var(--panel-line);border-bottom-width:3px;background:var(--panel-raised);color:var(--ink);font:600 15px/1 var(--font);cursor:pointer;touch-action:none;-webkit-tap-highlight-color:transparent}
+.tc-fire{min-width:76px;color:var(--amber);border-color:var(--amber-dim)}
+.tc:active,.tc.down{background:var(--amber);color:#1c1a14;border-color:var(--amber);transform:translateY(1px);border-bottom-width:2px}
+@media (max-width:420px){.tc{min-width:44px;min-height:46px;padding:0 6px}.tc-fire{min-width:64px}}
+kbd{font:11px var(--mono);background:var(--panel-raised);border:1px solid var(--panel-line);border-bottom-width:2px;border-radius:3px;padding:1px 5px;color:var(--ink);margin-right:2px}
+
+.log-head{display:flex;justify-content:space-between;align-items:center;margin:0 2px 6px}
+.log-head h2{font-size:14px;color:var(--ink-dim);font-weight:600}
+#log{list-style:none;margin:0;padding:4px 0;max-height:160px;overflow:auto;background:var(--panel-deep);border:1px solid var(--panel-line);border-radius:6px;font:12px/1.5 var(--mono)}
+#log li{display:grid;grid-template-columns:62px 1fr auto;gap:10px;padding:0 10px}
+#log li .t{color:var(--ink-faint)}
+#log li .src{color:var(--ink-faint)}
+#log li.stop .id{color:var(--ink-dim)}
+#log li.empty{display:block;color:var(--ink-faint);padding:6px 10px;font-family:var(--font)}
+
+.lab{min-width:0}
+.lab-head h2{font-size:18px}
+.lab-head .intro{color:var(--ink-dim);margin:6px 0 12px;max-width:72ch}
+.lab-actions{display:flex;flex-wrap:wrap;gap:10px 22px;align-items:flex-end}
+.action-set{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.action-label{flex-basis:100%;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:-2px}
+.lab-status{margin-top:10px;font-size:13px;color:var(--ink-dim);min-height:1.4em}
+.lab-status.warn{color:var(--amber)}
+.lab.drag-all{box-shadow:inset 0 0 0 2px var(--amber);border-radius:8px}
+
+.btn{background:var(--panel-raised);color:var(--ink);border:1px solid var(--panel-line);border-radius:4px;padding:5px 10px;font-size:13px;cursor:pointer;line-height:1.3}
+.btn:hover{background:var(--panel-hover)}
+.btn:focus-visible{outline:2px solid var(--amber);outline-offset:1px}
+.btn.small{padding:2px 8px;font-size:12px}
+.btn.icon{width:30px;padding:4px 0;text-align:center}
+.btn.danger{border-color:#6a3a34;color:#f0b5ac}
+.btn.danger:hover{background:#4a3632}
+.btn[aria-pressed="true"]{background:var(--amber);color:#1c1a14;border-color:var(--amber)}
+
+.group{margin-top:22px}
+.group h3{font-size:15px;margin:0 0 4px}
+.group .blurb{color:var(--ink-dim);font-size:13px;margin:0 0 8px;max-width:72ch}
+.slots{border-radius:6px;overflow:hidden;border:1px solid var(--panel-line)}
+.slot{display:grid;grid-template-columns:16px minmax(0,1fr) auto;gap:6px 10px;align-items:start;padding:9px 10px;background:var(--panel-deep);border-top:1px solid var(--panel-line)}
+.slot:first-child{border-top:0}
+.slot.drag{background:#3a3626;box-shadow:inset 0 0 0 2px var(--amber)}
+.led{width:12px;height:12px;border-radius:50%;background:#15171a;border:1px solid #1f2226;box-shadow:inset 0 1px 2px rgba(0,0,0,.8);margin-top:4px}
+.led.loaded{background:var(--green-dim);border-color:#3c6e3c}
+.led.on,.led.hit{background:var(--amber);border-color:var(--amber);box-shadow:0 0 10px var(--amber)}
+.slot-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px}
+.slot-name{font-weight:600}
+.slot-id{font:12px var(--mono);color:var(--ink-dim);background:#1d1f22;padding:1px 5px;border-radius:3px}
+.tag{font-size:11px;color:var(--amber);border:1px solid var(--amber-dim);border-radius:3px;padding:0 5px;line-height:1.5}
+.slot-desc{color:var(--ink-dim);font-size:13px;margin-top:2px;max-width:66ch}
+.slot-file{font-size:12px;color:var(--ink-faint);margin-top:3px}
+.slot-file.has{color:var(--green)}
+.slot-file.err{color:var(--red)}
+.ctl{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end;max-width:250px}
+.ctl input[type=range]{width:64px;accent-color:var(--amber)}
+.ctl .mono{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--ink-dim);cursor:pointer}
+.ctl .mono input{accent-color:var(--amber);margin:0}
+.count{font:11px var(--mono);color:var(--ink-faint);min-width:8ch;text-align:right;white-space:nowrap}
+.db{font:11px var(--mono);color:var(--ink-dim);min-width:6.5ch;display:inline-block;text-align:right}
+.tag.year{color:var(--green);border-color:var(--green-dim)}
+.dirty{font-size:12px;color:var(--amber);padding:0 6px}
+.dirty[hidden]{display:none}
+.meter{display:flex;align-items:center;gap:8px}
+.meter-track{width:120px;height:10px;background:#1d1f22;border:1px solid var(--panel-line);border-radius:5px;overflow:hidden}
+.meter-fill{height:100%;width:0;background:var(--green);transition:width .05s linear}
+.meter-fill.hot{background:var(--amber)}
+.meter-clip{font:600 10px var(--mono);color:#5a2a26;border:1px solid #5a2a26;border-radius:3px;padding:1px 4px}
+.meter-clip.on{color:#fff;background:var(--red);border-color:var(--red)}
+.meter-peak{font:11px var(--mono);color:var(--ink-faint);min-width:9ch}
+.rehearse-wrap{margin:0 2px 12px}
+.cabinet.unstuck{position:static}
+.hidden{display:none !important}
+.music{margin:0 0 12px;border:1px solid var(--panel-line);border-radius:8px;background:var(--panel-deep)}
+.music summary{cursor:pointer;padding:8px 12px;font:600 13px var(--font);color:var(--ink);list-style:none;display:flex;align-items:center;gap:10px}
+.music summary::-webkit-details-marker{display:none}
+.music summary::before{content:'\25B8';color:var(--amber);font-size:12px}
+.music[open] summary::before{content:'\25BE'}
+.mstate{font:11px var(--mono);color:var(--ink-faint);margin-left:auto}
+.mintro{margin:0 12px 8px;font-size:12px}
+#music{padding:0 12px 12px}
+.mrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin-bottom:8px}
+.mfield{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-dim)}
+.mfield input[type=number]{width:58px;background:var(--panel);color:var(--ink);border:1px solid var(--panel-line);border-radius:4px;padding:3px 6px;font:12px var(--mono)}
+.mfield select{background:var(--panel);color:var(--ink);border:1px solid var(--panel-line);border-radius:4px;padding:3px 6px;font:12px var(--font)}
+.mfield input[type=range]{width:90px}
+.btn.play{min-width:84px}
+.btn.play.on{background:var(--amber);color:#1c1a14;border-color:var(--amber)}
+.mtabs{gap:6px}
+.mtab{position:relative;padding-right:22px}
+.mtab.active{background:var(--panel-raised);border-color:var(--amber);color:var(--ink)}
+.mtab::after{content:'';position:absolute;right:8px;top:50%;width:7px;height:7px;margin-top:-3.5px;border-radius:50%;background:transparent;border:1px solid transparent}
+.mtab.playing::after{background:var(--green);border-color:var(--green)}
+.mtab.pending::after{border-color:var(--amber);animation:mblink .6s steps(2,end) infinite}
+@keyframes mblink{50%{background:var(--amber)}}
+.mplaying{font:11px var(--mono);color:var(--ink-faint)}
+.mtools{display:inline-flex;gap:6px;margin-left:auto}
+.mgrid{display:grid;grid-template-columns:5.2em repeat(16,minmax(16px,1fr));gap:3px 2px;margin:4px 0 10px;user-select:none;-webkit-user-select:none;touch-action:none}
+.mhead{font:10px var(--mono);color:var(--ink-faint);text-align:center;align-self:end}
+.mhead.beat{color:var(--ink-dim)}
+.mlabel{font:11px var(--mono);color:var(--ink-dim);text-align:right;padding-right:6px;line-height:20px;white-space:nowrap}
+.mlabel.perc{color:var(--ink-faint)}
+.mlabel.gap,.mcell.gap{margin-top:6px}
+.mcell{height:20px;min-width:0;padding:0;border:1px solid var(--panel-line);border-radius:3px;background:var(--panel);cursor:pointer;-webkit-tap-highlight-color:transparent}
+.mcell.beat{background:#3a3f45}
+.mcell:hover{border-color:var(--ink-faint)}
+.mcell.on{background:var(--amber);border-color:var(--amber)}
+.mcell.perc.on{background:var(--green);border-color:var(--green)}
+.mcell.cur{box-shadow:inset 0 0 0 2px rgba(236,230,216,.85)}
+.mcell:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
+.mopts{gap:8px 16px}
+.mopt{font-size:12px}
+.mtension{display:inline-flex;align-items:center;gap:8px;margin-left:auto}
+.mtlabel{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint)}
+.mttrack{position:relative;width:120px;height:8px;background:#1d1f22;border:1px solid var(--panel-line);border-radius:4px;overflow:hidden}
+.mtfill{height:100%;width:0;background:linear-gradient(90deg,var(--green),var(--amber) 55%,var(--red));transition:width .12s linear}
+.mtmark{position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(236,230,216,.5)}
+.mtval{font:11px var(--mono);color:var(--ink-dim);min-width:4ch}
+@media (max-width:520px){.mgrid{grid-template-columns:4em repeat(16,minmax(10px,1fr))}.mlabel{font-size:9px}.mcell{height:16px}}
+.rehearse{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.rh[aria-pressed="true"]{background:var(--amber);color:#1c1a14;border-color:var(--amber)}
+
+@media (max-width:900px){
+  .layout{grid-template-columns:1fr}
+  .cabinet{position:static}
+  .bezel{max-width:min(100%,calc(80vh * .875 + 28px))}
+}
+@media (prefers-reduced-motion:reduce){
+  .led.hit{box-shadow:none}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div>
+    <h1>Space Invaders</h1>
+  </div>
+  <div class="master">
+    <label>Master volume <input id="master" type="range" min="0" max="1" step="0.01" value="0.8"> <span id="masterDb" class="db">-1.9 dB</span></label>
+    <div class="meter" title="Output peak level after the master volume. The red block lights when the output clips and holds for a moment.">
+      <div class="meter-track"><div id="meterFill" class="meter-fill"></div></div>
+      <span id="meterClip" class="meter-clip">CLIP</span>
+      <span id="meterPeak" class="meter-peak"></span>
+    </div>
+    <button id="mute" class="btn" aria-pressed="false">Mute</button>
+    <button id="stopAll" class="btn" title="Cut every sound that is playing, including loops">Stop sounds</button>
+    <label class="check"><input id="placeholders" type="checkbox"> Built-in tones for empty slots</label>
+  </div>
+</header>
+
+<main class="layout">
+  <section class="cabinet">
+    <div class="bezel"><canvas id="screen" width="224" height="256" tabindex="0" aria-label="Space Invaders game screen. Click here to give the game keyboard focus."></canvas></div>
+    <div id="audioHint" class="hint">Click the screen or press a key to switch audio on.</div>
+    <div class="status"><span id="gameStatus">Title screen</span><span id="lastEvent"></span></div>
+    <div id="touch" class="touch" hidden>
+      <div class="tc-group">
+        <button class="tc" data-hold="left" aria-label="Move left">&#9664;</button>
+        <button class="tc" data-hold="right" aria-label="Move right">&#9654;</button>
+      </div>
+      <div class="tc-group">
+        <button class="tc tc-fire" data-key="ArrowUp" aria-label="Fire, or menu up">FIRE</button>
+        <button class="tc" data-key="ArrowDown" aria-label="Menu down">&#9660;</button>
+      </div>
+      <div class="tc-group">
+        <button class="tc" data-key="Enter" aria-label="Select">OK</button>
+        <button class="tc" data-key="Escape" aria-label="Back, pause, quit">ESC</button>
+        <button class="tc" data-key="p" aria-label="Pause or resume">II</button>
+      </div>
+    </div>
+    <div class="keys">
+      <span><kbd>←</kbd><kbd>→</kbd> move</span>
+      <span><kbd>Space</kbd> fire</span>
+      <span><kbd>↑</kbd><kbd>↓</kbd><kbd>Enter</kbd> menus</span>
+      <span><kbd>P</kbd> pause</span>
+      <span><kbd>Esc</kbd> back, pause, quit</span>
+      <button id="touchToggle" class="btn small" aria-pressed="false" title="Show on-screen buttons for touch screens">Touch controls</button>
+    </div>
+    <div class="rehearse-wrap">
+      <span class="action-label">Rehearse (during play)</span>
+      <div id="rehearse" class="rehearse"></div>
+    </div>
+    <details id="musicBox" class="music">
+      <summary>Music sequencer <span id="musicState" class="mstate"></span></summary>
+      <p class="intro mintro">One bar of sixteen steps, voiced with square waves and noise like the 1978 board. Pattern A is the winning music, B the losing music; the game's tension decides which plays, how much percussion is heard, and how fast. Nothing plays until a pattern has notes.</p>
+      <div id="music"></div>
+    </details>
+    <div class="log">
+      <div class="log-head"><h2>Event log</h2><button id="clearLog" class="btn small">Clear</button></div>
+      <ol id="log"><li class="empty">Every sound event appears here as it fires, whether or not a file is loaded.</li></ol>
+    </div>
+  </section>
+
+  <aside class="lab" id="lab">
+    <div class="lab-head">
+      <h2>Sound lab</h2>
+      <p class="intro">Name each file exactly like its event id, for example <code>alien_destroyed.wav</code> (any common audio format; capital letters do not matter, anything else does). Then drop the files, or the whole folder, anywhere on this panel and they load themselves. A file with the same name replaces the sound that is loaded; one sound per event. Dropping a single file directly onto an event loads it there whatever it is called; several files or a folder dropped anywhere, an event included, go by name. Save pack bundles everything loaded here, with its settings, into one .json file that Open pack restores. Until a sound is loaded, an event is silent; the Built-in tones box at the top of the page fills empty events with rough placeholders. Nothing is uploaded; files stay in this browser tab.</p>
+      <div class="lab-actions">
+        <div class="action-set">
+          <span class="action-label">Audio files</span>
+          <button id="loadFiles" class="btn" title="Choose one or more audio files named exactly like their event ids">Add files</button>
+          <button id="loadFolder" class="btn" title="Choose a folder of audio files named exactly like their event ids">Add folder</button>
+          <button id="namingList" class="btn" title="Download the list of event ids to name your files against">Event id list</button>
+        </div>
+        <div class="action-set">
+          <span class="action-label">Sound pack (.json)</span>
+          <button id="exportPack" class="btn" title="Save every loaded sound with its volume and one-at-a-time settings as one .json file, for handing in or reloading later">Save pack</button>
+          <span id="dirty" class="dirty" hidden title="Sounds or settings have changed since the last Save pack. Closing or reloading the page loses them.">Unsaved changes</span>
+          <button id="importPack" class="btn" title="Open a .json sound pack saved from this lab. Everything loaded now is cleared first, so the pack comes back exactly as saved.">Open pack</button>
+        </div>
+        <div class="action-set">
+          <button id="clearAll" class="btn danger" title="Remove every loaded sound">Clear all</button>
+        </div>
+      </div>
+      <p id="labStatus" class="lab-status"></p>
+    </div>
+    <div id="groups"></div>
+  </aside>
+</main>
+
+<input type="file" id="fileSingle" accept="audio/*,.wav,.mp3,.ogg,.oga,.aif,.aiff,.flac,.m4a,.aac,.webm,.caf" hidden>
+<input type="file" id="fileMulti" accept="audio/*,.wav,.mp3,.ogg,.oga,.aif,.aiff,.flac,.m4a,.aac,.webm,.caf" multiple hidden>
+<input type="file" id="fileFolder" webkitdirectory multiple hidden>
+<input type="file" id="filePack" accept=".json,application/json" hidden>
+<script>
+(function(){
+'use strict';
+
+/* =========================================================
+   Space Invaders: Game Audio Lab
+   A faithful browser recreation of the 1978 arcade game with a
+   sound lab panel. Every audible moment in the game is an "event".
+   Drop an audio file on an event and the game plays it in real time.
+   Console access: SI.trigger('player_fire'), SI.slots, SI.state
+   ========================================================= */
+
+const $ = (sel, root) => (root || document).querySelector(sel);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const rnd = n => Math.floor(Math.random() * n);
+const pad = (n, w) => String(n).padStart(w, '0');
+const overlap = (ax, ay, aw, ah, bx, by, bw, bh) => ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+
+/* ---------- Sprites (1 = lit pixel), drawn from the original 8080 game's shapes ---------- */
+const SPR = {
+  squid: [[
+    '...##...',
+    '..####..',
+    '.######.',
+    '##.##.##',
+    '########',
+    '..#..#..',
+    '.#.##.#.',
+    '#.#..#.#'],[
+    '...##...',
+    '..####..',
+    '.######.',
+    '##.##.##',
+    '########',
+    '.#....#.',
+    '#......#',
+    '.#....#.']],
+  crab: [[
+    '..#.....#..',
+    '...#...#...',
+    '..#######..',
+    '.##.###.##.',
+    '###########',
+    '#.#######.#',
+    '#.#.....#.#',
+    '...##.##...'],[
+    '..#.....#..',
+    '#..#...#..#',
+    '#.#######.#',
+    '###.###.###',
+    '###########',
+    '.#########.',
+    '..#.....#..',
+    '.#.......#.']],
+  octopus: [[
+    '....####....',
+    '.##########.',
+    '############',
+    '###..##..###',
+    '############',
+    '...##..##...',
+    '..##.##.##..',
+    '##........##'],[
+    '....####....',
+    '.##########.',
+    '############',
+    '###..##..###',
+    '############',
+    '..###..###..',
+    '.##..##..##.',
+    '..##....##..']],
+  player: [
+    '......#......',
+    '.....###.....',
+    '.....###.....',
+    '.###########.',
+    '#############',
+    '#############',
+    '#############',
+    '#############'],
+  ufo: [
+    '.....######.....',
+    '...##########...',
+    '..############..',
+    '.##.##.##.##.##.',
+    '################',
+    '...###....###...',
+    '....#......#....'],
+  shield: [
+    '....##############....',
+    '...################...',
+    '..##################..',
+    '.####################.',
+    '######################',
+    '######################',
+    '######################',
+    '######################',
+    '######################',
+    '######################',
+    '######################',
+    '######################',
+    '######################',
+    '########......########',
+    '#######........#######',
+    '######..........######'],
+  invaderBoom: [
+    '.#....#....#.',
+    '..#..###..#..',
+    '...##...##...',
+    '#....#.#....#',
+    '...##...##...',
+    '..#..###..#..',
+    '.#....#....#.',
+    '.............'],
+  shotBoom: [
+    '#..#..#.',
+    '.#.##.#.',
+    '..####..',
+    '.######.',
+    '.######.',
+    '..####..',
+    '.#.##.#.',
+    '#..#..#.'],
+  bombBoom: [
+    '..#..#',
+    '#.#.#.',
+    '.####.',
+    '#.##.#',
+    '.####.',
+    '#.#..#',
+    '..#.#.',
+    '#....#'],
+  ufoBoom: [
+    '..#..#....#..#..',
+    '#..##..##..##..#',
+    '.###.######.###.',
+    '..############..',
+    '#.############.#',
+    '.###.######.###.',
+    '#..##..##..##..#',
+    '..#..#....#..#..'],
+  playerBoom: [[
+    '....#...........',
+    '.#.....#...#....',
+    '......#..#......',
+    '..#.###...#.....',
+    '.#.####.#.......',
+    '#..######.#.#...',
+    '.########...#...',
+    '##########.#....'],[
+    '.......#........',
+    '...#.......#....',
+    '#.......#....#..',
+    '....#.#..#......',
+    '.#..####...#....',
+    '..#######.#.....',
+    '.########.#...#.',
+    '###########..#..']],
+  bombs: {
+    rolling: [
+      ['.#.','.#.','#..','.#.','..#','.#.','.#.'],
+      ['.#.','#..','.#.','.#.','.#.','..#','.#.'],
+      ['.#.','.#.','..#','.#.','#..','.#.','.#.'],
+      ['.#.','..#','.#.','.#.','.#.','#..','.#.']],
+    plunger: [
+      ['.#.','.#.','.#.','###','.#.','.#.','.#.'],
+      ['.#.','.#.','###','.#.','.#.','.#.','.#.'],
+      ['.#.','###','.#.','.#.','.#.','.#.','.#.'],
+      ['###','.#.','.#.','.#.','.#.','.#.','.#.']],
+    squiggly: [
+      ['#..','.#.','..#','.#.','#..','.#.','..#'],
+      ['.#.','..#','.#.','#..','.#.','..#','.#.'],
+      ['..#','.#.','#..','.#.','..#','.#.','#..'],
+      ['.#.','#..','.#.','..#','.#.','#..','.#.']]
+  }
+};
+/* Erosion masks: chunks removed from a shield by a hit from below (player) or above (bomb) */
+const ERODE_UP = ['#.##.#','.####.','######','.####.','######','.#..#.'];
+const ERODE_DOWN = ['.#..#.','######','.####.','######','.####.','#.##.#'];
+
+/* ---------- 5x7 pixel font in 8px cells ---------- */
+const FONT = {
+'0':['.###.','#...#','#..##','#.#.#','##..#','#...#','.###.'],
+'1':['..#..','.##..','..#..','..#..','..#..','..#..','.###.'],
+'2':['.###.','#...#','....#','...#.','..#..','.#...','#####'],
+'3':['#####','...#.','..#..','...#.','....#','#...#','.###.'],
+'4':['...#.','..##.','.#.#.','#..#.','#####','...#.','...#.'],
+'5':['#####','#....','####.','....#','....#','#...#','.###.'],
+'6':['..##.','.#...','#....','####.','#...#','#...#','.###.'],
+'7':['#####','....#','...#.','..#..','.#...','.#...','.#...'],
+'8':['.###.','#...#','#...#','.###.','#...#','#...#','.###.'],
+'9':['.###.','#...#','#...#','.####','....#','...#.','.##..'],
+'A':['.###.','#...#','#...#','#####','#...#','#...#','#...#'],
+'B':['####.','#...#','#...#','####.','#...#','#...#','####.'],
+'C':['.###.','#...#','#....','#....','#....','#...#','.###.'],
+'D':['###..','#..#.','#...#','#...#','#...#','#..#.','###..'],
+'E':['#####','#....','#....','####.','#....','#....','#####'],
+'F':['#####','#....','#....','####.','#....','#....','#....'],
+'G':['.###.','#...#','#....','#.###','#...#','#...#','.####'],
+'H':['#...#','#...#','#...#','#####','#...#','#...#','#...#'],
+'I':['.###.','..#..','..#..','..#..','..#..','..#..','.###.'],
+'J':['..###','...#.','...#.','...#.','...#.','#..#.','.##..'],
+'K':['#...#','#..#.','#.#..','##...','#.#..','#..#.','#...#'],
+'L':['#....','#....','#....','#....','#....','#....','#####'],
+'M':['#...#','##.##','#.#.#','#.#.#','#...#','#...#','#...#'],
+'N':['#...#','#...#','##..#','#.#.#','#..##','#...#','#...#'],
+'O':['.###.','#...#','#...#','#...#','#...#','#...#','.###.'],
+'P':['####.','#...#','#...#','####.','#....','#....','#....'],
+'Q':['.###.','#...#','#...#','#...#','#.#.#','#..#.','.##.#'],
+'R':['####.','#...#','#...#','####.','#.#..','#..#.','#...#'],
+'S':['.####','#....','#....','.###.','....#','....#','####.'],
+'T':['#####','..#..','..#..','..#..','..#..','..#..','..#..'],
+'U':['#...#','#...#','#...#','#...#','#...#','#...#','.###.'],
+'V':['#...#','#...#','#...#','#...#','#...#','.#.#.','..#..'],
+'W':['#...#','#...#','#...#','#.#.#','#.#.#','##.##','#...#'],
+'X':['#...#','#...#','.#.#.','..#..','.#.#.','#...#','#...#'],
+'Y':['#...#','#...#','.#.#.','..#..','..#..','..#..','..#..'],
+'Z':['#####','....#','...#.','..#..','.#...','#....','#####'],
+'<':['...#.','..#..','.#...','#....','.#...','..#..','...#.'],
+'>':['.#...','..#..','...#.','....#','...#.','..#..','.#...'],
+'-':['.....','.....','.....','#####','.....','.....','.....'],
+'.':['.....','.....','.....','.....','.....','.##..','.##..'],
+',':['.....','.....','.....','.....','.##..','..#..','.#...'],
+':':['.....','.##..','.##..','.....','.##..','.##..','.....'],
+'=':['.....','.....','#####','.....','#####','.....','.....'],
+'?':['.###.','#...#','....#','...#.','..#..','.....','..#..'],
+'!':['..#..','..#..','..#..','..#..','..#..','.....','..#..'],
+'*':['.....','#.#.#','.###.','#####','.###.','#.#.#','.....'],
+'/':['....#','....#','...#.','..#..','.#...','#....','#....'],
+"'":['.##..','..#..','.#...','.....','.....','.....','.....'],
+'(':['..#..','.#...','.#...','.#...','.#...','.#...','..#..'],
+')':['..#..','...#.','...#.','...#.','...#.','...#.','..#..'],
+'_':['.....','.....','.....','.....','.....','.....','#####'],
+' ':['.....','.....','.....','.....','.....','.....','.....']
+};
+
+/* ---------- Sound events ---------- */
+const GROUPS = [
+  { id:'flow', name:'Game flow', blurb:'The moments that frame a session: starting, clearing waves, winning, losing, pausing.' },
+  { id:'player', name:'Player cannon', blurb:'' },
+  { id:'invaders', name:'Invaders', blurb:'The four march tones are the heartbeat of the game. In 1978 their rate came from a lookup table keyed to the number of invaders left, so the tempo jumps in steps as the fleet thins out. Keep them short and mono.' },
+  { id:'ufo', name:'Mystery ship', blurb:'The saucer crosses the top of the screen roughly every 25 seconds while at least eight invaders remain.' },
+  { id:'field', name:'Shields and projectiles', blurb:'' },
+  { id:'menu', name:'Menus and pause', blurb:'Interface sounds play on a separate bus that stays audible while the game is paused.' }
+];
+
+const SLOTS = [
+  { id:'game_start', group:'flow', name:'Game start', desc:'A new game begins from the menu, one second before the first wave is drawn.' },
+  { id:'level_start', group:'flow', name:'Level start', desc:'Each wave begins and the fleet is drawn in one invader at a time.' },
+  { id:'level_complete', group:'flow', name:'Level complete', desc:'Fires three quarters of a second after the last invader of a wave is destroyed, once its explosion has cleared. On the final wave, Final victory plays instead.' },
+  { id:'victory', group:'flow', name:'Final victory', desc:'The final wave is cleared. Choose how many waves under Settings; Endless never triggers this.' },
+  { id:'game_over', group:'flow', name:'Game over', desc:'The last life is lost, or one second after the invaders land.' },
+  { id:'high_score', group:'flow', name:'New high score', desc:'The score passes the session high score for the first time in a game. The session high score starts at 1000.' },
+  { id:'extra_life', orig:true, group:'flow', name:'Extra life awarded', desc:'The score reaches the extra life threshold (1500 by default, once per game). The original board called this Extended play.' },
+  { id:'pause', group:'flow', name:'Pause', desc:'The game is paused with P or Esc. Game sounds fall silent; this plays on the interface bus.' },
+  { id:'resume', group:'flow', name:'Resume', desc:'Play continues after a pause.' },
+
+  { id:'player_fire', orig:true, group:'player', name:'Player firing', desc:'A shot leaves the cannon. Only one player shot can be on screen at a time.' },
+  { id:'player_shot_miss', group:'player', name:'Player shot reaches the top', extra:true, desc:'The shot flies off the top of the playfield and bursts. The original drew this burst but gave it no sound.' },
+  { id:'player_destroyed', orig:true, group:'player', name:'Player destroyed', desc:'An invader bomb hits the cannon and a life is lost. Everything freezes while the cannon burns.' },
+  { id:'player_respawn', group:'player', name:'Player respawn', desc:'The cannon reappears after being destroyed, if lives remain.' },
+
+  { id:'march_1', orig:true, group:'invaders', name:'Alien march, note 1', desc:'First of the four fleet tones. The cycle rate follows the 1978 delay table (or one tone per fleet step, see Settings).' },
+  { id:'march_2', orig:true, group:'invaders', name:'Alien march, note 2', desc:'Second fleet tone.' },
+  { id:'march_3', orig:true, group:'invaders', name:'Alien march, note 3', desc:'Third fleet tone.' },
+  { id:'march_4', orig:true, group:'invaders', name:'Alien march, note 4', desc:'Fourth fleet tone. After this the cycle returns to note 1.' },
+  { id:'alien_destroyed', orig:true, group:'invaders', name:'Alien destroyed', desc:'A player shot hits an invader. Squid 30, crab 20, octopus 10 points.' },
+  { id:'enemy_fire', group:'invaders', name:'Enemy firing', desc:'An invader drops a bomb. Up to three bombs can be in the air, and the rate rises with your score.' },
+  { id:'fleet_descend', group:'invaders', name:'Fleet drops a row', extra:true, desc:'The fleet reaches the edge of the screen, reverses, and moves down one row.' },
+  { id:'invasion', group:'invaders', name:'Invaders land', extra:true, desc:'An invader reaches the ground. Game over follows one second later.' },
+
+  { id:'ufo_loop', orig:true, group:'ufo', name:'UFO flying', loop:true, desc:'Loops for as long as the mystery ship crosses the top of the screen, and stops when it is hit or leaves.' },
+  { id:'ufo_destroyed', orig:true, group:'ufo', name:'UFO destroyed', desc:'A player shot hits the mystery ship. Its value (50 to 300 points, from the original table) shows on screen.' },
+  { id:'ufo_escape', group:'ufo', name:'UFO escapes', extra:true, desc:'The mystery ship leaves the screen unharmed.' },
+
+  { id:'shield_hit', group:'field', name:'Shield hit', desc:'A player shot or an invader bomb chips a piece out of a shield.' },
+  { id:'shield_destroyed', group:'field', name:'Shield destroyed', desc:'A shield crumbles once less than a quarter of it is left.' },
+  { id:'projectile_collide', group:'field', name:'Projectiles collide', desc:'A player shot and an invader bomb hit each other and both burst.' },
+  { id:'bomb_ground', group:'field', name:'Bomb hits the ground', desc:'An invader bomb reaches the ground and leaves a crater in the line.' },
+
+  { id:'menu_move', group:'menu', name:'Menu navigation', desc:'The cursor moves between items, or a setting value changes.' },
+  { id:'menu_select', group:'menu', name:'Menu select', desc:'An item is confirmed with Enter, including leaving the title screen and the game over screen.' },
+  { id:'menu_back', group:'menu', name:'Menu back', desc:'Esc backs out of a menu, or quits a paused game.' }
+];
+const SLOT_BY_ID = Object.fromEntries(SLOTS.map(s => [s.id, s]));
+const UI_BUS_IDS = new Set(['menu_move', 'menu_select', 'menu_back', 'pause', 'resume']);
+
+/* Per-slot runtime state */
+const S = {};
+for (const s of SLOTS) S[s.id] = { buffer:null, fileName:'', bytes:null, mime:'', volume:1, mono:(s.loop || s.id.startsWith('march_')), voices:new Set(), loopVoice:null, looping:false, previewing:false, previewVoice:null, count:0, gain:null, auditionGain:null };
+
+/* Built-in placeholder tones, used only when the checkbox is on and a slot is empty */
+const PLACEHOLDER = {
+  game_start:{ type:'arp', notes:[262,330,392,523], step:0.09 },
+  level_start:{ type:'arp', notes:[392,523,659], step:0.09 },
+  level_complete:{ type:'arp', notes:[523,659,784,1047], step:0.08 },
+  victory:{ type:'arp', notes:[523,659,784,1047,1319,1568], step:0.1 },
+  game_over:{ type:'arp', notes:[392,330,262,196], step:0.2, wave:'sawtooth' },
+  high_score:{ type:'arp', notes:[880,1109,1319,1760], step:0.06 },
+  extra_life:{ type:'arp', notes:[660,880,660,880,1320], step:0.06 },
+  pause:{ type:'sweep', f0:600, f1:300, dur:0.15 },
+  resume:{ type:'sweep', f0:300, f1:600, dur:0.15 },
+  player_fire:{ type:'sweep', f0:1200, f1:150, dur:0.18 },
+  player_shot_miss:{ type:'noise', dur:0.08, lp:4000 },
+  player_destroyed:{ type:'noise', dur:0.7, lp:700 },
+  player_respawn:{ type:'sweep', f0:200, f1:800, dur:0.25, wave:'triangle' },
+  march_1:{ type:'tone', f:110, dur:0.1 },
+  march_2:{ type:'tone', f:98, dur:0.1 },
+  march_3:{ type:'tone', f:87, dur:0.1 },
+  march_4:{ type:'tone', f:82, dur:0.1 },
+  alien_destroyed:{ type:'noise', dur:0.16, lp:2500 },
+  enemy_fire:{ type:'sweep', f0:300, f1:120, dur:0.12, wave:'sawtooth' },
+  fleet_descend:{ type:'tone', f:70, dur:0.12 },
+  invasion:{ type:'sweep', f0:400, f1:60, dur:0.8, wave:'sawtooth' },
+  ufo_loop:{ type:'siren' },
+  ufo_destroyed:{ type:'arp', notes:[1500,1000,700,500,350], step:0.05 },
+  ufo_escape:{ type:'sweep', f0:800, f1:400, dur:0.2, wave:'triangle' },
+  shield_hit:{ type:'noise', dur:0.06, lp:3000 },
+  shield_destroyed:{ type:'noise', dur:0.35, lp:1200 },
+  projectile_collide:{ type:'noise', dur:0.1, lp:5000 },
+  bomb_ground:{ type:'noise', dur:0.14, lp:900 },
+  menu_move:{ type:'tone', f:660, dur:0.04 },
+  menu_select:{ type:'arp', notes:[660,990], step:0.06 },
+  menu_back:{ type:'arp', notes:[990,660], step:0.06 }
+};
+
+/* =========================================================
+   Audio engine (Web Audio): master -> [sfx bus | ui bus] -> per-slot gain
+   ========================================================= */
+const engine = {
+  ctx:null, master:null, sfx:null, ui:null, audition:null, splitter:null, analysers:null, noise:null, music:null, musicDuck:null, musicTone:null,
+  masterVol:0.8, muted:false, paused:false, placeholders:false,
+  ensure(){
+    if (this.ctx) {
+      if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
+      return this.ctx;
+    }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    const ctx = this.ctx = new AC();
+    this.master = ctx.createGain(); this.master.gain.value = this.muted ? 0 : this.masterVol; this.master.connect(ctx.destination);
+    this.sfx = ctx.createGain(); this.sfx.connect(this.master);
+    this.ui = ctx.createGain(); this.ui.connect(this.master);
+    /* Preview buttons and Sound check play through this bus, so a paused game does not silence them */
+    this.audition = ctx.createGain(); this.audition.connect(this.master);
+    /* Meter each output channel on its own; a mono analyser would sum the channels and could cancel */
+    this.master.channelCount = 2; this.master.channelCountMode = 'explicit'; this.master.channelInterpretation = 'speakers';
+    this.splitter = ctx.createChannelSplitter(2); this.master.connect(this.splitter);
+    this.analysers = [0, 1].map(i => { const an = ctx.createAnalyser(); an.fftSize = 1024; this.splitter.connect(an, i); return an; });
+    this.meterBuf = new Float32Array(1024);
+    for (const s of SLOTS) {
+      const g = ctx.createGain(); g.gain.value = S[s.id].volume;
+      g.connect(UI_BUS_IDS.has(s.id) ? this.ui : this.sfx);
+      const a = ctx.createGain(); a.gain.value = S[s.id].volume; a.connect(this.audition);
+      S[s.id].gain = g; S[s.id].auditionGain = a;
+    }
+    ctx.onstatechange = updateAudioHint;
+    updateAudioHint();
+    return ctx;
+  },
+  running(){ return !!this.ctx && this.ctx.state === 'running'; },
+  setMaster(v){ this.masterVol = v; if (this.master && !this.muted) this.master.gain.setTargetAtTime(v, this.ctx.currentTime, 0.01); },
+  setMuted(m){ this.muted = m; if (this.master) this.master.gain.setTargetAtTime(m ? 0 : this.masterVol, this.ctx.currentTime, 0.01); },
+  setPaused(p){
+    this.paused = p;
+    if (this.sfx) this.sfx.gain.setTargetAtTime(p ? 0 : 1, this.ctx.currentTime, 0.01);
+    if (this.musicDuck) this.musicDuck.gain.setTargetAtTime(p ? 0.25 : 1, this.ctx.currentTime, 0.05); /* music ducks about 12 dB while paused */
+  },
+  setSlotVolume(id, v){
+    S[id].volume = v;
+    if (S[id].gain) { S[id].gain.gain.setTargetAtTime(v, this.ctx.currentTime, 0.01); S[id].auditionGain.gain.setTargetAtTime(v, this.ctx.currentTime, 0.01); }
+    if (ui[id]) ui[id].db.textContent = dbText(v);
+  },
+  /* Output peak for the meter: 0..1 of full scale, plus a clip flag that holds for a moment */
+  peak:0, clipUntil:0,
+  meter(){
+    if (!this.analysers) return 0;
+    let p = 0;
+    for (const an of this.analysers) {
+      an.getFloatTimeDomainData(this.meterBuf);
+      for (let i = 0; i < this.meterBuf.length; i++) { const v = Math.abs(this.meterBuf[i]); if (v > p) p = v; }
+    }
+    this.peak = Math.max(p, this.peak * 0.85);
+    if (p >= 1) this.clipUntil = performance.now() + 1500; /* at or over full scale: the output is clipping */
+    return this.peak;
+  },
+  noiseBuffer(){
+    if (this.noise) return this.noise;
+    const b = this.ctx.createBuffer(1, this.ctx.sampleRate, this.ctx.sampleRate);
+    const d = b.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    return (this.noise = b);
+  }
+};
+
+function decodeAudio(ctx, arrayBuffer){
+  return new Promise((res, rej) => {
+    try {
+      const p = ctx.decodeAudioData(arrayBuffer, res, rej);
+      if (p && typeof p.then === 'function') p.then(res, rej);
+    } catch (e) { rej(e); }
+  });
+}
+
+function stopVoices(st){
+  for (const v of st.voices) { try { v.stop(); } catch (e) {} }
+  st.voices.clear();
+  st.loopVoice = null; st.previewVoice = null; /* the loop and preview states stay, so they can restart */
+}
+
+/* Play one instance of a buffer through the slot's gain. Returns a voice with stop(). */
+function playBuffer(st, loop, dest){
+  const ctx = engine.ctx;
+  const src = ctx.createBufferSource();
+  src.buffer = st.buffer; src.loop = !!loop;
+  src.connect(dest || st.gain);
+  const voice = { stop(){ try { src.stop(); } catch (e) {} } };
+  src.onended = () => { st.voices.delete(voice); if (st.loopVoice === voice) st.loopVoice = null; if (st.previewVoice === voice) st.previewVoice = null; };
+  src.start();
+  return voice;
+}
+
+/* Placeholder synthesis. Deliberately crude: these are stand-ins, not designs. */
+function synthVoice(id, st, dest){
+  const spec = PLACEHOLDER[id];
+  if (!spec) return null;
+  const ctx = engine.ctx, out = dest || st.gain, t0 = ctx.currentTime;
+  const nodes = [];
+  const voice = { stop(){ for (const n of nodes) { try { n.stop(); } catch (e) {} } } };
+  const tone = (f0, f1, dur, wave, at) => {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = wave || 'square';
+    o.frequency.setValueAtTime(f0, at);
+    if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), at + dur);
+    g.gain.setValueAtTime(0.0001, at);
+    g.gain.exponentialRampToValueAtTime(0.25, at + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+    o.connect(g).connect(out);
+    o.start(at); o.stop(at + dur + 0.02);
+    nodes.push(o);
+  };
+  switch (spec.type) {
+    case 'tone': tone(spec.f, spec.f, spec.dur, spec.wave, t0); break;
+    case 'sweep': tone(spec.f0, spec.f1, spec.dur, spec.wave, t0); break;
+    case 'arp': spec.notes.forEach((n, i) => tone(n, n, spec.step * 0.95, spec.wave, t0 + i * spec.step)); break;
+    case 'noise': {
+      const src = ctx.createBufferSource(); src.buffer = engine.noiseBuffer();
+      const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = spec.lp || 4000;
+      /* A low cutoff removes most of the noise energy, so make up for it: level scales with the
+         square root of the bandwidth, referenced to the 2.5 kHz used by the alien hit */
+      const makeup = Math.min(3, Math.max(1, Math.sqrt(2500 / (spec.lp || 4000))));
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.4 * makeup, t0);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + spec.dur);
+      src.connect(f).connect(g).connect(out);
+      src.start(t0); src.stop(t0 + spec.dur + 0.02);
+      nodes.push(src);
+      break;
+    }
+    case 'siren': {
+      const o = ctx.createOscillator(), lfo = ctx.createOscillator(), depth = ctx.createGain(), g = ctx.createGain();
+      o.type = 'square'; o.frequency.value = 620;
+      lfo.type = 'triangle'; lfo.frequency.value = 5;
+      depth.gain.value = 260;
+      lfo.connect(depth).connect(o.frequency);
+      g.gain.value = 0.12;
+      o.connect(g).connect(out);
+      o.start(t0); lfo.start(t0);
+      nodes.push(o, lfo);
+      break;
+    }
+  }
+  return voice;
+}
+
+function dbText(v){ return v <= 0.001 ? 'off' : (20 * Math.log10(v)).toFixed(1).replace(/^-0.0$/, '0.0') + ' dB'; }
+
+/* Unsaved-changes flag: set by any load, clear or setting change, cleared by Save pack */
+let dirty = false;
+function markDirty(){ dirty = true; const d = $('#dirty'); if (d) d.hidden = false; }
+function markClean(){ dirty = false; const d = $('#dirty'); if (d) d.hidden = true; }
+window.addEventListener('beforeunload', e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+/* Every load carries the generation it started in. Open pack and Clear all bump the generation, so a
+   file that was still decoding when the reset happened is discarded instead of reappearing afterward. */
+let loadGen = 0;
+/* Open pack has its own sequence: a pack still decoding when a newer pack is opened, or when
+   everything is cleared, is abandoned at commit time instead of overwriting the newer state. */
+let importSeq = 0;
+
+/* Fire an event: log it, flash its LED, and play whatever is loaded. */
+function trigger(id, source){
+  const slot = SLOT_BY_ID[id];
+  if (!slot) { console.warn('Unknown sound event', id); return; }
+  const st = S[id];
+  st.count++;
+  logEvent(id, source || 'game', false);
+  flashLed(id);
+  if (id === 'game_start') silenceWarning();
+  const audition = source === 'test' || source === 'check';
+  if (slot.loop) { if (audition) startPreviewLoop(id, source); else startLoop(id); return; }
+  if (!engine.running()) { if (engine.ctx) engine.ensure(); return; }
+  if (st.mono) stopVoices(st);
+  const dest = audition ? st.auditionGain : st.gain;
+  let voice = null;
+  if (st.buffer) voice = playBuffer(st, false, dest);
+  else if (engine.placeholders) voice = synthVoice(id, st, dest);
+  if (voice) st.voices.add(voice);
+}
+
+/* Silence everything now: loops stop (and log their stop), previews stop, one-shots are cut. */
+function stopAllSounds(source){
+  for (const s of SLOTS) { if (s.loop) { stopLoop(s.id, source || 'stop'); stopPreviewLoop(s.id, source || 'stop'); } stopVoices(S[s.id]); }
+  musicStop(false, source === 'stop'); /* the header's Stop sounds is an explicit stop; a new game or a pack open is not */
+}
+
+/* A previewed loop (Test button, Sound check) is its own voice on the audition bus. It never touches
+   the game's loop state, and the game never touches it: a saucer leaving the screen cannot end a preview,
+   and stopping a preview cannot silence a saucer that is still on screen. */
+function startPreviewLoop(id, source){
+  const st = S[id];
+  if (!st.previewing) { st.previewing = true; updateLoopLed(id); }
+  if (st.previewVoice || !engine.running()) return;
+  let voice = null;
+  if (st.buffer) voice = playBuffer(st, true, st.auditionGain);
+  else if (engine.placeholders) voice = synthVoice(id, st, st.auditionGain);
+  if (!voice) return;
+  st.previewVoice = voice; st.voices.add(voice);
+}
+function stopPreviewLoop(id, source){
+  const st = S[id];
+  if (!st.previewing) return;
+  st.previewing = false;
+  if (st.previewVoice) { const v = st.previewVoice; st.previewVoice = null; st.voices.delete(v); try { v.stop(); } catch (e) {} }
+  updateLoopLed(id);
+  logEvent(id, source || 'test', true);
+}
+function updateLoopLed(id){ const st = S[id]; setLedOn(id, !!(st.looping || st.previewing)); }
+
+/* A loop has a logical state (the UFO is on screen) separate from its voice, so the LED and the
+   log follow the game even when no file is loaded yet; a file loaded mid-loop starts playing. */
+function silenceWarning(){
+  const anyLoaded = SLOTS.some(s => S[s.id].buffer);
+  if (anyLoaded || engine.placeholders) return;
+  setStatus('Nothing is loaded and built-in tones are off, so this game is silent. Load sounds here, or check Built-in tones at the top of the page to hear rough placeholders.', true);
+}
+
+function startLoop(id){
+  const st = S[id];
+  if (!st.looping) { st.looping = true; updateLoopLed(id); }
+  if (st.loopVoice || !engine.running()) return;
+  let voice = null;
+  if (st.buffer) voice = playBuffer(st, true, st.gain);
+  else if (engine.placeholders) voice = synthVoice(id, st, st.gain);
+  if (!voice) return;
+  st.loopVoice = voice; st.voices.add(voice);
+}
+
+function stopLoop(id, source){
+  const st = S[id];
+  if (!st.looping) return;
+  st.looping = false;
+  if (st.loopVoice) { const v = st.loopVoice; st.loopVoice = null; st.voices.delete(v); try { v.stop(); } catch (e) {} }
+  updateLoopLed(id);
+  logEvent(id, source || 'game', true);
+}
+
+function stopAllLoops(){ for (const s of SLOTS) if (s.loop) stopLoop(s.id); }
+
+/* =========================================================
+   Event log and LEDs
+   ========================================================= */
+const t0 = performance.now();
+const logEl = $('#log'), lastEventEl = $('#lastEvent');
+const ui = {};
+function stamp(){
+  const ms = performance.now() - t0, s = Math.floor(ms / 1000);
+  return pad(Math.floor(s / 60), 2) + ':' + pad(s % 60, 2) + '.' + Math.floor((ms % 1000) / 100);
+}
+function logEvent(id, source, isStop){
+  const empty = logEl.querySelector('.empty'); if (empty) empty.remove();
+  const li = document.createElement('li');
+  if (isStop) li.className = 'stop';
+  li.innerHTML = '<span class="t">' + stamp() + '</span><span class="id">' + id + (isStop ? ' stop' : '') + '</span><span class="src">' + source + '</span>';
+  logEl.prepend(li);
+  while (logEl.children.length > 100) logEl.lastElementChild.remove();
+  lastEventEl.textContent = id + (isStop ? ' stop' : '');
+  if (ui[id]) ui[id].count.textContent = 'fired ' + S[id].count;
+}
+function flashLed(id){
+  const u = ui[id]; if (!u) return;
+  u.led.classList.add('hit');
+  clearTimeout(u.flashTimer);
+  u.flashTimer = setTimeout(() => u.led.classList.remove('hit'), 140);
+}
+function setLedOn(id, on){
+  const u = ui[id]; if (!u) return;
+  u.led.classList.toggle('on', on);
+  if (u.test && SLOT_BY_ID[id].loop) u.test.textContent = S[id].previewing ? '\u25A0' : '\u25B6';
+}
+function updateAudioHint(){
+  const h = $('#audioHint');
+  if (!engine.ctx) { h.textContent = 'Click the screen or press a key to switch audio on.'; h.hidden = false; return; }
+  if (engine.ctx.state === 'running') { h.hidden = true; return; }
+  h.textContent = 'Audio is ' + engine.ctx.state + '. Click the screen to resume it.'; h.hidden = false;
+}
+
+/* =========================================================
+   Sound lab panel
+   ========================================================= */
+const labStatus = $('#labStatus');
+function setStatus(msg, warn){ labStatus.textContent = msg; labStatus.classList.toggle('warn', !!warn); }
+function el(tag, cls, text){ const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+function focusScreen(){ const c = $('#screen'); if (c) c.focus({ preventScroll:true }); }
+
+function buildLab(){
+  const root = $('#groups');
+  for (const grp of GROUPS) {
+    const sec = el('section', 'group');
+    sec.appendChild(el('h3', null, grp.name));
+    if (grp.blurb) sec.appendChild(el('p', 'blurb', grp.blurb));
+    const list = el('div', 'slots');
+    for (const s of SLOTS) if (s.group === grp.id) list.appendChild(buildSlot(s));
+    sec.appendChild(list);
+    root.appendChild(sec);
+  }
+}
+
+function buildSlot(s){
+  const st = S[s.id];
+  const row = el('div', 'slot'); row.dataset.id = s.id;
+  const led = el('span', 'led');
+  const main = el('div');
+  const head = el('div', 'slot-head');
+  head.appendChild(el('span', 'slot-name', s.name));
+  head.appendChild(el('code', 'slot-id', s.id));
+  if (s.loop) head.appendChild(el('span', 'tag', 'loop'));
+  if (s.orig) { const t = el('span', 'tag year', '1978'); t.title = 'One of the ten sounds on the original 1978 board'; head.appendChild(t); }
+  if (s.extra) { const t = el('span', 'tag', 'extra'); t.title = 'Not in the course brief: an added event for a moment the original left silent'; head.appendChild(t); }
+  main.appendChild(head);
+  main.appendChild(el('p', 'slot-desc', s.desc));
+  const file = el('div', 'slot-file', 'No file loaded');
+  main.appendChild(file);
+
+  const ctl = el('div', 'ctl');
+  const test = el('button', 'btn icon', '\u25B6'); test.title = s.loop ? 'Start or stop the loop' : 'Play this sound';
+  test.setAttribute('aria-label', test.title);
+  const vol = document.createElement('input'); vol.type = 'range'; vol.min = 0; vol.max = 1; vol.step = 0.01; vol.value = st.volume; vol.title = 'Event volume';
+  const db = el('span', 'db', dbText(st.volume)); db.title = 'Event volume, relative to the file as recorded';
+  const monoLab = el('label', 'mono'); const mono = document.createElement('input'); mono.type = 'checkbox'; mono.checked = st.mono;
+  mono.title = 'One at a time: when this event fires again while its sound is still playing, stop the earlier copy instead of stacking another. Has nothing to do with stereo or mono files.';
+  monoLab.title = mono.title;
+  monoLab.appendChild(mono); monoLab.appendChild(document.createTextNode('One at a time'));
+  if (s.loop) monoLab.hidden = true;
+  const load = el('button', 'btn small', 'Load'); load.title = 'Choose an audio file for this event';
+  const clear = el('button', 'btn small danger', '\u2715'); clear.title = 'Clear this event'; clear.setAttribute('aria-label', 'Clear ' + s.name);
+  const count = el('span', 'count', 'fired 0'); count.title = 'How many times this event has fired since the page was opened';
+  ctl.append(test, vol, db, monoLab, load, clear, count);
+
+  test.addEventListener('click', () => {
+    engine.ensure();
+    if (s.loop) { if (st.previewing) stopPreviewLoop(s.id, 'test'); else trigger(s.id, 'test'); }
+    else trigger(s.id, 'test');
+    test.blur(); focusScreen();
+  });
+  vol.addEventListener('input', () => { engine.setSlotVolume(s.id, parseFloat(vol.value)); });
+  vol.addEventListener('change', () => { markDirty(); focusScreen(); });
+  mono.addEventListener('change', () => { st.mono = mono.checked; markDirty(); focusScreen(); });
+  load.addEventListener('click', () => { pendingSlot = s.id; fileSingle.value = ''; fileSingle.click(); });
+  clear.addEventListener('click', () => { clearSlot(s.id); clear.blur(); focusScreen(); });
+
+  row.addEventListener('dragover', e => { e.preventDefault(); e.stopPropagation(); row.classList.add('drag'); });
+  row.addEventListener('dragleave', () => row.classList.remove('drag'));
+  row.addEventListener('drop', e => {
+    e.preventDefault(); e.stopPropagation(); row.classList.remove('drag'); $('#lab').classList.remove('drag-all');
+    engine.ensure();
+    filesFromTransfer(e.dataTransfer).then(async files => {
+      if (!files.length) { setStatus('No audio files in that drop.', true); return; }
+      /* One file dropped on an event lands there whatever it is called. Several files, or a folder
+         (even a folder holding one file), are a batch and go by name, as anywhere else on the panel. */
+      if (files.length > 1 || files.hadFolder) { assignByName(files); return; }
+      const ok = await loadFileIntoSlot(s.id, files[0]);
+      setStatus(ok ? 'Loaded ' + files[0].name + ' into ' + s.name + '.' : 'Could not decode ' + files[0].name + '.', !ok);
+    });
+  });
+
+  row.append(led, main, ctl);
+  ui[s.id] = { row, led, file, test, vol, db, mono, count, flashTimer:0 };
+  return row;
+}
+
+function isAudioFile(f){ return isAudioName(f.name) || (!!f.type && f.type.startsWith('audio/')); }
+function isAudioName(name){ return /\.(wav|wave|mp3|ogg|oga|opus|aif|aiff|aifc|flac|m4a|aac|webm|caf|mp4)$/i.test(name); }
+/* Read files from a drop, walking into dropped folders when the browser allows it.
+   Entries must be grabbed synchronously, before the drop event finishes. */
+function filesFromTransfer(dt){
+  if (!dt) return Promise.resolve([]);
+  const entries = [];
+  let hadFolder = false;
+  if (dt.items) for (const it of Array.from(dt.items)) {
+    if (it.kind !== 'file' || typeof it.webkitGetAsEntry !== 'function') continue;
+    const en = it.webkitGetAsEntry(); if (en) { entries.push(en); if (en.isDirectory) hadFolder = true; }
+  }
+  const tag = files => { files.hadFolder = hadFolder; return files; };
+  if (!entries.length) return Promise.resolve(tag(Array.from(dt.files || []).filter(isAudioFile)));
+  const out = [];
+  return Promise.all(entries.map(en => walkEntry(en, out))).then(() => tag(out.filter(isAudioFile)));
+}
+function walkEntry(entry, out){
+  return new Promise(res => {
+    if (entry.isFile) entry.file(f => { out.push(f); res(); }, () => res());
+    else if (entry.isDirectory) {
+      const reader = entry.createReader();
+      const readBatch = () => reader.readEntries(ents => {
+        if (!ents.length) { res(); return; }
+        Promise.all(ents.map(e => walkEntry(e, out))).then(readBatch);
+      }, () => res());
+      readBatch();
+    } else res();
+  });
+}
+
+async function loadFileIntoSlot(id, file, gen){
+  const st = S[id], u = ui[id];
+  if (gen === undefined) gen = loadGen;
+  u.file.textContent = 'Decoding ' + file.name + '...'; u.file.className = 'slot-file';
+  try {
+    const ctx = engine.ensure();
+    if (!ctx) throw new Error('Web Audio is not available in this browser');
+    const bytes = await file.arrayBuffer();
+    const buffer = await decodeAudio(ctx, bytes.slice(0));
+    if (gen !== loadGen) { refreshSlot(id); return false; } /* superseded by a reset while decoding */
+    stopVoices(st);
+    st.buffer = buffer; st.fileName = file.name; st.bytes = bytes; st.mime = file.type || '';
+    refreshSlot(id); markDirty();
+    if (st.looping) startLoop(id);
+    if (st.previewing) startPreviewLoop(id, 'test');
+    return true;
+  } catch (e) {
+    refreshSlot(id);
+    if (gen !== loadGen) return false;
+    u.file.textContent = 'Could not decode ' + file.name + '. WAV and MP3 decode in every browser.' + (st.buffer ? ' Kept ' + st.fileName + '.' : '');
+    u.file.className = 'slot-file err';
+    return false;
+  }
+}
+function refreshSlot(id){
+  const st = S[id], u = ui[id];
+  if (st.buffer) {
+    const b = st.buffer;
+    const ch = b.numberOfChannels === 1 ? 'mono' : b.numberOfChannels === 2 ? 'stereo' : b.numberOfChannels + ' channels';
+    u.file.textContent = st.fileName + '  (' + b.duration.toFixed(2) + ' s, ' + ch + ', plays at ' + (b.sampleRate / 1000) + ' kHz)';
+    u.file.title = 'Web Audio resamples every file to the output rate when it decodes, so this is the playback rate, not necessarily the rate the file was made at.';
+    u.file.className = 'slot-file has';
+    u.led.classList.add('loaded');
+  } else {
+    u.file.textContent = 'No file loaded'; u.file.className = 'slot-file'; u.file.title = '';
+    u.led.classList.remove('loaded');
+  }
+  u.vol.value = st.volume; u.db.textContent = dbText(st.volume); u.mono.checked = st.mono;
+}
+function clearSlot(id, resetSettings){
+  const st = S[id], slot = SLOT_BY_ID[id];
+  if (st.looping) stopLoop(id, 'clear');
+  if (st.previewing) stopPreviewLoop(id, 'clear');
+  stopVoices(st);
+  const had = !!st.buffer;
+  st.buffer = null; st.fileName = ''; st.bytes = null; st.mime = '';
+  if (resetSettings) { engine.setSlotVolume(id, 1); st.mono = !!(slot.loop || id.startsWith('march_')); }
+  refreshSlot(id);
+  if (had) markDirty();
+}
+
+/* Exact naming: the file name minus its extension must equal an event id. Case is ignored because
+   most student file systems ignore it too. Nothing else is inferred from a name. */
+function matchSlot(fileName){
+  const stem = String(fileName).replace(/\.[^.]+$/, '').toLowerCase();
+  return SLOT_BY_ID[stem] ? stem : null;
+}
+
+/* Assign files to events by exact name. Loading is sequential, so if the same name appears twice in
+   one drop the later file wins, deterministically. A name that is already loaded replaces the sound. */
+async function assignByName(files){
+  const taken = new Map();
+  engine.ensure();
+  const loaded = [], replaced = [], unmatched = [], dupes = [], failed = [];
+  const gen = loadGen;
+  setStatus('Decoding ' + files.length + ' file' + (files.length === 1 ? '' : 's') + '...');
+  for (const f of Array.from(files)) {
+    if (gen !== loadGen) return; /* a pack was opened or everything was cleared meanwhile; stop quietly */
+    const id = matchSlot(f.name);
+    if (!id) { unmatched.push(f.name); continue; }
+    if (taken.has(id)) dupes.push(f.name);
+    const had = !!S[id].buffer;
+    taken.set(id, f.name);
+    const ok = await loadFileIntoSlot(id, f, gen);
+    if (gen !== loadGen) return;
+    if (!ok) { failed.push(f.name); continue; }
+    if (had && !replaced.includes(id)) replaced.push(id);
+    if (!loaded.includes(id)) loaded.push(id);
+  }
+  const plural = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
+  let msg = 'Loaded ' + plural(loaded.length, 'file') + ' by name.';
+  if (replaced.length) msg += ' Replaced: ' + replaced.join(', ') + '.';
+  if (failed.length) msg += ' Could not decode: ' + failed.join(', ') + ' (any sound already in those events was kept).';
+  if (dupes.length) msg += ' Same name appeared more than once, last one kept: ' + dupes.join(', ') + '.';
+  if (unmatched.length) msg += ' Not matched: ' + unmatched.join(', ') + '. Name a file exactly like its event id, such as alien_destroyed.wav, or drop it onto its event.';
+  setStatus(msg, unmatched.length > 0 || failed.length > 0);
+}
+
+/* Drop anywhere on the lab panel */
+const lab = $('#lab');
+lab.addEventListener('dragover', e => { e.preventDefault(); lab.classList.add('drag-all'); });
+lab.addEventListener('dragleave', e => { if (!lab.contains(e.relatedTarget)) lab.classList.remove('drag-all'); });
+lab.addEventListener('drop', e => {
+  e.preventDefault(); lab.classList.remove('drag-all');
+  engine.ensure();
+  filesFromTransfer(e.dataTransfer).then(files => {
+    if (!files.length) { setStatus('No audio files in that drop.', true); return; }
+    assignByName(files);
+  });
+});
+document.addEventListener('dragover', e => e.preventDefault());
+document.addEventListener('drop', e => e.preventDefault());
+
+/* File pickers */
+const fileSingle = $('#fileSingle'), fileMulti = $('#fileMulti'), fileFolder = $('#fileFolder'), filePack = $('#filePack');
+let pendingSlot = null;
+fileSingle.addEventListener('change', async () => {
+  const id = pendingSlot, f = fileSingle.files[0];
+  pendingSlot = null; focusScreen();
+  if (!id || !f) return;
+  engine.ensure();
+  setStatus('Decoding ' + f.name + '...');
+  const ok = await loadFileIntoSlot(id, f);
+  setStatus(ok ? 'Loaded ' + f.name + ' into ' + SLOT_BY_ID[id].name + '.' : 'Could not decode ' + f.name + (S[id].buffer ? '; kept ' + S[id].fileName + '.' : '.'), !ok);
+});
+fileMulti.addEventListener('change', () => { const f = Array.from(fileMulti.files); if (f.length) assignByName(f); fileMulti.value = ''; focusScreen(); });
+fileFolder.addEventListener('change', () => { const f = Array.from(fileFolder.files).filter(x => isAudioName(x.name)); if (f.length) assignByName(f); else setStatus('No audio files found in that folder.', true); fileFolder.value = ''; focusScreen(); });
+$('#loadFiles').addEventListener('click', () => { fileMulti.value = ''; fileMulti.click(); });
+$('#loadFolder').addEventListener('click', () => { fileFolder.value = ''; fileFolder.click(); });
+$('#importPack').addEventListener('click', () => { filePack.value = ''; filePack.click(); });
+$('#exportPack').addEventListener('click', exportPack);
+$('#namingList').addEventListener('click', downloadNamingList);
+$('#clearAll').addEventListener('click', () => {
+  const n = SLOTS.filter(s => S[s.id].buffer).length, hasMusic = anyMusic();
+  if ((n || hasMusic) && !window.confirm('Clear all ' + n + ' loaded sound' + (n === 1 ? '' : 's') + (hasMusic ? ', the music patterns,' : '') + ' and reset every volume? This cannot be undone. Save pack first if you want to keep them.')) { focusScreen(); return; }
+  loadGen++; importSeq++;
+  stopAllSounds('clear');
+  for (const s of SLOTS) clearSlot(s.id, true);
+  musicReset();
+  markClean();
+  setStatus('All events cleared.'); focusScreen();
+});
+$('#stopAll').addEventListener('click', () => {
+  if (G.state === 'soundcheck') { stopSoundCheck(); G.state = 'menu'; }
+  stopAllSounds('stop'); focusScreen();
+});
+$('#clearLog').addEventListener('click', () => { logEl.innerHTML = '<li class="empty">Log cleared.</li>'; focusScreen(); });
+filePack.addEventListener('change', () => { if (filePack.files[0]) importPack(filePack.files[0]); filePack.value = ''; });
+
+/* Sound packs: a JSON file holding every loaded file plus slot settings */
+function bytesToBase64(bytes){
+  const u8 = new Uint8Array(bytes); let s = '';
+  for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+function base64ToBytes(b64){
+  const bin = atob(b64), u8 = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+  return u8.buffer;
+}
+function download(name, blob){
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+function exportPack(){
+  const pack = { format:'space-invaders-audio-lab', version:1, created:new Date().toISOString(), slots:{} };
+  let n = 0;
+  for (const s of SLOTS) {
+    const st = S[s.id];
+    const entry = { volume:st.volume, mono:st.mono };
+    if (st.bytes) { entry.file = st.fileName; entry.mime = st.mime; entry.data = bytesToBase64(st.bytes); n++; }
+    pack.slots[s.id] = entry;
+  }
+  pack.music = musicSerialize();
+  download('space-invaders-sounds.json', new Blob([JSON.stringify(pack)], { type:'application/json' }));
+  setStatus('Saved a pack with ' + n + ' sound' + (n === 1 ? '' : 's') + '.');
+  markClean();
+  focusScreen();
+}
+function commitBuffer(id, buffer, fileName, bytes, mime){
+  const st = S[id];
+  stopVoices(st);
+  st.buffer = buffer; st.fileName = fileName; st.bytes = bytes; st.mime = mime || '';
+  refreshSlot(id);
+  if (st.looping) startLoop(id);
+  if (st.previewing) startPreviewLoop(id, 'test');
+}
+/* Open pack in three stages: read and validate the whole pack, decode every sound it holds, and only
+   then replace what is loaded. A malformed or undecodable pack leaves the current work untouched, and
+   unsaved work is never replaced without asking. */
+function packEntryError(id, e){
+  if (e === undefined) return null;
+  if (!e || typeof e !== 'object' || Array.isArray(e)) return id + ' is not an object';
+  if ('volume' in e && !(typeof e.volume === 'number' && isFinite(e.volume))) return id + ' has a non-numeric volume';
+  if ('mono' in e && typeof e.mono !== 'boolean') return id + ' has a non-boolean mono flag';
+  if ('file' in e && typeof e.file !== 'string') return id + ' has a non-text file name';
+  if ('mime' in e && typeof e.mime !== 'string') return id + ' has a non-text mime type';
+  if ('data' in e && typeof e.data !== 'string') return id + ' has audio data that is not text';
+  return null;
+}
+async function importPack(file){
+  const mySeq = ++importSeq;
+  const superseded = () => mySeq !== importSeq;
+  let pack;
+  try {
+    pack = JSON.parse(await file.text());
+    if (!pack || typeof pack !== 'object' || pack.format !== 'space-invaders-audio-lab' || !pack.slots || typeof pack.slots !== 'object' || Array.isArray(pack.slots)) throw new Error('bad format');
+  } catch (e) {
+    if (!superseded()) setStatus('That file is not a sound pack saved from this lab.', true);
+    focusScreen(); return false;
+  }
+  for (const id of Object.keys(pack.slots)) {
+    if (!SLOT_BY_ID[id]) continue; /* ids from a newer version of the lab are ignored */
+    const err = packEntryError(id, pack.slots[id]);
+    if (err) { if (!superseded()) setStatus('That pack is damaged (' + err + '), so nothing was changed.', true); focusScreen(); return false; }
+  }
+  if ('music' in pack) {
+    const err = musicValidate(pack.music);
+    if (err) { if (!superseded()) setStatus('That pack is damaged (' + err + '), so nothing was changed.', true); focusScreen(); return false; }
+  }
+  const ctx = engine.ensure();
+  if (!ctx) { setStatus('Web Audio is not available in this browser.', true); return false; }
+  if (superseded()) { focusScreen(); return false; }
+  setStatus('Checking ' + file.name + '...');
+  const incoming = [], failed = [];
+  for (const s of SLOTS) {
+    const e = pack.slots[s.id];
+    if (e === undefined) continue;
+    const entry = { id:s.id, volume:'volume' in e ? clamp(e.volume, 0, 1) : null, mono:'mono' in e ? e.mono : null, buffer:null, bytes:null };
+    if (typeof e.data === 'string' && e.data.length) {
+      entry.fileName = e.file || s.id + '.wav'; entry.mime = e.mime || '';
+      try {
+        entry.bytes = base64ToBytes(e.data);
+        entry.buffer = await decodeAudio(ctx, entry.bytes.slice(0));
+      } catch (err) { failed.push(entry.fileName); entry.bytes = null; entry.buffer = null; }
+    }
+    incoming.push(entry);
+  }
+  if (superseded()) { focusScreen(); return false; } /* a newer pack or Clear all took over while this one decoded */
+  const sounds = incoming.filter(en => en.buffer).length;
+  if (failed.length && !sounds) { setStatus('Nothing in ' + file.name + ' could be decoded, so nothing was changed. Could not decode: ' + failed.join(', ') + '.', true); focusScreen(); return false; }
+  /* Say everything that is about to happen before it happens */
+  const warnings = [];
+  if (failed.length) warnings.push(failed.length + ' of the ' + (sounds + failed.length) + ' sounds in this pack cannot be decoded (' + failed.join(', ') + ') and would be left empty.');
+  if (dirty) warnings.push('You have unsaved changes; save a pack first if you want to keep them.');
+  if (warnings.length && !window.confirm('Opening ' + file.name + ' replaces everything loaded now. ' + warnings.join(' ') + ' Open it anyway?')) {
+    setStatus('Open pack cancelled; nothing was changed.'); focusScreen(); return false;
+  }
+  if (superseded()) { focusScreen(); return false; }
+  /* commit */
+  loadGen++;
+  stopAllSounds('open');
+  for (const s of SLOTS) clearSlot(s.id, true);
+  musicReset(); if (pack.music) musicApply(pack.music);
+  for (const en of incoming) {
+    const st = S[en.id];
+    if (en.volume !== null) engine.setSlotVolume(en.id, en.volume);
+    if (en.mono !== null) st.mono = en.mono;
+    if (en.buffer) commitBuffer(en.id, en.buffer, en.fileName, en.bytes, en.mime); else refreshSlot(en.id);
+  }
+  let msg = 'Opened ' + file.name + ': ' + sounds + ' sound' + (sounds === 1 ? '' : 's') + ' loaded, everything else cleared.';
+  if (failed.length) msg += ' Could not decode: ' + failed.join(', ') + '.';
+  setStatus(msg, failed.length > 0);
+  markClean();
+  focusScreen();
+  return true;
+}
+function downloadNamingList(){
+  let txt = 'Space Invaders Game Audio Lab: event ids\n';
+  txt += 'Name each file exactly like its event id, for example alien_destroyed.wav. Any common audio format works.\n';
+  txt += 'Capital letters do not matter; anything else in the name does. 07 alien_destroyed.wav will not load.\n';
+  txt += 'Drop the files or the whole folder onto the Sound lab panel, or use Add folder.\n';
+  txt += 'To replace a sound, drop a new file with the same name. One sound per event.\n';
+  txt += '[1978] marks the ten sounds the original arcade board had. [extra] marks events added beyond the course brief.\n\n';
+  for (const g of GROUPS) {
+    txt += g.name + '\n';
+    for (const s of SLOTS) if (s.group === g.id) txt += '  ' + s.id.padEnd(20) + (s.loop ? '[loop] ' : '') + (s.orig ? '[1978] ' : '') + (s.extra ? '[extra] ' : '') + s.name + ': ' + s.desc + '\n';
+    txt += '\n';
+  }
+  download('space-invaders-event-ids.txt', new Blob([txt], { type:'text/plain' }));
+  focusScreen();
+}
+
+/* Header controls */
+$('#master').addEventListener('input', e => { engine.setMaster(parseFloat(e.target.value)); $('#masterDb').textContent = dbText(parseFloat(e.target.value)); });
+$('#master').addEventListener('change', focusScreen);
+$('#mute').addEventListener('click', e => { engine.setMuted(!engine.muted); e.currentTarget.setAttribute('aria-pressed', String(engine.muted)); e.currentTarget.blur(); focusScreen(); });
+$('#placeholders').addEventListener('change', e => {
+  engine.placeholders = e.target.checked;
+  if (e.target.checked) { engine.ensure(); for (const s of SLOTS) if (s.loop) { if (S[s.id].looping) startLoop(s.id); if (S[s.id].previewing) startPreviewLoop(s.id, 'test'); } }
+  else for (const s of SLOTS) if (s.loop && !S[s.id].buffer) { const st = S[s.id]; for (const k of ['loopVoice', 'previewVoice']) if (st[k]) { const v = st[k]; st[k] = null; st.voices.delete(v); try { v.stop(); } catch (err) {} } }
+  focusScreen();
+});
+
+buildLab();
+
+/* =========================================================
+   Game
+   Playfield is the original 224 x 256, one logic tick per 1/60 s.
+   ========================================================= */
+const W = 224, H = 256;
+const WHITE = '#f2f2f2', GREEN = '#42e04a', RED = '#ec4a3b';
+const PLAYER_Y = 216, GROUND_Y = 239, SHIELD_Y = 192, UFO_Y = 40, SHOT_TOP = 34;
+const KINDS = { squid:{ w:8, off:4, pts:30 }, crab:{ w:11, off:2, pts:20 }, octopus:{ w:12, off:2, pts:10 } };
+/* Fleet tone delay table from the 1978 code: first entry whose count is <= invaders left gives the delay in frames */
+const MARCH_COUNTS = [50, 43, 36, 28, 22, 17, 13, 10, 8, 7, 6, 5, 4, 3, 2, 1];
+const MARCH_DELAYS = [52, 46, 39, 34, 28, 24, 21, 19, 16, 14, 13, 12, 11, 9, 7, 5];
+/* Mystery ship value by the number of shots the player has fired (table of 15, repeating) */
+const UFO_SCORES = [100, 50, 50, 100, 150, 100, 100, 50, 300, 100, 100, 100, 50, 150, 100];
+const BOMB_TYPES = ['rolling', 'plunger', 'squiggly'];
+const MENU = ['PLAY', 'SETTINGS', 'SOUND CHECK', 'HOW TO PLAY'];
+const SETTING_ITEMS = [
+  { label:'WAVES TO WIN', key:'wavesToWin', values:[1, 2, 3, 5, 8, 10, 0], fmt:v => v === 0 ? 'ENDLESS' : String(v) },
+  { label:'LIVES', key:'lives', values:[3, 4, 5, 6], fmt:String },
+  { label:'EXTRA LIFE AT', key:'extraLifeAt', values:[1000, 1500, 0], fmt:v => v === 0 ? 'NONE' : String(v) },
+  { label:'MARCH TEMPO', key:'marchMode', values:['table', 'rack'], fmt:v => v === 'table' ? '1978 TABLE' : 'RACK STEP' },
+  { label:'BACK' }
+];
+
+const canvas = $('#screen');
+const g = canvas.getContext('2d');
+g.imageSmoothingEnabled = false;
+
+const G = {
+  state:'title', phase:'', timer:0, t:0,
+  settings:{ wavesToWin:5, lives:3, extraLifeAt:1500, marchMode:'table' },
+  menuIndex:0, settingsIndex:0,
+  score:0, hiScore:1000, lives:3, wave:1, extraAwarded:false, highFired:false, shotCount:0,
+  player:{ x:8, alive:true }, playerShot:null, shotCooldown:0, fireRequested:false,
+  bombs:[], bombTimer:90, bombType:0,
+  fleet:null, revealCount:0,
+  ufo:null, ufoTimer:1500, invincible:false,
+  explosions:[], texts:[], craters:new Set(),
+  shields:[], check:null
+};
+const held = { left:false, right:false };
+
+/* ---------- drawing helpers ---------- */
+const spriteCache = new Map();
+function sprite(rows, color){
+  const key = color + '|' + rows.join('/');
+  let c = spriteCache.get(key);
+  if (c) return c;
+  c = document.createElement('canvas'); c.width = rows[0].length; c.height = rows.length;
+  const cx = c.getContext('2d'); cx.fillStyle = color;
+  rows.forEach((row, y) => { for (let x = 0; x < row.length; x++) if (row[x] === '#') cx.fillRect(x, y, 1, 1); });
+  spriteCache.set(key, c);
+  return c;
+}
+function draw(rows, x, y, color){ g.drawImage(sprite(rows, color), Math.round(x), Math.round(y)); }
+/* The cabinet's colored gel: red across the saucer lane, green over the shields, cannon and lives */
+function bandColor(y, x){
+  if (y >= 32 && y < 64) return RED;
+  if (y >= 184 && y < 240) return GREEN;
+  if (y >= 240 && (x || 0) < 136) return GREEN;
+  return WHITE;
+}
+function text(str, x, y, color){
+  str = String(str).toUpperCase();
+  for (let i = 0; i < str.length; i++) {
+    const rows = FONT[str[i]] || FONT[' '];
+    g.drawImage(sprite(rows, color || WHITE), x + i * 8, y);
+  }
+}
+function textC(str, y, color){ text(str, Math.floor((W - String(str).length * 8) / 2), y, color); }
+
+/* ---------- shields ---------- */
+function makeShield(x){
+  const rows = SPR.shield, w = rows[0].length, h = rows.length;
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const cx = c.getContext('2d'); cx.fillStyle = GREEN;
+  const mask = new Uint8Array(w * h); let count = 0;
+  rows.forEach((row, yy) => { for (let xx = 0; xx < w; xx++) if (row[xx] === '#') { mask[yy * w + xx] = 1; count++; cx.fillRect(xx, yy, 1, 1); } });
+  return { x, y:SHIELD_Y, w, h, mask, canvas:c, ctx:cx, count, initial:count, alive:true };
+}
+function resetShields(){ G.shields = [0, 1, 2, 3].map(i => makeShield(32 + i * 45)); }
+function shieldPixel(sh, ax, ay){
+  const lx = ax - sh.x, ly = ay - sh.y;
+  if (lx < 0 || ly < 0 || lx >= sh.w || ly >= sh.h) return false;
+  return sh.mask[ly * sh.w + lx] === 1;
+}
+function clearShieldPixel(sh, lx, ly){
+  if (lx < 0 || ly < 0 || lx >= sh.w || ly >= sh.h) return 0;
+  const i = ly * sh.w + lx;
+  if (!sh.mask[i]) return 0;
+  sh.mask[i] = 0; sh.ctx.clearRect(lx, ly, 1, 1); sh.count--;
+  return 1;
+}
+function erodePattern(sh, ax, ay, rows){
+  let n = 0;
+  rows.forEach((row, j) => { for (let i = 0; i < row.length; i++) if (row[i] === '#') n += clearShieldPixel(sh, ax + i - sh.x, ay + j - sh.y); });
+  return n;
+}
+function erodeRect(sh, ax, ay, w, h){
+  let n = 0;
+  for (let yy = 0; yy < h; yy++) for (let xx = 0; xx < w; xx++) n += clearShieldPixel(sh, ax + xx - sh.x, ay + yy - sh.y);
+  return n;
+}
+/* After damage: collapse the shield when less than a fifth remains. Returns true if it collapsed. */
+function shieldDamaged(sh, silent){
+  if (!sh.alive) return false;
+  /* A shield collapses (and shield_destroyed fires) once three quarters of its pixels are gone; what is
+     left by then is a few stubborn edge pixels, so this is the moment it stops being a shield. */
+  if (sh.count < sh.initial * 0.25) {
+    sh.alive = false; sh.mask.fill(0); sh.count = 0; sh.ctx.clearRect(0, 0, sh.w, sh.h);
+    if (!silent) trigger('shield_destroyed');
+    return true;
+  }
+  if (!silent) trigger('shield_hit');
+  return false;
+}
+
+/* ---------- fleet ---------- */
+function buildFleet(wave){
+  const topY = 64 + 8 * Math.min(wave - 1, 5);
+  const invaders = [], order = [];
+  for (let r = 0; r < 5; r++) for (let c = 0; c < 11; c++) {
+    invaders.push({ r, c, x:24 + c * 16, y:topY + r * 16, kind:r === 0 ? 'squid' : r < 3 ? 'crab' : 'octopus', alive:true, frame:0, visible:false });
+  }
+  for (let r = 4; r >= 0; r--) for (let c = 0; c < 11; c++) order.push(invaders[r * 11 + c]);
+  G.fleet = { invaders, order, dir:1, cursor:0, edgeHit:false, dropping:false, remaining:55, marchIndex:0, soundTimer:marchDelay(55) };
+}
+function marchDelay(n){
+  for (let i = 0; i < MARCH_COUNTS.length; i++) if (MARCH_COUNTS[i] <= n) return MARCH_DELAYS[i];
+  return MARCH_DELAYS[MARCH_DELAYS.length - 1];
+}
+function marchTone(){
+  const f = G.fleet;
+  trigger('march_' + (f.marchIndex + 1));
+  f.marchIndex = (f.marchIndex + 1) % 4;
+}
+/* One invader moves per tick, in the original's order: bottom row first, left to right. */
+function stepFleet(){
+  const f = G.fleet;
+  for (let tries = 0; tries < 55; tries++) {
+    if (f.cursor >= 55) { f.cursor = 0; endOfPass(); }
+    const inv = f.order[f.cursor++];
+    if (inv.alive) { moveInvader(inv); return; }
+  }
+}
+function endOfPass(){
+  const f = G.fleet;
+  if (f.dropping) f.dropping = false;
+  else if (f.edgeHit) { f.edgeHit = false; f.dir = -f.dir; f.dropping = true; trigger('fleet_descend'); }
+  if (G.settings.marchMode === 'rack') marchTone();
+}
+function moveInvader(inv){
+  const f = G.fleet, K = KINDS[inv.kind];
+  if (f.dropping) inv.y += 8; else inv.x += f.dir * 2;
+  inv.frame ^= 1;
+  const sx = inv.x + K.off;
+  if (!f.dropping && ((f.dir > 0 && sx + K.w >= 216) || (f.dir < 0 && sx <= 8))) f.edgeHit = true;
+  if (inv.y + 8 > SHIELD_Y && inv.y < SHIELD_Y + 16) {
+    for (const sh of G.shields) if (sh.alive && overlap(sx, inv.y, K.w, 8, sh.x, sh.y, sh.w, sh.h)) {
+      if (erodeRect(sh, sx, inv.y, K.w, 8) > 0) shieldDamaged(sh, true);
+    }
+  }
+  if (inv.y >= PLAYER_Y) invaded();
+}
+function lowestInColumn(c){
+  const inv = G.fleet.invaders;
+  for (let r = 4; r >= 0; r--) if (inv[r * 11 + c].alive) return inv[r * 11 + c];
+  return null;
+}
+
+/* ---------- game flow ---------- */
+function startGame(){
+  const s = G.settings;
+  stopAllSounds('newgame');
+  musicNewGame();
+  Object.assign(G, { state:'playing', phase:'start', timer:0, score:0, lives:s.lives, wave:1, extraAwarded:false, highFired:false, shotCount:0,
+    playerShot:null, shotCooldown:0, fireRequested:false, bombs:[], ufo:null, explosions:[], texts:[] });
+  G.craters.clear();
+  G.player = { x:8, alive:true };
+  buildFleet(1); resetShields();
+  trigger('game_start');
+}
+function startWave(){
+  G.phase = 'reveal'; G.timer = 0; G.revealCount = 0;
+  buildFleet(G.wave); resetShields(); G.craters.clear();
+  G.bombs = []; G.playerShot = null; G.shotCooldown = 0; G.fireRequested = false;
+  G.ufo = null; G.ufoTimer = 1500; G.bombTimer = reloadRate() * 2 + 30;
+  G.explosions = []; G.texts = [];
+  G.player.alive = true;
+  trigger('level_start');
+}
+function reloadRate(){
+  const s = G.score;
+  return s < 200 ? 48 : s < 1000 ? 16 : s < 2000 ? 11 : s < 3000 ? 8 : 7;
+}
+function bombSpeed(){ return 1.2 + 0.1 * Math.min(G.wave - 1, 4) + (G.fleet.remaining <= 8 ? 0.4 : 0); }
+function addScore(n){
+  G.score += n;
+  const s = G.settings;
+  if (!G.extraAwarded && s.extraLifeAt && G.score >= s.extraLifeAt) { G.extraAwarded = true; G.lives++; trigger('extra_life'); }
+  if (G.score > G.hiScore) { G.hiScore = G.score; if (!G.highFired) { G.highFired = true; trigger('high_score'); } }
+}
+function removeUfo(){ if (G.ufo) { G.ufo = null; stopLoop('ufo_loop'); } }
+function invaded(){
+  if (G.phase !== 'play') return;
+  G.phase = 'invaded'; G.timer = 0; G.bombs = []; G.playerShot = null; removeUfo();
+  trigger('invasion');
+}
+function playerHit(){
+  G.phase = 'dying'; G.timer = 0; G.player.alive = false;
+  G.bombs = []; G.playerShot = null; removeUfo();
+  G.lives--;
+  trigger('player_destroyed');
+}
+function gameOver(){ G.phase = 'over'; G.timer = 0; trigger('game_over'); }
+function levelCleared(){ G.phase = 'clear'; G.timer = 0; G.bombs = []; G.playerShot = null; removeUfo(); }
+function toTitle(){ stopAllLoops(); engine.setPaused(false); G.state = 'title'; G.phase = ''; G.timer = 0; G.menuIndex = 0; }
+/* Rehearsal: summon a moment on demand so a sound can be heard in context without earning it */
+const REHEARSALS = {
+  ufo:{ key:'u', label:'UFO now', tip:'Send the mystery ship across right away' },
+  clear:{ key:'n', label:'Clear wave', tip:'Destroy the remaining invaders: level complete, or victory on the last wave' },
+  life:{ key:'l', label:'Lose a life', tip:'Destroy the cannon now' },
+  land:{ key:'v', label:'Land invaders', tip:'The invaders reach the ground: invasion, then game over' },
+  extra:{ key:'x', label:'Extra life', tip:'Award an extra life now' },
+  invincible:{ key:'i', label:'Invincible', tip:'Bombs pass through the cannon until switched off (the invaders can still land)', toggle:true }
+};
+function rehearse(action){
+  const inPlay = G.state === 'playing' && G.phase === 'play';
+  if (action === 'invincible') { G.invincible = !G.invincible; updateRehearseButtons(); updateStatusLine(); return true; }
+  if (!inPlay) { setStatus('Start a game first; rehearsal actions work while the invaders are on screen.', true); return false; }
+  switch (action) {
+    case 'ufo':
+      if (G.ufo) return false;
+      { const dir = G.shotCount % 2 === 0 ? 1 : -1; G.ufo = { x:dir > 0 ? -16 : W, dir }; trigger('ufo_loop'); }
+      break;
+    case 'clear':
+      for (const inv of G.fleet.invaders) if (inv.alive) { inv.alive = false; G.explosions.push({ rows:SPR.invaderBoom, x:inv.x + 1, y:inv.y, ttl:16 }); }
+      G.fleet.remaining = 0; levelCleared();
+      break;
+    case 'life': playerHit(); break;
+    case 'land': invaded(); break;
+    case 'extra': G.lives++; trigger('extra_life'); break;
+    default: return false;
+  }
+  return true;
+}
+function updateRehearseButtons(){
+  const b = document.querySelector('.rh[data-action="invincible"]');
+  if (b) b.setAttribute('aria-pressed', String(G.invincible));
+}
+
+function pauseGame(){ G.state = 'paused'; engine.setPaused(true); trigger('pause'); }
+function resumeGame(){ G.state = 'playing'; engine.setPaused(false); trigger('resume'); }
+function quitToMenu(){ stopAllLoops(); engine.setPaused(false); G.state = 'menu'; G.phase = ''; trigger('menu_back'); }
+
+/* ---------- sound check: audition every event in order ---------- */
+function startSoundCheck(){ G.state = 'soundcheck'; G.check = { index:-1, timer:1 }; }
+function updateSoundCheck(){
+  const c = G.check; if (!c) return;
+  if (--c.timer > 0) return;
+  /* Cut the previous cue whatever it was doing, so cues never overlap */
+  if (c.index >= 0) { const prev = SLOTS[c.index]; if (prev.loop) stopPreviewLoop(prev.id, 'check'); else stopVoices(S[prev.id]); }
+  c.index++;
+  if (c.index >= SLOTS.length) { G.check = null; G.state = 'menu'; return; }
+  const s = SLOTS[c.index];
+  trigger(s.id, 'check');
+  /* Leave room for the whole file plus a short gap, within reason, so long sounds do not pile up */
+  const dur = S[s.id].buffer ? S[s.id].buffer.duration : 0.6;
+  c.timer = s.loop ? 150 : Math.min(360, Math.max(54, Math.round(dur * 60) + 18));
+}
+function stopSoundCheck(){ stopAllSounds('check'); G.check = null; }
+
+/* ---------- per-tick update ---------- */
+function tick(){
+  G.t++;
+  if (G.state === 'playing') {
+    switch (G.phase) {
+      case 'start': if (++G.timer >= 60) startWave(); break;
+      case 'reveal':
+        G.fleet.order[G.revealCount++].visible = true;
+        if (G.revealCount >= 55) { G.phase = 'play'; G.timer = 0; }
+        break;
+      case 'play': updatePlay(); break;
+      case 'dying':
+        if (++G.timer >= 90) { if (G.lives > 0) { G.phase = 'respawn'; G.timer = 0; } else gameOver(); }
+        break;
+      case 'respawn':
+        if (++G.timer >= 60) { G.phase = 'play'; G.timer = 0; G.player.alive = true; G.bombTimer = reloadRate() * 2 + 30; trigger('player_respawn'); }
+        break;
+      case 'clear':
+        G.timer++;
+        if (G.timer === 45) {
+          if (G.settings.wavesToWin && G.wave >= G.settings.wavesToWin) { G.phase = 'victory'; G.timer = 0; trigger('victory'); }
+          else trigger('level_complete');
+        } else if (G.timer >= 150) { G.wave++; startWave(); }
+        break;
+      case 'invaded': if (++G.timer >= 60) gameOver(); break;
+      case 'over': if (++G.timer >= 600) toTitle(); break;
+      case 'victory': G.timer++; break;
+    }
+    for (const e of G.explosions) e.ttl--;
+    G.explosions = G.explosions.filter(e => e.ttl > 0);
+    for (const t of G.texts) { if (t.delay > 0) t.delay--; else t.ttl--; }
+    G.texts = G.texts.filter(t => t.ttl > 0);
+  } else if (G.state === 'soundcheck') updateSoundCheck();
+  musicUpdate();
+}
+function updatePlay(){
+  const P = G.player, f = G.fleet;
+  if (held.left && !held.right) P.x = Math.max(8, P.x - 1);
+  else if (held.right && !held.left) P.x = Math.min(203, P.x + 1);
+  if (G.shotCooldown > 0) G.shotCooldown--;
+  if (G.fireRequested) {
+    G.fireRequested = false;
+    if (!G.playerShot && G.shotCooldown <= 0) { G.playerShot = { x:P.x + 6, y:PLAYER_Y - 4 }; G.shotCount++; trigger('player_fire'); }
+  }
+
+  stepFleet();
+  if (G.phase !== 'play') return;
+  if (G.settings.marchMode === 'table' && --f.soundTimer <= 0) { marchTone(); f.soundTimer = marchDelay(f.remaining); }
+
+  /* player shot */
+  const s = G.playerShot;
+  if (s) {
+    s.y -= 4;
+    let done = false;
+    if (s.y <= SHOT_TOP) {
+      G.explosions.push({ rows:SPR.shotBoom, x:s.x - 3, y:SHOT_TOP - 2, ttl:16 });
+      G.shotCooldown = 16; trigger('player_shot_miss'); done = true;
+    }
+    if (!done && G.ufo && overlap(s.x, s.y, 1, 4, G.ufo.x, UFO_Y, 16, 7)) { ufoHit(); done = true; }
+    if (!done) for (const inv of f.invaders) {
+      if (!inv.alive) continue;
+      const K = KINDS[inv.kind];
+      if (overlap(s.x, s.y, 1, 4, inv.x + K.off, inv.y, K.w, 8)) {
+        inv.alive = false; f.remaining--;
+        G.explosions.push({ rows:SPR.invaderBoom, x:inv.x + 1, y:inv.y, ttl:16 });
+        addScore(K.pts); trigger('alien_destroyed');
+        done = true;
+        if (f.remaining === 0) { G.playerShot = null; levelCleared(); return; }
+        break;
+      }
+    }
+    if (!done) for (let i = 0; i < G.bombs.length; i++) {
+      const b = G.bombs[i];
+      if (overlap(s.x, s.y, 1, 4, b.x, b.y, 3, 7)) {
+        G.bombs.splice(i, 1);
+        G.explosions.push({ rows:SPR.shotBoom, x:s.x - 3, y:s.y - 2, ttl:12 });
+        trigger('projectile_collide'); done = true; break;
+      }
+    }
+    if (!done && s.y < SHIELD_Y + 16 && s.y + 4 > SHIELD_Y) for (const sh of G.shields) {
+      if (!sh.alive || s.x < sh.x || s.x >= sh.x + sh.w) continue;
+      for (let k = 3; k >= 0; k--) if (shieldPixel(sh, s.x, s.y + k)) {
+        const iy = s.y + k;
+        erodePattern(sh, s.x - 2, iy - 4, ERODE_UP);
+        G.explosions.push({ rows:SPR.shotBoom, x:s.x - 3, y:iy - 4, ttl:12 });
+        shieldDamaged(sh, false); G.shotCooldown = 8; done = true; break;
+      }
+      if (done) break;
+    }
+    if (done) G.playerShot = null;
+  }
+
+  /* invader bombs */
+  /* Reload delays follow the 1978 table (48, 16, 11, 8, 7 frames by score). The original ran three
+     shot objects on a staggered schedule that is not reproduced here, so a floor and a spacing rule
+     keep the bombs from bunching up. */
+  if (--G.bombTimer <= 0 && G.bombs.length < 3 && G.bombs.every(b => b.y - b.y0 >= 36)) fireBomb();
+  const speed = bombSpeed();
+  for (let i = G.bombs.length - 1; i >= 0; i--) {
+    const b = G.bombs[i];
+    b.y += speed;
+    if (G.t % 4 === 0) b.frame = (b.frame + 1) % 4;
+    if (b.y + 7 >= GROUND_Y) {
+      G.bombs.splice(i, 1);
+      for (let k = 0; k < 3; k++) G.craters.add(Math.round(b.x) + k);
+      G.explosions.push({ rows:SPR.bombBoom, x:b.x - 1, y:GROUND_Y - 8, ttl:16 });
+      trigger('bomb_ground'); continue;
+    }
+    if (!G.invincible && overlap(b.x, b.y, 3, 7, P.x, PLAYER_Y, 13, 8)) { playerHit(); return; }
+    if (b.y + 7 >= SHIELD_Y && b.y < SHIELD_Y + 16) {
+      const tipY = Math.floor(b.y) + 6; let hit = false;
+      for (const sh of G.shields) {
+        if (!sh.alive) continue;
+        for (let k = 0; k < 3; k++) if (shieldPixel(sh, Math.round(b.x) + k, tipY)) { hit = true; break; }
+        if (hit) {
+          erodePattern(sh, Math.round(b.x) - 1, tipY - 1, ERODE_DOWN);
+          shieldDamaged(sh, false);
+          break;
+        }
+      }
+      if (hit) { G.bombs.splice(i, 1); continue; }
+    }
+  }
+
+  /* mystery ship */
+  if (!G.ufo) {
+    if (f.remaining >= 8 && --G.ufoTimer <= 0) {
+      const dir = G.shotCount % 2 === 0 ? 1 : -1;
+      G.ufo = { x:dir > 0 ? -16 : W, dir };
+      trigger('ufo_loop');
+    }
+  } else {
+    G.ufo.x += G.ufo.dir;
+    if (G.ufo.x > W || G.ufo.x < -16) { G.ufo = null; G.ufoTimer = 1500; stopLoop('ufo_loop'); trigger('ufo_escape'); }
+  }
+}
+
+function fireBomb(){
+  const type = BOMB_TYPES[G.bombType]; G.bombType = (G.bombType + 1) % 3;
+  const cols = [];
+  for (let c = 0; c < 11; c++) if (lowestInColumn(c)) cols.push(c);
+  if (!cols.length) return;
+  let col;
+  if (type === 'rolling') {
+    const px = G.player.x + 6; let best = 1e9;
+    for (const c of cols) { const inv = lowestInColumn(c), d = Math.abs(inv.x + 8 - px); if (d < best) { best = d; col = c; } }
+  } else col = cols[rnd(cols.length)];
+  const inv = lowestInColumn(col), K = KINDS[inv.kind];
+  const y0 = inv.y + 8;
+  G.bombs.push({ type, x:inv.x + K.off + Math.floor(K.w / 2) - 1, y:y0, y0, frame:rnd(4) });
+  const r = reloadRate();
+  G.bombTimer = r + rnd(r + 1) + 14;
+  trigger('enemy_fire');
+}
+function ufoHit(){
+  const pts = UFO_SCORES[(Math.max(1, G.shotCount) - 1) % 15];
+  G.explosions.push({ rows:SPR.ufoBoom, x:G.ufo.x, y:UFO_Y, ttl:30 });
+  G.texts.push({ str:String(pts), x:G.ufo.x + 2, y:UFO_Y, ttl:80, delay:30 });
+  const ufo = G.ufo; G.ufo = null; G.ufoTimer = 1500;
+  stopLoop('ufo_loop');
+  addScore(pts); trigger('ufo_destroyed');
+  return ufo;
+}
+
+/* ---------- rendering ---------- */
+function render(){
+  g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+  switch (G.state) {
+    case 'title': renderTitle(); break;
+    case 'menu': renderMenu(); break;
+    case 'settings': renderSettings(); break;
+    case 'help': renderHelp(); break;
+    case 'soundcheck': renderSoundCheck(); break;
+    case 'playing': case 'paused': renderGame(); break;
+  }
+  updateStatusLine();
+}
+function renderHud(){
+  text(' SCORE<1> HI-SCORE SCORE<2>', 0, 8, WHITE);
+  text(pad(G.score % 100000, 4), 24, 24, WHITE);
+  text(pad(G.hiScore % 100000, 4), 96, 24, WHITE);
+  text('0000', 168, 24, WHITE);
+}
+function renderFooter(showLives){
+  g.fillStyle = GREEN; g.fillRect(0, GROUND_Y, W, 1);
+  if (G.craters.size) { g.fillStyle = '#000'; for (const x of G.craters) g.fillRect(x, GROUND_Y, 1, 1); }
+  if (showLives) {
+    text(String(Math.max(0, G.lives)), 8, 241, GREEN);
+    for (let i = 0; i < Math.min(6, G.lives - 1); i++) draw(SPR.player, 24 + i * 16, 241, GREEN);
+  }
+  text('CREDIT 00', 136, 241, WHITE);
+}
+function renderTitle(){
+  renderHud();
+  const blink = Math.floor(G.t / 30) % 2 === 0;
+  textC('PLAY', 64, WHITE);
+  textC('SPACE  INVADERS', 88, WHITE);
+  textC('*SCORE ADVANCE TABLE*', 120, WHITE);
+  draw(SPR.ufo, 60, 136, WHITE);          text('=? MYSTERY', 80, 136, WHITE);
+  draw(SPR.squid[0], 64, 152, WHITE);     text('=30 POINTS', 80, 152, WHITE);
+  draw(SPR.crab[0], 62, 168, WHITE);      text('=20 POINTS', 80, 168, WHITE);
+  draw(SPR.octopus[0], 62, 184, WHITE);   text('=10 POINTS', 80, 184, WHITE);
+  if (blink) textC('PRESS ENTER', 216, WHITE);
+  renderFooter(false);
+}
+function renderMenu(){
+  renderHud();
+  textC('SPACE  INVADERS', 56, WHITE);
+  MENU.forEach((item, i) => {
+    const y = 104 + i * 20;
+    if (i === G.menuIndex) text('>', 56, y, WHITE);
+    text(item, 72, y, WHITE);
+  });
+  textC('UP DOWN ENTER', 200, WHITE);
+  textC('ESC BACK', 216, WHITE);
+  renderFooter(false);
+}
+function renderSettings(){
+  renderHud();
+  textC('SETTINGS', 48, WHITE);
+  SETTING_ITEMS.forEach((it, i) => {
+    const y = 88 + i * 20;
+    if (i === G.settingsIndex) text('>', 8, y, WHITE);
+    text(it.label, 24, y, WHITE);
+    if (it.key) { const v = it.fmt(G.settings[it.key]); text(v, 216 - v.length * 8, y, WHITE); }
+  });
+  textC('LEFT RIGHT CHANGE', 200, WHITE);
+  textC('ESC BACK', 216, WHITE);
+  renderFooter(false);
+}
+function renderHelp(){
+  renderHud();
+  textC('HOW TO PLAY', 48, WHITE);
+  const lines = ['LEFT RIGHT   MOVE', 'SPACE        FIRE', 'P OR ESC     PAUSE', 'ENTER        SELECT', 'ESC          BACK'];
+  lines.forEach((l, i) => text(l, 24, 80 + i * 16, WHITE));
+  textC('SHOOT ALL 55 INVADERS', 168, WHITE);
+  textC('BEFORE THEY LAND', 184, WHITE);
+  textC('ESC BACK', 216, WHITE);
+  renderFooter(false);
+}
+function renderSoundCheck(){
+  renderHud();
+  textC('SOUND CHECK', 56, WHITE);
+  const c = G.check;
+  if (c && c.index >= 0 && c.index < SLOTS.length) {
+    const s = SLOTS[c.index], grp = GROUPS.find(x => x.id === s.group);
+    textC(grp.name, 104, WHITE);
+    textC(s.name, 128, GREEN);
+    textC(s.id, 148, WHITE);
+    textC((c.index + 1) + ' OF ' + SLOTS.length, 176, WHITE);
+  }
+  textC('ESC STOP', 216, WHITE);
+  renderFooter(false);
+}
+function renderGame(){
+  renderHud();
+  const f = G.fleet;
+  for (const sh of G.shields) if (sh.alive) g.drawImage(sh.canvas, sh.x, sh.y);
+  if (f) for (const inv of f.invaders) {
+    if (!inv.alive || !inv.visible) continue;
+    const K = KINDS[inv.kind];
+    draw(SPR[inv.kind][inv.frame], inv.x + K.off, inv.y, bandColor(inv.y, inv.x));
+  }
+  if (G.phase === 'dying') {
+    draw(SPR.playerBoom[Math.floor(G.timer / 8) % 2], G.player.x - 1, PLAYER_Y, GREEN);
+  } else if (G.player.alive && G.phase !== 'over') {
+    draw(SPR.player, G.player.x, PLAYER_Y, GREEN);
+  }
+  if (G.playerShot) { g.fillStyle = bandColor(G.playerShot.y, G.playerShot.x); g.fillRect(G.playerShot.x, Math.round(G.playerShot.y), 1, 4); }
+  for (const b of G.bombs) draw(SPR.bombs[b.type][b.frame], b.x, b.y, bandColor(b.y, b.x));
+  if (G.ufo) draw(SPR.ufo, G.ufo.x, UFO_Y, bandColor(UFO_Y, G.ufo.x));
+  for (const e of G.explosions) draw(e.rows, e.x, e.y, bandColor(e.y, e.x));
+  for (const t of G.texts) if (t.delay <= 0) text(t.str, clamp(t.x, 0, W - t.str.length * 8), t.y, bandColor(t.y, t.x));
+  if (G.phase === 'start') textC('PLAY PLAYER<1>', 112, WHITE);
+  if (G.phase === 'over') { textC('GAME OVER', 96, WHITE); if (G.highFired) textC('NEW HIGH SCORE', 120, WHITE); if (G.timer >= 60) textC('PRESS ENTER', 152, WHITE); }
+  if (G.phase === 'victory') {
+    textC('VICTORY', 88, WHITE); textC('EARTH IS SAFE', 108, WHITE);
+    textC(G.wave + (G.wave === 1 ? ' WAVE' : ' WAVES') + ' CLEARED', 128, WHITE);
+    if (G.highFired) textC('NEW HIGH SCORE', 148, WHITE);
+    if (G.timer >= 60) textC('PRESS ENTER', 176, WHITE);
+  }
+  if (G.state === 'paused') { g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(0, 32, W, 208); textC('PAUSED', 112, WHITE); textC('P RESUME  ESC QUIT', 136, WHITE); }
+  renderFooter(true);
+}
+let lastStatus = '';
+function updateStatusLine(){
+  let s;
+  switch (G.state) {
+    case 'title': s = 'Title screen. Press Enter.'; break;
+    case 'menu': s = 'Menu'; break;
+    case 'settings': s = 'Settings'; break;
+    case 'help': s = 'How to play'; break;
+    case 'soundcheck': s = 'Sound check'; break;
+    case 'paused': s = 'Paused, wave ' + G.wave; break;
+    default:
+      if (G.phase === 'over') s = 'Game over. Score ' + G.score;
+      else if (G.phase === 'victory') s = 'Victory. Score ' + G.score;
+      else s = 'Wave ' + G.wave + ', lives ' + G.lives + (G.fleet ? ', invaders ' + G.fleet.remaining : '');
+  }
+  if (G.invincible) s += ' (invincible)';
+  if (s !== lastStatus) { lastStatus = s; $('#gameStatus').textContent = s; }
+}
+
+/* ---------- input ---------- */
+function isTypingTarget(t){
+  if (!t || !t.tagName) return false;
+  const tag = t.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON' || t.isContentEditable;
+}
+function canPause(){ return ['start', 'reveal', 'play', 'dying', 'respawn', 'clear'].includes(G.phase); }
+function cycleSetting(item, dir){
+  const cur = G.settings[item.key], i = item.values.indexOf(cur);
+  G.settings[item.key] = item.values[(i + dir + item.values.length) % item.values.length];
+  trigger('menu_move');
+}
+function onKey(k){
+  switch (G.state) {
+    case 'title':
+      if (k === 'Enter') { trigger('menu_select'); G.state = 'menu'; G.menuIndex = 0; }
+      break;
+    case 'menu':
+      if (k === 'ArrowUp') { G.menuIndex = (G.menuIndex + MENU.length - 1) % MENU.length; trigger('menu_move'); }
+      else if (k === 'ArrowDown') { G.menuIndex = (G.menuIndex + 1) % MENU.length; trigger('menu_move'); }
+      else if (k === 'Enter') {
+        trigger('menu_select');
+        const item = MENU[G.menuIndex];
+        if (item === 'PLAY') startGame();
+        else if (item === 'SETTINGS') { G.state = 'settings'; G.settingsIndex = 0; }
+        else if (item === 'SOUND CHECK') startSoundCheck();
+        else G.state = 'help';
+      }
+      else if (k === 'Escape') { trigger('menu_back'); G.state = 'title'; }
+      break;
+    case 'settings': {
+      const n = SETTING_ITEMS.length, it = SETTING_ITEMS[G.settingsIndex];
+      if (k === 'ArrowUp') { G.settingsIndex = (G.settingsIndex + n - 1) % n; trigger('menu_move'); }
+      else if (k === 'ArrowDown') { G.settingsIndex = (G.settingsIndex + 1) % n; trigger('menu_move'); }
+      else if (k === 'ArrowLeft' && it.key) cycleSetting(it, -1);
+      else if (k === 'ArrowRight' && it.key) cycleSetting(it, 1);
+      else if (k === 'Enter') { if (it.key) cycleSetting(it, 1); else { trigger('menu_back'); G.state = 'menu'; } }
+      else if (k === 'Escape') { trigger('menu_back'); G.state = 'menu'; }
+      break;
+    }
+    case 'help':
+      if (k === 'Escape' || k === 'Enter' || k === 'Backspace') { trigger('menu_back'); G.state = 'menu'; }
+      break;
+    case 'soundcheck':
+      if (k === 'Escape') { stopSoundCheck(); trigger('menu_back'); G.state = 'menu'; }
+      break;
+    case 'playing':
+      if (G.phase === 'over' || G.phase === 'victory') {
+        if (G.timer >= 60 && k === 'Enter') { trigger('menu_select'); toTitle(); }
+        else if (G.timer >= 60 && k === 'Escape') { trigger('menu_back'); toTitle(); }
+      }
+      else if (k === 'p' || k === 'P' || k === 'Escape') { if (canPause()) pauseGame(); }
+      else if (k === ' ' || k === 'ArrowUp') G.fireRequested = true;
+      else { const a = Object.keys(REHEARSALS).find(id => REHEARSALS[id].key === k.toLowerCase()); if (a) rehearse(a); }
+      break;
+    case 'paused':
+      if (k === 'p' || k === 'P' || k === 'Enter') resumeGame();
+      else if (k === 'Escape') quitToMenu();
+      break;
+  }
+}
+const GAME_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' ']);
+document.addEventListener('keydown', e => {
+  if (isTypingTarget(e.target)) return;
+  engine.ensure();
+  const k = e.key;
+  if (GAME_KEYS.has(k)) e.preventDefault();
+  if (k === 'ArrowLeft' || k === 'a' || k === 'A') held.left = true;
+  if (k === 'ArrowRight' || k === 'd' || k === 'D') held.right = true;
+  if (e.repeat) return;
+  onKey(k);
+});
+document.addEventListener('keyup', e => {
+  const k = e.key;
+  if (k === 'ArrowLeft' || k === 'a' || k === 'A') held.left = false;
+  if (k === 'ArrowRight' || k === 'd' || k === 'D') held.right = false;
+});
+window.addEventListener('blur', () => { held.left = held.right = false; });
+
+/* ---------- touch controls: shown automatically on coarse pointers, or with the toggle ---------- */
+const touchBar = $('#touch'), touchToggle = $('#touchToggle');
+function setTouch(on){ touchBar.hidden = !on; touchToggle.setAttribute('aria-pressed', String(on)); }
+setTouch(!!(window.matchMedia && matchMedia('(pointer: coarse)').matches) || (navigator.maxTouchPoints || 0) > 0);
+touchToggle.addEventListener('click', () => { setTouch(touchBar.hidden); touchToggle.blur(); });
+for (const btn of touchBar.querySelectorAll('.tc')) {
+  const hold = btn.dataset.hold, key = btn.dataset.key || (hold === 'left' ? 'ArrowLeft' : 'ArrowRight');
+  const release = () => { if (hold) held[hold] = false; btn.classList.remove('down'); };
+  btn.addEventListener('pointerdown', e => {
+    e.preventDefault(); engine.ensure();
+    if (btn.setPointerCapture) { try { btn.setPointerCapture(e.pointerId); } catch (err) {} }
+    if (hold) held[hold] = true;
+    btn.classList.add('down');
+    onKey(key);
+  });
+  for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) btn.addEventListener(ev, release);
+  btn.addEventListener('contextmenu', e => e.preventDefault());
+  btn.addEventListener('keydown', e => { if (e.key === ' ' || e.key === 'Enter') e.preventDefault(); });
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden && G.state === 'playing' && canPause()) pauseGame(); });
+canvas.addEventListener('pointerdown', () => { engine.ensure(); canvas.focus({ preventScroll:true }); });
+document.addEventListener('pointerdown', () => engine.ensure(), { capture:true });
+
+
+/* =========================================================
+   Music sequencer
+   One bar of sixteen steps on ten rows: eight scale degrees voiced with square waves, two
+   percussion rows voiced with noise, the way the 1978 board made every sound it had. Two
+   patterns, A for winning and B for losing, and a tension value the game computes decides which
+   one plays, how much percussion is heard, and how fast. The module is sealed: its own bus, its
+   own state, and two touch points in the game (musicUpdate in tick, musicFrame in the render loop).
+   ========================================================= */
+const MUSIC_STEPS = 16, MUSIC_MELODIC = 8, MUSIC_ROWS = 10, MUSIC_LOW = 8, MUSIC_HIGH = 9;
+const SCALES = {
+  major:{ name:'Major', semis:[0, 2, 4, 5, 7, 9, 11, 12] },
+  minor:{ name:'Minor', semis:[0, 2, 3, 5, 7, 8, 10, 12] },
+  pentMajor:{ name:'Pentatonic major', semis:[0, 2, 4, 7, 9, 12, 14, 16] },
+  pentMinor:{ name:'Pentatonic minor', semis:[0, 3, 5, 7, 10, 12, 15, 17] }
+};
+const ROOTS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const ROOT_FREQ = 130.8128; /* C3; the fleet march sits well below this, so the two do not fight */
+const MUSIC_LOOKAHEAD = 0.14, MUSIC_TIMER_MS = 25;
+
+function emptyPattern(scale, root){
+  return { scale:scale || 'major', root:root || 0, rows:Array.from({ length:MUSIC_ROWS }, () => new Array(MUSIC_STEPS).fill(0)) };
+}
+const MUSIC_DEFAULT_OPTIONS = { inGame:true, switchAtBar:true, percByTension:true, tempoByTension:false };
+const music = {
+  patterns:{ A:emptyPattern('major', 0), B:emptyPattern('minor', 0) },
+  editing:'A', current:'A', pending:null,
+  bpm:120, bpmMax:170, volume:0.6,
+  options:Object.assign({}, MUSIC_DEFAULT_OPTIONS),
+  playing:false, source:null, step:0, nextTime:0, timer:null, queue:[], voices:new Set(),
+  userStopped:false, /* an explicit Stop holds until the next game or the next Play */
+  tension:0, spike:0, lastPhase:'',
+  debug:false, noteLog:[]
+};
+function patternHasNotes(name){ return music.patterns[name].rows.some(r => r.some(v => v)); }
+function anyMusic(){ return patternHasNotes('A') || patternHasNotes('B'); }
+function rowNote(pat, r){
+  const semi = pat.root + SCALES[pat.scale].semis[MUSIC_MELODIC - 1 - r];
+  return ROOTS[semi % 12] + (3 + Math.floor(semi / 12));
+}
+function rowFreq(pat, r){ return ROOT_FREQ * Math.pow(2, (pat.root + SCALES[pat.scale].semis[MUSIC_MELODIC - 1 - r]) / 12); }
+
+/* ---------- bus and voices ---------- */
+function ensureMusicBus(){
+  const ctx = engine.ctx; if (!ctx || engine.music) return;
+  engine.music = ctx.createGain(); engine.music.gain.value = music.volume;            /* the volume slider */
+  engine.musicDuck = ctx.createGain(); engine.musicDuck.gain.value = engine.paused ? 0.25 : 1; /* pause duck, stop fade */
+  engine.musicTone = ctx.createBiquadFilter(); engine.musicTone.type = 'lowpass'; engine.musicTone.frequency.value = 4200; engine.musicTone.Q.value = 0.5;
+  engine.music.connect(engine.musicDuck).connect(engine.musicTone).connect(engine.master);
+}
+function squareBlip(freq, time, gate){
+  const ctx = engine.ctx, o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = 'square'; o.frequency.setValueAtTime(freq, time);
+  g.gain.setValueAtTime(0.0001, time);
+  g.gain.linearRampToValueAtTime(0.15, time + 0.004);
+  g.gain.setValueAtTime(0.15, time + gate * 0.35);
+  g.gain.exponentialRampToValueAtTime(0.0001, time + gate);
+  o.connect(g).connect(engine.music);
+  o.start(time); o.stop(time + gate + 0.02);
+  trackVoice(o);
+}
+/* Remember every booked note so an explicit stop can cancel the ones still in the look-ahead window */
+function trackVoice(node){ music.voices.add(node); node.onended = () => music.voices.delete(node); }
+function cancelBookedVoices(){ for (const v of music.voices) { try { v.stop(); } catch (e) {} } music.voices.clear(); }
+function noiseHit(kind, time, level){
+  const ctx = engine.ctx, src = ctx.createBufferSource(); src.buffer = engine.noiseBuffer();
+  const f = ctx.createBiquadFilter();
+  if (kind === 'low') { f.type = 'lowpass'; f.frequency.value = 700; f.Q.value = 0.8; } else { f.type = 'highpass'; f.frequency.value = 4500; }
+  const dur = kind === 'low' ? 0.12 : 0.045, peak = (kind === 'low' ? 0.7 : 0.32) * level;
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(Math.max(0.0001, peak), time);
+  g.gain.exponentialRampToValueAtTime(0.0001, time + dur);
+  src.connect(f).connect(g).connect(engine.music);
+  src.start(time); src.stop(time + dur + 0.02);
+  trackVoice(src);
+}
+
+/* ---------- scheduler: book notes a little ahead on the audio clock ---------- */
+function stepSeconds(){
+  const follow = music.options.tempoByTension && music.source === 'game';
+  const bpm = follow ? music.bpm + (music.bpmMax - music.bpm) * music.tension : music.bpm;
+  return 60 / bpm / 4;
+}
+function scheduleStep(step, time){
+  const pat = music.patterns[music.current];
+  const gate = Math.min(0.14, stepSeconds() * 0.85);
+  const canPlay = engine.ctx && engine.music && engine.running();
+  for (let r = 0; r < MUSIC_MELODIC; r++) if (pat.rows[r][step] && canPlay) squareBlip(rowFreq(pat, r), time, gate);
+  const t = music.options.percByTension && music.source === 'game' ? music.tension : 1;
+  if (canPlay && pat.rows[MUSIC_LOW][step]) noiseHit('low', time, 0.25 + 0.75 * t);
+  if (canPlay && pat.rows[MUSIC_HIGH][step]) noiseHit('high', time, 0.15 + 0.85 * t);
+  if (music.debug) music.noteLog.push({ step, time, pattern:music.current, tempo:stepSeconds() });
+}
+function musicSchedule(now){
+  const ctx = engine.ctx; if (!ctx || !music.playing) return;
+  if (now === undefined) now = ctx.currentTime;
+  while (music.nextTime < now + MUSIC_LOOKAHEAD) {
+    if (music.step === 0 && music.pending) { music.current = music.pending; music.pending = null; musicUiPatternState(); }
+    scheduleStep(music.step, music.nextTime);
+    music.queue.push({ step:music.step, time:music.nextTime, pattern:music.current });
+    if (music.queue.length > 64) music.queue.shift();
+    music.nextTime += stepSeconds();
+    music.step = (music.step + 1) % MUSIC_STEPS;
+  }
+}
+function musicStart(source){
+  const ctx = engine.ensure(); if (!ctx) return false;
+  ensureMusicBus();
+  if (music.playing) { music.source = source; return true; }
+  music.playing = true; music.source = source; music.step = 0; music.pending = null; music.queue.length = 0;
+  const t = ctx.currentTime;
+  engine.musicDuck.gain.cancelScheduledValues(t);
+  engine.musicDuck.gain.setValueAtTime(engine.paused ? 0.25 : 1, t);
+  music.nextTime = t + 0.06;
+  music.timer = setInterval(() => musicSchedule(), MUSIC_TIMER_MS);
+  musicSchedule();
+  musicUiTransport();
+  return true;
+}
+/* fade: let the booked notes ring and fade the bus (the game ended). explicit: the user asked, so
+   cut everything now and do not let the game restart it until a new game or the next Play. */
+function musicStop(fade, explicit){
+  if (explicit) music.userStopped = true;
+  if (!fade) cancelBookedVoices(); /* also catches notes still ringing out from a game-ending fade */
+  if (!music.playing) { musicUiTransport(); return; }
+  music.playing = false; music.source = null; music.pending = null;
+  if (music.timer) { clearInterval(music.timer); music.timer = null; }
+  music.queue.length = 0; music.step = 0;
+  if (engine.ctx && engine.musicDuck && fade) {
+    const g = engine.musicDuck.gain, t = engine.ctx.currentTime;
+    g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(0, t + 0.6);
+  }
+  musicUiTransport(); musicUiCursor(-1);
+}
+
+/* ---------- the game side: tension, start and stop, pattern choice ---------- */
+/* Called once from startGame: a new game lifts an explicit stop, but a Stop pressed during the
+   opening screen of that same game still holds */
+function musicNewGame(){ music.userStopped = false; }
+
+function musicUpdate(){
+  /* Tension: how far the fleet has come down, how many lives are gone, and a spike when the cannon dies */
+  let target = 0;
+  if (G.state === 'playing' || G.state === 'paused') {
+    if (G.phase === 'dying' && music.lastPhase !== 'dying') music.spike = 1;
+    music.lastPhase = G.phase;
+    if (G.state === 'playing') music.spike = Math.max(0, music.spike - 1 / 240);
+    let descent = 0;
+    if (G.fleet) {
+      let lowest = -1; for (const inv of G.fleet.invaders) if (inv.alive && inv.y > lowest) lowest = inv.y;
+      const startBottom = 64 + 8 * Math.min(G.wave - 1, 5) + 64;
+      if (lowest >= 0) descent = clamp((lowest - startBottom) / (PLAYER_Y - startBottom), 0, 1);
+    }
+    const startLives = Math.max(1, G.settings.lives);
+    const livesGone = clamp(1 - (G.lives - 1) / Math.max(1, startLives - 1), 0, 1);
+    target = clamp(0.5 * descent + 0.3 * livesGone + 0.4 * music.spike, 0, 1);
+  } else { music.spike = 0; music.lastPhase = ''; }
+  music.tension += (target - music.tension) * 0.05;
+  if (Math.abs(target - music.tension) < 0.002) music.tension = target;
+
+  /* Start with the first wave, keep going through deaths and wave changes, fade out when the game ends */
+  const inWave = G.state === 'playing' && ['reveal', 'play', 'dying', 'respawn', 'clear'].includes(G.phase);
+  if (inWave && music.options.inGame && anyMusic() && !music.userStopped && (!music.playing || music.source !== 'game')) {
+    const wasEditor = music.playing;
+    if (!wasEditor) music.current = 'A'; /* chosen before the first note is booked */
+    if (musicStart('game')) { if (wasEditor) music.pending = 'A'; musicUiPatternState(); }
+  } else if (music.playing && music.source === 'game') {
+    const ended = G.state === 'playing' && ['over', 'victory', 'invaded'].includes(G.phase);
+    const left = !['playing', 'paused'].includes(G.state);
+    if (ended || left || !music.options.inGame) musicStop(true);
+  }
+
+  /* Winning music below the line, losing music above it, with a dead band so it cannot flap */
+  if (music.playing && music.source === 'game' && music.options.switchAtBar) {
+    const want = music.tension >= 0.55 ? 'B' : music.tension <= 0.45 ? 'A' : music.current;
+    const pending = want !== music.current ? want : null;
+    if (pending !== music.pending) { music.pending = pending; musicUiPatternState(); }
+  }
+}
+
+/* ---------- pack serialization ---------- */
+function musicSerialize(){
+  const pat = p => ({ scale:p.scale, root:p.root, rows:p.rows.map(r => r.join('')) });
+  return { version:1, bpm:music.bpm, bpmMax:music.bpmMax, volume:music.volume, options:Object.assign({}, music.options), patterns:{ A:pat(music.patterns.A), B:pat(music.patterns.B) } };
+}
+function musicValidate(m){
+  if (!m || typeof m !== 'object' || Array.isArray(m)) return 'music is not an object';
+  for (const k of ['bpm', 'bpmMax', 'volume']) if (k in m && !(typeof m[k] === 'number' && isFinite(m[k]))) return 'music ' + k + ' is not a number';
+  if ('options' in m) { if (!m.options || typeof m.options !== 'object') return 'music options is not an object'; for (const k of Object.keys(MUSIC_DEFAULT_OPTIONS)) if (k in m.options && typeof m.options[k] !== 'boolean') return 'music option ' + k + ' is not a boolean'; }
+  if (!m.patterns || typeof m.patterns !== 'object') return 'music has no patterns';
+  for (const name of ['A', 'B']) {
+    const p = m.patterns[name];
+    if (!p || typeof p !== 'object') return 'music pattern ' + name + ' is missing';
+    if (!SCALES[p.scale]) return 'music pattern ' + name + ' has an unknown scale';
+    if (!(Number.isInteger(p.root) && p.root >= 0 && p.root < 12)) return 'music pattern ' + name + ' has a bad root';
+    if (!Array.isArray(p.rows) || p.rows.length !== MUSIC_ROWS || p.rows.some(r => typeof r !== 'string' || !/^[01]{16}$/.test(r))) return 'music pattern ' + name + ' has bad rows';
+  }
+  return null;
+}
+function musicApply(m){
+  music.bpm = 'bpm' in m ? clamp(Math.round(m.bpm), 40, 240) : 120;
+  music.bpmMax = 'bpmMax' in m ? clamp(Math.round(m.bpmMax), 40, 240) : 170;
+  music.volume = 'volume' in m ? clamp(m.volume, 0, 1) : 0.6;
+  music.options = Object.assign({}, MUSIC_DEFAULT_OPTIONS, m.options || {});
+  for (const name of ['A', 'B']) {
+    const p = m.patterns[name];
+    music.patterns[name] = { scale:p.scale, root:p.root, rows:p.rows.map(r => r.split('').map(Number)) };
+  }
+  if (engine.music) engine.music.gain.setTargetAtTime(music.volume, engine.ctx.currentTime, 0.01);
+  musicUiRefresh();
+}
+function musicReset(){
+  musicStop(false);
+  musicApply({ patterns:{ A:{ scale:'major', root:0, rows:new Array(MUSIC_ROWS).fill('0'.repeat(MUSIC_STEPS)) }, B:{ scale:'minor', root:0, rows:new Array(MUSIC_ROWS).fill('0'.repeat(MUSIC_STEPS)) } } });
+  music.editing = 'A'; music.current = 'A'; music.pending = null;
+  musicUiRefresh();
+}
+const MUSIC_EXAMPLE = {
+  A:{ scale:'major', root:0, rows:[
+    '0000001000000000', '0000000000000000', '0000000000000010', '0000100000001000', '0000000000010000', '0010000000100000', '0000000000000000', '1000000010000000',
+    '1000000010000000', '0010001000100010' ] },
+  B:{ scale:'minor', root:0, rows:[
+    '0000000000100000', '0000000000000000', '0000000100000001', '0000010000000000', '0000000000001000', '0100000001000000', '0000000000000100', '1001001010010010',
+    '1000100010001000', '0011001100110011' ] }
+};
+
+/* ---------- editor ---------- */
+const mui = { cells:[], labels:[] };
+function musicBuildUi(){
+  const host = $('#music'); if (!host) return;
+  const row = (cls) => { const d = el('div', 'mrow ' + (cls || '')); host.appendChild(d); return d; };
+
+  /* transport */
+  const transport = row('mtransport');
+  const play = el('button', 'btn play', '\u25B6 Play'); play.title = 'Audition the pattern shown, looping. During a game the music follows the game instead.';
+  play.addEventListener('click', () => { engine.ensure(); if (music.playing) musicStop(false, true); else { music.userStopped = false; music.current = music.editing; musicStart('editor'); } musicUiPatternState(); play.blur(); focusScreen(); });
+  mui.play = play;
+  const tempoLab = el('label', 'mfield', 'Tempo '); const tempo = document.createElement('input'); tempo.type = 'number'; tempo.min = 40; tempo.max = 240; tempo.value = music.bpm; tempo.title = 'Beats per minute';
+  tempo.addEventListener('change', () => { music.bpm = clamp(Math.round(parseFloat(tempo.value) || 120), 40, 240); tempo.value = music.bpm; markDirty(); });
+  tempoLab.appendChild(tempo); tempoLab.appendChild(document.createTextNode(' bpm')); mui.tempo = tempo;
+  const maxLab = el('label', 'mfield mmax', 'to '); const bpmMax = document.createElement('input'); bpmMax.type = 'number'; bpmMax.min = 40; bpmMax.max = 240; bpmMax.value = music.bpmMax; bpmMax.title = 'Tempo at full tension';
+  bpmMax.addEventListener('change', () => { music.bpmMax = clamp(Math.round(parseFloat(bpmMax.value) || 170), 40, 240); bpmMax.value = music.bpmMax; markDirty(); });
+  maxLab.appendChild(bpmMax); maxLab.appendChild(document.createTextNode(' at full tension')); mui.maxLab = maxLab; mui.bpmMax = bpmMax;
+  const volLab = el('label', 'mfield', 'Music '); const vol = document.createElement('input'); vol.type = 'range'; vol.min = 0; vol.max = 1; vol.step = 0.01; vol.value = music.volume; vol.title = 'Music volume';
+  const volDb = el('span', 'db', dbText(music.volume));
+  vol.addEventListener('input', () => { music.volume = parseFloat(vol.value); volDb.textContent = dbText(music.volume); if (engine.music) engine.music.gain.setTargetAtTime(music.volume, engine.ctx.currentTime, 0.01); });
+  vol.addEventListener('change', () => { markDirty(); focusScreen(); });
+  volLab.appendChild(vol); volLab.appendChild(volDb); mui.vol = vol; mui.volDb = volDb;
+  transport.append(play, tempoLab, maxLab, volLab);
+
+  /* pattern tabs and pattern tools */
+  const tabs = row('mtabs');
+  mui.tabs = {};
+  for (const [name, label] of [['A', 'A  winning'], ['B', 'B  losing']]) {
+    const t = el('button', 'btn mtab', label); t.dataset.pattern = name; t.setAttribute('role', 'tab');
+    t.addEventListener('click', () => { music.editing = name; musicUiRefresh(); t.blur(); focusScreen(); });
+    tabs.appendChild(t); mui.tabs[name] = t;
+  }
+  mui.playingNote = el('span', 'mplaying', ''); tabs.appendChild(mui.playingNote);
+  const tools = el('span', 'mtools');
+  const copy = el('button', 'btn small', 'Copy to B'); copy.title = 'Copy this pattern over the other one, as a starting point for a variation';
+  copy.addEventListener('click', () => { const from = music.editing, to = from === 'A' ? 'B' : 'A'; music.patterns[to] = JSON.parse(JSON.stringify(music.patterns[from])); markDirty(); musicUiRefresh(); setStatus('Pattern ' + from + ' copied to ' + to + '.'); copy.blur(); focusScreen(); });
+  mui.copy = copy;
+  const clear = el('button', 'btn small', 'Clear'); clear.title = 'Empty this pattern';
+  clear.addEventListener('click', () => { music.patterns[music.editing].rows.forEach(r => r.fill(0)); markDirty(); musicUiRefresh(); clear.blur(); focusScreen(); });
+  const example = el('button', 'btn small', 'Example'); example.title = 'Fill both patterns with an example to hear how the pieces fit together';
+  example.addEventListener('click', () => { for (const n of ['A', 'B']) music.patterns[n] = { scale:MUSIC_EXAMPLE[n].scale, root:MUSIC_EXAMPLE[n].root, rows:MUSIC_EXAMPLE[n].rows.map(r => r.split('').map(Number)) }; markDirty(); musicUiRefresh(); setStatus('Example patterns loaded into A and B.'); example.blur(); focusScreen(); });
+  tools.append(copy, clear, example); tabs.appendChild(tools);
+
+  /* scale and root for the pattern shown */
+  const keyRow = row('mkey');
+  const scaleLab = el('label', 'mfield', 'Scale '); const scale = document.createElement('select');
+  for (const [k, v] of Object.entries(SCALES)) { const o = document.createElement('option'); o.value = k; o.textContent = v.name; scale.appendChild(o); }
+  scale.addEventListener('change', () => { music.patterns[music.editing].scale = scale.value; markDirty(); musicUiRefresh(); focusScreen(); });
+  scaleLab.appendChild(scale); mui.scale = scale;
+  const rootLab = el('label', 'mfield', 'Root '); const root = document.createElement('select');
+  ROOTS.forEach((n, i) => { const o = document.createElement('option'); o.value = i; o.textContent = n; root.appendChild(o); });
+  root.addEventListener('change', () => { music.patterns[music.editing].root = parseInt(root.value, 10); markDirty(); musicUiRefresh(); focusScreen(); });
+  rootLab.appendChild(root); mui.root = root;
+  keyRow.append(scaleLab, rootLab);
+
+  /* the grid */
+  const grid = el('div', 'mgrid'); grid.setAttribute('role', 'grid'); host.appendChild(grid); mui.grid = grid;
+  const head = el('div', 'mlabel mhead', ''); grid.appendChild(head);
+  for (let s = 0; s < MUSIC_STEPS; s++) { const h = el('div', 'mhead' + (s % 4 === 0 ? ' beat' : ''), s % 4 === 0 ? String(s / 4 + 1) : '\u00B7'); grid.appendChild(h); }
+  for (let r = 0; r < MUSIC_ROWS; r++) {
+    const lab = el('div', 'mlabel' + (r >= MUSIC_MELODIC ? ' perc' : '') + (r === MUSIC_LOW ? ' gap' : ''), ''); grid.appendChild(lab); mui.labels[r] = lab;
+    mui.cells[r] = [];
+    for (let s = 0; s < MUSIC_STEPS; s++) {
+      const c = el('button', 'mcell' + (s % 4 === 0 ? ' beat' : '') + (r >= MUSIC_MELODIC ? ' perc' : '') + (r === MUSIC_LOW ? ' gap' : ''));
+      c.dataset.r = r; c.dataset.s = s; c.setAttribute('role', 'gridcell');
+      grid.appendChild(c); mui.cells[r][s] = c;
+    }
+  }
+  /* paint: press to toggle, drag across cells to paint the same value */
+  let painting = null;
+  const cellAt = t => (t && t.classList && t.classList.contains('mcell')) ? t : null;
+  grid.addEventListener('pointerdown', e => {
+    const c = cellAt(e.target); if (!c) return;
+    e.preventDefault(); engine.ensure();
+    const r = +c.dataset.r, s = +c.dataset.s;
+    painting = music.patterns[music.editing].rows[r][s] ? 0 : 1;
+    musicSetCell(music.editing, r, s, painting);
+  });
+  grid.addEventListener('pointerover', e => { if (painting === null) return; const c = cellAt(e.target); if (c) musicSetCell(music.editing, +c.dataset.r, +c.dataset.s, painting); });
+  const endPaint = () => { if (painting !== null) { painting = null; focusScreen(); } };
+  window.addEventListener('pointerup', endPaint); window.addEventListener('pointercancel', endPaint);
+  grid.addEventListener('keydown', e => { const c = cellAt(e.target); if (c && (e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); const r = +c.dataset.r, s = +c.dataset.s; musicSetCell(music.editing, r, s, music.patterns[music.editing].rows[r][s] ? 0 : 1); } });
+
+  /* adaptive behaviors */
+  const opts = row('mopts');
+  const optDefs = [
+    ['inGame', 'Play during the game', 'Start with the first wave, keep going through deaths and wave changes, fade out when the game ends'],
+    ['switchAtBar', 'Switch pattern at the bar', 'Horizontal re-sequencing: winning below a tension of 0.45, losing above 0.55, and the change waits for the next bar line'],
+    ['percByTension', 'Tension fades percussion', 'Vertical layering: the two noise rows come up as tension rises'],
+    ['tempoByTension', 'Tension drives tempo', 'What the 1978 board did with the march: the tempo rises from the base value to the value at full tension']
+  ];
+  mui.opts = {};
+  for (const [key, label, tip] of optDefs) {
+    const l = el('label', 'check mopt'); const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = music.options[key]; l.title = tip;
+    cb.addEventListener('change', () => { music.options[key] = cb.checked; if (key === 'inGame' && cb.checked) music.userStopped = false; markDirty(); musicUiRefresh(); focusScreen(); });
+    l.appendChild(cb); l.appendChild(document.createTextNode(' ' + label)); opts.appendChild(l); mui.opts[key] = cb;
+  }
+  const tens = el('div', 'mtension'); tens.title = 'Tension, computed by the game: how far the fleet has come down, lives lost, and a spike when the cannon dies';
+  tens.appendChild(el('span', 'mtlabel', 'Tension'));
+  const track = el('div', 'mttrack'); mui.tensionFill = el('div', 'mtfill'); track.appendChild(mui.tensionFill); mui.tensionMark = el('div', 'mtmark'); track.appendChild(mui.tensionMark); tens.appendChild(track);
+  mui.tensionVal = el('span', 'mtval', '0.00'); tens.appendChild(mui.tensionVal);
+  opts.appendChild(tens);
+
+  /* opening the editor makes the column too tall to pin, so let it scroll while open */
+  const box = $('#musicBox'), cab = $('.cabinet');
+  if (box && cab) { const sync = () => cab.classList.toggle('unstuck', box.open); box.addEventListener('toggle', sync); sync(); }
+
+  musicUiRefresh();
+}
+function musicSetCell(name, r, s, v){
+  const rows = music.patterns[name].rows;
+  if (rows[r][s] === v) return;
+  rows[r][s] = v; markDirty();
+  if (name === music.editing && mui.cells[r]) mui.cells[r][s].classList.toggle('on', !!v);
+  musicUiTransport();
+}
+function musicUiRefresh(){
+  if (!mui.grid) return;
+  const pat = music.patterns[music.editing];
+  for (let r = 0; r < MUSIC_ROWS; r++) {
+    const label = r < MUSIC_MELODIC ? rowNote(pat, r) : r === MUSIC_LOW ? 'noise lo' : 'noise hi';
+    mui.labels[r].textContent = label;
+    for (let s = 0; s < MUSIC_STEPS; s++) {
+      const c = mui.cells[r][s]; c.classList.toggle('on', !!pat.rows[r][s]);
+      c.setAttribute('aria-label', (r < MUSIC_MELODIC ? label : label.replace('noise', 'noise,')) + ', step ' + (s + 1) + (pat.rows[r][s] ? ', on' : ', off'));
+    }
+  }
+  mui.scale.value = pat.scale; mui.root.value = String(pat.root);
+  mui.tempo.value = music.bpm; mui.bpmMax.value = music.bpmMax; mui.vol.value = music.volume; mui.volDb.textContent = dbText(music.volume);
+  for (const k of Object.keys(mui.opts)) mui.opts[k].checked = music.options[k];
+  mui.maxLab.classList.toggle('hidden', !music.options.tempoByTension);
+  mui.copy.textContent = 'Copy to ' + (music.editing === 'A' ? 'B' : 'A');
+  musicUiPatternState(); musicUiTransport();
+}
+function musicUiPatternState(){
+  if (!mui.tabs) return;
+  for (const name of ['A', 'B']) {
+    const t = mui.tabs[name];
+    t.classList.toggle('active', music.editing === name);
+    t.setAttribute('aria-selected', String(music.editing === name));
+    t.classList.toggle('playing', music.playing && music.current === name);
+    t.classList.toggle('pending', music.playing && music.pending === name);
+  }
+  let note = '';
+  if (music.playing) note = 'playing ' + music.current + (music.pending ? ', switching to ' + music.pending + ' at the bar' : '') + (music.source === 'game' ? ' for the game' : '');
+  mui.playingNote.textContent = note;
+  const state = $('#musicState'); if (state) state.textContent = musicStateText();
+}
+function musicStateText(){
+  if (music.playing) return '\u25CF playing ' + music.current;
+  if (music.userStopped && ['playing', 'paused'].includes(G.state)) return 'stopped until the next game or Play';
+  return anyMusic() ? '' : 'empty';
+}
+function musicUiTransport(){
+  if (!mui.play) return;
+  mui.play.textContent = music.playing ? '\u25A0 Stop' : '\u25B6 Play';
+  mui.play.classList.toggle('on', music.playing);
+  const state = $('#musicState'); if (state) state.textContent = musicStateText();
+}
+let musicCursorStep = -1;
+function musicUiCursor(step){
+  if (!mui.cells.length || step === musicCursorStep) return;
+  if (musicCursorStep >= 0) for (let r = 0; r < MUSIC_ROWS; r++) mui.cells[r][musicCursorStep].classList.remove('cur');
+  musicCursorStep = step;
+  if (step >= 0) for (let r = 0; r < MUSIC_ROWS; r++) mui.cells[r][step].classList.add('cur');
+}
+function musicFrame(){
+  if (!mui.grid) return;
+  if (music.playing && engine.ctx) {
+    const now = engine.ctx.currentTime;
+    let shown = null;
+    while (music.queue.length && music.queue[0].time <= now) shown = music.queue.shift();
+    if (shown) musicUiCursor(shown.pattern === music.editing ? shown.step : -1);
+  }
+  if (mui.tensionFill) {
+    const pct = (music.tension * 100).toFixed(1) + '%';
+    if (mui.tensionFill.style.width !== pct) { mui.tensionFill.style.width = pct; mui.tensionVal.textContent = music.tension.toFixed(2); }
+  }
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden && music.playing) musicStop(false); });
+musicBuildUi();
+
+
+/* ---------- rehearsal buttons ---------- */
+(function buildRehearseBar(){
+  const bar = $('#rehearse'); if (!bar) return;
+  for (const [id, r] of Object.entries(REHEARSALS)) {
+    const b = document.createElement('button'); b.className = 'btn small rh'; b.dataset.action = id;
+    b.textContent = r.label + ' (' + r.key.toUpperCase() + ')'; b.title = r.tip;
+    if (r.toggle) b.setAttribute('aria-pressed', 'false');
+    b.addEventListener('click', () => { engine.ensure(); rehearse(id); b.blur(); focusScreen(); });
+    bar.appendChild(b);
+  }
+})();
+
+/* ---------- output meter ---------- */
+const meterFill = $('#meterFill'), meterClip = $('#meterClip'), meterPeak = $('#meterPeak');
+function updateMeter(){
+  if (!meterFill) return;
+  const p = engine.meter();
+  const db = p > 0.0005 ? 20 * Math.log10(p) : -66;
+  meterFill.style.width = Math.max(0, Math.min(100, (db + 60) / 60 * 100)).toFixed(1) + '%';
+  meterFill.classList.toggle('hot', db > -6);
+  const clipping = performance.now() < engine.clipUntil;
+  meterClip.classList.toggle('on', clipping);
+  if (meterPeak) meterPeak.textContent = p > 0.0005 ? db.toFixed(1) + ' dBFS' : '';
+}
+
+/* ---------- main loop: fixed 60 Hz simulation, render every frame ---------- */
+const STEP = 1000 / 60;
+let last = performance.now(), acc = 0;
+function frame(now){
+  let dt = now - last; last = now;
+  if (dt > 100) dt = 100;
+  acc += dt;
+  let n = 0;
+  while (acc >= STEP && n < 6) { tick(); acc -= STEP; n++; }
+  if (n === 6) acc = 0;
+  render();
+  updateMeter();
+  musicFrame();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+render();
+
+/* Console and testing access */
+window.SI = {
+  trigger:(id) => { engine.ensure(); trigger(id, 'console'); },
+  stopLoop:(id) => stopLoop(id, 'console'),
+  slots:SLOTS, groups:GROUPS, state:G, engine, tick, render,
+  key:onKey, held, sprites:SPR, font:FONT,
+  sounds:S, importPack, assignByName, clearSlot, stopAllSounds, rehearse,
+  music:{ state:music, start:musicStart, stop:musicStop, schedule:musicSchedule, update:musicUpdate, serialize:musicSerialize, validate:musicValidate, apply:musicApply, reset:musicReset, setCell:musicSetCell, example:MUSIC_EXAMPLE }
+};
+})();
+</script>
+</body>
+</html>
