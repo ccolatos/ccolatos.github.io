@@ -103,6 +103,7 @@ kbd{font:11px var(--mono);background:var(--panel-raised);border:1px solid var(--
 .db{font:11px var(--mono);color:var(--ink-dim);min-width:6.5ch;display:inline-block;text-align:right}
 .tag.year{color:var(--green);border-color:var(--green-dim)}
 .dirty{font-size:12px;color:var(--amber);padding:0 6px}
+.pcount{font:11px var(--mono);color:var(--ink-faint)}
 .dirty[hidden]{display:none}
 .meter{display:flex;align-items:center;gap:8px}
 .meter-track{width:120px;height:10px;background:#1d1f22;border:1px solid var(--panel-line);border-radius:5px;overflow:hidden}
@@ -187,7 +188,7 @@ kbd{font:11px var(--mono);background:var(--panel-raised);border:1px solid var(--
     </div>
     <button id="mute" class="btn" aria-pressed="false">Mute</button>
     <button id="stopAll" class="btn" title="Cut every sound that is playing, including loops">Stop sounds</button>
-    <label class="check"><input id="placeholders" type="checkbox"> Built-in tones for empty slots</label>
+    <label class="check" title="Empty events play a rough square-wave or noise stand-in until a file is loaded into them. Untick to hear the game with only the loaded sounds."><input id="placeholders" type="checkbox" checked> Built-in tones for empty slots <span id="placeholderCount" class="pcount"></span></label>
   </div>
 </header>
 
@@ -237,7 +238,7 @@ kbd{font:11px var(--mono);background:var(--panel-raised);border:1px solid var(--
   <aside class="lab" id="lab">
     <div class="lab-head">
       <h2>Sound lab</h2>
-      <p class="intro">Name each file exactly like its event id, for example <code>alien_destroyed.wav</code> (any common audio format; capital letters do not matter, anything else does). Then drop the files, or the whole folder, anywhere on this panel and they load themselves. A file with the same name replaces the sound that is loaded; one sound per event. Dropping a single file directly onto an event loads it there whatever it is called; several files or a folder dropped anywhere, an event included, go by name. Save pack bundles everything loaded here, with its settings, into one .json file that Open pack restores. Until a sound is loaded, an event is silent; the Built-in tones box at the top of the page fills empty events with rough placeholders. Nothing is uploaded; files stay in this browser tab.</p>
+      <p class="intro">Name each file exactly like its event id, for example <code>alien_destroyed.wav</code> (any common audio format; capital letters do not matter, anything else does). Then drop the files, or the whole folder, anywhere on this panel and they load themselves. A file with the same name replaces the sound that is loaded; one sound per event. Dropping a single file directly onto an event loads it there whatever it is called; several files or a folder dropped anywhere, an event included, go by name. Save pack bundles everything loaded here, with its settings, into one .json file that Open pack restores. Until a sound is loaded, an event plays a rough built-in tone so the game is never silent; untick Built-in tones at the top of the page to hear only the loaded sounds. Nothing is uploaded; files stay in this browser tab.</p>
       <div class="lab-actions">
         <div class="action-set">
           <span class="action-label">Audio files</span>
@@ -596,7 +597,7 @@ const PLACEHOLDER = {
    ========================================================= */
 const engine = {
   ctx:null, master:null, sfx:null, ui:null, audition:null, splitter:null, analysers:null, noise:null, music:null, musicDuck:null, musicTone:null,
-  masterVol:0.8, muted:false, paused:false, placeholders:false,
+  masterVol:0.8, muted:false, paused:false, placeholders:true,
   ensure(){
     if (this.ctx) {
       if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
@@ -1011,6 +1012,11 @@ async function loadFileIntoSlot(id, file, gen){
     return false;
   }
 }
+function updatePlaceholderCount(){
+  const el = $('#placeholderCount'); if (!el) return;
+  const n = SLOTS.filter(s => !S[s.id].buffer).length;
+  el.textContent = engine.placeholders ? '(' + n + ' of ' + SLOTS.length + ')' : '';
+}
 function refreshSlot(id){
   const st = S[id], u = ui[id];
   if (st.buffer) {
@@ -1025,6 +1031,7 @@ function refreshSlot(id){
     u.led.classList.remove('loaded');
   }
   u.vol.value = st.volume; u.db.textContent = dbText(st.volume); u.mono.checked = st.mono;
+  updatePlaceholderCount();
 }
 function clearSlot(id, resetSettings){
   const st = S[id], slot = SLOT_BY_ID[id];
@@ -1267,12 +1274,14 @@ $('#master').addEventListener('change', focusScreen);
 $('#mute').addEventListener('click', e => { engine.setMuted(!engine.muted); e.currentTarget.setAttribute('aria-pressed', String(engine.muted)); e.currentTarget.blur(); focusScreen(); });
 $('#placeholders').addEventListener('change', e => {
   engine.placeholders = e.target.checked;
+  updatePlaceholderCount();
   if (e.target.checked) { engine.ensure(); for (const s of SLOTS) if (s.loop) { if (S[s.id].looping) startLoop(s.id); if (S[s.id].previewing) startPreviewLoop(s.id, 'test'); } }
   else for (const s of SLOTS) if (s.loop && !S[s.id].buffer) { const st = S[s.id]; for (const k of ['loopVoice', 'previewVoice']) if (st[k]) { const v = st[k]; st[k] = null; st.voices.delete(v); try { v.stop(); } catch (err) {} } }
   focusScreen();
 });
 
 buildLab();
+updatePlaceholderCount();
 
 /* =========================================================
    Game
