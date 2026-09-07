@@ -177,6 +177,7 @@ label .filebtn+.val{font-weight:400;color:var(--ink-3)}
 @media(prefers-reduced-motion:reduce){.motionbtn.hello,.motionbtn[aria-pressed=true] svg{animation:none}}
 .filerow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .build{color:var(--ink-3);opacity:.7;white-space:nowrap}
+.marks i.below span{top:41px}
 
 </style>
 </head>
@@ -191,7 +192,7 @@ label .filebtn+.val{font-weight:400;color:var(--ink-3)}
     <p>Headphones help.</p>
     <div class="begins"><button class="begin" id="begin-found" type="button">Begin with Foundations</button><button class="begin" id="begin" type="button">Begin with Ratio</button><button class="begin" id="begin-synth" type="button">Begin with Synthesis</button></div>
     <p class="fine" id="fine">Sound starts when you press begin. Arrow keys move between stations. In Synthesis, Z to M and Q to P play notes, minus and equals shift the octave.</p>
-    <!-- build 2026-09-06 17:21 UTC -->
+    <!-- build 2026-09-07 22:37 UTC -->
   </div>
 </div>
 <div class="app" id="app">
@@ -887,6 +888,9 @@ function ctlSlider(o) {
       var key = Math.round(frac * 2000);
       if (key === mk._k) return; mk._k = key;
       if (frac < 0) e.style.display = 'none'; else { e.style.display = 'block'; e.style.left = (100 * frac) + '%'; e.classList.toggle('first', frac < 0.04); e.classList.toggle('last', frac > 0.96); }
+      mk._frac = frac;
+      /* Two labels within a few percent of each other would overprint; drop the later one to a second line. */
+      var crowded = false; for (var j = 0; j < i; j++) { var fj = o.marks[j]._frac; if (fj != null && fj >= 0 && frac >= 0 && Math.abs(fj - frac) < 0.09) crowded = true; } e.classList.toggle('below', crowded);
     });
   };
   refresh(); return { el: wrap, refresh: refresh };
