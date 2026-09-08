@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Space Invaders: Game Audio Lab</title>
+<title>Game Audio Exercise</title>
 <style>
 :root{
   --panel:#34383d; --panel-deep:#26292d; --panel-raised:#3f444b; --panel-line:#4a5058; --panel-hover:#4a5059;
@@ -177,7 +177,7 @@ kbd{font:11px var(--mono);background:var(--panel-raised);border:1px solid var(--
 <body>
 <header class="top">
   <div>
-    <h1>Space Invaders</h1>
+    <h1>Game Audio Exercise</h1>
   </div>
   <div class="master">
     <label>Master volume <input id="master" type="range" min="0" max="1" step="0.01" value="0.8"> <span id="masterDb" class="db">-1.9 dB</span></label>
@@ -237,7 +237,7 @@ kbd{font:11px var(--mono);background:var(--panel-raised);border:1px solid var(--
 
   <aside class="lab" id="lab">
     <div class="lab-head">
-      <h2>Sound lab</h2>
+      <h2>Sound effects</h2>
       <p class="intro">Name each file exactly like its event id, for example <code>alien_destroyed.wav</code> (any common audio format; capital letters do not matter, anything else does). Then drop the files, or the whole folder, anywhere on this panel and they load themselves. A file with the same name replaces the sound that is loaded; one sound per event. Dropping a single file directly onto an event loads it there whatever it is called; several files or a folder dropped anywhere, an event included, go by name. Save pack bundles everything loaded here, with its settings, into one .json file that Open pack restores. Until a sound is loaded, an event plays a rough built-in tone so the game is never silent; untick Built-in tones at the top of the page to hear only the loaded sounds. Nothing is uploaded; files stay in this browser tab.</p>
       <div class="lab-actions">
         <div class="action-set">
@@ -1253,10 +1253,10 @@ async function importPack(file){
   return true;
 }
 function downloadNamingList(){
-  let txt = 'Space Invaders Game Audio Lab: event ids\n';
+  let txt = 'Game Audio Exercise: event ids\n';
   txt += 'Name each file exactly like its event id, for example alien_destroyed.wav. Any common audio format works.\n';
   txt += 'Capital letters do not matter; anything else in the name does. 07 alien_destroyed.wav will not load.\n';
-  txt += 'Drop the files or the whole folder onto the Sound lab panel, or use Add folder.\n';
+  txt += 'Drop the files or the whole folder onto the Sound effects panel, or use Add folder.\n';
   txt += 'To replace a sound, drop a new file with the same name. One sound per event.\n';
   txt += '[1978] marks the ten sounds the original arcade board had. [extra] marks events added beyond the course brief.\n\n';
   for (const g of GROUPS) {
