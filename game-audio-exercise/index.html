@@ -195,7 +195,7 @@ kbd{font:11px var(--mono);background:var(--panel-raised);border:1px solid var(--
 <main class="layout">
   <section class="cabinet">
     <div class="bezel"><canvas id="screen" width="224" height="256" tabindex="0" aria-label="Space Invaders game screen. Click here to give the game keyboard focus."></canvas></div>
-    <div id="audioHint" class="hint">Click the screen or press a key to switch audio on.</div>
+    <div id="audioHint" class="hint">Tap or click the screen, or press a key, to switch audio on.</div>
     <div class="status"><span id="gameStatus">Title screen</span><span id="lastEvent"></span></div>
     <div id="touch" class="touch" hidden>
       <div class="tc-group">
@@ -600,7 +600,10 @@ const engine = {
   masterVol:0.8, muted:false, paused:false, placeholders:true,
   ensure(){
     if (this.ctx) {
-      if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
+      if (this.ctx.state !== 'running' && !this.resuming) {
+        this.resuming = true;
+        const p = this.ctx.resume(); if (p && p.then) p.then(() => { this.resuming = false; }, () => { this.resuming = false; }); else this.resuming = false;
+      }
       return this.ctx;
     }
     const AC = window.AudioContext || window.webkitAudioContext;
@@ -645,8 +648,14 @@ const engine = {
     if (!this.analysers) return 0;
     let p = 0;
     for (const an of this.analysers) {
-      an.getFloatTimeDomainData(this.meterBuf);
-      for (let i = 0; i < this.meterBuf.length; i++) { const v = Math.abs(this.meterBuf[i]); if (v > p) p = v; }
+      if (an.getFloatTimeDomainData) {
+        an.getFloatTimeDomainData(this.meterBuf);
+        for (let i = 0; i < this.meterBuf.length; i++) { const v = Math.abs(this.meterBuf[i]); if (v > p) p = v; }
+      } else {
+        if (!this.meterBytes) this.meterBytes = new Uint8Array(1024);
+        an.getByteTimeDomainData(this.meterBytes);
+        for (let i = 0; i < this.meterBytes.length; i++) { const v = Math.abs(this.meterBytes[i] - 128) / 128; if (v > p) p = v; }
+      }
     }
     this.peak = Math.max(p, this.peak * 0.85);
     if (p >= 1) this.clipUntil = performance.now() + 1500; /* at or over full scale: the output is clipping */
@@ -866,11 +875,63 @@ function setLedOn(id, on){
   u.led.classList.toggle('on', on);
   if (u.test && SLOT_BY_ID[id].loop) u.test.textContent = S[id].previewing ? '\u25A0' : '\u25B6';
 }
+/* iOS unlock. Two things iOS needs that other browsers do not: the context must be resumed inside a
+   completed touch or a click (a touch start does not count), and a silent HTML audio element must be
+   playing, which moves the page into media playback so Web Audio is not muted by the ring/silent switch. */
+const IS_IOS = /iP(hone|ad|od)/.test(navigator.platform || '') || (navigator.platform === 'MacIntel' && (navigator.maxTouchPoints || 0) > 1) || /iP(hone|ad|od)/.test(navigator.userAgent || '');
+function silentWavUrl(){
+  const sr = 8000, n = 800, buf = new ArrayBuffer(44 + n), v = new DataView(buf);
+  const str = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  str(0, 'RIFF'); v.setUint32(4, 36 + n, true); str(8, 'WAVE'); str(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, sr, true); v.setUint32(28, sr, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true); str(36, 'data'); v.setUint32(40, n, true);
+  for (let i = 0; i < n; i++) v.setUint8(44 + i, 128);
+  return URL.createObjectURL(new Blob([buf], { type:'audio/wav' }));
+}
+function unlockAudio(){
+  const ctx = engine.ensure(); if (!ctx) return;
+  if (ctx.state !== 'running') { const p = ctx.resume(); if (p && p.catch) p.catch(() => {}); }
+  if (!engine.kicked) {
+    /* a source started inside the gesture opens the output path on iOS */
+    try { const b = ctx.createBuffer(1, 1, ctx.sampleRate); const s = ctx.createBufferSource(); s.buffer = b; s.connect(ctx.destination); s.start(0); engine.kicked = true; } catch (e) {}
+  }
+  if (IS_IOS) iosPlaybackSession();
+  updateAudioHint();
+}
+/* Keep iOS in media playback so the ring/silent switch does not mute Web Audio. The Audio Session API
+   (iOS 17 and later) is the documented way; the silent looping element is the fallback for older iOS.
+   Every tap retries the element while it is paused, since play() can be refused and does not resume
+   itself after the page has been in the background. */
+function iosPlaybackSession(){
+  if (navigator.audioSession && 'type' in navigator.audioSession) {
+    try { navigator.audioSession.type = 'playback'; engine.sessionSet = true; return; } catch (e) {}
+  }
+  let a = engine.keepAlive;
+  if (!a) {
+    try {
+      a = document.createElement('audio');
+      a.setAttribute('playsinline', ''); a.setAttribute('aria-hidden', 'true'); a.loop = true; a.preload = 'auto'; a.style.display = 'none';
+      a.src = silentWavUrl(); document.body.appendChild(a); engine.keepAlive = a;
+      a.addEventListener('play', updateAudioHint); a.addEventListener('pause', updateAudioHint);
+      document.addEventListener('visibilitychange', () => { if (document.hidden) a.pause(); else keepAlivePlay(); });
+    } catch (e) { return; }
+  }
+  keepAlivePlay();
+}
+function keepAlivePlay(){
+  const a = engine.keepAlive; if (!a || !a.paused) return;
+  try { const p = a.play(); if (p && p.then) p.then(updateAudioHint, updateAudioHint); } catch (e) { updateAudioHint(); }
+}
+document.addEventListener('touchend', unlockAudio, { capture:true, passive:true });
+document.addEventListener('click', unlockAudio, { capture:true });
+document.addEventListener('keydown', unlockAudio, { capture:true });
+
 function updateAudioHint(){
   const h = $('#audioHint');
-  if (!engine.ctx) { h.textContent = 'Click the screen or press a key to switch audio on.'; h.hidden = false; return; }
-  if (engine.ctx.state === 'running') { h.hidden = true; return; }
-  h.textContent = 'Audio is ' + engine.ctx.state + '. Click the screen to resume it.'; h.hidden = false;
+  if (!engine.ctx) { h.textContent = 'Tap or click the screen, or press a key, to switch audio on.'; h.hidden = false; return; }
+  if (engine.ctx.state !== 'running') { h.textContent = 'Audio is ' + engine.ctx.state + '. Tap or click the screen to resume it.'; h.hidden = false; return; }
+  /* iOS without the Audio Session API: the silent element must be playing or the ring switch can mute everything */
+  if (IS_IOS && !engine.sessionSet && (!engine.keepAlive || engine.keepAlive.paused)) { h.textContent = 'Tap the screen once more to switch audio on.'; h.hidden = false; return; }
+  h.hidden = true;
 }
 
 /* =========================================================
@@ -2384,7 +2445,7 @@ musicBuildUi();
 const meterFill = $('#meterFill'), meterClip = $('#meterClip'), meterPeak = $('#meterPeak');
 function updateMeter(){
   if (!meterFill) return;
-  const p = engine.meter();
+  let p = 0; try { p = engine.meter(); } catch (e) { return; }
   const db = p > 0.0005 ? 20 * Math.log10(p) : -66;
   meterFill.style.width = Math.max(0, Math.min(100, (db + 60) / 60 * 100)).toFixed(1) + '%';
   meterFill.classList.toggle('hot', db > -6);
