@@ -1,0 +1,1366 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Greece with Mom: trip plan and savings</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#F5F8FB" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#081421" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Greece">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="format-detection" content="telephone=no">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link href="https://fonts.googleapis.com/css2?family=Commissioner:wght@400;500;600;700&family=GFS+Didot&display=swap" rel="stylesheet">
+<style id="app-css">
+:root{
+  --bg:#F5F8FB; --surface:#FFFFFF; --marble:#E2E8F0; --marble-2:#C9D3E0; --flute:rgba(14,42,71,.07); --flute-fill:rgba(255,255,255,.17);
+  --ink:#0E2A47; --muted:#56687E; --line:#DCE3EC; --sea:#1F5FBF; --sea-soft:#E4EDFA; --bloom:#B4236B; --bloom-soft:#FBE7F0; --on-sea:#FFFFFF;
+  --display:"GFS Didot","Didot","Bodoni MT","Times New Roman",serif;
+  --text:"Commissioner","Avenir Next","Segoe UI",system-ui,-apple-system,sans-serif;
+  --shaft-h:250px; --shaft-w:52px;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+  color-scheme:light dark;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#081421; --surface:#0E2033; --marble:#1D344E; --marble-2:#2A4563; --flute:rgba(255,255,255,.05); --flute-fill:rgba(8,20,33,.2);
+    --ink:#E9F0F8; --muted:#9DB0C6; --line:#1D3550; --sea:#5C9DFF; --sea-soft:#13304F; --bloom:#FF7DB1; --bloom-soft:#3A1830; --on-sea:#06121F;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#081421; --surface:#0E2033; --marble:#1D344E; --marble-2:#2A4563; --flute:rgba(255,255,255,.05); --flute-fill:rgba(8,20,33,.2);
+  --ink:#E9F0F8; --muted:#9DB0C6; --line:#1D3550; --sea:#5C9DFF; --sea-soft:#13304F; --bloom:#FF7DB1; --bloom-soft:#3A1830; --on-sea:#06121F;
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px);-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--text);font-size:16px;line-height:1.5;font-variant-numeric:lining-nums}
+#app{max-width:680px;margin:0 auto;padding:18px 16px 108px}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--sea);outline-offset:2px;border-radius:4px}
+
+/* the temple: three columns fill as the savings grow */
+.temple{max-width:500px;margin:6px auto 0}
+.pediment{position:relative;height:60px}
+.pediment svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+.pediment polygon{fill:var(--surface);stroke:var(--marble-2);stroke-width:1.5;vector-effect:non-scaling-stroke;stroke-linejoin:round}
+.pediment .days{position:absolute;left:0;right:0;bottom:8px;text-align:center;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.frieze{background:var(--surface);border:solid var(--marble-2);border-width:1.5px 0;text-align:center;font-family:var(--display);font-size:15px;letter-spacing:.32em;text-transform:uppercase;padding:9px 0 8px .32em}
+.colonnade{position:relative;display:grid;grid-template-columns:repeat(3,1fr);padding:0 5%}
+.col{display:flex;flex-direction:column;align-items:center}
+.abacus{width:calc(var(--shaft-w) + 20px);height:7px;background:var(--marble-2)}
+.echinus{width:calc(var(--shaft-w) + 9px);height:6px;background:var(--marble);border-radius:0 0 9px 9px}
+.shaft{position:relative;width:var(--shaft-w);height:var(--shaft-h);overflow:hidden;background-color:var(--marble);background-image:repeating-linear-gradient(90deg,transparent 0 7px,var(--flute) 7px 8px)}
+.fill{position:absolute;left:0;right:0;bottom:0;background-color:var(--sea);background-image:repeating-linear-gradient(90deg,transparent 0 7px,var(--flute-fill) 7px 8px);transition:height .9s cubic-bezier(.2,.7,.2,1)}
+.todayline{position:absolute;left:0;right:0;bottom:0;height:var(--shaft-h);pointer-events:none}
+.todayline i{position:absolute;left:0;right:0;height:2px;margin-bottom:-1px;background:var(--bloom);transition:bottom .9s cubic-bezier(.2,.7,.2,1)}
+.todayline b{position:absolute;left:0;bottom:4px;font:600 11px/1 var(--text);font-style:normal;color:var(--bloom);background:var(--bg);padding:2px 5px 2px 0;border-radius:3px}
+.todayline b.below{bottom:auto;top:6px}
+.steps i{display:block;height:7px;margin:0 auto}
+.steps i:nth-child(1){width:93%;background:var(--marble-2)}
+.steps i:nth-child(2){width:96.5%;background:var(--marble)}
+.steps i:nth-child(3){width:100%;background:var(--marble-2)}
+
+.people{max-width:500px;margin:14px auto 0;display:grid;grid-template-columns:repeat(3,1fr);padding:0 5%;text-align:center}
+.person h2{margin:0;font:600 15px/1.3 var(--text)}
+.person .saved{font-size:25px;font-weight:650;line-height:1.15;letter-spacing:-.01em;font-variant-numeric:tabular-nums;margin-top:2px}
+.person .of{font-size:13px;color:var(--muted);margin-bottom:7px}
+.person .monthly{font-size:13px;color:var(--muted);margin-top:7px}
+.person .catch{font-size:12px;color:var(--bloom);line-height:1.3;margin-top:2px}
+.chip{display:inline-block;font-size:12px;font-weight:600;line-height:1;padding:5px 8px;border-radius:999px;white-space:nowrap}
+.chip.good{color:var(--sea);background:var(--sea-soft)}
+.chip.late{color:var(--bloom);background:var(--bloom-soft)}
+.chip.quiet{color:var(--muted);background:var(--marble)}
+.legend{max-width:500px;margin:16px auto 0;font-size:13px;color:var(--muted);text-align:center}
+.legend .swatch{display:inline-block;width:18px;height:2px;background:var(--bloom);vertical-align:middle;margin-right:8px}
+
+.together{margin:26px 0 0;padding:18px 0 0;border-top:1px solid var(--line)}
+.together p{margin:0;font-size:18px;line-height:1.5;max-width:34em}
+.together .nextdue{margin-top:10px;font-size:15px;color:var(--muted)}
+.together strong,.nextdue strong{font-weight:650;color:var(--ink);font-variant-numeric:tabular-nums}
+h2.sec{font-family:var(--display);font-weight:400;font-size:25px;line-height:1.2;margin:38px 0 12px}
+
+.timeline{list-style:none;margin:0;padding:0;position:relative}
+.timeline::before{content:"";position:absolute;left:5px;top:12px;bottom:12px;width:1px;background:var(--marble-2)}
+.timeline li{position:relative;display:grid;grid-template-columns:1fr auto;gap:12px;align-items:start;padding:9px 0 11px 26px}
+.timeline li::before{content:"";position:absolute;left:0;top:13px;width:11px;height:11px;border-radius:50%;background:var(--bg);border:2px solid var(--marble-2)}
+.timeline li.next::before{border-color:var(--sea);background:var(--sea)}
+.timeline li.bought::before,.timeline li.covered::before{border-color:var(--sea)}
+.timeline li.short::before{border-color:var(--bloom)}
+.timeline .when{display:block;font-size:13px;color:var(--muted)}
+.timeline li.next .when{color:var(--sea);font-weight:600}
+.timeline .amt{padding-top:19px}
+.timeline .what strong{display:block;font-weight:600;font-size:15.5px;line-height:1.35}
+.timeline .note{display:block;font-size:13px;color:var(--muted);line-height:1.4}
+.timeline li.short .note{color:var(--bloom)}
+.timeline li.bought .what strong,.timeline li.bought .amt{color:var(--muted);text-decoration:line-through}
+.timeline .amt,.ledger .amt{font-variant-numeric:tabular-nums;font-weight:600;font-size:15.5px;text-align:right}
+
+.ledger{list-style:none;margin:0;padding:0}
+.ledger li{display:grid;grid-template-columns:104px 1fr auto auto;gap:10px;align-items:baseline;padding:10px 0;border-bottom:1px solid var(--line)}
+.ledger .when{font-size:13.5px;color:var(--muted)}
+.ledger .who{font-weight:500}
+.ledger .note{display:block;font-size:13px;font-weight:400;color:var(--muted)}
+.empty,.fine,.hint{color:var(--muted);font-size:14px}
+.fine{margin:34px 0 0;font-size:13px;max-width:60ch}
+.link{background:none;border:0;padding:4px 0;color:var(--sea);font-size:13.5px;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.link[data-armed]{color:var(--bloom);font-weight:600}
+
+.btn{appearance:none;border:1.5px solid var(--marble-2);background:var(--surface);color:var(--ink);font-weight:600;font-size:15px;line-height:1.1;padding:14px 12px;border-radius:12px;cursor:pointer;white-space:nowrap}
+.btn.primary{background:var(--sea);border-color:var(--sea);color:var(--on-sea)}
+.btn.small{font-size:13.5px;padding:9px 12px;border-radius:9px}
+.btn:active{transform:translateY(1px)}
+.saving .btn,.saving .link{opacity:.55;pointer-events:none}
+.actionbar{position:fixed;left:0;right:0;bottom:0;display:flex;gap:10px;justify-content:center;padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));background:var(--bg);background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-top:1px solid var(--line)}
+.actionbar .btn{flex:1;max-width:320px}
+.trybar{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;justify-content:space-between;background:var(--bloom-soft);color:var(--ink);border-radius:12px;padding:10px 12px;margin-bottom:14px;font-size:14px}
+.trybar span:last-child{display:flex;gap:8px}
+
+/* sheets */
+dialog{border:0;padding:0;margin:auto auto 0;width:100%;max-width:100%;max-height:calc(100vh - 20px);max-height:calc(100dvh - env(safe-area-inset-top,0px) - 20px);background:var(--surface);color:var(--ink);border-radius:20px 20px 0 0;overflow:hidden;overflow:clip}
+dialog::backdrop{background:rgba(6,18,31,.5)}
+dialog[open]{display:flex}
+.sheet{display:flex;flex-direction:column;min-height:0;width:100%;padding:20px 18px 0}
+.sheet h2{font-family:var(--display);font-weight:400;font-size:26px;line-height:1.2;margin:0}
+.sheet .sub{margin:4px 0 12px;color:var(--muted);font-size:14px}
+.sheet h3{font:600 13.5px/1.3 var(--text);color:var(--muted);margin:24px 0 6px}
+.sheetbody>h3:first-child{margin-top:16px}
+.sheetbody{overflow:auto;min-height:0;flex:1 1 auto;margin-top:12px;border-top:1px solid var(--line);padding-bottom:4px;margin-left:-18px;margin-right:-18px;padding-left:18px;padding-right:18px;overscroll-behavior:contain}
+.sheetbar{display:flex;gap:10px;margin-top:14px;padding:12px 0 calc(14px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--line);background:var(--surface)}
+.sheetbar .btn{flex:1}
+.livesum{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;background:var(--bg);border-radius:12px;padding:10px 8px;text-align:center}
+.livesum span{display:block;font-size:12px;color:var(--muted)}
+.livesum strong{display:block;font-size:17px;font-weight:650;font-variant-numeric:tabular-nums;line-height:1.25}
+.livesum small{display:block;font-size:11px;color:var(--muted)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:end}
+.field{display:block;min-width:0}
+.field>span:first-child{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
+input[type=text],input[type=date],input[inputmode],input:not([type]),select{width:100%;min-width:0;background:var(--bg);border:1.5px solid var(--line);border-radius:10px;padding:11px 12px;font-size:16px;line-height:1.2;font-variant-numeric:tabular-nums}
+input:focus,select:focus{outline:2px solid var(--sea);outline-offset:0;border-color:transparent}
+.moneyin{position:relative;display:block}
+.moneyin::before{content:"$";position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted)}
+.moneyin input{padding-left:24px}
+.moneyin.euro::before{content:"\20AC"}
+.hint{margin:8px 0 0;font-size:13px}
+.hint.reset{margin-top:22px}
+.hint.flights{margin:0 0 10px}
+.switch{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:11px 0;border-bottom:1px solid var(--line);cursor:pointer}
+.switch input{position:absolute;opacity:0;width:1px;height:1px}
+.switch .track{width:44px;height:26px;border-radius:999px;background:var(--marble-2);position:relative;transition:background .15s}
+.switch .track::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform .15s}
+.switch input:checked+.track{background:var(--sea)}
+.switch input:checked+.track::after{transform:translateX(18px)}
+.switch input:focus-visible+.track{outline:2px solid var(--sea);outline-offset:2px}
+.switch .txt span{display:block;font-size:15px;line-height:1.35}
+.switch .txt small{display:block;font-size:12.5px;color:var(--muted);line-height:1.35}
+.switch em{font-style:normal;font-size:12.5px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.buy{padding:10px 0;border-bottom:1px solid var(--line);display:grid;gap:8px}
+.buyrow{display:grid;grid-template-columns:minmax(158px,1.3fr) 1fr auto;gap:8px;align-items:center}
+.buyrow.who{grid-template-columns:1fr auto auto;gap:12px}
+.buy .auto{font-size:14px;color:var(--muted);font-variant-numeric:tabular-nums;padding-left:4px}
+.tick{display:flex;gap:6px;align-items:center;font-size:13.5px;white-space:nowrap}
+.tick input{width:18px;height:18px;accent-color:var(--sea)}
+.buy+.btn{margin-top:12px}
+.payrow{display:grid;grid-template-columns:78px 1fr auto;gap:10px;align-items:center;margin-top:10px}
+.payrow label{font-weight:600}
+#pay-date{margin-bottom:4px}
+.sheet .field{margin-top:12px}
+.grid2 .field{margin-top:0}
+.err{color:var(--bloom);font-size:14px;margin:8px 0 0;min-height:0}
+.err:empty{display:none}
+#toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom,0px));transform:translate(-50%,12px);background:var(--ink);color:var(--bg);font-size:14.5px;line-height:1.35;padding:11px 16px;border-radius:12px;max-width:min(92vw,460px);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:5;text-align:center}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+
+@media (min-width:640px){
+  :root{--shaft-h:310px;--shaft-w:64px}
+  #app{padding-top:34px}
+  .frieze{font-size:18px;padding-top:11px;padding-bottom:10px}
+  .pediment{height:72px}.pediment .days{font-size:14px;bottom:11px}
+  .person h2{font-size:17px}.person .saved{font-size:32px}.person .of,.person .monthly{font-size:14px}
+  .together p{font-size:20px}
+  dialog{margin:auto;max-width:600px;border-radius:20px;max-height:min(88vh,860px);max-height:min(88dvh,860px)}
+  .sheet{padding:26px 26px 0}.sheetbody{margin-left:-26px;margin-right:-26px;padding-left:26px;padding-right:26px}
+}
+@media (max-width:359px){.person .saved{font-size:21px}.chip{font-size:11.5px;padding:5px 7px}.livesum strong{font-size:15px}}
+@media (prefers-reduced-motion:reduce){.fill,.todayline i,.switch .track,.switch .track::after,#toast{transition:none}}
+
+/* sections: Savings, The trip, Budget, To do */
+.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:3;display:flex;justify-content:center;gap:2px;margin:-18px -16px 14px;padding:4px 8px 0;background:var(--bg);background:color-mix(in srgb,var(--bg) 90%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.tabs button{appearance:none;background:none;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;padding:12px 12px 10px;font-weight:600;font-size:14.5px;line-height:1;color:var(--muted);cursor:pointer;white-space:nowrap}
+.tabs button[aria-current=page]{color:var(--ink);border-bottom-color:var(--ink)}
+.view p{margin:0 0 12px;max-width:64ch;font-size:15.5px;line-height:1.55}
+.view-savings p{max-width:none}
+h2.sec.first{margin-top:14px}
+.lead{font-size:18px!important;line-height:1.5!important}
+.lead strong{font-weight:650}
+.plain{margin:0;padding:0 0 0 18px;max-width:64ch}
+.plain li{margin:0 0 9px;font-size:15.5px;line-height:1.55}
+.plain b,.day b{font-weight:650}
+.base{margin:26px 0 8px}
+.base h3{font:600 18px/1.3 var(--text);margin:0}
+.base p{margin:3px 0 0;color:var(--muted);font-size:14.5px}
+details.day{border-top:1px solid var(--line)}
+details.day:last-of-type{border-bottom:1px solid var(--line)}
+details.day summary{list-style:none;display:grid;grid-template-columns:92px 1fr 14px;gap:10px;align-items:center;padding:13px 2px 13px 0;cursor:pointer}
+details.day summary::-webkit-details-marker{display:none}
+.day .n{font-size:12.5px;color:var(--muted);line-height:1.3}
+.day .n b{display:block;color:var(--ink);font-size:14.5px;font-weight:600}
+.day .t{font-weight:600;font-size:16px;line-height:1.3}
+.day .chev{width:8px;height:8px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg) translate(-2px,-2px);transition:transform .15s}
+details[open] .chev{transform:rotate(-135deg) translate(-2px,-2px)}
+.day .body{padding:2px 0 8px}
+.day .body p{margin:0 0 11px}
+.day .mom{border-left:3px solid var(--bloom);padding:1px 0 1px 12px}
+.day .mom b{color:var(--bloom)}
+.scroll{overflow-x:auto;max-width:100%}
+.tbl{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums}
+.tbl th,.tbl td{padding:9px 0 9px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+.tbl th:first-child,.tbl td:first-child{text-align:left;white-space:normal;padding-left:0}
+.tbl thead th{font-weight:600;color:var(--muted);font-size:12.5px}
+.tbl tr.total td{font-weight:650;border-top:1.5px solid var(--ink)}
+.tbl tr.sub td{color:var(--muted);border-bottom:0}
+h3.sub{font:600 15px/1.3 var(--text);margin:24px 0 4px}
+.items{list-style:none;margin:0 0 6px;padding:0}
+.items li{display:flex;justify-content:space-between;align-items:baseline;gap:14px;padding:8px 0;border-bottom:1px solid var(--line);font-size:14.5px;line-height:1.4}
+.items li span:last-child{font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right;font-weight:500}
+.view .hint{font-size:13.5px;margin:6px 0 8px}
+.todo{list-style:none;margin:0;padding:0}
+.todo li{display:grid;grid-template-columns:28px 1fr;gap:8px;padding:13px 0;border-bottom:1px solid var(--line)}
+.todo input{width:20px;height:20px;margin:2px 0 0;accent-color:var(--sea)}
+.todo label{cursor:pointer}
+.todo .when{display:block;font-size:13px;color:var(--muted);margin-bottom:2px}
+.todo li.now .when{color:var(--sea);font-weight:600}
+.todo li.late .when{color:var(--bloom);font-weight:600}
+.todo .what{display:block;font-size:15.5px;line-height:1.5;max-width:62ch}
+.todo li.done .what{color:var(--muted);text-decoration:line-through}
+@media (min-width:640px){.tabs{margin-top:-34px;margin-bottom:22px}.tabs button{font-size:15.5px;padding:15px 18px 13px}details.day summary{grid-template-columns:120px 1fr 14px}.day .body{padding-left:130px}}
+@media (max-width:359px){.tabs button{padding-left:8px;padding-right:8px;font-size:13.5px}}
+@media (prefers-reduced-motion:reduce){.day .chev{transition:none}}
+@media (max-width:479px){.tbl{font-size:13px}.tbl th,.tbl td{padding-left:7px}.tbl thead th{font-size:12px}}
+.edbar{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;justify-content:space-between;background:var(--sea-soft);color:var(--ink);border-radius:12px;padding:10px 12px;margin-bottom:14px;font-size:14px}
+.edbar span:last-child{display:flex;flex-wrap:wrap;gap:8px}
+
+.expected{font-size:11.5px;color:var(--muted);margin-top:4px}
+.funds{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:16px 0 0;padding:14px 10px;border:1px solid var(--line);border-radius:12px;background:var(--surface);text-align:center}
+.funds span{display:block;font-size:12px;color:var(--muted)}
+.funds strong{display:block;font-size:17px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.view a{color:var(--sea);text-underline-offset:3px}
+.sheetbody details{margin-top:16px}.sheetbody summary{cursor:pointer;padding:8px 0}
+.timeline li.unrecorded .note{color:var(--bloom)}
+@media(max-width:420px){.ledger li{grid-template-columns:86px minmax(0,1fr) auto;gap:7px}.ledger li>.link{grid-column:2 / -1;justify-self:end}.ledger .amt{font-size:14px}.funds strong{font-size:15px}}
+.person .monthly.now b{font-weight:650;color:var(--ink)}
+.person .monthly.now.up b{color:var(--bloom)}
+.person .monthly.now.down b{color:var(--sea)}
+.musicfab{position:fixed;right:14px;bottom:calc(78px + env(safe-area-inset-bottom,0px));z-index:4;width:46px;height:46px;border-radius:50%;padding:0;display:grid;place-items:center;cursor:pointer;
+  background:var(--surface);color:var(--muted);border:1.5px solid var(--marble-2);box-shadow:0 2px 10px rgba(14,42,71,.16)}
+.musicfab.on{background:var(--sea);border-color:var(--sea);color:var(--on-sea)}
+.musicfab:active{transform:translateY(1px)}
+@media (min-width:760px){.musicfab{right:calc(50% - 372px)}}
+
+/* iPhone and iPad */
+button,summary,label,select,a,.musicfab{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+input[type=date]{-webkit-appearance:none;appearance:none;min-height:46px;max-width:100%;display:block}
+input[type=date]::-webkit-date-and-time-value{text-align:left;min-height:1.2em}
+select{-webkit-appearance:none;appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 18px) 55%,calc(100% - 13px) 55%;background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:34px}
+.sheetbody,.scroll{-webkit-overflow-scrolling:touch}
+body{-webkit-font-smoothing:antialiased;overflow-wrap:break-word}
+.sheetbar .btn{min-width:0;white-space:normal;line-height:1.15}
+.grid2>*{min-width:0}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script type="application/json" id="app-state">{"v":2,"rev":0,"updated":null,"settings":{"tripDate":"2029-06-11","startDate":"2026-10-01","finishBy":null,"momShares":false,"kidsOwnRoom":false,"apartments":true,"insurance":"mom","dials":{"skipSantorini":false,"skipDelphi":true,"ferryBack":false,"guides":false,"privateDrivers":false,"flyToNaxos":false,"sunsetCruise":false,"cookingClass":false,"premiumMom":false,"rentalVan":false},"airfareChicago":1400,"airfareBayArea":1700,"hotelAthens":130,"hotelNaxos":120,"hotelSantorini":150,"foodPerDay":40,"fx":1.18,"cushion":10,"purchases":[{"id":"flights","name":"International flights","date":"2028-08-01","bought":false},{"id":"hotelDeposits","name":"Hotel deposits","date":"2028-11-01","bought":false},{"id":"tourDeposits","name":"Island flight and any deposits","date":"2029-01-01","bought":false},{"id":"balances","name":"Hotel balances, ferries, site tickets","date":"2029-05-01","bought":false},{"id":"onTrip","name":"On the trip: food, buses, taxis, cushion","date":"2029-06-11","bought":false}],"extras":[],"priceYear":2026,"airInflation":3,"landInflation":4,"hotelLevy":5,"apartmentLevy":8,"cleaningFee":50,"medicalMom":350,"medicalOther":90,"homeJennifer":200,"homeMatthew":150,"homeChris":200,"homeMom":50,"chicagoNight":false,"chicagoRoom":250,"chicagoFood":60,"chicagoRides":90,"bayAirport":"SFO","groupTips":100,"miscEach":60},"payments":[],"spending":[],"todo":{}}</script>
+<script id="app-js">
+"use strict";
+/* Greece with Mom: family savings tracker.
+   The shared record (plan settings and payments) is stored inside this page.
+   Saving publishes a new version of the page, so everyone sees the same numbers. */
+
+/*STATE-START*/
+var DEFAULT_STATE = {
+  "v": 2,
+  "rev": 0,
+  "updated": null,
+  "settings": {
+    "tripDate": "2029-06-11",
+    "startDate": "2026-10-01",
+    "finishBy": null,
+    "momShares": false,
+    "kidsOwnRoom": false,
+    "apartments": true,
+    "insurance": "mom",
+    "dials": {
+      "skipSantorini": false,
+      "skipDelphi": true,
+      "ferryBack": false,
+      "guides": false,
+      "privateDrivers": false,
+      "flyToNaxos": false,
+      "sunsetCruise": false,
+      "cookingClass": false,
+      "premiumMom": false,
+      "rentalVan": false
+    },
+    "airfareChicago": 1400,
+    "airfareBayArea": 1700,
+    "hotelAthens": 130,
+    "hotelNaxos": 120,
+    "hotelSantorini": 150,
+    "foodPerDay": 40,
+    "fx": 1.18,
+    "cushion": 10,
+    "purchases": [
+      {
+        "id": "flights",
+        "name": "International flights",
+        "date": "2028-08-01",
+        "bought": false
+      },
+      {
+        "id": "hotelDeposits",
+        "name": "Hotel deposits",
+        "date": "2028-11-01",
+        "bought": false
+      },
+      {
+        "id": "tourDeposits",
+        "name": "Island flight and any deposits",
+        "date": "2029-01-01",
+        "bought": false
+      },
+      {
+        "id": "balances",
+        "name": "Hotel balances, ferries, site tickets",
+        "date": "2029-05-01",
+        "bought": false
+      },
+      {
+        "id": "onTrip",
+        "name": "On the trip: food, buses, taxis, cushion",
+        "date": "2029-06-11",
+        "bought": false
+      }
+    ],
+    "extras": [],
+    "priceYear": 2026,
+    "airInflation": 3,
+    "landInflation": 4,
+    "hotelLevy": 5,
+    "apartmentLevy": 8,
+    "cleaningFee": 50,
+    "medicalMom": 350,
+    "medicalOther": 90,
+    "homeJennifer": 200,
+    "homeMatthew": 150,
+    "homeChris": 200,
+    "homeMom": 50,
+    "chicagoNight": false,
+    "chicagoRoom": 250,
+    "chicagoFood": 60,
+    "chicagoRides": 90,
+    "bayAirport": "SFO",
+    "groupTips": 100,
+    "miscEach": 60
+  },
+  "payments": [],
+  "todo": {},
+  "spending": []
+};
+/*STATE-END*/
+
+var PAYERS = ["Jennifer", "Matthew", "Chris"];
+var PEOPLE = ["Mom", "Jennifer", "Avery", "Ryder", "Matthew", "Chris", "Friend"];
+var KIDS = { Avery: 1, Ryder: 1 };
+var FROM_CHICAGO = { Mom: 1, Jennifer: 1, Avery: 1, Ryder: 1 }; /* the other three start in the Bay Area and connect at O'Hare */
+var PAYER_OF = { Jennifer: "Jennifer", Avery: "Jennifer", Ryder: "Jennifer", Matthew: "Matthew", Chris: "Chris", Friend: "Chris" };
+var CATS = ["flights", "hotels", "transport", "activities", "entrance", "food", "tips", "insurance", "contingency"];
+var BASE_YEAR = 2026;
+
+var SAVERS = [
+  ["apartments", "Two apartments instead of four hotel rooms", "Apartments with kitchens; bedroom allocation updates when Mom and Matthew share."],
+  ["skipSantorini", "Skip Santorini and stay on Naxos", "Five nights on Naxos instead of three on Naxos and two on Santorini."],
+  ["skipDelphi", "Skip the Delphi day trip", "A slower day in Athens instead."],
+  ["ferryBack", "Ferry back to Athens instead of flying", "A long day on the big ship, the day before the flight home."]
+];
+var EXTRAS = [
+  ["guides", "Licensed guides at the big sites", "The Acropolis, Delphi, and Akrotiri. The base plan uses free audio tours."],
+  ["privateDrivers", "Private drivers for selected outings", "An optional upgrade from buses or a rental van."],
+  ["rentalVan", "A rental van for one Naxos day", "Optional. Include insurance, fuel and a willing driver."],
+  ["flyToNaxos", "Fly to Naxos instead of the ferry", "40 minutes instead of about five hours."],
+  ["sunsetCruise", "Sunset boat cruise in Santorini", "A shared boat with dinner."],
+  ["cookingClass", "Family cooking class on Naxos", ""],
+  ["premiumMom", "Premium economy for Mom on the long flights", ""]
+];
+var OLD_NAMES = { flights: "Flights and travel insurance", tourDeposits: "Island flights and tour deposits", balances: "Hotel balances, ferry, tickets, tours", onTrip: "On the trip: food, tips, taxis, cushion" };
+var SPLITS = [["perTraveler", "Shared by all seven"], ["thirds", "Split three ways"], ["Jennifer", "Jennifer pays"], ["Matthew", "Matthew pays"], ["Chris", "Chris pays"]];
+
+/* ---------- small helpers ---------- */
+function clone(o) { return JSON.parse(JSON.stringify(o)); }
+function r10(x) { return Math.floor(x / 10 + 0.5) * 10; }
+function up5(x) { return Math.ceil(x / 5 - 1e-9) * 5; }
+function num(v, fallback) { var n = parseFloat(v); return isFinite(n) ? n : fallback; }
+function money(n) { return "$" + Math.round(n).toLocaleString("en-US"); }
+function moneyExact(n) { return "$" + Number(n).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+function uid() { return "x" + Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36); }
+
+/* ---------- dates (local, no time zones) ---------- */
+function parseISO(s) { var p = String(s || "").split("-"); var d = new Date(+p[0], (+p[1] || 1) - 1, +p[2] || 1); return isNaN(d) ? new Date(2029, 6, 9) : d; }
+function toISO(d) { return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2); }
+function addMonths(d, n) { var t = new Date(d.getFullYear(), d.getMonth() + n, 1); var last = new Date(t.getFullYear(), t.getMonth() + 1, 0).getDate(); t.setDate(Math.min(d.getDate(), last)); return t; }
+function monthsBetween(a, b) { return (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth()); }
+function fmtDay(d) { return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); }
+function fmtShort(d) { return d.toLocaleDateString("en-US", { month: "short", day: "numeric" }); }
+function fmtMonth(d) { return d.toLocaleDateString("en-US", { month: "short", year: "numeric" }); }
+
+/* ---------- the budget model (same math as the trip plan document) ---------- */
+function roomsFor(s) {
+  var r = [];
+  if (s.momShares) r.push([["Mom", "Matthew"], 1.1]); else { r.push([["Mom"], 1]); r.push([["Matthew"], 1]); }
+  r.push([["Chris", "Friend"], 1]);
+  if (s.kidsOwnRoom) { r.push([["Jennifer"], 1]); r.push([["Avery", "Ryder"], 1]); } else r.push([["Jennifer", "Avery", "Ryder"], 1.5]);
+  return r;
+}
+function cents(x) { return Math.round((x + Number.EPSILON) * 100) / 100; }
+function numericInput(v) {
+  var t = String(v == null ? '' : v).trim().replace(/[$,\s]/g, '');
+  return /^(?:\d+(?:\.\d{0,2})?|\.\d{1,2})$/.test(t) ? Number(t) : NaN;
+}
+function validISO(s) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(s))) return false;
+  return toISO(parseISO(s)) === s;
+}
+function configNumber(v) {
+  var t=String(v==null?'':v).trim().replace(/[$,\s]/g,'');
+  return /^(?:\d+(?:\.\d*)?|\.\d+)$/.test(t) ? Number(t) : NaN;
+}
+function settingsError(s) {
+  if (!validISO(s.tripDate) || !validISO(s.startDate)) return 'Enter valid departure and first-deposit dates.';
+  var end = s.finishBy || toISO(autoFinish(s));
+  if (!validISO(end) || end < s.startDate) return 'Finish saving on or after the first deposit.';
+  if (end > s.tripDate) return 'Finish saving by the international departure date.';
+  if (monthsBetween(parseISO(s.startDate), parseISO(end)) > 599) return 'Choose a savings period shorter than 50 years.';
+  var numeric=['airfareChicago','airfareBayArea','hotelAthens','hotelNaxos','hotelSantorini','foodPerDay','fx','cushion','priceYear','airInflation','landInflation','hotelLevy','apartmentLevy','cleaningFee','medicalMom','medicalOther','homeJennifer','homeMatthew','homeChris','homeMom','chicagoRoom','chicagoFood','chicagoRides','groupTips','miscEach'];
+  for(var j=0;j<numeric.length;j++){var value=Number(s[numeric[j]]);if(!isFinite(value)||value<0||value>10000000)return 'Enter valid nonnegative price and rate values.';}
+  if(Number(s.fx)<=0)return 'Dollars per euro must be greater than zero.';
+  if(!Number.isInteger(Number(s.priceYear))||s.priceYear<1900||s.priceYear>2200)return 'Enter a four-digit price year between 1900 and 2200.';
+  var rows = (s.purchases || []).concat(s.extras || []);
+  for (var i = 0; i < rows.length; i++) {
+    if (!validISO(rows[i].date)) return 'Enter a valid deadline for every purchase.';
+    if (rows[i].date > toISO(new Date(parseISO(s.tripDate).getFullYear(), parseISO(s.tripDate).getMonth(), parseISO(s.tripDate).getDate() + 10))) return 'A purchase deadline falls after the trip. Check the dates.';
+  }
+  return '';
+}
+function apartmentsFor(s) {
+  var a = s.kidsOwnRoom ? [['Jennifer'], ['Avery', 'Ryder']] : [['Jennifer', 'Avery', 'Ryder']];
+  a.push(s.momShares ? ['Mom', 'Matthew'] : ['Mom']);
+  return [
+    { bedrooms: a, factor: s.kidsOwnRoom ? 1.69 : 1.3 },
+    { bedrooms: s.momShares ? [['Chris', 'Friend']] : [['Matthew'], ['Chris', 'Friend']], factor: s.momShares ? 1 : 1.3 }
+  ];
+}
+function planParts(s) {
+  var d = s.dials || {}, skipS = !!d.skipSantorini, drv = !!d.privateDrivers, fly = !!d.flyToNaxos;
+  var pp = [fly ? ['Flight, Athens to Naxos', 170, true] : ['Conventional ferry, Piraeus to Naxos; reserved indoor seat', 60, false]];
+  if (!skipS) pp.push(['Conventional ferry, Naxos to Santorini', 40, false]);
+  pp.push(d.ferryBack ? [skipS ? 'Ferry, Naxos to Piraeus' : 'Ferry, Santorini to Piraeus', skipS ? 60 : 70, false] : [skipS ? 'Flight, Naxos to Athens' : 'Flight, Santorini to Athens', 150, true]);
+  var gt = [['Athens airport to lodging, two suitable taxis', 100], ['Athens local rides', 60]];
+  if (!d.skipDelphi) gt.push(drv ? ['Delphi day: minibus and driver', 600] : ['Delphi return coaches and terminal taxis', 320]);
+  gt.push([fly ? 'Athens lodging to airport' : 'Athens lodging to Piraeus', fly ? 100 : 60]);
+  gt.push(['Naxos arrival transfer for seven', 50]);
+  gt.push(drv ? ['Naxos cultural day: private driver', 550] : d.rentalVan ? ['Naxos rental van, fuel and insurance allowance, one day', 220] : ['Naxos village outing by public bus', 70]);
+  gt.push(['Naxos beach and town buses', skipS ? 100 : 60]);
+  gt.push(['Naxos departure transfer for seven', 50]);
+  if (!skipS) {
+    gt.push(['Santorini port arrival transfer', 100]);
+    gt.push(drv ? ['Santorini private driver', 500] : ['Santorini public buses', 90]);
+    gt.push(['Santorini local taxis', 60]);
+    gt.push(['Santorini departure transfer', d.ferryBack ? 100 : 70]);
+  }
+  gt.push([d.ferryBack ? 'Piraeus to Athens lodging, Day 9' : 'Athens airport to lodging, Day 9', d.ferryBack ? 60 : 100]);
+  gt.push(['Athens lodging to airport, Day 10', 100]);
+  var acts = [];
+  if (d.guides) { acts.push(['Acropolis and museum guide', 380]); if (!d.skipDelphi) acts.push(['Delphi guide', 350]); if (!skipS) acts.push(['Akrotiri guide', 220]); }
+  if (d.sunsetCruise && !skipS) acts.push(['Santorini cruise with meal, seven people', 1120]);
+  if (d.cookingClass) acts.push(['Naxos cooking class with meal, seven people', 700]);
+  var tickets = [['Acropolis', 30], ['Acropolis Museum', 20], ['Naxos site allowance', 10]];
+  if (!d.skipDelphi) tickets.push(['Delphi', 20]);
+  if (!skipS) tickets.push(['Akrotiri', 20]);
+  var food = Math.max(0, 10 * num(s.foodPerDay, 35) - (d.cookingClass ? 15 : 0) - (d.sunsetCruise && !skipS ? 20 : 0));
+  var sum = function (a) { return a.reduce(function (n, x) { return n + x[1]; }, 0); };
+  return { pp: pp, gt: gt, acts: acts, tickets: tickets, ppEur: sum(pp), gtEur: sum(gt), actEur: sum(acts), entranceAdult: sum(tickets),
+    earlyEur: pp.reduce(function (n, x) { return n + (x[2] ? x[1] : 0); }, 0), foodAdult: food, foodKid: food,
+    rate: { Athens: num(s.hotelAthens, 130), Naxos: num(s.hotelNaxos, 120), Santorini: num(s.hotelSantorini, 150) },
+    nights: { Athens: 4, Naxos: skipS ? 5 : 3, Santorini: skipS ? 0 : 2 } };
+}
+function runModel(s) {
+  var d = s.dials || {}, P = planParts(s), years = Math.max(0, parseISO(s.tripDate).getFullYear() - num(s.priceYear, 2026));
+  var infLand = Math.pow(1 + num(s.landInflation, 4) / 100, years), infAir = Math.pow(1 + num(s.airInflation, 3) / 100, years);
+  var fx = num(s.fx, 1.18), cushion = Math.max(0, num(s.cushion, 10)) / 100;
+  var land = function (x) { return x * fx * infLand; }, per = {}, phase = {}, homes = { Jennifer: num(s.homeJennifer, 200), Matthew: num(s.homeMatthew, 150), Chris: num(s.homeChris, 200), Mom: num(s.homeMom, 50) };
+  PEOPLE.forEach(function (p) { per[p] = {}; CATS.forEach(function (c) { per[p][c] = 0; }); });
+  PEOPLE.forEach(function (p) { per[p].flights = ((FROM_CHICAGO[p] ? num(s.airfareChicago, 1400) : num(s.airfareBayArea, 1700)) + (p === 'Mom' && d.premiumMom ? 1500 : 0)) * infAir; });
+  var hotelNights = P.nights;
+  if (s.apartments) {
+    hotelNights = { Athens: 1, Naxos: 0, Santorini: 0 };
+    var aptNights = { Athens: 3, Naxos: P.nights.Naxos, Santorini: P.nights.Santorini };
+    apartmentsFor(s).forEach(function (a) {
+      var cost = 0;
+      for (var b in aptNights) if (aptNights[b]) cost += (a.factor * P.rate[b] + num(s.apartmentLevy, 8)) * aptNights[b] + num(s.cleaningFee, 50);
+      a.bedrooms.forEach(function (room) { room.forEach(function (p) { per[p].hotels += land(cost) / a.bedrooms.length / room.length; }); });
+    });
+  }
+  roomsFor(s).forEach(function (r) {
+    var cost = 0; for (var c in hotelNights) cost += (P.rate[c] * r[1] + num(s.hotelLevy, 5)) * hotelNights[c];
+    r[0].forEach(function (p) { per[p].hotels += land(cost) / r[0].length; });
+  });
+  if (s.chicagoNight) { per.Matthew.hotels += num(s.chicagoRoom, 250) * infLand; per.Chris.hotels += num(s.chicagoRoom, 250) * infLand; }
+  PEOPLE.forEach(function (p) {
+    var x = per[p];
+    x.transport = land(P.ppEur + P.gtEur / 7) + (homes[p] || 0) * infLand;
+    x.activities = land(P.actEur / 7); x.entrance = land(P.entranceAdult); x.food = land(P.foodAdult);
+    if (s.chicagoNight && !FROM_CHICAGO[p]) { x.food += num(s.chicagoFood, 60) * infLand; x.transport += num(s.chicagoRides, 90) * infLand / 3; }
+    x.tips = land(num(s.groupTips, 100) / 7) + num(s.miscEach, 60) * infLand;
+    x.insurance = s.insurance === 'full' ? (x.flights + x.hotels + x.transport + x.activities) * (p === 'Mom' ? .12 : .07)
+      : (s.insurance === 'medical' || s.insurance === 'mom' && p === 'Mom') ? (p === 'Mom' ? num(s.medicalMom, 350) : num(s.medicalOther, 90)) * infLand : 0;
+    x.contingency = CATS.filter(function (c) { return c !== 'contingency'; }).reduce(function (a, c) { return a + x[c]; }, 0) * cushion;
+    var full = CATS.reduce(function (a, c) { return a + x[c]; }, 0);
+    phase[p] = { flights: x.flights + x.insurance, hotelDeposits: .3 * x.hotels,
+      tourDeposits: land(P.earlyEur) + .3 * (x.activities + land(P.gtEur / 7)),
+      onTrip: x.food + x.tips + x.contingency + (homes[p] || 0) * infLand };
+    phase[p].balances = full - phase[p].flights - phase[p].hotelDeposits - phase[p].tourDeposits - phase[p].onTrip;
+  });
+  var table = {}, payerTotal = {}, perTotal = {}, buy = {}, buyByPayer = {};
+  var allocate = function (pool, key, payer) { var n = pool.Mom[key] / 3; PEOPLE.forEach(function (p) { if (PAYER_OF[p] === payer) n += pool[p][key]; }); return cents(n); };
+  PEOPLE.forEach(function (p) { perTotal[p] = cents(CATS.reduce(function (n, c) { return n + per[p][c]; }, 0)); });
+  PAYERS.forEach(function (p) { table[p] = {}; CATS.forEach(function (c) { table[p][c] = allocate(per, c, p); }); payerTotal[p] = cents(CATS.reduce(function (n, c) { return n + table[p][c]; }, 0)); });
+  ['flights', 'hotelDeposits', 'tourDeposits', 'onTrip', 'balances'].forEach(function (id) {
+    buyByPayer[id] = {};
+    PAYERS.forEach(function (p) { buyByPayer[id][p] = id === 'balances' ? cents(payerTotal[p] - ['flights', 'hotelDeposits', 'tourDeposits', 'onTrip'].reduce(function (n, k) { return n + buyByPayer[k][p]; }, 0)) : allocate(phase, id, p); });
+    buy[id] = cents(PAYERS.reduce(function (n, p) { return n + buyByPayer[id][p]; }, 0));
+  });
+  return { table: table, payerTotal: payerTotal, total: cents(PAYERS.reduce(function (n, p) { return n + payerTotal[p]; }, 0)), buy: buy, buyByPayer: buyByPayer, parts: P, perTotal: perTotal, years: years };
+}
+function splitExtra(x) {
+  var amt = cents(num(x.amount, 0)), w = { Jennifer: 0, Matthew: 0, Chris: 0 };
+  if (x.split === 'thirds') w = { Jennifer: 1/3, Matthew: 1/3, Chris: 1/3 };
+  else if (Object.prototype.hasOwnProperty.call(w, x.split)) w[x.split] = 1;
+  else w = { Jennifer: 10/21, Matthew: 4/21, Chris: 7/21 };
+  var out = { Jennifer: cents(amt*w.Jennifer), Matthew: cents(amt*w.Matthew) }; out.Chris = cents(amt - out.Jennifer - out.Matthew); return out;
+}
+function depositDates(s) {
+  var start = parseISO(s.startDate), end = s.finishBy ? parseISO(s.finishBy) : autoFinish(s), out = [];
+  if (!validISO(s.startDate) || end < start) return out;
+  for (var i = 0; i < 600; i++) { var d = addMonths(start, i); if (d > end) break; out.push(d); }
+  return out;
+}
+function derive(s, payments, now, spending) {
+  var m = runModel(s), dates = depositDates(s), n = dates.length, isoNow = toISO(now), D = { payers: [], purchases: [], dateIssue: settingsError(s) };
+  var goal = {}, saved = {}, monthly = {}, dueCount = dates.filter(function (d) { return d <= now; }).length;
+  PAYERS.forEach(function (p) { goal[p] = m.payerTotal[p]; saved[p] = 0; });
+  (s.extras || []).forEach(function (x) { var sh = splitExtra(x); PAYERS.forEach(function (p) { goal[p] += sh[p]; }); });
+  (payments || []).forEach(function (p) { if (Object.prototype.hasOwnProperty.call(saved, p.who) && validISO(p.date) && p.date <= isoNow) saved[p.who] += num(p.amount, 0); });
+  var paid = {}, spent = 0;
+  (spending || []).forEach(function (x) { if (validISO(x.date) && x.date <= isoNow) { var a = num(x.amount, 0); spent += a; paid[x.purchaseId] = (paid[x.purchaseId] || 0) + a; } });
+  var list = (s.purchases || []).map(function (x) { return { id: x.id, name: x.id === 'flights' && s.insurance !== 'none' ? 'International flights and insurance' : s.apartments && x.name === 'Hotel deposits' ? 'Lodging deposits' : s.apartments && x.name === 'Hotel balances, ferries, site tickets' ? 'Lodging balances, ferries, site tickets' : x.name, date: parseISO(x.date), amount: m.buy[x.id] || 0, allocation: m.buyByPayer[x.id] || {}, legacyBought: !!x.bought, auto: true }; })
+    .concat((s.extras || []).map(function (x) { return { id: x.id, name: x.name || 'Extra purchase', date: parseISO(x.date), amount: cents(num(x.amount, 0)), allocation: splitExtra(x), legacyBought: !!x.bought, auto: false }; }));
+  list.sort(function (a, b) { return a.date - b.date; });
+  PAYERS.forEach(function (p) {
+    var rate = goal[p] / Math.max(1, n), cumulative = 0;
+    list.forEach(function (x) { cumulative += x.allocation[p] || 0; var k = dates.filter(function (d) { return d <= x.date; }).length; if (k > 0) rate = Math.max(rate, cumulative / k); });
+    monthly[p] = up5(rate);
+  });
+  D.goal = 0; D.saved = 0; D.expected = 0; D.spent = cents(spent);
+  PAYERS.forEach(function (p) {
+    goal[p] = cents(goal[p]); saved[p] = cents(saved[p]);
+    var exp = cents(Math.min(goal[p], monthly[p] * dueCount)), diff = cents(saved[p] - exp), togo = Math.max(0, goal[p] - saved[p]);
+    var st = saved[p] >= goal[p] && goal[p] > 0 ? 'done' : dueCount === 0 && saved[p] === 0 ? 'waiting' : diff < -.005 ? 'behind' : diff > .005 ? 'ahead' : 'ontrack';
+    D.payers.push({ id: p, goal: goal[p], saved: saved[p], expected: exp, diff: diff, monthly: monthly[p], status: st, pct: goal[p] > 0 ? Math.max(0, Math.min(100, saved[p] / goal[p] * 100)) : 0,
+      expectedPct: goal[p] > 0 ? exp / goal[p] * 100 : 0, catchUp: n > dueCount ? up5(togo / (n - dueCount)) : togo });
+    /* What to pay from here on: whatever is still owed, spread evenly over the deposits that are left.
+       A deposit due today still counts as left until it has been paid, so the figure does not jump on due dates. */
+    var me = D.payers[D.payers.length - 1], dueToday = dueCount > 0 && toISO(dates[dueCount - 1]) === isoNow && diff < -.005;
+    var leftDates = dates.slice(dueCount); if (dueToday) leftDates = [dates[dueCount - 1]].concat(leftDates);
+    var level = leftDates.length ? togo / leftDates.length : togo, owed = 0;
+    list.forEach(function (x) { owed += x.allocation[p] || 0; var k = leftDates.filter(function (d) { return d <= x.date; }).length; if (k > 0) level = Math.max(level, (owed - saved[p]) / k); });
+    me.now = cents(leftDates.length ? Math.min(togo, up5(level)) : togo);
+    me.nextDue = leftDates[0] || null; me.left = leftDates.length;
+    me.changed = st !== 'done' && st !== 'waiting' && Math.abs(me.now - Math.min(monthly[p], togo)) >= 5;
+    D.goal += goal[p]; D.saved += saved[p]; D.expected += exp;
+  });
+  D.goal = cents(D.goal); D.saved = cents(D.saved); D.cash = cents(D.saved - D.spent);
+  D.expectedPct = D.goal ? Math.min(100, 100 * D.expected / D.goal) : 0;
+  D.deposits = { n: n, due: dueCount, left: n - dueCount, first: dates[0] || parseISO(s.startDate), last: dates[n - 1] || parseISO(s.startDate), next: dates[dueCount] || null };
+  D.daysToGo = Math.round((Date.UTC(parseISO(s.tripDate).getFullYear(), parseISO(s.tripDate).getMonth(), parseISO(s.tripDate).getDate()) - Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000);
+  var remaining = 0, needed = 0, nextSet = false;
+  list.forEach(function (x) {
+    x.paid = cents(paid[x.id] || 0); x.remaining = cents(Math.max(0, x.amount - x.paid)); remaining += x.remaining; needed += x.amount;
+    x.needed = cents(needed); var k = dates.filter(function (d) { return d <= x.date; }).length;
+    x.planned = cents(PAYERS.reduce(function (a, p) { return a + Math.min(goal[p], monthly[p] * k); }, 0));
+    var futureDeposits = dates.filter(function (d) { return d > now && d <= x.date; }).length;
+    var projected = D.cash + PAYERS.reduce(function (a, p) { return a + Math.min(Math.max(0, goal[p] - saved[p]), monthly[p] * futureDeposits); }, 0);
+    x.shortBy = cents(Math.max(0, remaining - projected));
+    x.state = x.remaining <= .005 ? 'bought' : D.cash + .005 >= remaining ? 'covered' : projected + .005 >= remaining ? 'scheduled' : 'short';
+    if (x.legacyBought && !x.paid) x.state = 'unrecorded';
+    if (x.remaining > .005 && !nextSet) { x.next = true; nextSet = true; }
+  });
+  D.purchases = list; D.buy = m.buy; D.table = m.table; D.model = m;
+  return D;
+}
+
+function autoFinish(s) { var t=parseISO(s.tripDate); return new Date(t.getFullYear(),t.getMonth(),t.getDate()-30); }
+function autoLast(s) { var t=clone(s);t.finishBy=null;var dates=depositDates(t);return dates[dates.length-1]||parseISO(s.startDate); }
+
+/*BUILD-START*/
+function buildDocument(st, css, js) {
+  var json = JSON.stringify(st).replace(/</g, "\\u003c").replace(/>/g, "\\u003e").replace(/&/g, "\\u0026").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
+  var close = "</scr" + "ipt>";
+  return ["<!doctype html>", '<html lang="en">', "<head>", '<meta charset="utf-8">',
+    '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">',
+    "<title>Greece with Mom: trip plan and savings</title>", '<meta name="robots" content="noindex, nofollow">',
+    '<meta name="theme-color" content="#F5F8FB" media="(prefers-color-scheme: light)">', '<meta name="theme-color" content="#081421" media="(prefers-color-scheme: dark)">',
+    '<meta name="apple-mobile-web-app-capable" content="yes">', '<meta name="mobile-web-app-capable" content="yes">',
+    '<meta name="apple-mobile-web-app-title" content="Greece">', '<meta name="apple-mobile-web-app-status-bar-style" content="default">',
+    '<meta name="format-detection" content="telephone=no">',
+    '<link rel="apple-touch-icon" href="apple-touch-icon.png">', '<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">',
+    '<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">', '<link rel="manifest" href="manifest.webmanifest">',
+    '<link href="https://fonts.googleapis.com/css2?family=Commissioner:wght@400;500;600;700&family=GFS+Didot&display=swap" rel="stylesheet">',
+    '<style id="app-css">' + css + "</style>", "</head>", "<body>", '<div id="app"></div>',
+    '<script type="application/json" id="app-state">' + json + close,
+    '<script id="app-js">' + js + close, "</body>", "</html>"].join("\n");
+}
+/*BUILD-END*/
+
+function normalize(st) {
+  var base = clone(DEFAULT_STATE), s = (st && st.settings) || {};
+  var out = { v: 2, rev: (st && st.rev) || 0, updated: (st && st.updated) || null, settings: base.settings, payments: [], spending: [], todo: {} };
+  for (var t in ((st && st.todo) || {})) if (st.todo[t]) out.todo[t] = true;
+  ["hotelAthens", "chicagoRides", "cleaningFee", "foodPerDay", "airfareBayArea", "medicalMom", "chicagoFood", "bayAirport", "finishBy", "priceYear", "chicagoRoom", "startDate", "airfareChicago", "hotelSantorini", "hotelLevy", "cushion", "miscEach", "medicalOther", "homeMom", "groupTips", "homeJennifer", "apartments", "kidsOwnRoom", "landInflation", "hotelNaxos", "momShares", "apartmentLevy", "homeMatthew", "homeChris", "insurance", "airInflation", "fx", "tripDate", "chicagoNight"].forEach(function (k) { if (s[k] !== undefined) out.settings[k] = s[k]; });
+  if (s.airfare !== undefined && s.airfareChicago === undefined && num(s.airfare, 1500) !== 1500) { out.settings.airfareChicago = num(s.airfare, 1400); out.settings.airfareBayArea = num(s.airfare, 1700); }
+  if (["none", "mom", "medical", "full"].indexOf(out.settings.insurance) < 0) out.settings.insurance = "none";
+  for (var k in base.settings.dials) if (s.dials && s.dials[k] !== undefined) out.settings.dials[k] = !!s.dials[k];
+  out.settings.purchases.forEach(function (p) {
+    var mine = (s.purchases || []).filter(function (x) { return x.id === p.id; })[0];
+    if (mine) { if (mine.name && mine.name !== OLD_NAMES[p.id]) p.name = mine.name; p.date = mine.date || p.date; p.bought = !!mine.bought; }
+  });
+  out.settings.extras = (s.extras || []).map(function (x) { return { id: x.id || uid(), name: String(x.name || ""), date: x.date || out.settings.tripDate, amount: num(x.amount, 0), split: x.split || "perTraveler", bought: !!x.bought }; });
+  out.payments = ((st && st.payments) || []).filter(function (p) { return PAYERS.indexOf(p.who) >= 0 && num(p.amount, 0) !== 0; })
+    .map(function (p) { return { id: p.id || uid(), who: p.who, amount: num(p.amount, 0), date: p.date || toISO(new Date()), note: String(p.note || "") }; });
+  out.spending = ((st && st.spending) || []).filter(function(x) { return num(x.amount,0)>0; }).map(function(x) { return {id:x.id||uid(),purchaseId:String(x.purchaseId||''),amount:cents(num(x.amount,0)),date:x.date||toISO(new Date()),note:String(x.note||'')}; });
+  return out;
+}
+
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = { DEFAULT_STATE: DEFAULT_STATE, runModel: runModel, planParts: planParts, derive: derive, depositDates: depositDates, buildDocument: buildDocument, normalize: normalize, splitExtra: splitExtra, parseISO: parseISO, settingsError: settingsError, validISO: validISO, numericInput: numericInput, apartmentsFor: apartmentsFor };
+}
+
+/* =====================================================================
+   Everything below runs only in the browser.
+   ===================================================================== */
+if (typeof document !== "undefined") (function () {
+  var state, draft = null, canSave = false, artifactNs = null, saving = false, showAll = false, tab = "savings", openDays = {};
+  var prevHeights = { Jennifer: 0, Matthew: 0, Chris: 0, line: 0 };
+  var $ = function (sel, root) { return (root || document).querySelector(sel); };
+
+  try { state = normalize(JSON.parse($("#app-state").textContent)); } catch (e) { state = normalize(null); }
+  var standalone = !(window.claude && typeof window.claude.use === "function");
+  var editorMode = standalone && /(?:^#|&)editor(?:&|$)/.test(location.hash || ""), siteRev = state.rev || 0;
+  var storagePrefix='gwm2:'+location.pathname+':';
+  function lsGet(k) { try { var raw=localStorage.getItem(storagePrefix+k); if(raw===null&&(k==='gwm.local'||k==='gwm.gh'))raw=localStorage.getItem(k);return JSON.parse(raw||'null'); } catch(e){return null;} }
+  function lsSet(k, v) { try { if (v == null) localStorage.removeItem(storagePrefix+k); else localStorage.setItem(storagePrefix+k, JSON.stringify(v)); return true; } catch (e) { return false; } }
+  var publishedSnapshot=JSON.stringify(normalize(state));
+  if (editorMode) {
+    canSave = true;
+    var mine = lsGet("gwm.local");
+    if (mine && (mine.rev || 0) > siteRev) state = normalize(mine); else lsSet("gwm.local", null);
+  }
+  function unpublished() { return editorMode && JSON.stringify(normalize(state)) !== (lsGet("gwm.publishedSnapshot") || publishedSnapshot); }
+  function ghConfig() {
+    var g=lsGet('gwm.gh')||{},token='';
+    try { token=sessionStorage.getItem(storagePrefix+'token')||'';if(!token&&g.token){token=g.token;sessionStorage.setItem(storagePrefix+'token',token);delete g.token;lsSet('gwm.gh',g);localStorage.removeItem('gwm.gh');} }catch(e){}
+    return {owner:g.owner||'ccolatos',repo:g.repo||'ccolatos.github.io',branch:g.branch||'master',path:g.path||'greece-2029/index.html',token:token};
+  }
+  function pageHTML() { return buildDocument(state, $("#app-css").textContent, $("#app-js").textContent); }
+
+  function today() {
+    var m = /now=(\d{4}-\d{2}-\d{2})/.exec(location.hash || "");
+    var d = m ? parseISO(m[1]) : new Date();
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  }
+  function readTab() {
+    var m = /(?:^#|&)(savings|trip|budget|todo)(?:&|$)/.exec(location.hash || "");
+    if (m) { tab = m[1]; return; }
+    try { var t = JSON.parse(sessionStorage.getItem("gwm.tab") || "null"); sessionStorage.removeItem("gwm.tab"); if (t && Date.now() - t.t < 20000) tab = t.m; } catch (e) {}
+  }
+  function settings() { return draft || state.settings; }
+  function dirty() { return !!draft && JSON.stringify(draft) !== JSON.stringify(state.settings); }
+  function ensureDraft() { if (!draft) draft = clone(state.settings); return draft; }
+
+  /* ---------- main page ---------- */
+  var TABS = [["savings", "Savings"], ["trip", "The trip"], ["budget", "Budget"], ["todo", "To do"]];
+  var CAT_LABEL = { flights: "Flights", hotels: "Hotels", transport: "Getting around", activities: "Guides and extras", entrance: "Site tickets", food: "Food",
+    tips: "Tips and small things", insurance: "Travel insurance", contingency: "Safety cushion" };
+  var EUR = "\u20AC";
+  function eur(n) { return EUR + Math.round(n).toLocaleString("en-US"); }
+  function ul(items) { return '<ul class="plain">' + items.map(function (t) { return "<li>" + t + "</li>"; }).join("") + "</ul>"; }
+  function addDays(d, n) { return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n); }
+  function fmtWeekday(d) { return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }); }
+  function costOf(key) { /* what turning one switch on would add or save, as plain text */
+    var on = clone(settings()), off = clone(settings()); setKey(on, key, true); setKey(off, key, false);
+    return money(Math.abs(derive(on, [], today()).goal - derive(off, [], today()).goal));
+  }
+
+  function statusChip(p, D) {
+    if (p.status === "done") return '<span class="chip good">Fully saved</span>';
+    if (p.status === "waiting") return '<span class="chip quiet">Starts ' + esc(fmtShort(D.deposits.first)) + "</span>";
+    if (p.status === "behind") return '<span class="chip late">' + money(-p.diff) + " behind</span>";
+    if (p.status === "ahead") return '<span class="chip good">' + money(p.diff) + " ahead</span>";
+    return '<span class="chip good">On track</span>';
+  }
+
+  function savingsHTML(D) {
+    var h = "", days = D.daysToGo;
+    h += '<div class="temple" aria-hidden="true"><div class="pediment"><svg viewBox="0 0 100 20" preserveAspectRatio="none"><polygon points="0.4,19.6 50,0.8 99.6,19.6"/></svg>' +
+      '<span class="days">' + (days > 1 ? days.toLocaleString("en-US") + " days to go" : days === 1 ? "We leave tomorrow" : days === 0 ? "We leave today" : "Kalo taxidi") + "</span></div>" +
+      '<div class="frieze">Greece with Mom</div><div class="colonnade">';
+    D.payers.forEach(function (p) {
+      h += '<div class="col"><div class="abacus"></div><div class="echinus"></div><div class="shaft"><div class="fill' + (p.status === "done" ? " full" : "") + '" data-col="' + p.id + '" style="height:' + prevHeights[p.id] + '%"></div></div></div>';
+    });
+    h += '<div class="todayline"><i data-line style="bottom:' + prevHeights.line + '%"><b class="' + (D.expectedPct > 88 ? "below" : "") + '">Today</b></i></div></div>' +
+      '<div class="steps"><i></i><i></i><i></i></div></div>';
+    h += '<div class="people">';
+    D.payers.forEach(function (p) {
+      h += '<div class="person"><h2>' + esc(p.id) + '</h2><div class="saved">' + money(p.saved) + '</div><div class="of">of ' + money(p.goal) + "</div>" + statusChip(p, D) +
+        (p.status === "done" ? '<div class="monthly">Nothing more to pay</div>'
+          : p.changed ? '<div class="monthly now ' + (p.now > p.monthly ? "up" : "down") + '"><b>' + money(p.now) + '</b> a month now</div><div class="expected">Plan was ' + money(p.monthly) + "</div>"
+          : '<div class="monthly">' + money(p.monthly) + " a month</div>") +
+        '<div class="expected">By today: ' + money(p.expected) + "</div></div>";
+    });
+    h += "</div>";
+    h += '<p class="legend"><span class="swatch"></span>The line marks the group’s expected percentage today. Each person’s target is shown below their column.</p>';
+    h += '<section class="together"><p>Together we have saved <strong>' + money(D.saved) + "</strong> of <strong>" + money(D.goal) + "</strong>. " +
+      (D.deposits.due === 0 ? "Saving starts <strong>" + esc(fmtDay(D.deposits.first)) + "</strong>, with " + D.deposits.n + " monthly deposits."
+        : "By today the plan calls for <strong>" + money(D.expected) + "</strong>.") + "</p>";
+    if (D.deposits.next) {
+      var due = D.payers.filter(function (p) { return p.now > 0 && p.nextDue; }), firstDue = due.length ? due.reduce(function (a, p) { return p.nextDue < a ? p.nextDue : a; }, due[0].nextDue) : D.deposits.next;
+      h += '<p class="nextdue">Next deposits are due <strong>' + esc(fmtDay(firstDue)) + "</strong>: " +
+        D.payers.map(function (p) { return esc(p.id) + " " + money(p.now); }).join(", ") + "." +
+        (D.payers.some(function (p) { return p.changed; }) ? " Amounts rise after a missed or short payment and fall after an extra one, so everyone still finishes on time." : "") + "</p>";
+    }
+    h += "</section>";
+    h += '<div class="funds" aria-label="Trip fund balances"><div><span>Contributed</span><strong>'+moneyExact(D.saved)+'</strong></div><div><span>Spent</span><strong>'+moneyExact(D.spent)+'</strong></div><div><span>Cash held</span><strong>'+moneyExact(D.cash)+'</strong></div></div>';
+    if(D.cash<-.005)h+='<p class="err">Spending exceeds recorded contributions. Reconcile the bank balance and any missing contributions.</p>';
+    if(D.dateIssue)h+='<p class="err">'+esc(D.dateIssue)+'</p>';
+    h += '<section><h2 class="sec">What we buy, and when</h2><ol class="timeline">';
+    D.purchases.forEach(function (x) {
+      var note=x.state==='bought'?'Paid: '+moneyExact(x.paid):x.state==='unrecorded'?'Previously marked bought. Record the actual expense to reconcile cash.':x.state==='covered'?'Remaining amount is covered by recorded cash.':x.state==='scheduled'?'Covered if the scheduled future deposits are made.':'Projected shortfall of '+money(x.shortBy)+' by this deadline. Check contributions and dates.';
+      if(x.paid>0&&x.remaining>0)note=moneyExact(x.paid)+' paid; '+moneyExact(x.remaining)+' remaining. '+note;
+      h += '<li class="' + x.state + (x.next ? " next" : "") + '"><span class="what"><span class="when">' + esc(fmtMonth(x.date)) + (x.next ? ", next up" : "") + "</span><strong>" + esc(x.name) +
+        '</strong><span class="note">' + esc(note) + '</span></span><span class="amt">' + money(x.amount) + "</span></li>";
+    });
+    h += "</ol></section>";
+    var pays = state.payments.slice().sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
+    h += '<section><h2 class="sec">Contributions received</h2>';
+    if (!pays.length) h += '<p class="empty">No contributions yet. The first deposits are due ' + esc(fmtDay(D.deposits.first)) + ".</p>";
+    else {
+      h += '<ul class="ledger">';
+      (showAll ? pays : pays.slice(0, 9)).forEach(function (p) {
+        h += "<li><span class=\"when\">" + esc(fmtDay(parseISO(p.date))) + '</span><span class="who">' + esc(p.who) + (p.note ? '<span class="note">' + esc(p.note) + "</span>" : "") +
+          '</span><span class="amt">' + moneyExact(p.amount) + "</span>" + (canSave ? '<button class="link" data-act="remove-pay" data-id="' + esc(p.id) + '">Remove</button>' : "") + "</li>";
+      });
+      h += "</ul>";
+      if (pays.length > 9) h += '<button class="link" data-act="toggle-all">' + (showAll ? "Show fewer" : "Show all " + pays.length + " payments") + "</button>";
+    }
+    return h + "</section>" + spendingHTML(D);
+  }
+
+  /* ----- the trip: every day, written for the choices that are switched on ----- */
+  function itinerary(s) {
+    var d = s.dials, skipS = d.skipSantorini, days = [];
+    var audio = "Before the trip, everyone downloads the free Rick Steves Audio Europe app; its Acropolis tour runs about an hour and stands in for a guide.";
+    days.push({ n: 1, base: "Athens", title: "Arrive and exhale", body: [
+      "Two taxis from the airport to the apartments at the flat rate, about 45 minutes. The metro costs less and is step-free, but after an overnight flight with luggage the taxis are worth it for Mom. The Chicago nonstop lands in the morning, so the rooms may not be ready: drop the bags, have a long lunch nearby, and nap once you can get in.",
+      "Early evening: a slow walk through the pedestrian lanes of Plaka and dinner at a simple taverna. The floodlit Parthenon is free to admire from the pedestrian street below it, Dionysiou Areopagitou. Early to bed."],
+      mom: "Request airport wheelchair assistance when the flights are booked. It is free, and it turns long terminal walks and passport lines into a short ride. Before booking any lodging, confirm the way in and the bathroom." });
+    days.push({ n: 2, base: "Athens", title: "The Acropolis and its museum", body: [
+      "<b>8:00 am timed entry</b>, the coolest and quietest slot of the day. " + (d.guides ? "A licensed guide meets the family at the gate and stays through the museum." : audio) + " About two hours on the rock: the Propylaea, the Parthenon, the Erechtheion and its Caryatids, and the view over the whole city.",
+      "Walk down to the air-conditioned <b>Acropolis Museum</b>, then a cheap lunch in Makrygianni or Koukaki, where gyros and souvlaki cost a few euros. Home by 1:30 for a long rest through the heat. If the morning took everything, the museum moves to Day 3.",
+      "Evening: the whitewashed lanes of Anafiotika and Plaka on foot, with the app's free Athens City Walk for anyone who wants it, and dinner at a garden taverna."],
+      mom: "The way up is a moderate uphill path with worn marble steps near the top, and the marble is slippery, so shoes with real grip matter. The site has an elevator on the north slope for visitors with reduced mobility. Confirm eligibility and that it is running directly with the site; it stops in strong winds and extreme weather. The museum and its terrace view are a worthy alternative if the hill is too much." });
+    if (d.skipDelphi) days.push({ n: 3, base: "Athens", title: "Athens at an easy pace", body: [
+      "No alarm. The changing of the guard at Syntagma Square, the shade of the National Garden next door, the Central Market, and the Monastiraki flea market are all free. Long lunch, long rest, and an evening stroll.",
+      "Optional and not in the budget: the air-conditioned <b>National Archaeological Museum</b> (with a free audio tour in the same app) or the Ancient Agora. Anyone who wants Delphi can go on their own by intercity coach, about " + EUR + "40 round trip plus the " + EUR + "20 ticket, while everyone else rests. Switching Delphi on for the whole family adds about " + costOf("dial.skipDelphi") + "."],
+      mom: "Everything today is flat and close to a cafe chair. Taxis between stops cost a few euros. This is her recovery day before the ferry." });
+    else days.push({ n: 3, base: "Athens", title: "Delphi, the big day trip", body: [
+      d.privateDrivers ? "Leave at 7:30 am by <b>private minibus</b>, about 2.5 hours each way across the plains of Boeotia and up the flank of Mount Parnassus, arriving before the heat." + (d.guides ? " A licensed guide meets the family at the site." : "")
+        : "By <b>intercity coach</b> from the Liosion Street terminal, about 2.5 to 3 hours each way for " + EUR + "15 to " + EUR + "20 a seat. Buy tickets ahead in summer, because the coaches fill, and take two taxis to the terminal. Take the first departure of the morning." + (d.guides ? " A licensed guide meets the family at the site." : ""),
+      d.privateDrivers ? "Walk the <b>Sacred Way</b> first, while it is cool: the Athenian Treasury, then the <b>Temple of Apollo</b>, where the oracle spoke. Then the compact, air-conditioned <b>museum</b> and its bronze Charioteer, and a late lunch with a valley view. Back in Athens by about 6:30 pm."
+        : "The coach arrives late in the morning, so start in the compact, air-conditioned <b>museum</b> and its bronze Charioteer, have lunch with a valley view in Delphi village, and walk the <b>Sacred Way</b> afterward: the Athenian Treasury, then the <b>Temple of Apollo</b>, where the oracle spoke. Back in Athens in the evening."],
+      mom: "The Sacred Way is a steady uphill path on uneven stone" + (d.privateDrivers ? "." : ", and by coach the visit falls in the warmest hours.") + " She should go only as far as the Temple of Apollo, or enjoy the museum and a shaded cafe while the others climb. If this day sounds like too much, switch Delphi off and she gets a rest day instead." });
+    days.push({ n: 4, base: "Naxos", title: "To the islands", body: [
+      d.flyToNaxos ? "An unhurried morning, then two taxis to the airport and a <b>40-minute flight to Naxos</b>. Tip: leave the big suitcases with the Athens hotel you will use on the last night, and take carry-on-size bags to the islands."
+        : "An early start: two taxis to Piraeus for the <b>morning Blue Star ferry to Naxos</b> (currently 7:25 am, about five hours; check the timetable for your date). Buy numbered indoor seats and bring breakfast from a bakery. The ship has cafes, open decks, and room to walk, and everyone can nap. Tip: leave the big suitcases with the Athens hotel you will use on the last night, and take carry-on-size bags to the islands.",
+      "By the afternoon everyone is on the sand at <b>Agios Georgios (St. George) beach</b>, a shallow, family-friendly bay a level 10-minute walk from the port and Naxos Town.",
+      "<b>Sunset at the Portara</b>, the great marble doorway of an unfinished temple of Apollo from about 530 BC, standing alone on its islet above the harbor. It is free. Dinner on the waterfront."],
+      mom: "The causeway to the Portara is flat but exposed, and the last stretch up to the gate has steps. The view from the waterfront is just as good." + (d.flyToNaxos ? "" : " If the early ferry is too much for her, flying takes 40 minutes and adds about " + costOf("dial.flyToNaxos") + " for the group.") });
+    days.push({ n: 5, base: "Naxos", title: "Mountain villages and a long lunch", body: [
+      (d.privateDrivers ? "A private minibus with a local driver, about seven hours at a gentle pace: the <b>Temple of Demeter</b> at Sangri, white marble from the 6th century BC in a quiet farming valley; <b>Halki</b>; <b>Apiranthos</b>; and on the way home the <b>Kouros of Flerio</b>, an unfinished marble giant about 2,600 years old, still lying where the sculptors left him."
+        : d.rentalVan ? "Pick up the rental van and drive the island's quiet interior at your own pace: the <b>Temple of Demeter</b> at Sangri, white marble from the 6th century BC in a quiet farming valley; <b>Halki</b>; <b>Apiranthos</b>; and on the way home the <b>Kouros of Flerio</b>, an unfinished marble giant about 2,600 years old, still lying where the sculptors left him. Most vans are manual, automatics must be reserved months ahead, and the driver should carry an International Driving Permit from AAA (about $20)."
+        : "Take the public bus to <b>Halki</b>, the old capital of the island's interior, for a few euros each: the Vallindras citron-liqueur distillery, Byzantine churches, and cafes under the trees. Anyone with energy rides on to <b>Apiranthos</b>, the marble-paved mountain village. Check the return timetable before you sit down to lunch. The Temple of Demeter and the Kouros of Flerio need a vehicle; the rental van option adds about " + costOf("dial.rentalVan") + "."),
+      "Lunch at a village taverna. Back by 4:00 pm for the beach. Dinner in the lanes of the old town under the Venetian castle."],
+      mom: "Village lanes have slopes and smooth marble paving, so one manageable village beats a full circuit. Halki is the flattest." });
+    days.push({ n: 6, base: "Naxos", title: "A day of rest", body: [
+      "Nothing scheduled. Beach, books, a swim. Anyone who wants a different beach can take the bus to Agios Prokopios or Plaka for about " + EUR + "2 each way.",
+      d.cookingClass ? "Late afternoon: a <b>hands-on family cooking class and dinner</b> with a local family in one of the villages, about four hours, ending with the meal everyone cooked. Three generations around one long table."
+        : "Evening: wander the Kastro, the Venetian castle quarter above the harbor, free and shaded by then. For a family dinner that costs very little, buy cheese, tomatoes, olives, bread, and local wine at the market and eat on the beach at sunset. Three generations on one blanket."] });
+    if (skipS) {
+      days.push({ n: 7, base: "Naxos", title: "The long beaches", body: ["Bus to <b>Agios Prokopios</b> or <b>Plaka</b>, long sandy beaches with clear, shallow water, about " + EUR + "2 each way. Lunch at a beach taverna, or a picnic from the bakery. Back for the evening stroll on the waterfront."],
+        mom: "Pick a taverna with its own sunbeds and shade; many lend them free with lunch. The bus stops are on the road just behind the sand." });
+      days.push({ n: 8, base: "Naxos", title: "The old town, and goodbye to Naxos", body: ["A slow morning in the <b>Kastro</b> and the old market lanes below it: Venetian mansions, tiny chapels, shops selling local cheese and citron liqueur. Afternoon at Agios Georgios beach, one more sunset at the Portara, a last island dinner, and pack."],
+        mom: "The Kastro lanes climb gently, with steps in places. The lower market streets and the waterfront are flat." });
+    } else {
+      days.push({ n: 7, base: "Santorini", title: "By sea into the caldera", body: [
+        "Late-morning <b>Blue Star ferry</b>, about two hours. Choose the big conventional ferry over the fast catamarans: it is steadier in the summer winds, it costs less, and it has open decks. Be on deck for the last 20 minutes as the ship sails into the flooded volcanic crater beneath cliffs nearly a thousand feet high. It is the most dramatic arrival in Greece, and it is included in the ticket.",
+        "A prebooked minibus climbs the switchbacks from the port to the apartments. This is the one private transfer worth paying for: the port is chaotic and the public bus fills fast. Rest, then a late-afternoon bus or taxi to Firostefani and the <b>cliff path toward Fira</b>, a paved walkway along the rim with the postcard view the whole way. Sunset from a bench, or from a cafe table for the price of one drink."],
+        mom: "Board the ferry early and ask the crew at the ramp about the elevator or escalator up to the lounges. The cliff path has some steps and slopes; a taxi can drop her at Firostefani, where the rim is closest to the road, and the view from a cafe chair is the same view." });
+      days.push({ n: 8, base: "Santorini", title: d.sunsetCruise ? "Akrotiri, and the caldera from the water" : "Akrotiri and Oia", body: [
+        (d.privateDrivers ? "A private minibus and driver for the day. " : "") + "Be at <b>Akrotiri</b> when it opens" + (d.privateDrivers ? "" : "; the bus from Fira takes about 20 minutes") + ". This is a Bronze Age town buried by the volcano around 1600 BC, often called the Minoan Pompeii: streets, multi-story houses, storage jars still in place. " + (d.guides ? "A licensed guide brings it to life." : "The signs are good; a guidebook chapter read the night before does the rest."),
+        d.sunsetCruise ? "Lunch and a rest. At about 3:00 pm, the <b>shared sunset cruise</b>: Red Beach, White Beach, a swim near the hot springs, dinner on board, and sunset from the water below the cliffs. Confirm boarding access and the weather with the operator."
+          : "Lunch and an afternoon rest. Evening: " + (d.privateDrivers ? "the driver takes everyone" : "the bus") + " to <b>Oia</b> for the sunset. Go two hours early, walk the marble main street, and watch from the western lanes. Skip the castle viewpoint; in summer it is shoulder to shoulder. This is the farewell to the islands."],
+        mom: "Akrotiri is under a modern roof with level walkways, which makes it the easiest major site of the trip and the coolest place on the island at midday. Oia's main street is level marble, but it is crowded; a cafe table booked for sunset spares her the crush." });
+    }
+    if (d.ferryBack) days.push({ n: 9, base: "Athens", title: "The long way back to Athens", body: [
+      skipS ? "The <b>Blue Star ferry from Naxos to Piraeus</b>, about five and a half hours, then two taxis to the Athens hotel. Take the morning sailing, so the evening is free for a last walk in Plaka and a farewell dinner under the lit Acropolis."
+        : "The <b>Blue Star ferry to Piraeus</b>. The big ship takes seven to eight hours and the last sailing of the day currently leaves around 3:30 pm, so expect to reach the Athens hotel close to midnight. Dinner is on board. The fast boats take four to five hours, but they cost about as much as flying and are the first to be canceled in the summer winds.",
+      "This saves about " + costOf("dial.ferryBack") + " for the family, and it spends the buffer day on the water: if the ferry is late or canceled, there is little room before the flight home."],
+      mom: "This is the longest travel day in Greece, the day before the longest flight. Book numbered indoor seats so she can rest. If it sounds like too much, flying takes 45 minutes." });
+    else days.push({ n: 9, base: "Athens", title: "A last night under the Acropolis", body: [
+      "Morning flight from " + (skipS ? "Naxos" : "Santorini") + " to Athens, about 45 minutes, booked months ahead while fares are low, and two taxis to the hotel. Afternoon: rest, window-shopping in Plaka, or the National Archaeological Museum for the gold Mask of Agamemnon and the Antikythera Mechanism (its ticket is not in the budget).",
+      "<b>Farewell dinner</b> at a neighborhood taverna, with the Acropolis lit above the rooftops. The mainland night is the buffer: the flight home never depends on a same-day island connection."] });
+    days.push({ n: 10, base: "Athens", title: "Home together", body: [
+      "Two taxis to the airport three hours before departure. All seven take the same nonstop to O'Hare, which leaves around midday and lands the same afternoon. Mom, Jennifer, Avery, and Ryder are home. Matthew, Chris, and his friend clear passport control, re-check their bags, and continue to the Bay Area that evening; allow at least three to four hours for that connection."] });
+    return days;
+  }
+  function tripHTML(s) {
+    var trip = parseISO(s.tripDate), skipS = s.dials.skipSantorini, h = "", mo = addDays(trip, 1).getMonth();
+    var season = mo === 6 ? "July is the hottest and busiest month of the Greek year" : mo === 5 ? "June in Greece is already hot, if a little cooler and quieter than July" : mo === 7 ? "August is as hot as July and even busier" : "Greece can be hot from May well into September";
+    h += '<h2 class="sec first">Nine nights in Greece</h2><p class="lead">' + (skipS ? "Athens for three nights, Naxos for five, and a last night in Athens." : "Athens for three nights, Naxos for three, Santorini for two, and a last night in Athens.") +
+      " Leave O'Hare on <strong>" + esc(fmtWeekday(trip)) + "</strong>, land in Athens the next morning, and fly home on <strong>" + esc(fmtWeekday(addDays(trip, 10))) + "</strong>. " +
+      (mo === 5 ? "June runs cooler, quieter, and cheaper than July, and the earlier in the month, the more that is true." : mo === 6 ? "The first half of July is better than the second, which is hotter, busier, and more expensive. June is better still." : mo === 7 ? "August is the most crowded and expensive month in the islands; June would cost less and be kinder to Mom." : "Outside June to August the islands are quieter and cheaper, the sea is cooler, and some ferries and the Chicago nonstop may not be running, so check both before booking.") + "</p>";
+    h += '<h2 class="sec">Built around Mom</h2><p>Mom will be almost 79, and ' + season + ". The Acropolis has closed during the midday hours on heat wave days in recent summers, in June as well as July. The plan treats that as a design rule.</p>" + ul([
+      "<b>Sites at opening time, siesta, long evenings.</b> Outdoor sites happen first thing in the morning. Afternoons from about 1:00 to 5:00 are for rest and shade. Evenings are for strolling and unhurried dinners, the way Greeks do it.",
+      "<b>Big day, easy day.</b> Each demanding day is followed by a gentle one.",
+      "<b>History first, islands second.</b> The heavy sightseeing happens while everyone is fresh. Then the Cyclades, where the sea breeze usually keeps afternoons in the 80s.",
+      "<b>Steps are counted.</b> Lodging is chosen for a ground floor or an elevator. Nothing is guaranteed to suit her, so confirm elevators, steps, showers, and air conditioning directly before paying.",
+      "<b>A buffer before the flight home.</b> The last night is in Athens, so the flight home never depends on a same-day island connection."]);
+    h += '<h2 class="sec">Getting there together</h2><p>Four travelers live in Chicago and three in the San Francisco Bay Area. The best plan puts all seven on the same plane for the long flight, and that plane leaves from Chicago.</p>' + ul([
+      "<b>One nonstop for everyone.</b> United and American have each flown Chicago O'Hare to Athens nonstop every day in summer. It takes about 10 hours 20 minutes, leaving O'Hare in the afternoon and landing in Athens the next morning. The flight home leaves Athens around midday and lands in Chicago the same afternoon. Mom never changes planes. Confirm the route, the times, and seven seats when the schedule opens.",
+      "<b>The Bay Area three join in Chicago.</b> There is no nonstop from San Francisco to Athens, so they need one connection anyway. Book " + esc(s.bayAirport || "SFO") + " to O'Hare to Athens as one through ticket on the same airline, so the fare includes the domestic legs and the airline owns the connection. Use SFO unless a full Oakland itinerary prices and connects as well.",
+      s.chicagoNight ? "<b>The day before.</b> The Bay Area three fly to Chicago on " + esc(fmtWeekday(addDays(trip, -1))) + ". The budget includes two rooms, meals, and local rides. Set the room rate to zero if family can host."
+        : "<b>Same-day connection.</b> Take the first flight of the morning, with at least four to five hours at O'Hare. Each airline flies the nonstop once a day, so a missed connection would split the group. Flying in the evening before and staying with family removes that risk; the Chicago overnight can be switched on under Adjust the plan.",
+      "<b>Booking.</b> Ask the airline to price the four Chicago travelers and the three Bay Area travelers on the same international flights. Large bookings sometimes price higher, so compare one reservation against four plus three. Separate reservations can be linked so the airline keeps the group together, but linking does not make them one protected itinerary. Request wheelchair assistance for Mom at both airports.",
+      "<b>If the nonstop is not offered that year.</b> It is a seasonal route and the schedule does not exist yet. The fallback is to meet at Newark or Washington Dulles, which both had summer nonstops to Athens as of 2026.",
+      "<b>Miles.</b> Pick United or American now and put everyday spending and flights toward it. Treat any free ticket as a bonus, not as part of the budget."]);
+    h += '<h2 class="sec">Day by day</h2>';
+    var blurb = { Athens: "Stay in Koukaki, Makrygianni, or Plaka, the flat, walkable neighborhoods at the foot of the Acropolis.",
+      Naxos: "The largest and greenest of the Cyclades: long sandy beaches with shallow water, marble villages in the mountains, a Venetian castle town, and prices well below Santorini.",
+      Santorini: "The most beautiful place in Greece, and crowded and expensive all summer. Two nights are enough for the arrival by sea, two sunsets, Akrotiri, and Oia. The plan sleeps away from the cliff edge, where rooms cost about a third as much, and treats the caldera as a free view." };
+    var last = "", seen = {};
+    itinerary(s).forEach(function (x) {
+      if (x.base !== last) { h += '<div class="base"><h3>' + esc(x.base) + (x.n >= 9 ? " and home" : "") + "</h3>" + (seen[x.base] ? "" : "<p>" + blurb[x.base] + "</p>") + "</div>"; last = x.base; seen[x.base] = 1; }
+      h += '<details class="day"' + (openDays[x.n] ? " open" : "") + ' data-day="' + x.n + '"><summary><span class="n"><b>Day ' + x.n + "</b>" + esc(fmtWeekday(addDays(trip, x.n))) + '</span><span class="t">' + esc(x.title) + '</span><span class="chev"></span></summary><div class="body">' +
+        x.body.filter(Boolean).map(function (p) { return "<p>" + p + "</p>"; }).join("") + (x.mom ? '<p class="mom"><b>For Mom.</b> ' + x.mom + "</p>" : "") + "</div></details>";
+    });
+    h += '<h2 class="sec">Where to stay</h2><p>' + (s.apartments ? "The budget assumes two apartments in each place, priced from the room rates below plus a cleaning fee, and hotel rooms for the single last night in Athens, because one-night apartment stays are rarely offered. These are budget assumptions, not listings. Confirm the legal occupancy and the actual beds, especially three real beds for Jennifer, Avery, and Ryder."
+      : "Booking calendars open about a year ahead, so these are what to look for and what the budget assumes, not reservations.") + "</p>" + ul([
+      "<b>Athens.</b> Koukaki, Makrygianni, or Plaka. Must-haves: an elevator or a ground floor, strong air conditioning, and a street a taxi can reach. The budget assumes " + eur(num(s.hotelAthens, 130)) + " a room a night.",
+      "<b>Naxos.</b> Agios Georgios beach, at the edge of Naxos Town, gives Mom a level walk to the sand, the port, and the old town. Family-run studios and apartments with kitchens are common. The budget assumes " + eur(num(s.hotelNaxos, 120)) + ".",
+      skipS ? "" : "<b>Santorini.</b> Sleep away from the caldera. Karterados and the back streets of Fira are a short bus or taxi ride from the cliff path. Kamari and Perissa, the black-sand beach villages, have the lowest prices and frequent buses. Places there are usually at ground level or one floor up, which suits Mom far better than cliffside hotels built down staircases. The budget assumes " + eur(num(s.hotelSantorini, 150)) + ", which is an estimate.",
+      "<b>For Mom, every time:</b> filter for a ground floor or an elevator, air conditioning in every bedroom, and a walk-in shower, and read the reviews for stairs. A kitchen also trims the food bill: breakfast at home and two or three cooked dinners per stay."].filter(Boolean));
+    h += '<h2 class="sec">Good to know</h2>' + ul([
+      "<b>Coverage.</b> " + (s.insurance === "none" ? "No travel insurance is in the budget. Medicare usually does not pay for care outside the United States, so price a medical policy for Mom before deciding, and check whether she has a Medigap plan with the foreign travel emergency benefit." : s.insurance === "mom" ? "The budget covers a travel medical policy for Mom only, because Medicare usually does not pay for care outside the United States. Make sure it includes medical evacuation, and get a real quote. Everyone else should check what their own health plan covers abroad. Nothing protects the prepaid flights and lodging, so book terms you can afford to cancel." : s.insurance === "medical" ? "The budget includes a travel medical allowance for all seven, with a higher amount for Mom. It does not include trip cancellation cover. Every premium needs a real quote." : "Comprehensive cover is estimated. Buy it with the flights: a pre-existing condition waiver usually requires buying within 14 to 21 days of the first trip payment. Make sure Mom's policy includes medical evacuation.") + ' <a href="https://www.medicare.gov/coverage/travel-outside-the-u.s." target="_blank" rel="noopener">Medicare on travel abroad</a>.',
+      "<b>Heat.</b> Hats, electrolyte packets, and cooling towels for everyone. If the Acropolis closes at midday, an 8:00 am slot is unaffected.",
+      "<b>Wind.</b> The summer meltemi can delay or cancel the fast ferries, so the plan uses the big conventional ships and spends the last night in Athens.",
+      "<b>Strikes.</b> Greek transport strikes are usually announced a few days ahead. The buffer night protects the flight home.",
+      "<b>Passports.</b> Each must be valid at least three months past the flight home (aim for six) and be less than 10 years old. Passports issued to children under 16 last only five years.",
+      "<b>At the border.</b> Europe's Entry/Exit System takes fingerprints and a photo on first arrival, and the ETIAS travel authorization (" + EUR + "20 for ages 18 to 70, free for younger travelers and for Mom) will almost certainly be required. Apply only on the official EU site.",
+      skipS ? "" : "<b>Santorini.</b> A swarm of earthquakes in early 2025 led many people to leave the island for several weeks. Bookings you can cancel are the protection.",
+      "<b>Money.</b> When a card machine offers to charge in dollars, always choose euros. Use a card with no foreign transaction fee, and bank ATMs instead of the Euronet machines.",
+      '<b>Emergencies.</b> The number in Greece and all of the EU is 112. <a href="https://travel.state.gov/en/international-travel/travel-advisories/greece.html" target="_blank" rel="noopener">Official US travel information for Greece</a>.'].filter(Boolean));
+    h += '<h2 class="sec">What this plan leaves out</h2>' + ul([
+      "<b>Paid extras.</b> Guides, private drivers, a sunset cruise, and a cooking class are switched off" + (s.dials.skipDelphi ? ", and so is the Delphi day trip" : "") + ". Turn any of them on under Adjust the plan to see what they cost.",
+      "<b>Meteora and Olympia.</b> Each is about four hours from Athens and would cost a night or two.",
+      "<b>Mycenae, Epidaurus, and Nafplio.</b> The strongest omission. If anyone can add two nights, put Nafplio between Athens and the islands.",
+      "<b>Mykonos, Delos, and Crete.</b> Delos has no shade at all, Mykonos in summer is among the most crowded and expensive islands, and Crete deserves a trip of its own."]);
+    return h;
+  }
+  function budgetHTML(s, D) {
+    var m = D.model, P = m.parts, h = '<h2 class="sec first">What each household pays</h2><p>Jennifer covers herself, Avery and Ryder. Matthew covers himself. Chris covers himself and his friend. Each also pays one third of Mom. Totals include a ' + num(s.cushion, 10) + '% reserve.</p>', rows = '';
+    CATS.forEach(function (c) { var total = cents(PAYERS.reduce(function (n, p) { return n + m.table[p][c]; }, 0)); if (!total && (c === 'activities' || c === 'insurance')) return; rows += '<tr><td>' + CAT_LABEL[c] + '</td>' + PAYERS.map(function (p) { return '<td>' + money(m.table[p][c]) + '</td>'; }).join('') + '<td>' + money(total) + '</td></tr>'; });
+    (s.extras || []).forEach(function (x) { var sh = splitExtra(x); rows += '<tr><td>' + esc(x.name || 'Extra purchase') + '</td>' + PAYERS.map(function (p) { return '<td>' + money(sh[p]) + '</td>'; }).join('') + '<td>' + money(x.amount) + '</td></tr>'; });
+    rows += '<tr class="total"><td>Total</td>' + D.payers.map(function (p) { return '<td>' + money(p.goal) + '</td>'; }).join('') + '<td>' + money(D.goal) + '</td></tr><tr class="sub"><td>Monthly</td>' + D.payers.map(function (p) { return '<td>' + money(p.monthly) + '</td>'; }).join('') + '<td>' + money(D.payers.reduce(function (n, p) { return n + p.monthly; }, 0)) + '</td></tr>';
+    h += '<div class="scroll"><table class="tbl"><thead><tr><th>Expense</th><th>Jennifer</th><th>Matthew</th><th>Chris</th><th>Family</th></tr></thead><tbody>' + rows + '</tbody></table></div><p class="hint">Displayed budgets are rounded to dollars; calculations retain cents. Monthly targets also account for the payment deadlines and round up to $5.</p>';
+    var cushionTotal = 0; PAYERS.forEach(function (y) { cushionTotal += m.table[y].contingency; });
+    var juneTrip = parseISO(s.tripDate).getMonth() === 5;
+    h += '<h2 class="sec">Ways to save more</h2><p>Biggest first. Amounts are for the whole family and reflect your current choices. The switches are under Adjust the plan.</p>' + ul([
+      s.apartments ? "<b>Two apartments instead of four hotel rooms.</b> Already switched on, and saving about " + costOf("apartments") + ". A kitchen trims the food bill too, and a shared terrace beats four separate hotel rooms. The catch is stairs: filter hard for a ground floor or an elevator for Mom."
+        : "<b>Two apartments instead of four hotel rooms.</b> Saves about " + costOf("apartments") + ", and a kitchen trims the food bill too. The catch is stairs: filter hard for a ground floor or an elevator for Mom.",
+      "<b>Mom and Matthew share a bedroom.</b> " + (s.momShares ? "Switched on, and saving about " : "Saves about ") + costOf("momShares") + ". Only if they both want it.",
+      "<b>Real quotes beat estimates.</b> Flights are the largest line, so fare alerts from the day the schedule opens matter more than any other cut. Replace each allowance with a real price as soon as you have one. Miles are a bonus, not a plan: do not count on award seats, card bonuses, or free lodging to make the trip affordable.",
+      juneTrip ? "<b>Earlier in June is cheaper.</b> You are already ahead of the July peak. Prices and crowds climb week by week through June, and the room rates here are still July-level estimates, so real June prices may come in lower."
+        : "<b>Go in June.</b> Lodging is usually cheaper than in July, the islands are quieter, and it is cooler for Mom.",
+      "<b>The ferry back to Athens</b> " + (s.dials.ferryBack ? "is switched on, saving about " : "saves about ") + costOf("dial.ferryBack") + ", at the price of a long day on the water right before the flight home.",
+      s.dials.skipSantorini ? "<b>Santorini is switched off</b>, saving about " + costOf("dial.skipSantorini") + ". It is the one cut that takes something irreplaceable out of the trip." : "<b>Last resort: skip Santorini.</b> Saves about " + costOf("dial.skipSantorini") + ", and takes the most memorable two days out of the trip.",
+      "<b>Ordinary meals.</b> Groceries, bakeries, picnics, and simple tavernas fit the daily food allowance. No paid photographer, guide, class, or cruise is needed for this to be special.",
+      "<b>The cushion comes back.</b> The safety cushion, about " + money(cushionTotal) + ", is only spent if something goes wrong. Whatever is left is returned in the same shares it was paid."]);
+    h += '<h2 class="sec">Prices and assumptions</h2><p>Inputs below use ' + num(s.priceYear, 2026) + ' prices. The model adds ' + num(s.airInflation, 3) + '% per year to international airfare and ' + num(s.landInflation, 4) + '% to other costs for ' + m.years + ' years, then converts euros at $' + num(s.fx, 1.18) + '. If you enter final trip-year quotes, set the price year to the trip year. Custom purchases are already trip-year USD.</p>';
+    h += '<h3 class="sub">International flights</h3><ul class="items"><li><span>Chicago: Mom, Jennifer, Avery, Ryder</span><span>4 × ' + money(s.airfareChicago) + '</span></li><li><span>Bay Area via Chicago: Matthew, Chris, his friend</span><span>3 × ' + money(s.airfareBayArea) + '</span></li></ul><p class="hint">Per-person round trips, with bags and standard seat selection budgeted. Economy is the default; Mom’s premium upgrade is optional. Rates are allowances, not airline quotes.</p>';
+    h += '<h3 class="sub">Lodging</h3><p>';
+    if (s.apartments) h += apartmentsFor(s).map(function (a, i) { return 'Apartment ' + (i + 1) + ': ' + a.bedrooms.map(function (r) { return r.map(function (p) { return p === 'Friend' ? 'friend' : p; }).join(' + '); }).join('; ') + '.'; }).join(' ') + ' Costs are divided by bedroom, then by its occupants. The final Athens night uses the hotel arrangement below.';
+    else h += 'Hotel rooms throughout.';
+    h += '</p><p class="hint">' + roomsFor(s).map(function (r) { return r[0].join(' + '); }).join('; ') + '. Mom’s portion is then split three ways.</p><ul class="items">';
+    ['Athens','Naxos','Santorini'].forEach(function (c) { if (P.nights[c]) h += '<li><span>' + c + ', ' + P.nights[c] + ' nights</span><span>' + eur(P.rate[c]) + ' base room/night</span></li>'; });
+    h += '</ul><p class="hint">Hotel levy: ' + eur(s.hotelLevy) + ' per room/night. Apartment levy: ' + eur(s.apartmentLevy) + ' per unit/night, plus ' + eur(s.cleaningFee) + ' cleaning per stay. These adjustable allowances depend on the actual property and rules; they do not change automatically with room price.</p>';
+    h += '<h3 class="sub">Transport in Greece</h3><ul class="items">' + P.pp.map(function (x) { return '<li><span>' + x[0] + '</span><span>' + eur(x[1]) + ' each</span></li>'; }).join('') + P.gt.map(function (x) { return '<li><span>' + x[0] + '</span><span>' + eur(x[1]) + ' group</span></li>'; }).join('') + '</ul>';
+    if (P.acts.length) h += '<h3 class="sub">Selected paid extras</h3><ul class="items">' + P.acts.map(function (x) { return '<li><span>' + x[0] + '</span><span>' + eur(x[1]) + ' group</span></li>'; }).join('') + '</ul>';
+    h += '<h3 class="sub">Food and admission</h3><p>' + eur(s.foodPerDay) + ' per person per day, including breakfast, for ten days. Meals included in selected activities are deducted. All seven use adult ticket allowances until individual eligibility is confirmed.</p><ul class="items">' + P.tickets.map(function (x) { return '<li><span>' + x[0] + '</span><span>' + eur(x[1]) + ' each</span></li>'; }).join('') + '</ul>';
+    h += '<h3 class="sub">US travel and other costs</h3><p>Home-airport access: Jennifer ' + money(s.homeJennifer) + ', Matthew ' + money(s.homeMatthew) + ', Chris ' + money(s.homeChris) + ', Mom ' + money(s.homeMom) + '. Mom’s amount is shared equally. ' + (s.chicagoNight ? 'The Chicago overnight adds two rooms at ' + money(s.chicagoRoom) + ', ' + money(s.chicagoFood) + ' food per Bay Area traveler and ' + money(s.chicagoRides) + ' shared rides, charged only to Matthew and Chris.' : 'The same-day Chicago connection includes no Chicago hotel. Switch on a day-before arrival to budget lodging, meals and rides.') + '</p><p>Tips: ' + eur(s.groupTips) + ' for the group. Phone data, laundry and small essentials: ' + money(s.miscEach) + ' each. Add necessary passport renewals or other omitted costs as purchases.</p>';
+    h += '<h3 class="sub">Insurance</h3><p>' + (s.insurance === 'none' ? 'No allowance selected.' : s.insurance === 'medical' || s.insurance === 'mom' ? 'Medical and evacuation allowance: ' + money(s.medicalMom) + ' for Mom' + (s.insurance === 'medical' ? ' and ' + money(s.medicalOther) + ' for each other traveler.' : ' only.') + ' These are provisional premiums requiring age- and policy-specific quotes. Cancellation cover is excluded.' : 'Comprehensive allowance: 12% of modeled prepaid costs for Mom and 7% for others. Obtain exact quotes and check terms.') + '</p>';
+    h += '<h2 class="sec">Source checks</h2><p>The inputs are planning allowances. Recheck transport schedules, property access and prices before paying. Useful references: <a href="https://www.theacropolismuseum.gr/en/plan-your-visit" target="_blank" rel="noopener">Acropolis Museum tickets and access</a>, <a href="https://www.visitgreece.gr/en/islands/cyclades/naxos" target="_blank" rel="noopener">Naxos tourism information</a>, <a href="https://travel.state.gov/en/international-travel/travel-advisories/greece.html" target="_blank" rel="noopener">official Greece travel information</a>. Discounts vary by site, age and eligibility.</p>';
+    return h;
+  }
+
+  /* ----- the shared checklist ----- */
+  function todoItems(s) {
+    var trip = parseISO(s.tripDate), start = parseISO(s.startDate), d = s.dials, mb = function (k) { return addMonths(trip, -k); };
+    var span = function (a, b) { var x = fmtMonth(mb(a)), y = fmtMonth(mb(b)); return x === y ? x : x + " to " + y; };
+    return [
+      { id: "agree", from: start, to: addMonths(start, 1), when: fmtMonth(start), what: "Agree on this plan and how lean to go. Jennifer and Matthew schedule transfers to Chris. Chris records those receipts and his own contributions, then records every trip expense separately." },
+      { id: "airline", from: start, to: addMonths(start, 3), when: fmtMonth(start) + " to " + fmtMonth(addMonths(start, 3)), what: "Pick one airline, United or American, and put everyday spending and flights toward it. Treat any free ticket as a bonus, not as part of the budget." },
+      { id: "rooms", from: start, to: addMonths(start, 3), when: fmtMonth(start) + " to " + fmtMonth(addMonths(start, 3)), what: "Decide the rooms: whether Mom and Matthew share, and whether Avery and Ryder will still share with Jennifer by then. Ask Mom for an honest read on her walking range and stairs." },
+      { id: "passports", from: mb(30), to: mb(19), when: span(30, 19), what: "Check every passport. Each must be valid at least three months past the flight home (aim for six) and be less than 10 years old. Children's passports last only five years." },
+      { id: "calendar", from: mb(18), to: mb(13), when: span(18, 13), what: "Confirm the school calendar for Avery and Ryder and confirm ten days in Greece plus travel from each home airport. Re-price the budget." },
+      { id: "flights", from: mb(11), to: mb(9), when: span(11, 9), what: "Flights go on sale about 11 months ahead. Book all seven on the same Chicago to Athens nonstop, the Bay Area three connecting from SFO on one ticket, with aisle seats near the front for Mom and wheelchair assistance requested." + (s.insurance === "full" ? " Buy travel insurance at the same time." : s.insurance === "mom" ? " Buy Mom's medical travel policy at the same time." : s.insurance === "medical" ? " Buy the travel medical policies at the same time." : "") },
+      { id: "hotels", from: mb(10), to: mb(7), when: span(10, 7), what: (s.apartments ? "Book the apartments on free-cancellation terms as soon as dates open, and the hotel rooms for the last night in Athens. " : "Book hotels on free-cancellation rates as the calendars open. ") + (d.skipSantorini ? "Naxos first, then Athens." : "Santorini first, then Naxos, then Athens.") + " Confirm elevators or ground floors, air conditioning, and the number of steps to each room." },
+      { id: "island", from: mb(6), to: mb(4), when: span(6, 4), what: (d.flyToNaxos && !d.ferryBack ? "Book the flights to Naxos and back to Athens while fares are low." : d.flyToNaxos ? "Book the flight to Naxos while fares are low." : d.ferryBack ? "" : "Book the island flight back to Athens while fares are low.") + (d.privateDrivers ? " Reserve the drivers." : " Check the village bus timetable, or reserve the van if that option is selected.") + (d.guides ? " Reserve the guides." : "") + (d.sunsetCruise && !d.skipSantorini ? " Reserve the sunset cruise." : "") + (d.cookingClass ? " Reserve the cooking class." : "") },
+      { id: "ferries", from: mb(4), to: mb(2), when: span(4, 2), what: (function () { var n = (d.flyToNaxos ? 0 : 1) + (d.skipSantorini ? 0 : 1) + (d.ferryBack ? 1 : 0); return n === 0 ? "" : "Book the Blue Star " + (n === 1 ? "ferry" : "ferries") + (d.skipSantorini ? "" : d.ferryBack ? " and both Santorini port transfers" : " and the Santorini port transfer") + " when the summer schedule is published. "; })() + "Mom sees her doctor about heat, medications, and the long flight." },
+      { id: "tickets", from: mb(2), to: mb(0), when: span(2, 1), what: "Apply for ETIAS on the official EU site if it is in force. Buy timed Acropolis tickets at hhticket.gr as soon as the date is on sale, plus Acropolis Museum tickets." + (d.skipDelphi || d.privateDrivers ? "" : " Buy the Delphi coach tickets.") + " Everyone downloads the free audio tours. Set up phone data. Share one page of confirmations with everyone." },
+      { id: "reconfirm", from: addDays(trip, -7), to: trip, when: "One week out", what: "Reconfirm the ferries, the flights, and any booked transfers. Watch the forecast for heat and wind and shuffle days if needed." }
+    ].map(function (x) { x.what = x.what.replace(/^\s+/, ""); return x; });
+  }
+  function todoHTML(s) {
+    var now = today(), items = todoItems(s), done = items.filter(function (x) { return state.todo[x.id]; }).length;
+    var h = '<h2 class="sec first">What to do, and when</h2><p>' + done + " of " + items.length + " done. " + (editorMode ? "Tick a box, then publish." : canSave ? "Tick a box and it saves for everyone." : "Chris ticks these off as they get done.") + '</p><ul class="todo">';
+    items.forEach(function (x) {
+      var isDone = !!state.todo[x.id], cls = isDone ? "done" : now > x.to ? "late" : now >= x.from ? "now" : "";
+      h += '<li class="' + cls + '"><input type="checkbox" id="todo-' + x.id + '" data-todo="' + x.id + '"' + (isDone ? " checked" : "") + (canSave ? "" : " disabled") + '><label for="todo-' + x.id + '"><span class="when">' + esc(x.when) + (cls === "now" ? ", now" : cls === "late" ? ", overdue" : "") + '</span><span class="what">' + esc(x.what) + "</span></label></li>";
+    });
+    return h + "</ul>";
+  }
+
+  function renderMain() {
+    var s = settings(), D = derive(s, state.payments, today(), state.spending), h = "";
+    h += '<h1 class="sr-only">Greece with Mom: the family trip plan and savings tracker</h1>';
+    h += '<nav class="tabs" aria-label="Sections">' + TABS.map(function (t) { return '<button data-act="tab" data-tab="' + t[0] + '"' + (tab === t[0] ? ' aria-current="page"' : "") + ">" + t[1] + "</button>"; }).join("") + "</nav>";
+    if (editorMode) {
+      h += '<div class="edbar" role="status"><span><b>Editor mode.</b> ' + (unpublished() ? "Your changes are saved in this browser but are not on the site yet." : "This copy has no unpublished local edits. Refresh the family link after a deployment to confirm it.") + "</span><span>" +
+        (ghConfig().token ? '<button class="btn small' + (unpublished() ? " primary" : "") + '" data-act="gh-publish">Publish to the site</button>' : "") +
+        '<button class="btn small' + (unpublished() && !ghConfig().token ? " primary" : "") + '" data-act="download-page">Download the page</button><button class="btn small" data-act="open-gh">Publish settings</button></span></div>';
+    }
+    if (dirty()) {
+      h += '<div class="trybar" role="status"><span>' + (canSave ? "You changed the plan. It is not saved yet." : "You are trying a change. Nothing is saved.") + "</span><span>" +
+        (canSave ? '<button class="btn small primary" data-act="save-plan">' + (editorMode ? "Save changes" : "Save for everyone") + '</button>' : "") +
+        '<button class="btn small" data-act="discard">Undo changes</button></span></div>';
+    }
+    h += '<main class="view view-' + tab + '">' + (tab === "trip" ? tripHTML(s) : tab === "budget" ? budgetHTML(s, D) : tab === "todo" ? todoHTML(s) : savingsHTML(D)) + "</main>";
+    h += '<p class="fine">Costs are planning estimates projected from the selected price year. ' +
+      "The total reflects the options currently selected" + (s.insurance === "none" ? ", with no travel insurance. " : ". ") + (editorMode ? "Editor mode: what you record stays in this browser until you publish it. " : canSave ? "You can record payments and save plan changes." : "Chris records the payments. Anyone can try plan changes to see what they do.") +
+      (state.updated ? " Last saved " + esc(fmtDay(new Date(state.updated))) + "." : "") + "</p>";
+    h += '<div class="actionbar">' + (canSave ? '<button class="btn primary" data-act="open-pay">Record payments</button>' : "") +
+      '<button class="btn" data-act="open-plan">Adjust the plan</button></div>' + musicButton();
+    $("#app").innerHTML = h;
+    if (tab !== "savings") return;
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        D.payers.forEach(function (p) { var el = $('[data-col="' + p.id + '"]'); if (el) el.style.height = p.pct + "%"; prevHeights[p.id] = p.pct; });
+        var ln = $("[data-line]"); if (ln) ln.style.bottom = D.expectedPct + "%"; prevHeights.line = D.expectedPct;
+      });
+    });
+  }
+
+  /* ---------- dialogs ---------- */
+  function dialog(id) {
+    var d = document.getElementById(id);
+    if (!d) { d = document.createElement("dialog"); d.id = id; document.body.appendChild(d); d.addEventListener("cancel", function () { if (id === "dlg-plan") renderMain(); }); }
+    return d;
+  }
+  function openDialog(d) { if (!d.open) { if (d.showModal) d.showModal(); else d.setAttribute("open", ""); } }
+  function closeDialog(d) { if (d.open) { if (d.close) d.close(); else d.removeAttribute("open"); } }
+
+  function renderPay() {
+    var D = derive(state.settings, state.payments, today(), state.spending), d = dialog("dlg-pay");
+    var h = '<div class="sheet"><h2>Record contributions</h2><p class="sub">Enter money Jennifer or Matthew paid to Chris, or Chris’s own contribution. Leave unused boxes empty.</p>' +
+      '<label class="field"><span>Date received</span><input type="date" id="pay-date" value="' + toISO(today()) + '"></label>';
+    D.payers.forEach(function (p) {
+      var sug = p.now;
+      h += '<div class="payrow"><label for="pay-' + p.id + '">' + esc(p.id) + '</label><span class="moneyin"><input inputmode="decimal" id="pay-' + p.id + '" data-pay="' + p.id + '" placeholder="0" autocomplete="off"></span>' +
+        '<button class="btn small" data-act="fill" data-who="' + p.id + '" data-amt="' + sug + '">Use ' + money(sug) + "</button></div>";
+    });
+    h += '<label class="field"><span>Note (optional)</span><input type="text" id="pay-note" maxlength="80" placeholder="For example: October deposit"></label>' +
+      '<p class="err" id="pay-err" role="alert"></p><div class="sheetbar"><button class="btn primary" data-act="save-pay">Record contributions</button><button class="btn" data-act="close-pay">Cancel</button></div></div>';
+    d.innerHTML = h; openDialog(d);
+  }
+
+  function spendingHTML(D) {
+    var rows=(state.spending||[]).slice().sort(function(a,b){return b.date.localeCompare(a.date);});
+    var h='<section><h2 class="sec">Trip spending</h2>'+(canSave?'<button class="btn small" data-act="open-spend">Record a trip expense</button>':'');
+    if(!rows.length)return h+'<p class="empty">No trip expenses recorded. Contributions stay credited after bookings are paid.</p></section>';
+    h+='<ul class="ledger">';
+    rows.forEach(function(x){var p=D.purchases.filter(function(p){return p.id===x.purchaseId;})[0];h+='<li><span class="when">'+esc(fmtDay(parseISO(x.date)))+'</span><span class="who">'+esc(p?p.name:'Unassigned expense')+(x.note?'<span class="note">'+esc(x.note)+'</span>':'')+'</span><span class="amt">'+moneyExact(x.amount)+'</span>'+(canSave?'<button class="link" data-act="remove-spend" data-id="'+esc(x.id)+'">Remove</button>':'')+'</li>';});
+    return h+'</ul></section>';
+  }
+  function renderSpend() {
+    var d=dialog('dlg-spend'),D=derive(state.settings,state.payments,today(),state.spending);
+    d.innerHTML='<div class="sheet"><h2>Record a trip expense</h2><p class="sub">Enter an actual payment from the trip fund. If Chris paid personally, record his contribution too. This reduces cash, not anyone’s contribution progress.</p><label class="field"><span>Purchase</span><select id="spend-purchase">'+D.purchases.map(function(x){return '<option value="'+esc(x.id)+'">'+esc(x.name)+'</option>';}).join('')+'</select></label><label class="field"><span>Date paid</span><input type="date" id="spend-date" value="'+toISO(today())+'"></label><label class="field"><span>Actual USD paid</span><span class="moneyin"><input inputmode="decimal" id="spend-amount" placeholder="0.00" autocomplete="off"></span></label><label class="field"><span>Supplier or note</span><input type="text" id="spend-note" maxlength="120" placeholder="For example: airline deposit"></label><p class="hint">Cash currently recorded: '+moneyExact(D.cash)+'. Use the actual USD charged, including currency conversion fees.</p><p class="err" id="spend-err" role="alert"></p><div class="sheetbar"><button class="btn primary" data-act="save-spend">Record expense</button><button class="btn" data-act="close-spend">Cancel</button></div></div>';
+    openDialog(d);
+  }
+  function saveSpend() {
+    if(!canSave)return;
+    var amount=numericInput($('#spend-amount').value),date=$('#spend-date').value,err=$('#spend-err');
+    if(!isFinite(amount)||amount<=0){err.textContent='Enter a positive amount with no more than two decimal places.';return;}
+    if(!validISO(date)||date>toISO(today())){err.textContent='Record an actual payment dated on or before today.';return;}
+    var next=clone(state);next.spending=next.spending||[];
+    next.spending.push({id:uid(),purchaseId:$('#spend-purchase').value,amount:cents(amount),date:date,note:$('#spend-note').value.trim()});
+    saveShared(next,'Expense recorded.',err);
+  }
+
+  function setKey(t, key, val) { if (key.indexOf("dial.") === 0) t.dials[key.slice(5)] = val; else t[key] = val; }
+  function effectLabel(key) {
+    var on = clone(settings()), off = clone(settings()); setKey(on, key, true); setKey(off, key, false);
+    var diff = derive(on, [], today()).goal - derive(off, [], today()).goal;
+    return diff === 0 ? "no change" : (diff < 0 ? "saves " : "adds ") + money(Math.abs(diff));
+  }
+  function sw(key, label, hint, on) {
+    return '<label class="switch"><input type="checkbox" role="switch" data-set="' + key + '"' + (on ? " checked" : "") + '><span class="track"></span><span class="txt"><span>' + esc(label) +
+      "</span>" + (hint ? '<small>' + esc(hint) + "</small>" : "") + '</span><em data-effect="' + key + '">' + esc(effectLabel(key)) + "</em></label>";
+  }
+  function renderPlan() {
+    var s = ensureDraft(), d = dialog("dlg-plan"), keepScroll = $(".sheetbody", d) ? $(".sheetbody", d).scrollTop : 0;
+    var h = '<div class="sheet"><h2>Adjust the plan</h2><p class="sub">' + (canSave ? "Every number updates as you go. Save when you are happy with it." : "Try changes to see what they do. Changes here are temporary. Chris publishes the shared copy.") + "</p>" +
+      '<div class="livesum" id="livesum"></div><div class="sheetbody">';
+
+    h += '<h3>Dates</h3><div class="grid2"><label class="field"><span>Depart O’Hare</span><input type="date" data-set="tripDate" value="' + esc(s.tripDate) + '"></label>' +
+      '<label class="field"><span>First deposit</span><input type="date" data-set="startDate" value="' + esc(s.startDate) + '"></label>' +
+      '<label class="field"><span>Finish saving by</span><input type="date" data-set="finishBy" value="' + esc(s.finishBy || toISO(autoLast(s))) + '"></label></div>' +
+      '<p class="hint" id="dephint"></p>';
+
+    h += "<h3>Rooms</h3>" +
+      sw("momShares", "Mom and Matthew share a room", "Updates hotel rooms and apartment bedrooms. Mom and Matthew split their bedroom cost.", s.momShares) +
+      sw("kidsOwnRoom", "Avery and Ryder get their own room", "Instead of a family room with Jennifer.", s.kidsOwnRoom);
+
+    h += "<h3>Ways to spend less</h3>";
+    SAVERS.forEach(function (x) { var top = x[0] === "apartments"; h += sw(top ? x[0] : "dial." + x[0], x[1], x[2], top ? s[x[0]] : s.dials[x[0]]); });
+    h += '<h3>Travel insurance</h3><label class="field"><span class="sr-only">Travel insurance</span><select data-set="insurance">' +
+      [["medical", "Medical and evacuation allowance for all seven"], ["mom", "Medical cover for Mom only"], ["full", "Comprehensive allowance for all seven"], ["none", "No insurance allowance"]].map(function (o) { return '<option value="' + o[0] + '"' + (s.insurance === o[0] ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") +
+      '</select></label><p class="hint" id="inshint"></p>';
+    h += '<h3>Extras you can add</h3><p class="hint flights">Only selected extras are included. They are optional.</p>';
+    EXTRAS.forEach(function (x) { h += sw("dial." + x[0], x[1], x[2], s.dials[x[0]]); });
+
+    h += '<h3>Prices</h3><p class="hint flights">All seven share the nonstop from Chicago O\'Hare to Athens. Matthew, Chris, and Friend fly in from SFO to join it. Fares are per person, round trip. Hotel and food prices are in euros. Rates use the price year below; adjust it when entering newer quotes.</p>' +
+      '<div class="grid2"><label class="field"><span>Airfare from Chicago</span><span class="moneyin"><input inputmode="decimal" data-set="airfareChicago" value="' + esc(s.airfareChicago) + '"></span></label>' +
+      '<label class="field"><span>Airfare from the Bay Area</span><span class="moneyin"><input inputmode="decimal" data-set="airfareBayArea" value="' + esc(s.airfareBayArea) + '"></span></label>' +
+      '<label class="field"><span>Athens room, a night</span><span class="moneyin euro"><input inputmode="decimal" data-set="hotelAthens" value="' + esc(s.hotelAthens) + '"></span></label>' +
+      '<label class="field"><span>Naxos room, a night</span><span class="moneyin euro"><input inputmode="decimal" data-set="hotelNaxos" value="' + esc(s.hotelNaxos) + '"></span></label>' +
+      '<label class="field"><span>Santorini room, a night</span><span class="moneyin euro"><input inputmode="decimal" data-set="hotelSantorini" value="' + esc(s.hotelSantorini) + '"></span></label>' +
+      '<label class="field"><span>Food per adult, a day</span><span class="moneyin euro"><input inputmode="decimal" data-set="foodPerDay" value="' + esc(s.foodPerDay) + '"></span></label>' +
+      '<label class="field"><span>Dollars per euro</span><input inputmode="decimal" data-set="fx" value="' + esc(s.fx) + '"></label>' +
+      '<label class="field"><span>Safety cushion, percent</span><input inputmode="decimal" data-set="cushion" value="' + esc(s.cushion) + '"></label></div>';
+
+    h += '<h3>Travel setup</h3><label class="field"><span>Bay Area airport to price</span><select data-set="bayAirport">' + ['SFO','OAK'].map(function(x){return '<option'+(s.bayAirport===x?' selected':'')+'>'+x+'</option>';}).join('') + '</select></label>' + sw('chicagoNight','Arrive in Chicago the day before','Two rooms for the Bay Area three. Set the room rate to zero only if family hosting is confirmed.',s.chicagoNight);
+    h += '<details><summary class="hint">More price settings</summary><div class="grid2">';
+    [['priceYear','Price year'],['airInflation','Airfare inflation, % per year'],['landInflation','Other inflation, % per year'],['hotelLevy','Hotel levy, EUR per room/night'],['apartmentLevy','Apartment levy, EUR per unit/night'],['cleaningFee','Apartment cleaning, EUR per stay'],['medicalMom','Mom medical premium, USD'],['medicalOther','Other medical premium, USD each'],['homeJennifer','Jennifer home-airport access, USD'],['homeMatthew','Matthew home-airport access, USD'],['homeChris','Chris home-airport access, USD'],['homeMom','Mom home-airport access, USD'],['chicagoRoom','Chicago room incl. tax, USD/night'],['chicagoFood','Chicago food, USD per person'],['chicagoRides','Chicago local rides, USD group'],['groupTips','Tips, EUR group'],['miscEach','Data and small essentials, USD each']].forEach(function(x){h+='<label class="field"><span>'+esc(x[1])+'</span><input inputmode="decimal" data-set="'+x[0]+'" value="'+esc(s[x[0]])+'"></label>';});
+    h += '</div></details><p class="hint">Changing departure updates the on-trip deadline. Other booking deadlines stay as entered.</p>';
+    h += '<h3>What we buy, and when</h3><p class="hint">Amounts marked auto come from the budget and move with your choices. Add costs not already in the budget. Record actual spending on the Savings tab; a checkbox is not a payment.</p>';
+    s.purchases.forEach(function (x, i) {
+      h += '<div class="buy"><input type="text" aria-label="Purchase name" data-buy="' + i + '" data-k="name" value="' + esc(x.name) + '"><div class="buyrow"><input type="date" aria-label="Buy by" data-buy="' + i + '" data-k="date" value="' + esc(x.date) + '">' +
+        '<span class="auto" data-auto="' + esc(x.id) + '"></span>' + "</div></div>";
+    });
+    s.extras.forEach(function (x, i) {
+      h += '<div class="buy extra"><input type="text" aria-label="Purchase name" placeholder="What is it?" data-extra="' + i + '" data-k="name" value="' + esc(x.name) + '"><div class="buyrow"><input type="date" aria-label="Buy by" data-extra="' + i + '" data-k="date" value="' + esc(x.date) + '">' +
+        '<span class="moneyin"><input inputmode="decimal" aria-label="Amount" data-extra="' + i + '" data-k="amount" value="' + esc(x.amount || "") + '" placeholder="0"></span></div><div class="buyrow who"><select aria-label="Who pays" data-extra="' + i + '" data-k="split">' +
+        SPLITS.map(function (o) { return '<option value="' + o[0] + '"' + (x.split === o[0] ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select>" +
+        
+        '<button class="link" data-act="remove-extra" data-i="' + i + '">Remove</button></div></div>';
+    });
+    h += '<button class="btn small" data-act="add-extra">Add a purchase</button>';
+    h += '<p class="hint reset"><button class="link" data-act="defaults">Restore the original plan</button></p></div>';
+    h += '<p class="err" id="plan-err" role="alert"></p><div class="sheetbar">' + (canSave ? '<button class="btn primary" data-act="save-plan">' + (editorMode ? "Save changes" : "Save for everyone") + '</button><button class="btn" data-act="discard">Discard changes</button>'
+      : '<button class="btn primary" data-act="close-plan">Done</button><button class="btn" data-act="discard">Reset</button>') + "</div></div>";
+    d.innerHTML = h; openDialog(d);
+    $(".sheetbody", d).scrollTop = keepScroll;
+    refreshPlan();
+  }
+  function validatePlanInputs(){
+    var issue='',dialog=document.getElementById('dlg-plan');if(!dialog)return issue;
+    Array.prototype.forEach.call(dialog.querySelectorAll('input[data-set]'),function(el){if(el.type==='date'||el.type==='checkbox')return;var v=configNumber(el.value);if(!isFinite(v)||v<0)issue='Correct the invalid price or rate before saving.';});
+    Array.prototype.forEach.call(dialog.querySelectorAll('input[data-extra][data-k="amount"]'),function(el){if(el.value.trim()&&!isFinite(numericInput(el.value)))issue='Correct the invalid purchase amount before saving.';});return issue;
+  }
+  function refreshPlan() {
+    var d = document.getElementById("dlg-plan"); if (!d || !d.open) return;
+    var s = settings(), D = derive(s, state.payments, today(), state.spending);
+    $("#livesum", d).innerHTML = D.payers.map(function (p) { return "<div><span>" + esc(p.id) + "</span><strong>" + money(p.monthly) + "</strong><small>a month</small></div>"; }).join("") +
+      "<div><span>Whole trip</span><strong>" + money(D.goal) + "</strong><small>for seven</small></div>";
+    $("#dephint", d).textContent = D.deposits.n + " monthly deposits, from " + fmtDay(D.deposits.first) + " to " + fmtDay(D.deposits.last) + "." + (s.finishBy ? " Clear the date to go back to the default." : "");
+    var insOff = clone(s), insMom = clone(s), insFull = clone(s); insOff.insurance = "none"; insMom.insurance = "mom"; insFull.insurance = "full";
+    var g0 = derive(insOff, [], today()).goal;
+    $("#inshint", d).textContent = "Medicare generally does not pay for care outside the United States. Medical cover for Mom adds about " + money(derive(insMom, [], today()).goal - g0) +
+      ". Comprehensive cover adds about " + money(derive(insFull, [], today()).goal - g0) + ". All premiums require policy-specific quotes; coverage and exclusions vary.";
+    document.getElementById("plan-err").textContent = D.dateIssue;
+    Array.prototype.forEach.call(d.querySelectorAll("[data-auto]"), function (el) { el.textContent = money(D.buy[el.getAttribute("data-auto")] || 0) + " auto"; });
+    Array.prototype.forEach.call(d.querySelectorAll("[data-effect]"), function (el) {
+      el.textContent = effectLabel(el.getAttribute("data-effect"));
+    });
+  }
+  function shiftDates(s, oldTrip, newTrip) {
+    s.purchases.forEach(function(x) { if(x.id==='onTrip' && !x.bought) x.date=newTrip; });
+  }
+
+  /* ---------- saving: publish a new version of this page ---------- */
+  function toast(msg, sticky) {
+    var t = document.getElementById("toast");
+    if (!t) { t = document.createElement("div"); t.id = "toast"; t.setAttribute("role", "status"); t.setAttribute("aria-live", "polite"); document.body.appendChild(t); }
+    t.textContent = msg; t.className = "show"; clearTimeout(toast.timer);
+    if (!sticky) toast.timer = setTimeout(function () { t.className = ""; }, 4200);
+  }
+  function stash(k, v) { try { if (v == null) sessionStorage.removeItem(k); else sessionStorage.setItem(k, JSON.stringify({ m: v, t: Date.now() })); } catch (e) {} }
+  function saveShared(next, doneMsg, errEl, isRetry) {
+    if (saving && !isRetry) return Promise.resolve(false);
+    if (editorMode) {
+      var other=lsGet('gwm.local');
+      if(other && (other.rev||0)>(state.rev||0)){var conflict='Another tab has newer changes. Download this draft as a backup, then reload before recording more.';if(errEl)errEl.textContent=conflict;else toast(conflict,true);return Promise.resolve(false);}
+      if(!lsGet('gwm.base'))lsSet('gwm.base',publishedSnapshot);
+      next.rev = (state.rev || 0) + 1; next.updated = new Date().toISOString();
+      if (!lsSet("gwm.local", next)) { var m0 = "This browser would not store the change. Check that private browsing is off."; if (errEl) errEl.textContent = m0; else toast(m0); return Promise.resolve(false); }
+      state = next; draft = null;
+      ["dlg-pay", "dlg-plan", "dlg-spend"].forEach(function (id) { var d = document.getElementById(id); if (d) closeDialog(d); });
+      renderMain(); toast(doneMsg + " Publish when you are ready.");
+      return Promise.resolve(true);
+    }
+    if (!artifactNs) { if (errEl) errEl.textContent = "Saving is not available in this view."; return Promise.resolve(false); }
+    saving = true; document.body.classList.add("saving");
+    next.rev = (state.rev || 0) + 1; next.updated = new Date().toISOString();
+    var html = buildDocument(next, $("#app-css").textContent, $("#app-js").textContent);
+    stash("gwm.toast", doneMsg); stash("gwm.tab", tab);
+    return artifactNs.publish(html).then(function () {
+      saving = false; document.body.classList.remove("saving");
+      state = next; draft = null;
+      ["dlg-pay", "dlg-plan", "dlg-spend"].forEach(function (id) { var d = document.getElementById(id); if (d) closeDialog(d); });
+      renderMain(); toast(doneMsg);
+      return true;
+    }, function (e) {
+      var code = (e && e.code) || "upstream_error";
+      stash("gwm.toast", null);
+      if (code === "upstream_error" && !isRetry) {
+        return new Promise(function (res) { setTimeout(res, 900 + Math.random() * 900); }).then(function () { return saveShared(next, doneMsg, errEl, true); });
+      }
+      saving = false; document.body.classList.remove("saving");
+      var msg = "That did not save. Check your connection and try again.";
+      if (code === "conflict") { msg = "Someone saved a change a moment ago. The page is refreshing; enter this again afterward."; stash("gwm.toast", "A newer version loaded. Your last change was not saved, so enter it again."); }
+      else if (code === "rate_limited") msg = "Saving too often. Wait a minute, then try again.";
+      else if (code === "too_large" || code === "invalid_content" || code === "transform_error") msg = "The page could not be saved in this form. Ask Claude to take a look.";
+      else if (code !== "upstream_error") { canSave = false; msg = "This view is read only. Only Chris can save changes."; renderMain(); }
+      if (errEl) errEl.textContent = msg; else toast(msg);
+      return false;
+    });
+  }
+
+  function downloadPage() {
+    if(dirty()){toast("Save or discard plan changes before downloading.");return;}
+    var a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([pageHTML()], { type: "text/html" })); a.download = "index.html";
+    document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+    toast("Downloaded index.html. Upload it to the site in place of the old one.");
+  }
+  function ghPublish() {
+    if(saving)return;
+    if(dirty()){toast('Save or discard the plan changes before publishing.');return;}
+    var g=ghConfig();if(!g.token){renderGh();return;}
+    if(!g.owner||!g.repo||!g.branch||!g.path){toast('Complete the publish settings first.');return;}
+    var api='https://api.github.com/repos/'+encodeURIComponent(g.owner)+'/'+encodeURIComponent(g.repo)+'/contents/'+g.path.split('/').map(encodeURIComponent).join('/');
+    var headers={Authorization:'Bearer '+g.token,Accept:'application/vnd.github+json','Content-Type':'application/json'};
+    var pendingHTML=pageHTML(),pendingState=clone(state),expected=lsGet('gwm.base')||publishedSnapshot;
+    saving=true;document.body.classList.add('saving');toast('Checking the published copy...',true);
+    fetch(api+'?ref='+encodeURIComponent(g.branch),{headers:headers,cache:'no-store'})
+      .then(function(r){if(r.status===404)return null;if(!r.ok)throw new Error('GitHub returned '+r.status+' while reading the file.');return r.json();})
+      .then(function(cur){
+        if(cur){
+          if(!cur.content||cur.encoding!=='base64')throw new Error('The existing page could not be checked. Download your draft and compare it with the site before replacing it.');
+          var bytes=Uint8Array.from(atob(cur.content.replace(/\s/g,'')),function(c){return c.charCodeAt(0);});
+          var html=new TextDecoder().decode(bytes),match=/<script\b[^>]*\bid=["']app-state["'][^>]*>([\s\S]*?)<\/script>/i.exec(html);
+          if(!match)throw new Error('The existing file is not a recognized trip page. Check the repository and path.');
+          var remote=JSON.stringify(normalize(JSON.parse(match[1])));
+          if(remote!==expected && remote!==JSON.stringify(normalize(pendingState)))throw new Error('The site has a different saved version. Download this draft as a backup, then reload the latest site and reconcile the records. Nothing was overwritten.');
+        }
+        var bytes=new TextEncoder().encode(pendingHTML),binary='';bytes.forEach(function(b){binary+=String.fromCharCode(b);});
+        var body={message:'Update the Greece trip page',content:btoa(binary),branch:g.branch};if(cur&&cur.sha)body.sha=cur.sha;
+        return fetch(api,{method:'PUT',headers:headers,body:JSON.stringify(body)});
+      })
+      .then(function(r){if(r.ok)return r.json();return r.json().then(function(j){throw new Error(j.message||('GitHub returned '+r.status));});})
+      .then(function(){publishedSnapshot=JSON.stringify(normalize(pendingState));siteRev=pendingState.rev||0;lsSet('gwm.base',publishedSnapshot);lsSet('gwm.publishedSnapshot',publishedSnapshot);saving=false;document.body.classList.remove('saving');renderMain();toast('GitHub accepted the update. Wait for the Pages deployment, then refresh the family link to confirm.');})
+      .catch(function(e){saving=false;document.body.classList.remove('saving');toast('Publish was not confirmed: '+(e&&e.message?e.message:'connection error')+' Your local draft is retained.',true);});
+  }
+  function renderGh() {
+    var g=ghConfig(),d=dialog('dlg-gh');
+    d.innerHTML='<div class="sheet"><h2>Publish settings</h2><p class="sub">Use a fine-grained GitHub token restricted to this repository with Contents read/write permission. The token is kept for this browser tab’s session and is never included in the downloaded page. Publishing makes the trip dates and contribution ledger public on a public site.</p><div class="grid2"><label class="field"><span>GitHub owner</span><input type="text" id="gh-owner" value="'+esc(g.owner)+'"></label><label class="field"><span>Repository</span><input type="text" id="gh-repo" value="'+esc(g.repo)+'"></label><label class="field"><span>Branch</span><input type="text" id="gh-branch" value="'+esc(g.branch)+'"></label><label class="field"><span>File path</span><input type="text" id="gh-path" value="'+esc(g.path)+'"></label></div><label class="field"><span>Access token</span><input type="password" id="gh-token" value="'+esc(g.token)+'" autocomplete="off" placeholder="github_pat_..."></label><p class="hint">#editor enables local editing. Your GitHub credential controls publishing. It does not make the public page private.</p><div class="sheetbar"><button class="btn primary" data-act="gh-save">Save settings</button><button class="btn" data-act="gh-close">Cancel</button></div></div>';
+    openDialog(d);
+  }
+
+  /* ---------- music: off until someone asks for it; the choice is remembered on this device ---------- */
+  var music = null, musicOn = false;
+  var NOTE = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>';
+  function musicButton() {
+    return '<button class="musicfab' + (musicOn ? " on" : "") + '" data-act="music" aria-pressed="' + (musicOn ? "true" : "false") + '" aria-label="' + (musicOn ? "Turn the music off" : "Turn the music on") + '" title="' + (musicOn ? "Music is on" : "Music is off") + '">' + NOTE + (musicOn ? "" : '<path d="M3 3l18 18"/>') + "</svg></button>";
+  }
+  function paintMusic() { Array.prototype.forEach.call(document.querySelectorAll('[data-act="music"]'), function (b) { b.outerHTML = musicButton(); }); }
+  function setMusic(on, remember) {
+    if (on) {
+      if (!music) {
+        music = document.createElement("audio"); music.src = "music.mp3"; music.loop = true; music.preload = "auto"; music.volume = 0.6;
+        music.addEventListener("error", function () { musicOn = false; paintMusic(); toast("The music file is missing. Put music.mp3 in the same folder as this page."); });
+        document.body.appendChild(music);
+      }
+      musicOn = true; if (remember) lsSet("gwm.music", true); paintMusic();
+      var p = music.play();
+      if (p && p.catch) p.catch(function (e) {
+        if (e && e.name === "NotAllowedError") { /* the browser wants a tap first */
+          musicOn = false; paintMusic();
+          var evs = ["click", "touchend", "keydown"], go = function () { evs.forEach(function (n) { document.removeEventListener(n, go, true); }); if (lsGet("gwm.music") === true && !musicOn) setMusic(true, false); };
+          evs.forEach(function (n) { document.addEventListener(n, go, true); });
+        }
+      });
+    } else { if (music) music.pause(); musicOn = false; if (remember) lsSet("gwm.music", false); paintMusic(); }
+  }
+  var hiddenAt = 0;
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) { hiddenAt = Date.now(); return; }
+    var openSheet = document.querySelector("dialog[open]");
+    if (hiddenAt && Date.now() - hiddenAt > 30 * 60 * 1000 && !editorMode && !dirty() && !openSheet && location.protocol !== "file:") location.reload();
+  });
+  document.addEventListener("visibilitychange", function () { if (!music || !musicOn) return; if (document.hidden) music.pause(); else { var p = music.play(); if (p && p.catch) p.catch(function () {}); } });
+
+  /* ---------- events ---------- */
+  document.addEventListener("click", function (ev) {
+    var b = ev.target.closest && ev.target.closest("[data-act]"); if (!b) return;
+    var act = b.getAttribute("data-act"), next;
+    if(saving)return;
+    if (act === "tab") { tab = b.getAttribute("data-tab"); try { history.replaceState(null, "", "#" + tab + (editorMode ? "&editor" : "")); } catch (e) {} renderMain(); window.scrollTo(0, 0); }
+    else if (act === "music") setMusic(!musicOn, true);
+    else if (act === "download-page") downloadPage();
+    else if (act === "gh-publish") ghPublish();
+    else if (act === "open-gh") renderGh();
+    else if (act === "gh-close") closeDialog(dialog("dlg-gh"));
+    else if(act==='gh-save'){
+      var cfg={owner:$('#gh-owner').value.trim(),repo:$('#gh-repo').value.trim(),branch:$('#gh-branch').value.trim(),path:$('#gh-path').value.trim().replace(/^\/+/,'')};
+      if(!cfg.owner||!cfg.repo||!cfg.branch||!cfg.path){toast('Complete every repository field.');return;}
+      var ok=lsSet('gwm.gh',cfg);try{sessionStorage.setItem(storagePrefix+'token',$('#gh-token').value.trim());}catch(e){ok=false;}
+      if(!ok){toast('This browser could not retain the settings. Use Download the page.');return;}
+      closeDialog(dialog('dlg-gh'));renderMain();toast('Settings saved. The token lasts for this browser tab’s session.');
+    }
+    else if (act === "open-plan") renderPlan();
+    else if (act === "close-plan") { closeDialog(dialog("dlg-plan")); renderMain(); }
+    else if (act === "discard") { draft = null; closeDialog(dialog("dlg-plan")); renderMain(); }
+    else if (act === "defaults") { var keep = ensureDraft(); draft = clone(DEFAULT_STATE.settings); draft.extras=clone(keep.extras); draft.purchases.forEach(function (p, i) { p.bought = keep.purchases[i] ? keep.purchases[i].bought : false; }); renderPlan(); renderMain(); }
+    else if (act === "add-extra") { var s = ensureDraft(); s.extras.push({ id: uid(), name: "", date: toISO(addMonths(parseISO(s.tripDate), -2)), amount: 0, split: "perTraveler", bought: false }); renderPlan(); renderMain(); }
+    else if (act === "remove-extra") { var ex=ensureDraft().extras[+b.getAttribute("data-i")]; if((state.spending||[]).some(function(x){return x.purchaseId===ex.id;})){toast("This purchase has spending records. Keep it and adjust its amount instead.");return;} ensureDraft().extras.splice(+b.getAttribute("data-i"), 1); renderPlan(); renderMain(); }
+    else if (act === "save-plan") { if (!draft) return; var issue=validatePlanInputs()||settingsError(draft); if(issue){document.getElementById("plan-err").textContent=issue;return;} next = clone(state); next.settings = clone(draft); saveShared(next, "Plan saved in this browser.", document.getElementById("plan-err")); }
+    else if(act==='open-spend')renderSpend();
+    else if(act==='close-spend')closeDialog(dialog('dlg-spend'));
+    else if(act==='save-spend')saveSpend();
+    else if(act==='remove-spend'){
+      if(!canSave)return;
+      if(b.getAttribute('data-armed')!=='1'){b.setAttribute('data-armed','1');b.textContent='Tap again to remove';setTimeout(function(){if(b.isConnected){b.removeAttribute('data-armed');b.textContent='Remove';}},3500);return;}
+      next=clone(state);next.spending=next.spending.filter(function(x){return x.id!==b.getAttribute('data-id');});saveShared(next,'Expense removed.');
+    }
+    else if (act === "open-pay") renderPay();
+    else if (act === "close-pay") closeDialog(dialog("dlg-pay"));
+    else if (act === "fill") { var inp = document.getElementById("pay-" + b.getAttribute("data-who")); inp.value = b.getAttribute("data-amt"); inp.focus(); }
+    else if (act === "save-pay") {
+      if(!canSave)return;
+      var date = $("#pay-date").value || toISO(today()), note = $("#pay-note").value.trim(), added = [], err = $("#pay-err");
+      if(!validISO(date) || date>toISO(today())){err.textContent='Record a date on or before today. Future deposits are plans, not money received.';return;}
+      var invalid=false;
+      PAYERS.forEach(function(p){var raw=$('[data-pay="'+p+'"]').value.trim();if(!raw)return;var v=numericInput(raw);if(!isFinite(v)||v<=0){invalid=true;return;}added.push({id:uid(),who:p,amount:cents(v),date:date,note:note});});
+      if(invalid){err.textContent='Enter a positive amount with no more than two decimal places, or leave the box empty.';return;}
+      if (!added.length) { err.textContent = "Enter an amount for at least one person."; return; }
+      next = clone(state); next.payments = next.payments.concat(added);
+      saveShared(next, "Recorded " + added.map(function (a) { return moneyExact(a.amount) + " from " + a.who; }).join(", ") + ".", err);
+    }
+    else if (act === "remove-pay") {
+      if (b.getAttribute("data-armed") !== "1") { b.setAttribute("data-armed", "1"); b.textContent = "Tap again to remove"; setTimeout(function () { if (b.isConnected) { b.removeAttribute("data-armed"); b.textContent = "Remove"; } }, 3500); return; }
+      next = clone(state); next.payments = next.payments.filter(function (p) { return p.id !== b.getAttribute("data-id"); });
+      saveShared(next, "Payment removed.");
+    }
+    else if (act === "toggle-all") { showAll = !showAll; renderMain(); }
+  });
+  function onEdit(ev) {
+    var el = ev.target, d = document.getElementById("dlg-plan"); if (!d || !d.contains(el)) return;
+    var s = ensureDraft(), key = el.getAttribute("data-set"), k = el.getAttribute("data-k"), rerender = false;
+    if (key) {
+      if (key === "insurance" || key === "bayAirport") s[key] = el.value;
+      else if (key.indexOf("dial.") === 0) s.dials[key.slice(5)] = el.checked;
+      else if (el.type === "checkbox") s[key] = el.checked;
+      else if (key === "tripDate") { if (!el.value || ev.type !== "change") return; shiftDates(s, s.tripDate, el.value); s.tripDate = el.value; rerender = true; }
+      else if (key === "startDate") { if (!el.value) return; s.startDate = el.value; }
+      else if (key === "finishBy") { s.finishBy = el.value && el.value !== toISO(autoLast(s)) ? el.value : null; if (!el.value && ev.type === "change") rerender = true; }
+      else { var v=configNumber(el.value);if(!isFinite(v)||v<0||(key==="fx"&&v<=0)){document.getElementById("plan-err").textContent="Enter a valid number; the exchange rate must be positive.";return;}s[key]=v; }
+    } else if (k) {
+      var row = el.hasAttribute("data-buy") ? s.purchases[+el.getAttribute("data-buy")] : s.extras[+el.getAttribute("data-extra")]; if (!row) return;
+      if (k === "bought") row.bought = el.checked;
+      else if(k==="amount"){var amount=el.value.trim()===""?0:numericInput(el.value);if(!isFinite(amount)){document.getElementById("plan-err").textContent="Enter a valid purchase amount with at most two decimals.";return;}row.amount=amount;}
+      else if (k === "date") { if (!el.value) return; row.date = el.value; }
+      else row[k] = el.value;
+    } else return;
+    if (rerender) renderPlan(); else refreshPlan();
+    renderMain();
+  }
+  document.addEventListener("change", function (ev) {
+    var id = ev.target.getAttribute && ev.target.getAttribute("data-todo"); if (!id) return;
+    if (!canSave) { ev.target.checked = !ev.target.checked; return; }
+    var next = clone(state); if (ev.target.checked) next.todo[id] = true; else delete next.todo[id];
+    saveShared(next, ev.target.checked ? "Marked done in this browser." : "Marked not done.").then(function (ok) { if (!ok) renderMain(); });
+  });
+  document.addEventListener("toggle", function (ev) { var n = ev.target.getAttribute && ev.target.getAttribute("data-day"); if (n) openDays[n] = ev.target.open; }, true);
+  document.addEventListener("input", onEdit);
+  document.addEventListener("change", onEdit);
+  document.addEventListener("keydown", function (ev) { if (ev.key === "Enter" && ev.target.closest && ev.target.closest("#dlg-pay") && ev.target.tagName === "INPUT") { ev.preventDefault(); $('[data-act="save-pay"]').click(); } });
+  window.addEventListener("hashchange", function () { readTab(); renderMain(); });
+
+  /* ---------- start ---------- */
+  readTab();
+  renderMain();
+  if (lsGet("gwm.music") === true) setMusic(true, false);
+  try {
+    var waiting = JSON.parse(sessionStorage.getItem("gwm.toast") || "null"); sessionStorage.removeItem("gwm.toast");
+    if (waiting && Date.now() - waiting.t < 20000) toast(waiting.m);
+  } catch (e) {}
+
+  var use = window.claude && typeof window.claude.use === "function" ? function (n) { return window.claude.use(n); } : null;
+  if (use) {
+    Promise.all([use("artifact"), use("user")]).then(function (r) {
+      artifactNs = r[0]; if (!artifactNs) return;
+      return (r[1] && r[1].canEdit ? r[1].canEdit() : Promise.resolve(true)).then(function (ok) {
+        canSave = !!ok; if (!canSave) return;
+        renderMain(); var d = document.getElementById("dlg-plan"); if (d && d.open) renderPlan();
+      });
+    }).catch(function () {});
+  }
+})();
+</script>
+</body>
+</html>
