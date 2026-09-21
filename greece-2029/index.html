@@ -48,7 +48,7 @@ button,input,select{font:inherit;color:inherit}
 /* the temple: three columns fill as the savings grow */
 .temple{max-width:500px;margin:6px auto 0}
 .pediment{position:relative;height:60px}
-.pediment svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+.pediment svg{position:absolute;top:0;right:0;bottom:0;left:0;width:100%;height:100%;display:block}
 .pediment polygon{fill:var(--surface);stroke:var(--marble-2);stroke-width:1.5;vector-effect:non-scaling-stroke;stroke-linejoin:round}
 .pediment .days{position:absolute;left:0;right:0;bottom:8px;text-align:center;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
 .frieze{background:var(--surface);border:solid var(--marble-2);border-width:1.5px 0;text-align:center;font-family:var(--display);font-size:15px;letter-spacing:.32em;text-transform:uppercase;padding:9px 0 8px .32em}
@@ -286,6 +286,7 @@ input[aria-invalid=true],select[aria-invalid=true]{border-color:var(--bloom)!imp
 @media (max-width:359px){.payrow label{font-size:14.5px}.payrow .btn.small{padding-left:8px;padding-right:8px;font-size:12.5px}.person .saved{font-size:20px}.chip{font-size:11px;padding:4px 6px}}
 .actionbar .btn{min-width:0}
 @media (max-width:359px){.actionbar{gap:8px;padding-left:10px;padding-right:10px}.actionbar .btn{font-size:13.5px;padding-left:6px;padding-right:6px}.sheetbar .btn{font-size:14px}}
+@media (max-width:359px){.tbl{font-size:12px}.tbl th,.tbl td{padding-left:5px;padding-top:8px;padding-bottom:8px}.tbl thead th{font-size:11px}.tbl td:first-child{overflow-wrap:anywhere}}
 </style>
 </head>
 <body>
@@ -398,7 +399,7 @@ var CATS = ["flights", "hotels", "transport", "activities", "entrance", "food", 
 var BASE_YEAR = 2026;
 
 var SAVERS = [
-  ["apartments", "Two apartments instead of four hotel rooms", "Apartments with kitchens; bedroom allocation updates when Mom and Matthew share."],
+  ["apartments", "Apartments instead of hotel rooms", "With kitchens, and priced by the bedroom, so everyone still has a door to close."],
   ["skipSantorini", "Skip Santorini and stay on Naxos", "Five nights on Naxos instead of three on Naxos and two on Santorini."],
   ["skipDelphi", "Skip the Delphi day trip", "A slower day in Athens instead."],
   ["ferryBack", "Ferry back to Athens instead of flying", "A long day on the big ship, the day before the flight home."]
@@ -420,8 +421,8 @@ function clone(o) { return JSON.parse(JSON.stringify(o)); }
 function r10(x) { return Math.floor(x / 10 + 0.5) * 10; }
 function up5(x) { return Math.ceil(x / 5 - 1e-9) * 5; }
 function num(v, fallback) { var n = parseFloat(v); return isFinite(n) ? n : fallback; }
-function money(n) { return "$" + Math.round(n).toLocaleString("en-US"); }
-function moneyExact(n) { return "$" + Number(n).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function money(n) { var r = Math.round(n); return (r < 0 ? "-$" : "$") + Math.abs(r).toLocaleString("en-US"); }
+function moneyExact(n) { var v = Number(n) || 0; return (v < -0.004 ? "-$" : "$") + Math.abs(v).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
 function uid() { return "x" + Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36); }
 
@@ -457,13 +458,18 @@ function configNumber(v) {
 }
 function settingsError(s) {
   if (!validISO(s.tripDate) || !validISO(s.startDate)) return 'Enter valid departure and first-deposit dates.';
+  if (s.startDate >= s.tripDate) return 'The first deposit must come before the trip. Check the trip date and the first deposit date.';
   var end = s.finishBy || toISO(autoFinish(s));
-  if (!validISO(end) || end < s.startDate) return 'Finish saving on or after the first deposit.';
+  if (!validISO(end) || end < s.startDate) return s.finishBy ? 'Finish saving on or after the first deposit.' : 'The trip is less than a month after the first deposit, which leaves no time to save. Check both dates.';
   if (end > s.tripDate) return 'Finish saving by the international departure date.';
   if (monthsBetween(parseISO(s.startDate), parseISO(end)) > 599) return 'Choose a savings period shorter than 50 years.';
   var numeric=['airfareChicago','airfareBayArea','hotelAthens','hotelNaxos','hotelSantorini','foodPerDay','fx','cushion','priceYear','airInflation','landInflation','hotelLevy','apartmentLevy','cleaningFee','medicalMom','medicalOther','homeJennifer','homeMatthew','homeChris','homeMom','chicagoRoom','chicagoFood','chicagoRides','groupTips','miscEach'];
   for(var j=0;j<numeric.length;j++){var value=Number(s[numeric[j]]);if(!isFinite(value)||value<0||value>10000000)return 'Enter valid nonnegative price and rate values.';}
   if(Number(s.fx)<=0)return 'Dollars per euro must be greater than zero.';
+  /* catch slips of the finger: each value has a generous but finite range */
+  var limits={fx:[0.5,3,'Dollars per euro'],cushion:[0,50,'The safety cushion, in percent'],airInflation:[0,25,'Airfare inflation, in percent'],landInflation:[0,25,'Other inflation, in percent'],
+    airfareChicago:[0,10000,'Airfare from Chicago'],airfareBayArea:[0,10000,'Airfare from the Bay Area'],hotelAthens:[0,2000,'The Athens room rate'],hotelNaxos:[0,2000,'The Naxos room rate'],hotelSantorini:[0,2000,'The Santorini room rate'],foodPerDay:[0,500,'Food per person per day']};
+  for(var key in limits){var lv=Number(s[key]);if(lv<limits[key][0]||lv>limits[key][1])return limits[key][2]+' should be between '+limits[key][0]+' and '+limits[key][1].toLocaleString('en-US')+'. Check for a typing slip.';}
   if(!Number.isInteger(Number(s.priceYear))||s.priceYear<1900||s.priceYear>2200)return 'Enter a four-digit price year between 1900 and 2200.';
   var rows = (s.purchases || []).concat(s.extras || []);
   for (var i = 0; i < rows.length; i++) {
@@ -472,14 +478,13 @@ function settingsError(s) {
   }
   return '';
 }
-function apartmentsFor(s) {
-  var a = s.kidsOwnRoom ? [['Jennifer'], ['Avery', 'Ryder']] : [['Jennifer', 'Avery', 'Ryder']];
-  a.push(s.momShares ? ['Mom', 'Matthew'] : ['Mom']);
-  return [
-    { bedrooms: a, factor: s.kidsOwnRoom ? 1.69 : 1.3 },
-    { bedrooms: s.momShares ? [['Chris', 'Friend']] : [['Matthew'], ['Chris', 'Friend']], factor: s.momShares ? 1 : 1.3 }
-  ];
+function bedroomsFor(s) {      /* who sleeps in which apartment bedroom */
+  var b = s.kidsOwnRoom ? [['Jennifer'], ['Avery', 'Ryder']] : [['Jennifer', 'Avery', 'Ryder']];
+  if (s.momShares) b.push(['Mom', 'Matthew']); else { b.push(['Mom']); b.push(['Matthew']); }
+  b.push(['Chris', 'Friend']);
+  return b;
 }
+var BEDROOM_FACTOR = 0.65;     /* one apartment bedroom costs 65% of a hotel room: a two-bedroom apartment at 1.3 times the room rate */
 function planParts(s) {
   var d = s.dials || {}, skipS = !!d.skipSantorini, drv = !!d.privateDrivers, fly = !!d.flyToNaxos;
   var pp = [fly ? ['Flight, Athens to Naxos', 170, true] : ['Conventional ferry, Piraeus to Naxos; reserved indoor seat', 60, false]];
@@ -525,11 +530,12 @@ function runModel(s) {
   if (s.apartments) {
     hotelNights = { Athens: 1, Naxos: 0, Santorini: 0 };
     var aptNights = { Athens: 3, Naxos: P.nights.Naxos, Santorini: P.nights.Santorini };
-    apartmentsFor(s).forEach(function (a) {
+    bedroomsFor(s).forEach(function (room) {      /* fees are entered per two-bedroom apartment, so each bedroom carries half */
       var cost = 0;
-      for (var b in aptNights) if (aptNights[b]) cost += (a.factor * P.rate[b] + num(s.apartmentLevy, 8)) * aptNights[b] + num(s.cleaningFee, 50);
-      a.bedrooms.forEach(function (room) { room.forEach(function (p) { per[p].hotels += land(cost) / a.bedrooms.length / room.length; }); });
+      for (var b in aptNights) if (aptNights[b]) cost += (BEDROOM_FACTOR * P.rate[b] + num(s.apartmentLevy, 8) / 2) * aptNights[b] + num(s.cleaningFee, 50) / 2;
+      room.forEach(function (p) { per[p].hotels += land(cost) / room.length; });
     });
+
   }
   roomsFor(s).forEach(function (r) {
     var cost = 0; for (var c in hotelNights) cost += (P.rate[c] * r[1] + num(s.hotelLevy, 5)) * hotelNights[c];
@@ -608,10 +614,15 @@ function derive(s, payments, now, spending) {
       list.forEach(function (x) { owed += x.allocation[p] || 0; var k = slots.filter(function (d) { return d <= x.date; }).length; if (k > 0) lv = Math.max(lv, (owed - settled) / k); });
       return up5(Math.max(0, lv));
     };
-    var todays = todayDue ? levelFor(saved[p] - inPeriod, [dates[dueCount - 1]].concat(future)) : 0;
+    var before = saved[p] - inPeriod, wasOnPlan = todayDue && Math.abs(before - Math.min(goal[p], monthly[p] * (dueCount - 1))) < .005;   /* on plan going into today's deposit */
+    var needToday = todayDue ? levelFor(before, [dates[dueCount - 1]].concat(future)) : 0;
+    var todays = !todayDue ? 0 : wasOnPlan ? Math.max(0, Math.min(goal[p] - before, Math.max(monthly[p], needToday))) : needToday;   /* on plan: the plan amount; otherwise the even re-spread */
     var openToday = todayDue && diff < -.005 && togo > 0 && inPeriod + .005 < todays;
     if (openToday) { me.now = cents(Math.max(0, Math.min(togo, todays - inPeriod))); me.nextDue = dates[dueCount - 1]; me.left = future.length + 1; me.level = todays; me.partToday = inPeriod > 0; }
-    else { me.now = cents(future.length ? Math.min(togo, levelFor(saved[p], future)) : togo); me.nextDue = future[0] || null; me.left = future.length; me.level = me.now; me.partToday = false; }
+    else {      /* someone exactly on plan keeps the plan amount; the even re-spread is for people who are ahead or behind */
+      var relevel = levelFor(saved[p], future), onPlan = st === 'ontrack' || st === 'waiting';
+      me.now = cents(future.length ? Math.min(togo, onPlan ? Math.max(monthly[p], relevel) : relevel) : togo);
+      me.nextDue = future[0] || null; me.left = future.length; me.level = me.now; me.partToday = false; }
     me.changed = st !== 'done' && st !== 'waiting' && Math.abs(me.level - Math.min(monthly[p], Math.max(me.level, togo))) >= 5;
     D.goal += goal[p]; D.saved += saved[p]; D.expected += exp;
   });
@@ -625,7 +636,8 @@ function derive(s, payments, now, spending) {
     x.needed = cents(needed); var k = dates.filter(function (d) { return d <= x.date; }).length;
     x.planned = cents(PAYERS.reduce(function (a, p) { return a + Math.min(goal[p], monthly[p] * k); }, 0));
     var futureDeposits = dates.filter(function (d) { return d > now && d <= x.date; }).length;
-    var projected = D.cash + PAYERS.reduce(function (a, p) { return a + Math.min(Math.max(0, goal[p] - saved[p]), monthly[p] * futureDeposits); }, 0);
+    /* what the pot will hold by this deadline if each person pays the amount the page is asking of them, including a deposit still open today */
+    var projected = D.cash + D.payers.reduce(function (a, q) { var openNow = q.nextDue && toISO(q.nextDue) === isoNow && q.nextDue <= x.date ? q.now : 0; return a + Math.min(Math.max(0, q.goal - q.saved), openNow + q.level * futureDeposits); }, 0);
     x.shortBy = cents(Math.max(0, remaining - projected));
     x.state = x.remaining <= .005 ? 'bought' : D.cash + .005 >= remaining ? 'covered' : projected + .005 >= remaining ? 'scheduled' : 'short';
     if (x.legacyBought && !x.paid) x.state = 'unrecorded';
@@ -678,7 +690,7 @@ function normalize(st) {
 }
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { DEFAULT_STATE: DEFAULT_STATE, runModel: runModel, planParts: planParts, derive: derive, depositDates: depositDates, buildDocument: buildDocument, normalize: normalize, splitExtra: splitExtra, parseISO: parseISO, settingsError: settingsError, validISO: validISO, numericInput: numericInput, apartmentsFor: apartmentsFor };
+  module.exports = { DEFAULT_STATE: DEFAULT_STATE, runModel: runModel, planParts: planParts, derive: derive, depositDates: depositDates, buildDocument: buildDocument, normalize: normalize, splitExtra: splitExtra, parseISO: parseISO, settingsError: settingsError, validISO: validISO, numericInput: numericInput, bedroomsFor: bedroomsFor };
 }
 
 /* =====================================================================
@@ -766,7 +778,7 @@ if (typeof document !== "undefined") (function () {
   function savingsHTML(D) {
     var h = "", days = D.daysToGo;
     h += '<div class="temple" aria-hidden="true"><div class="pediment"><svg viewBox="0 0 100 20" preserveAspectRatio="none"><polygon points="0.4,19.6 50,0.8 99.6,19.6"/></svg>' +
-      '<span class="days">' + (days > 1 ? days.toLocaleString("en-US") + " days to go" : days === 1 ? "We leave tomorrow" : days === 0 ? "We leave today" : "Kalo taxidi") + "</span></div>" +
+      '<span class="days">' + (days > 1 ? days.toLocaleString("en-US") + " days to go" : days === 1 ? "We leave tomorrow" : days === 0 ? "We leave today" : days >= -10 ? "Kalo taxidi, have a good trip" : "We did it") + "</span></div>" +
       '<div class="frieze">Greece with Mom</div><div class="colonnade">';
     D.payers.forEach(function (p) {
       h += '<div class="col"><div class="abacus"></div><div class="echinus"></div><div class="shaft"><div class="fill' + (p.status === "done" ? " full" : "") + '" data-col="' + p.id + '" style="height:' + prevHeights[p.id] + '%"></div></div></div>';
@@ -802,6 +814,7 @@ if (typeof document !== "undefined") (function () {
     D.purchases.forEach(function (x) {
       var note=x.state==='bought'?'Paid: '+moneyExact(x.paid):x.state==='unrecorded'?'Previously marked bought. Record the actual expense to reconcile cash.':x.state==='covered'?'Remaining amount is covered by recorded cash.':x.state==='scheduled'?'Covered if the scheduled future deposits are made.':'Projected shortfall of '+money(x.shortBy)+' by this deadline. Check contributions and dates.';
       if(x.paid>0&&x.remaining>0)note=moneyExact(x.paid)+' paid; '+moneyExact(x.remaining)+' remaining. '+note;
+      if(x.remaining>0.005&&x.state!=='unrecorded'&&toISO(x.date)<toISO(today()))note='This date has passed. If it has been bought, Chris records the expense under Trip spending; if not, move the date. '+note;
       h += '<li class="' + x.state + (x.next ? " next" : "") + '"><span class="what"><span class="when">' + esc(fmtMonth(x.date)) + (x.next ? ", next up" : "") + "</span><strong>" + esc(x.name) +
         '</strong><span class="note">' + esc(note) + '</span></span><span class="amt">' + money(x.amount) + "</span></li>";
     });
@@ -826,7 +839,7 @@ if (typeof document !== "undefined") (function () {
     var d = s.dials, skipS = d.skipSantorini, days = [];
     var audio = "Before the trip, everyone downloads the free Rick Steves Audio Europe app; its Acropolis tour runs about an hour and stands in for a guide.";
     days.push({ n: 1, base: "Athens", title: "Arrive and exhale", body: [
-      "Two taxis from the airport to the apartments at the flat rate, about 45 minutes. The metro costs less and is step-free, but after an overnight flight with luggage the taxis are worth it for Mom. The Chicago nonstop lands in the morning, so the rooms may not be ready: drop the bags, have a long lunch nearby, and nap once you can get in.",
+      "Two taxis from the airport to the " + (s.apartments ? "apartments" : "hotel") + " at the flat rate, about 45 minutes. The metro costs less and is step-free, but after an overnight flight with luggage the taxis are worth it for Mom. The Chicago nonstop lands in the morning, so the rooms may not be ready: drop the bags, have a long lunch nearby, and nap once you can get in.",
       "Early evening: a slow walk through the pedestrian lanes of Plaka and dinner at a simple taverna. The floodlit Parthenon is free to admire from the pedestrian street below it, Dionysiou Areopagitou. Early to bed."],
       mom: "Request airport wheelchair assistance when the flights are booked. It is free, and it turns long terminal walks and passport lines into a short ride. Before booking any lodging, confirm the way in and the bathroom." });
     days.push({ n: 2, base: "Athens", title: "The Acropolis and its museum", body: [
@@ -845,7 +858,7 @@ if (typeof document !== "undefined") (function () {
         : "The coach arrives late in the morning, so start in the compact, air-conditioned <b>museum</b> and its bronze Charioteer, have lunch with a valley view in Delphi village, and walk the <b>Sacred Way</b> afterward: the Athenian Treasury, then the <b>Temple of Apollo</b>, where the oracle spoke. Back in Athens in the evening."],
       mom: "The Sacred Way is a steady uphill path on uneven stone" + (d.privateDrivers ? "." : ", and by coach the visit falls in the warmest hours.") + " She should go only as far as the Temple of Apollo, or enjoy the museum and a shaded cafe while the others climb. If this day sounds like too much, switch Delphi off and she gets a rest day instead." });
     days.push({ n: 4, base: "Naxos", title: "To the islands", body: [
-      d.flyToNaxos ? "An unhurried morning, then two taxis to the airport and a <b>40-minute flight to Naxos</b>. Tip: leave the big suitcases with the Athens hotel you will use on the last night, and take carry-on-size bags to the islands."
+      d.flyToNaxos ? "An unhurried morning, then two taxis to the airport and a <b>40-minute flight to Naxos</b>. Tip: leave the big suitcases with the Athens hotel where you spend the last night, and take carry-on-size bags to the islands."
         : "An early start: two taxis to Piraeus for the <b>morning Blue Star ferry to Naxos</b> (currently 7:25 am, about five hours; check the timetable for your date). Buy numbered indoor seats and bring breakfast from a bakery. The ship has cafes, open decks, and room to walk, and everyone can nap. Tip: leave the big suitcases with the Athens hotel you will use on the last night, and take carry-on-size bags to the islands.",
       "By the afternoon everyone is on the sand at <b>Agios Georgios (St. George) beach</b>, a shallow, family-friendly bay a level 10-minute walk from the port and Naxos Town.",
       "<b>Sunset at the Portara</b>, the great marble doorway of an unfinished temple of Apollo from about 530 BC, standing alone on its islet above the harbor. It is free. Dinner on the waterfront."],
@@ -868,7 +881,7 @@ if (typeof document !== "undefined") (function () {
     } else {
       days.push({ n: 7, base: "Santorini", title: "By sea into the caldera", body: [
         "Late-morning <b>Blue Star ferry</b>, about two hours. Choose the big conventional ferry over the fast catamarans: it is steadier in the summer winds, it costs less, and it has open decks. Be on deck for the last 20 minutes as the ship sails into the flooded volcanic crater beneath cliffs nearly a thousand feet high. It is the most dramatic arrival in Greece, and it is included in the ticket.",
-        "A prebooked minibus climbs the switchbacks from the port to the apartments. This is the one private transfer worth paying for: the port is chaotic and the public bus fills fast. Rest, then a late-afternoon bus or taxi to Firostefani and the <b>cliff path toward Fira</b>, a paved walkway along the rim with the postcard view the whole way. Sunset from a bench, or from a cafe table for the price of one drink."],
+        "A prebooked minibus climbs the switchbacks from the port to the " + (s.apartments ? "apartments" : "hotel") + ". This is the one private transfer worth paying for: the port is chaotic and the public bus fills fast. Rest, then a late-afternoon bus or taxi to Firostefani and the <b>cliff path toward Fira</b>, a paved walkway along the rim with the postcard view the whole way. Sunset from a bench, or from a cafe table for the price of one drink."],
         mom: "Board the ferry early and ask the crew at the ramp about the elevator or escalator up to the lounges. The cliff path has some steps and slopes; a taxi can drop her at Firostefani, where the rim is closest to the road, and the view from a cafe chair is the same view." });
       days.push({ n: 8, base: "Santorini", title: d.sunsetCruise ? "Akrotiri, and the caldera from the water" : "Akrotiri and Oia", body: [
         (d.privateDrivers ? "A private minibus and driver for the day. " : "") + "Be at <b>Akrotiri</b> when it opens" + (d.privateDrivers ? "" : "; the bus from Fira takes about 20 minutes") + ". This is a Bronze Age town buried by the volcano around 1600 BC, often called the Minoan Pompeii: streets, multi-story houses, storage jars still in place. " + (d.guides ? "A licensed guide brings it to life." : "The signs are good; a guidebook chapter read the night before does the rest."),
@@ -906,7 +919,7 @@ if (typeof document !== "undefined") (function () {
       s.chicagoNight ? "<b>The day before.</b> The Bay Area three fly to Chicago on " + esc(fmtWeekday(addDays(trip, -1))) + ". The budget includes two rooms, meals, and local rides. Set the room rate to zero if family can host."
         : "<b>Same-day connection.</b> Take the first flight of the morning, with at least four to five hours at O'Hare. Each airline flies the nonstop once a day, so a missed connection would split the group. Flying in the evening before and staying with family removes that risk; the Chicago overnight can be switched on under Adjust the plan.",
       "<b>Booking.</b> Ask the airline to price the four Chicago travelers and the three Bay Area travelers on the same international flights. Large bookings sometimes price higher, so compare one reservation against four plus three. Separate reservations can be linked so the airline keeps the group together, but linking does not make them one protected itinerary. Request wheelchair assistance for Mom at both airports.",
-      "<b>If the nonstop is not offered that year.</b> It is a seasonal route and the schedule does not exist yet. The fallback is to meet at Newark or Washington Dulles, which both had summer nonstops to Athens as of 2026.",
+      "<b>If the nonstop is not offered that year.</b> It is a seasonal route and the schedule does not exist yet. The fallback is to meet at Newark or Washington Dulles, which have both had United summer nonstops to Athens in recent years.",
       "<b>Miles.</b> Pick United or American now and put everyday spending and flights toward it. Treat any free ticket as a bonus, not as part of the budget."]);
     h += '<h2 class="sec">Day by day</h2>';
     var blurb = { Athens: "Stay in Koukaki, Makrygianni, or Plaka, the flat, walkable neighborhoods at the foot of the Acropolis.",
@@ -918,7 +931,7 @@ if (typeof document !== "undefined") (function () {
       h += '<details class="day"' + (openDays[x.n] ? " open" : "") + ' data-day="' + x.n + '"><summary><span class="n"><b>Day ' + x.n + "</b>" + esc(fmtWeekday(addDays(trip, x.n))) + '</span><span class="t">' + esc(x.title) + '</span><span class="chev"></span></summary><div class="body">' +
         x.body.filter(Boolean).map(function (p) { return "<p>" + p + "</p>"; }).join("") + (x.mom ? '<p class="mom"><b>For Mom.</b> ' + x.mom + "</p>" : "") + "</div></details>";
     });
-    h += '<h2 class="sec">Where to stay</h2><p>' + (s.apartments ? "The budget assumes two apartments in each place, priced from the room rates below plus a cleaning fee, and hotel rooms for the single last night in Athens, because one-night apartment stays are rarely offered. These are budget assumptions, not listings. Confirm the legal occupancy and the actual beds, especially three real beds for Jennifer, Avery, and Ryder."
+    h += '<h2 class="sec">Where to stay</h2><p>' + (s.apartments ? "The budget prices apartments by the bedroom, at about 65% of the hotel room rates below plus cleaning fees, whether that turns out to be two apartments or one larger one. The single last night in Athens is in hotel rooms, because one-night apartment stays are rarely offered. These are budget assumptions, not listings. Confirm the legal occupancy and the actual beds, especially three real beds for Jennifer, Avery, and Ryder."
       : "Booking calendars open about a year ahead, so these are what to look for and what the budget assumes, not reservations.") + "</p>" + ul([
       "<b>Athens.</b> Koukaki, Makrygianni, or Plaka. Must-haves: an elevator or a ground floor, strong air conditioning, and a street a taxi can reach. The budget assumes " + eur(num(s.hotelAthens, 130)) + " a room a night.",
       "<b>Naxos.</b> Agios Georgios beach, at the edge of Naxos Town, gives Mom a level walk to the sand, the port, and the old town. Family-run studios and apartments with kitchens are common. The budget assumes " + eur(num(s.hotelNaxos, 120)) + ".",
@@ -950,8 +963,8 @@ if (typeof document !== "undefined") (function () {
     var cushionTotal = 0; PAYERS.forEach(function (y) { cushionTotal += m.table[y].contingency; });
     var juneTrip = parseISO(s.tripDate).getMonth() === 5;
     h += '<h2 class="sec">Ways to save more</h2><p>Biggest first. Amounts are for the whole family and reflect your current choices. The switches are under Adjust the plan.</p>' + ul([
-      s.apartments ? "<b>Two apartments instead of four hotel rooms.</b> Already switched on, and saving about " + costOf("apartments") + ". A kitchen trims the food bill too, and a shared terrace beats four separate hotel rooms. The catch is stairs: filter hard for a ground floor or an elevator for Mom."
-        : "<b>Two apartments instead of four hotel rooms.</b> Saves about " + costOf("apartments") + ", and a kitchen trims the food bill too. The catch is stairs: filter hard for a ground floor or an elevator for Mom.",
+      s.apartments ? "<b>Apartments instead of hotel rooms.</b> Already switched on, and saving about " + costOf("apartments") + ". A kitchen trims the food bill too, and a shared terrace beats four separate hotel rooms. The catch is stairs: filter hard for a ground floor or an elevator for Mom."
+        : "<b>Apartments instead of hotel rooms.</b> Saves about " + costOf("apartments") + ", and a kitchen trims the food bill too. The catch is stairs: filter hard for a ground floor or an elevator for Mom.",
       "<b>Mom and Matthew share a bedroom.</b> " + (s.momShares ? "Switched on, and saving about " : "Saves about ") + costOf("momShares") + ". Only if they both want it.",
       "<b>Real quotes beat estimates.</b> Flights are the largest line, so fare alerts from the day the schedule opens matter more than any other cut. Replace each allowance with a real price as soon as you have one. Miles are a bonus, not a plan: do not count on award seats, card bonuses, or free lodging to make the trip affordable.",
       juneTrip ? "<b>Earlier in June is cheaper.</b> You are already ahead of the July peak. Prices and crowds climb week by week through June, and the room rates here are still July-level estimates, so real June prices may come in lower."
@@ -961,19 +974,29 @@ if (typeof document !== "undefined") (function () {
       "<b>Ordinary meals.</b> Groceries, bakeries, picnics, and simple tavernas fit the daily food allowance. No paid photographer, guide, class, or cruise is needed for this to be special.",
       "<b>The cushion comes back.</b> The safety cushion, about " + money(cushionTotal) + ", is only spent if something goes wrong. Whatever is left is returned in the same shares it was paid."]);
     h += '<h2 class="sec">Prices and assumptions</h2><p>Inputs below use ' + num(s.priceYear, 2026) + ' prices. The model adds ' + num(s.airInflation, 3) + '% per year to international airfare and ' + num(s.landInflation, 4) + '% to other costs for ' + m.years + ' years, then converts euros at $' + num(s.fx, 1.18) + '. If you enter final trip-year quotes, set the price year to the trip year. Custom purchases are already trip-year USD.</p>';
-    h += '<h3 class="sub">International flights</h3><ul class="items"><li><span>Chicago: Mom, Jennifer, Avery, Ryder</span><span>4 × ' + money(s.airfareChicago) + '</span></li><li><span>Bay Area via Chicago: Matthew, Chris, his friend</span><span>3 × ' + money(s.airfareBayArea) + '</span></li></ul><p class="hint">Per-person round trips, with bags and standard seat selection budgeted. Economy is the default; Mom’s premium upgrade is optional. Rates are allowances, not airline quotes.</p>';
+    h += '<h3 class="sub">International flights</h3><ul class="items"><li><span>Chicago: Mom, Jennifer, Avery, Ryder</span><span>4 × ' + money(s.airfareChicago) + '</span></li><li><span>Bay Area via Chicago: Matthew, Chris, his friend</span><span>3 × ' + money(s.airfareBayArea) + '</span></li>' + (s.dials.premiumMom ? '<li><span>Premium economy for Mom, on top of her ticket</span><span>' + money(1500) + '</span></li>' : '') + '</ul><p class="hint">Per-person round trips, with bags and standard seat selection budgeted. ' + (s.dials.premiumMom ? 'Mom’s premium economy upgrade is switched on.' : 'Everyone is in economy; a premium economy seat for Mom is an optional extra.') + ' Rates are allowances, not airline quotes.</p>';
     h += '<h3 class="sub">Lodging</h3><p>';
-    if (s.apartments) h += apartmentsFor(s).map(function (a, i) { return 'Apartment ' + (i + 1) + ': ' + a.bedrooms.map(function (r) { return r.map(function (p) { return p === 'Friend' ? 'friend' : p; }).join(' + '); }).join('; ') + '.'; }).join(' ') + ' Costs are divided by bedroom, then by its occupants. The final Athens night uses the hotel arrangement below.';
+    if (s.apartments) h += 'Apartment bedrooms: ' + bedroomsFor(s).map(function (r) { return r.map(function (p) { return p === 'Friend' ? 'friend' : p; }).join(' + '); }).join('; ') + '. Each bedroom is priced at 65% of the hotel room rate, which is a two-bedroom apartment at 1.3 times the rate, and carries half of one apartment\u2019s cleaning fee and levy. A bedroom is paid by whoever sleeps in it, so one household\u2019s choice never changes another\u2019s cost. The final Athens night uses the hotel arrangement below.';
     else h += 'Hotel rooms throughout.';
-    h += '</p><p class="hint">' + roomsFor(s).map(function (r) { return r[0].join(' + '); }).join('; ') + '. Mom’s portion is then split three ways.</p><ul class="items">';
+    h += '</p><p class="hint">' + roomsFor(s).map(function (r) { return r[0].map(function (p) { return p === 'Friend' ? 'friend' : p; }).join(' + '); }).join('; ') + '. Mom’s portion is then split three ways.</p><ul class="items">';
     ['Athens','Naxos','Santorini'].forEach(function (c) { if (P.nights[c]) h += '<li><span>' + c + ', ' + P.nights[c] + ' nights</span><span>' + eur(P.rate[c]) + ' base room/night</span></li>'; });
-    h += '</ul><p class="hint">Hotel levy: ' + eur(s.hotelLevy) + ' per room/night. Apartment levy: ' + eur(s.apartmentLevy) + ' per unit/night, plus ' + eur(s.cleaningFee) + ' cleaning per stay. These adjustable allowances depend on the actual property and rules; they do not change automatically with room price.</p>';
+    h += '</ul><p class="hint">Hotel levy: ' + eur(s.hotelLevy) + ' per room a night. Apartment levy: ' + eur(s.apartmentLevy) + ' per apartment a night, plus ' + eur(s.cleaningFee) + ' cleaning per apartment per stay; the budget assumes two bedrooms per apartment. These allowances depend on the actual property and do not change with the room price.</p>';
     h += '<h3 class="sub">Transport in Greece</h3><ul class="items">' + P.pp.map(function (x) { return '<li><span>' + x[0] + '</span><span>' + eur(x[1]) + ' each</span></li>'; }).join('') + P.gt.map(function (x) { return '<li><span>' + x[0] + '</span><span>' + eur(x[1]) + ' group</span></li>'; }).join('') + '</ul>';
     if (P.acts.length) h += '<h3 class="sub">Selected paid extras</h3><ul class="items">' + P.acts.map(function (x) { return '<li><span>' + x[0] + '</span><span>' + eur(x[1]) + ' group</span></li>'; }).join('') + '</ul>';
     h += '<h3 class="sub">Food and admission</h3><p>' + eur(s.foodPerDay) + ' per person per day, including breakfast, for ten days. Meals included in selected activities are deducted. All seven use adult ticket allowances until individual eligibility is confirmed.</p><ul class="items">' + P.tickets.map(function (x) { return '<li><span>' + x[0] + '</span><span>' + eur(x[1]) + ' each</span></li>'; }).join('') + '</ul>';
     h += '<h3 class="sub">US travel and other costs</h3><p>Home-airport access: Jennifer ' + money(s.homeJennifer) + ', Matthew ' + money(s.homeMatthew) + ', Chris ' + money(s.homeChris) + ', Mom ' + money(s.homeMom) + '. Mom’s amount is shared equally. ' + (s.chicagoNight ? 'The Chicago overnight adds two rooms at ' + money(s.chicagoRoom) + ', ' + money(s.chicagoFood) + ' food per Bay Area traveler and ' + money(s.chicagoRides) + ' shared rides, charged only to Matthew and Chris.' : 'The same-day Chicago connection includes no Chicago hotel. Switch on a day-before arrival to budget lodging, meals and rides.') + '</p><p>Tips: ' + eur(s.groupTips) + ' for the group. Phone data, laundry and small essentials: ' + money(s.miscEach) + ' each. Add necessary passport renewals or other omitted costs as purchases.</p>';
     h += '<h3 class="sub">Insurance</h3><p>' + (s.insurance === 'none' ? 'No allowance selected.' : s.insurance === 'medical' || s.insurance === 'mom' ? 'Medical and evacuation allowance: ' + money(s.medicalMom) + ' for Mom' + (s.insurance === 'medical' ? ' and ' + money(s.medicalOther) + ' for each other traveler.' : ' only.') + ' These are provisional premiums requiring age- and policy-specific quotes. Cancellation cover is excluded.' : 'Comprehensive allowance: 12% of modeled prepaid costs for Mom and 7% for others. Obtain exact quotes and check terms.') + '</p>';
-    h += '<h2 class="sec">Source checks</h2><p>The inputs are planning allowances. Recheck transport schedules, property access and prices before paying. Useful references: <a href="https://www.theacropolismuseum.gr/en/plan-your-visit" target="_blank" rel="noopener">Acropolis Museum tickets and access</a>, <a href="https://www.visitgreece.gr/en/islands/cyclades/naxos" target="_blank" rel="noopener">Naxos tourism information</a>, <a href="https://travel.state.gov/en/international-travel/travel-advisories/greece.html" target="_blank" rel="noopener">official Greece travel information</a>. Discounts vary by site, age and eligibility.</p>';
+    h += '<h2 class="sec">Where the prices come from</h2><p>Researched in September 2026. Every figure is a planning allowance, not a quote, and all of it will move before the trip. Re-price once a year, each September, and replace allowances with real prices as you get them.</p>' + ul([
+      "<b>Airfare.</b> American and United both flew Chicago to Athens nonstop in summer 2026, 14 flights a week in July. KAYAK showed nonstop Chicago to Greece round trips averaging about $1,150 to $1,250, and United's first summer on the route opened at $1,839. There was no nonstop from San Francisco. No reliable June-only average turned up, so " + money(num(s.airfareChicago, 1400)) + " and " + money(num(s.airfareBayArea, 1700)) + " are allowances for peak dates, bags, and seven seats together.",
+      "<b>Lodging.</b> 3-star hotels in Athens averaged about $127 a night in July before taxes (Expedia). Naxos hotels of all classes averaged about $210 in July, with simple hotels and studios listed from about $75 to $145 (Hotels.com). The Santorini rate is an estimate for the villages away from the caldera. Two-bedroom apartments in Athens were listed from about " + EUR + "110 to " + EUR + "260 a night; pricing a bedroom at 65% of a hotel room is an estimate.",
+      "<b>Lodging levy.</b> " + EUR + "5 a room a night at 3-star hotels and " + EUR + "8 a night for short-term rentals, from April to October (2025 rates).",
+      (function () { var legs = []; if (!s.dials.flyToNaxos) legs.push(EUR + "52 from Piraeus to Naxos"); if (!s.dials.skipSantorini) legs.push(EUR + "31 from Naxos to Santorini");
+        return "<b>Island travel.</b> " + (legs.length ? "Blue Star fares started at about " + legs.join(" and ") + " (Ferryhopper); the budget rounds up for reserved indoor seats. " : "") + "Island flights and the ferry back to Piraeus, where they are in the plan, are estimates."; })(),
+      "<b>Getting around.</b> The Athens airport taxi flat fare was " + EUR + "40 by day in 2025, and the budget allows " + EUR + "100 for two taxis with luggage. Athens to Delphi by coach was " + EUR + "15 to " + EUR + "20 each way. Transfers, buses, and local rides are estimates.",
+      "<b>Site tickets.</b> " + P.tickets.map(function (x) { return x[0] + " " + EUR + x[1]; }).join(", ") + ". Everyone is budgeted at the adult price. Non-EU visitors aged 6 to 25 may pay half at state sites from April to October; treat any discount as a bonus.",
+      "<b>Food, tips, and small things.</b> Estimates. Groceries, bakeries, and simple tavernas fit the daily figure; sit-down restaurants for most meals do not.",
+      "<b>Insurance.</b> Medicare usually does not pay for care outside the United States. Senior travel medical plans are advertised from about $3 a day, but the allowance for Mom is not a quote, so get one for her age.",
+      'Official sources worth checking before booking: <a href="https://travel.state.gov/en/international-travel/travel-advisories/greece.html" target="_blank" rel="noopener">US travel information for Greece</a> and <a href="https://www.medicare.gov/coverage/travel-outside-the-u.s." target="_blank" rel="noopener">Medicare on travel abroad</a>.']);
     return h;
   }
 
@@ -989,7 +1012,7 @@ if (typeof document !== "undefined") (function () {
       { id: "calendar", from: mb(18), to: mb(13), when: span(18, 13), what: "Confirm the school calendar for Avery and Ryder and confirm ten days in Greece plus travel from each home airport. Re-price the budget." },
       { id: "flights", from: mb(11), to: mb(9), when: span(11, 9), what: "Flights go on sale about 11 months ahead. Book all seven on the same Chicago to Athens nonstop, the Bay Area three connecting from SFO on one ticket, with aisle seats near the front for Mom and wheelchair assistance requested." + (s.insurance === "full" ? " Buy travel insurance at the same time." : s.insurance === "mom" ? " Buy Mom's medical travel policy at the same time." : s.insurance === "medical" ? " Buy the travel medical policies at the same time." : "") },
       { id: "hotels", from: mb(10), to: mb(7), when: span(10, 7), what: (s.apartments ? "Book the apartments on free-cancellation terms as soon as dates open, and the hotel rooms for the last night in Athens. " : "Book hotels on free-cancellation rates as the calendars open. ") + (d.skipSantorini ? "Naxos first, then Athens." : "Santorini first, then Naxos, then Athens.") + " Confirm elevators or ground floors, air conditioning, and the number of steps to each room." },
-      { id: "island", from: mb(6), to: mb(4), when: span(6, 4), what: (d.flyToNaxos && !d.ferryBack ? "Book the flights to Naxos and back to Athens while fares are low." : d.flyToNaxos ? "Book the flight to Naxos while fares are low." : d.ferryBack ? "" : "Book the island flight back to Athens while fares are low.") + (d.privateDrivers ? " Reserve the drivers." : " Check the village bus timetable, or reserve the van if that option is selected.") + (d.guides ? " Reserve the guides." : "") + (d.sunsetCruise && !d.skipSantorini ? " Reserve the sunset cruise." : "") + (d.cookingClass ? " Reserve the cooking class." : "") },
+      { id: "island", from: mb(6), to: mb(4), when: span(6, 4), what: (d.flyToNaxos && !d.ferryBack ? "Book the flights to Naxos and back to Athens while fares are low." : d.flyToNaxos ? "Book the flight to Naxos while fares are low." : d.ferryBack ? "" : "Book the island flight back to Athens while fares are low.") + (d.privateDrivers ? " Reserve the drivers." : d.rentalVan ? " Reserve the Naxos rental van; automatics are scarce." : " Check the Naxos village bus timetable.") + (d.guides ? " Reserve the guides." : "") + (d.sunsetCruise && !d.skipSantorini ? " Reserve the sunset cruise." : "") + (d.cookingClass ? " Reserve the cooking class." : "") },
       { id: "ferries", from: mb(4), to: mb(2), when: span(4, 2), what: (function () { var n = (d.flyToNaxos ? 0 : 1) + (d.skipSantorini ? 0 : 1) + (d.ferryBack ? 1 : 0); return n === 0 ? "" : "Book the Blue Star " + (n === 1 ? "ferry" : "ferries") + (d.skipSantorini ? "" : d.ferryBack ? " and both Santorini port transfers" : " and the Santorini port transfer") + " when the summer schedule is published. "; })() + "Mom sees her doctor about heat, medications, and the long flight." },
       { id: "tickets", from: mb(2), to: mb(0), when: span(2, 1), what: "Apply for ETIAS on the official EU site if it is in force. Buy timed Acropolis tickets at hhticket.gr as soon as the date is on sale, plus Acropolis Museum tickets." + (d.skipDelphi || d.privateDrivers ? "" : " Buy the Delphi coach tickets.") + " Everyone downloads the free audio tours. Set up phone data. Share one page of confirmations with everyone." },
       { id: "reconfirm", from: addDays(trip, -7), to: trip, when: "One week out", what: "Reconfirm the ferries, the flights, and any booked transfers. Watch the forecast for heat and wind and shuffle days if needed." }
@@ -1109,7 +1132,7 @@ if (typeof document !== "undefined") (function () {
       '<p class="hint" id="dephint"></p>';
 
     h += "<h3>Rooms</h3>" +
-      sw("momShares", "Mom and Matthew share a room", "Updates hotel rooms and apartment bedrooms. Mom and Matthew split their bedroom cost.", s.momShares) +
+      sw("momShares", "Mom and Matthew share a room", "One bedroom fewer. They split its cost, and Mom's half is shared three ways, so nobody pays more.", s.momShares) +
       sw("kidsOwnRoom", "Avery and Ryder get their own room", "Instead of a family room with Jennifer.", s.kidsOwnRoom);
 
     h += "<h3>Ways to spend less</h3>";
@@ -1361,12 +1384,16 @@ if (typeof document !== "undefined") (function () {
     else if (act === "fill") { var inp = document.getElementById("pay-" + b.getAttribute("data-who")); inp.value = b.getAttribute("data-amt"); inp.focus(); }
     else if (act === "save-pay") {
       if(!canSave)return;
-      var date = $("#pay-date").value || toISO(today()), note = $("#pay-note").value.trim(), added = [], err = $("#pay-err");
+      var date = $("#pay-date").value, note = $("#pay-note").value.trim(), added = [], err = $("#pay-err");
+      if (!date) { err.textContent = "Pick the date the money was received."; return; }
       if(!validISO(date) || date>toISO(today())){err.textContent='Record a date on or before today. Future deposits are plans, not money received.';return;}
       var invalid=false;
       PAYERS.forEach(function(p){var raw=$('[data-pay="'+p+'"]').value.trim();if(!raw)return;var v=numericInput(raw);if(!isFinite(v)||v<=0){invalid=true;return;}added.push({id:uid(),who:p,amount:cents(v),date:date,note:note});});
       if(invalid){err.textContent='Enter a positive amount with no more than two decimal places, or leave the box empty.';return;}
       if (!added.length) { err.textContent = "Enter an amount for at least one person."; return; }
+      var owedNow = derive(state.settings, state.payments, today(), state.spending).payers, tooBig = added.filter(function (a) { var q = owedNow.filter(function (x) { return x.id === a.who; })[0]; return q && a.amount > Math.max(0, q.goal - q.saved) + 0.005; });
+      var bigKey = tooBig.map(function (a) { return a.who + ":" + a.amount; }).join("|");      /* a slip of the finger, such as 3900 for 390, asks for a second tap */
+      if (tooBig.length && b.getAttribute("data-confirmed") !== bigKey) { b.setAttribute("data-confirmed", bigKey); err.textContent = "That is more than " + tooBig.map(function (a) { return a.who; }).join(" and ") + (tooBig.length === 1 ? " still owes" : " still owe") + " for the whole trip. Check the amount. To record it anyway, tap Save payments again."; return; }
       next = clone(state); next.payments = next.payments.concat(added);
       saveShared(next, "Recorded " + added.map(function (a) { return moneyExact(a.amount) + " from " + a.who; }).join(", ") + ".", err);
     }
