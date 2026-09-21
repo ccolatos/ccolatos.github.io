@@ -589,7 +589,7 @@ function derive(s, payments, now, spending) {
   (payments || []).forEach(function (p) { if (Object.prototype.hasOwnProperty.call(saved, p.who) && validISO(p.date) && p.date <= isoNow) saved[p.who] += num(p.amount, 0); });
   var paid = {}, spent = 0;
   (spending || []).forEach(function (x) { if (validISO(x.date) && x.date <= isoNow) { var a = num(x.amount, 0); spent += a; paid[x.purchaseId] = (paid[x.purchaseId] || 0) + a; } });
-  var list = (s.purchases || []).map(function (x) { return { id: x.id, name: x.id === 'flights' && s.insurance !== 'none' ? 'International flights and insurance' : s.apartments && x.name === 'Hotel deposits' ? 'Lodging deposits' : s.apartments && x.name === 'Hotel balances, ferries, site tickets' ? 'Lodging balances, ferries, site tickets' : x.name, date: parseISO(x.date), amount: m.buy[x.id] || 0, allocation: m.buyByPayer[x.id] || {}, legacyBought: !!x.bought, auto: true }; })
+  var list = (s.purchases || []).map(function (x) { return { id: x.id, name: x.id === 'flights' && x.name === 'International flights' && s.insurance !== 'none' ? 'International flights and insurance' : s.apartments && x.name === 'Hotel deposits' ? 'Lodging deposits' : s.apartments && x.name === 'Hotel balances, ferries, site tickets' ? 'Lodging balances, ferries, site tickets' : x.name, date: parseISO(x.date), amount: m.buy[x.id] || 0, allocation: m.buyByPayer[x.id] || {}, legacyBought: !!x.bought, auto: true }; })
     .concat((s.extras || []).map(function (x) { return { id: x.id, name: x.name || 'Extra purchase', date: parseISO(x.date), amount: cents(num(x.amount, 0)), allocation: splitExtra(x), legacyBought: !!x.bought, auto: false }; }));
   list.sort(function (a, b) { return a.date - b.date; });
   PAYERS.forEach(function (p) {
@@ -716,13 +716,17 @@ if (typeof document !== "undefined") (function () {
   function staleTab() { if (!editorMode) return false; var h = headState(); return !!h && !sameState(h, state); }
   var STALE_MSG = "This tab is out of date: another tab or window in this browser has newer records. Reload this tab before you record, download, or publish.";
   var strandedList = [];
-  function setAside(st) {      /* never overwrite an earlier recovery copy; returns false when the browser could not store it */
-    if (!strandedList.some(function (x) { return sameState(x.state, st); })) strandedList.push({ id: uid(), at: new Date().toISOString(), state: clone(st) });
-    return lsSet("gwm.strandedList", strandedList);
+  function storedStranded() { var l = lsGet("gwm.strandedList"); return Array.isArray(l) ? l : []; }
+  function setAside(st) {      /* never overwrite an earlier recovery copy, including ones another tab has added; returns false when the browser could not store it */
+    var list = storedStranded();
+    strandedList.forEach(function (x) { if (!list.some(function (y) { return y.id === x.id; })) list.push(x); });      /* copies only this tab still holds */
+    if (!list.some(function (x) { return sameState(x.state, st); })) list.push({ id: uid(), at: new Date().toISOString(), state: clone(st) });
+    strandedList = list;
+    return lsSet("gwm.strandedList", list);
   }
   if (editorMode) {
     canSave = true;
-    strandedList = lsGet("gwm.strandedList") || [];
+    strandedList = storedStranded();
     var legacy = lsGet("gwm.stranded"); if (legacy && setAside(legacy)) lsSet("gwm.stranded", null);
     var mine = lsGet("gwm.local"), siteState = clone(state), baseState = lsGet("gwm.baseState");
     var startFresh = function () { lsSet("gwm.local", null); lsSet("gwm.base", publishedSnapshot); lsSet("gwm.baseState", siteState); lsSet("gwm.known", [siteState]); lsSet("gwm.publishedSnapshot", null); };
@@ -762,9 +766,17 @@ if (typeof document !== "undefined") (function () {
   function ul(items) { return '<ul class="plain">' + items.map(function (t) { return "<li>" + t + "</li>"; }).join("") + "</ul>"; }
   function addDays(d, n) { return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n); }
   function fmtWeekday(d) { return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }); }
-  function costOf(key) { /* what turning one switch on would add or save, as plain text */
+  function delta(key) {      /* trip total with the switch on, minus the total with it off, at the prices entered right now */
     var on = clone(settings()), off = clone(settings()); setKey(on, key, true); setKey(off, key, false);
-    return money(Math.abs(derive(on, [], today()).goal - derive(off, [], today()).goal));
+    return derive(on, [], today()).goal - derive(off, [], today()).goal;
+  }
+  function effectWords(change) { return change < -0.5 ? "saves about " + money(-change) : change > 0.5 ? "adds about " + money(change) : "does not change the total"; }
+  function listJoin(a) { return a.length < 2 ? a.join("") : a.length === 2 ? a.join(" and ") : a.slice(0, -1).join(", ") + ", and " + a[a.length - 1]; }
+  function saverLine(title, key, isOn, whenSaving) {      /* one line for the ways-to-save list; it never calls an added cost a saving */
+    var ch = delta(key);
+    if (ch < -0.5) return "<b>" + title + ".</b> " + (isOn ? "Switched on, and saving about " : "Saves about ") + money(-ch) + ". " + whenSaving;
+    if (ch > 0.5) return "<b>" + title + ".</b> At the prices entered now this is not a saving: it " + (isOn ? "is adding about " : "would add about ") + money(ch) + ". Check the prices under Adjust the plan.";
+    return "<b>" + title + ".</b> At the prices entered now this makes no difference to the total.";
   }
 
   function statusChip(p, D) {
@@ -849,7 +861,7 @@ if (typeof document !== "undefined") (function () {
       mom: "The way up is a moderate uphill path with worn marble steps near the top, and the marble is slippery, so shoes with real grip matter. The site has an elevator on the north slope for visitors with reduced mobility. Confirm eligibility and that it is running directly with the site; it stops in strong winds and extreme weather. The museum and its terrace view are a worthy alternative if the hill is too much." });
     if (d.skipDelphi) days.push({ n: 3, base: "Athens", title: "Athens at an easy pace", body: [
       "No alarm. The changing of the guard at Syntagma Square, the shade of the National Garden next door, the Central Market, and the Monastiraki flea market are all free. Long lunch, long rest, and an evening stroll.",
-      "Optional and not in the budget: the air-conditioned <b>National Archaeological Museum</b> (with a free audio tour in the same app) or the Ancient Agora. Anyone who wants Delphi can go on their own by intercity coach, about " + EUR + "40 round trip plus the " + EUR + "20 ticket, while everyone else rests. Switching Delphi on for the whole family adds about " + costOf("dial.skipDelphi") + "."],
+      "Optional and not in the budget: the air-conditioned <b>National Archaeological Museum</b> (with a free audio tour in the same app) or the Ancient Agora. Anyone who wants Delphi can go on their own by intercity coach, about " + EUR + "40 round trip plus the " + EUR + "20 ticket, while everyone else rests. Switching Delphi on for the whole family " + effectWords(-delta("dial.skipDelphi")) + "."],
       mom: "Everything today is flat and close to a cafe chair. Taxis between stops cost a few euros. This is her recovery day before the ferry." });
     else days.push({ n: 3, base: "Athens", title: "Delphi, the big day trip", body: [
       d.privateDrivers ? "Leave at 7:30 am by <b>private minibus</b>, about 2.5 hours each way across the plains of Boeotia and up the flank of Mount Parnassus, arriving before the heat." + (d.guides ? " A licensed guide meets the family at the site." : "")
@@ -862,11 +874,11 @@ if (typeof document !== "undefined") (function () {
         : "An early start: two taxis to Piraeus for the <b>morning Blue Star ferry to Naxos</b> (currently 7:25 am, about five hours; check the timetable for your date). Buy numbered indoor seats and bring breakfast from a bakery. The ship has cafes, open decks, and room to walk, and everyone can nap. Tip: leave the big suitcases with the Athens hotel you will use on the last night, and take carry-on-size bags to the islands.",
       "By the afternoon everyone is on the sand at <b>Agios Georgios (St. George) beach</b>, a shallow, family-friendly bay a level 10-minute walk from the port and Naxos Town.",
       "<b>Sunset at the Portara</b>, the great marble doorway of an unfinished temple of Apollo from about 530 BC, standing alone on its islet above the harbor. It is free. Dinner on the waterfront."],
-      mom: "The causeway to the Portara is flat but exposed, and the last stretch up to the gate has steps. The view from the waterfront is just as good." + (d.flyToNaxos ? "" : " If the early ferry is too much for her, flying takes 40 minutes and adds about " + costOf("dial.flyToNaxos") + " for the group.") });
+      mom: "The causeway to the Portara is flat but exposed, and the last stretch up to the gate has steps. The view from the waterfront is just as good." + (d.flyToNaxos ? "" : " If the early ferry is too much for her, flying takes 40 minutes and " + effectWords(delta("dial.flyToNaxos")) + " for the group.") });
     days.push({ n: 5, base: "Naxos", title: "Mountain villages and a long lunch", body: [
       (d.privateDrivers ? "A private minibus with a local driver, about seven hours at a gentle pace: the <b>Temple of Demeter</b> at Sangri, white marble from the 6th century BC in a quiet farming valley; <b>Halki</b>; <b>Apiranthos</b>; and on the way home the <b>Kouros of Flerio</b>, an unfinished marble giant about 2,600 years old, still lying where the sculptors left him."
         : d.rentalVan ? "Pick up the rental van and drive the island's quiet interior at your own pace: the <b>Temple of Demeter</b> at Sangri, white marble from the 6th century BC in a quiet farming valley; <b>Halki</b>; <b>Apiranthos</b>; and on the way home the <b>Kouros of Flerio</b>, an unfinished marble giant about 2,600 years old, still lying where the sculptors left him. Most vans are manual, automatics must be reserved months ahead, and the driver should carry an International Driving Permit from AAA (about $20)."
-        : "Take the public bus to <b>Halki</b>, the old capital of the island's interior, for a few euros each: the Vallindras citron-liqueur distillery, Byzantine churches, and cafes under the trees. Anyone with energy rides on to <b>Apiranthos</b>, the marble-paved mountain village. Check the return timetable before you sit down to lunch. The Temple of Demeter and the Kouros of Flerio need a vehicle; the rental van option adds about " + costOf("dial.rentalVan") + "."),
+        : "Take the public bus to <b>Halki</b>, the old capital of the island's interior, for a few euros each: the Vallindras citron-liqueur distillery, Byzantine churches, and cafes under the trees. Anyone with energy rides on to <b>Apiranthos</b>, the marble-paved mountain village. Check the return timetable before you sit down to lunch. The Temple of Demeter and the Kouros of Flerio need a vehicle; the rental van option " + effectWords(delta("dial.rentalVan")) + "."),
       "Lunch at a village taverna. Back by 4:00 pm for the beach. Dinner in the lanes of the old town under the Venetian castle."],
       mom: "Village lanes have slopes and smooth marble paving, so one manageable village beats a full circuit. Halki is the flattest." });
     days.push({ n: 6, base: "Naxos", title: "A day of rest", body: [
@@ -892,7 +904,7 @@ if (typeof document !== "undefined") (function () {
     if (d.ferryBack) days.push({ n: 9, base: "Athens", title: "The long way back to Athens", body: [
       skipS ? "The <b>Blue Star ferry from Naxos to Piraeus</b>, about five and a half hours, then two taxis to the Athens hotel. Take the morning sailing, so the evening is free for a last walk in Plaka and a farewell dinner under the lit Acropolis."
         : "The <b>Blue Star ferry to Piraeus</b>. The big ship takes seven to eight hours and the last sailing of the day currently leaves around 3:30 pm, so expect to reach the Athens hotel close to midnight. Dinner is on board. The fast boats take four to five hours, but they cost about as much as flying and are the first to be canceled in the summer winds.",
-      "This saves about " + costOf("dial.ferryBack") + " for the family, and it spends the buffer day on the water: if the ferry is late or canceled, there is little room before the flight home."],
+      "This " + effectWords(delta("dial.ferryBack")) + " for the family, and it spends the buffer day on the water: if the ferry is late or canceled, there is little room before the flight home."],
       mom: "This is the longest travel day in Greece, the day before the longest flight. Book numbered indoor seats so she can rest. If it sounds like too much, flying takes 45 minutes." });
     else days.push({ n: 9, base: "Athens", title: "A last night under the Acropolis", body: [
       "Morning flight from " + (skipS ? "Naxos" : "Santorini") + " to Athens, about 45 minutes, booked months ahead while fares are low, and two taxis to the hotel. Afternoon: rest, window-shopping in Plaka, or the National Archaeological Museum for the gold Mask of Agamemnon and the Antikythera Mechanism (its ticket is not in the budget).",
@@ -915,7 +927,7 @@ if (typeof document !== "undefined") (function () {
       "<b>A buffer before the flight home.</b> The last night is in Athens, so the flight home never depends on a same-day island connection."]);
     h += '<h2 class="sec">Getting there together</h2><p>Four travelers live in Chicago and three in the San Francisco Bay Area. The best plan puts all seven on the same plane for the long flight, and that plane leaves from Chicago.</p>' + ul([
       "<b>One nonstop for everyone.</b> United and American have each flown Chicago O'Hare to Athens nonstop every day in summer. It takes about 10 hours 20 minutes, leaving O'Hare in the afternoon and landing in Athens the next morning. The flight home leaves Athens around midday and lands in Chicago the same afternoon. Mom never changes planes. Confirm the route, the times, and seven seats when the schedule opens.",
-      "<b>The Bay Area three join in Chicago.</b> There is no nonstop from San Francisco to Athens, so they need one connection anyway. Book " + esc(s.bayAirport || "SFO") + " to O'Hare to Athens as one through ticket on the same airline, so the fare includes the domestic legs and the airline owns the connection. Use SFO unless a full Oakland itinerary prices and connects as well.",
+      "<b>The Bay Area three join in Chicago.</b> There is no nonstop from San Francisco to Athens, so they need one connection anyway. Book " + esc(s.bayAirport || "SFO") + " to O'Hare to Athens as one through ticket on the same airline, so the fare includes the domestic legs and the airline owns the connection. " + ((s.bayAirport || "SFO") === "OAK" ? "Oakland is selected. When this was researched, neither United nor American appeared to fly Oakland to O'Hare, so confirm that a full Oakland itinerary exists and prices as well as one from SFO before relying on it." : "Use SFO unless a full Oakland itinerary prices and connects as well.") + "",
       s.chicagoNight ? "<b>The day before.</b> The Bay Area three fly to Chicago on " + esc(fmtWeekday(addDays(trip, -1))) + ". The budget includes two rooms, meals, and local rides. Set the room rate to zero if family can host."
         : "<b>Same-day connection.</b> Take the first flight of the morning, with at least four to five hours at O'Hare. Each airline flies the nonstop once a day, so a missed connection would split the group. Flying in the evening before and staying with family removes that risk; the Chicago overnight can be switched on under Adjust the plan.",
       "<b>Booking.</b> Ask the airline to price the four Chicago travelers and the three Bay Area travelers on the same international flights. Large bookings sometimes price higher, so compare one reservation against four plus three. Separate reservations can be linked so the airline keeps the group together, but linking does not make them one protected itinerary. Request wheelchair assistance for Mom at both airports.",
@@ -948,7 +960,15 @@ if (typeof document !== "undefined") (function () {
       "<b>Money.</b> When a card machine offers to charge in dollars, always choose euros. Use a card with no foreign transaction fee, and bank ATMs instead of the Euronet machines.",
       '<b>Emergencies.</b> The number in Greece and all of the EU is 112. <a href="https://travel.state.gov/en/international-travel/travel-advisories/greece.html" target="_blank" rel="noopener">Official US travel information for Greece</a>.'].filter(Boolean));
     h += '<h2 class="sec">What this plan leaves out</h2>' + ul([
-      "<b>Paid extras.</b> Guides, private drivers, a sunset cruise, and a cooking class are switched off" + (s.dials.skipDelphi ? ", and so is the Delphi day trip" : "") + ". Turn any of them on under Adjust the plan to see what they cost.",
+      (function () {
+        var d = s.dials, all = [["guides", "licensed guides"], ["privateDrivers", "private drivers"], ["cookingClass", "a cooking class"], ["premiumMom", "a premium economy seat for Mom"]];
+        if (!d.skipSantorini) all.splice(2, 0, ["sunsetCruise", "a sunset cruise"]);
+        var off = all.filter(function (x) { return !d[x[0]]; }).map(function (x) { return x[1]; }), on = all.filter(function (x) { return d[x[0]]; }).map(function (x) { return x[1]; });
+        if (d.skipDelphi) off.push("the Delphi day trip"); else on.push("the Delphi day trip");
+        if (!off.length) return "<b>Paid extras.</b> Every optional extra is switched on: " + listJoin(on) + ".";
+        var t = listJoin(off); t = t.charAt(0).toUpperCase() + t.slice(1);
+        return "<b>Paid extras.</b> " + t + (off.length === 1 ? " is" : " are") + " switched off. Turn " + (off.length === 1 ? "it" : "any of them") + " on under Adjust the plan to see what " + (off.length === 1 ? "it costs" : "they cost") + "." + (on.length ? " Already in the plan: " + listJoin(on) + "." : "");
+      })(),
       "<b>Meteora and Olympia.</b> Each is about four hours from Athens and would cost a night or two.",
       "<b>Mycenae, Epidaurus, and Nafplio.</b> The strongest omission. If anyone can add two nights, put Nafplio between Athens and the islands.",
       "<b>Mykonos, Delos, and Crete.</b> Delos has no shade at all, Mykonos in summer is among the most crowded and expensive islands, and Crete deserves a trip of its own."]);
@@ -963,14 +983,13 @@ if (typeof document !== "undefined") (function () {
     var cushionTotal = 0; PAYERS.forEach(function (y) { cushionTotal += m.table[y].contingency; });
     var juneTrip = parseISO(s.tripDate).getMonth() === 5;
     h += '<h2 class="sec">Ways to save more</h2><p>Biggest first. Amounts are for the whole family and reflect your current choices. The switches are under Adjust the plan.</p>' + ul([
-      s.apartments ? "<b>Apartments instead of hotel rooms.</b> Already switched on, and saving about " + costOf("apartments") + ". A kitchen trims the food bill too, and a shared terrace beats four separate hotel rooms. The catch is stairs: filter hard for a ground floor or an elevator for Mom."
-        : "<b>Apartments instead of hotel rooms.</b> Saves about " + costOf("apartments") + ", and a kitchen trims the food bill too. The catch is stairs: filter hard for a ground floor or an elevator for Mom.",
-      "<b>Mom and Matthew share a bedroom.</b> " + (s.momShares ? "Switched on, and saving about " : "Saves about ") + costOf("momShares") + ". Only if they both want it.",
+      saverLine("Apartments instead of hotel rooms", "apartments", s.apartments, "A kitchen trims the food bill too, and a shared terrace beats four separate hotel rooms. The catch is stairs: filter hard for a ground floor or an elevator for Mom."),
+      saverLine("Mom and Matthew share a bedroom", "momShares", s.momShares, "Only if they both want it."),
       "<b>Real quotes beat estimates.</b> Flights are the largest line, so fare alerts from the day the schedule opens matter more than any other cut. Replace each allowance with a real price as soon as you have one. Miles are a bonus, not a plan: do not count on award seats, card bonuses, or free lodging to make the trip affordable.",
       juneTrip ? "<b>Earlier in June is cheaper.</b> You are already ahead of the July peak. Prices and crowds climb week by week through June, and the room rates here are still July-level estimates, so real June prices may come in lower."
         : "<b>Go in June.</b> Lodging is usually cheaper than in July, the islands are quieter, and it is cooler for Mom.",
-      "<b>The ferry back to Athens</b> " + (s.dials.ferryBack ? "is switched on, saving about " : "saves about ") + costOf("dial.ferryBack") + ", at the price of a long day on the water right before the flight home.",
-      s.dials.skipSantorini ? "<b>Santorini is switched off</b>, saving about " + costOf("dial.skipSantorini") + ". It is the one cut that takes something irreplaceable out of the trip." : "<b>Last resort: skip Santorini.</b> Saves about " + costOf("dial.skipSantorini") + ", and takes the most memorable two days out of the trip.",
+      saverLine("The ferry back to Athens instead of flying", "dial.ferryBack", s.dials.ferryBack, "The price is a long day on the water right before the flight home."),
+      saverLine(s.dials.skipSantorini ? "Santorini is switched off" : "Last resort: skip Santorini", "dial.skipSantorini", s.dials.skipSantorini, "It is the one cut that takes something irreplaceable out of the trip."),
       "<b>Ordinary meals.</b> Groceries, bakeries, picnics, and simple tavernas fit the daily food allowance. No paid photographer, guide, class, or cruise is needed for this to be special.",
       "<b>The cushion comes back.</b> The safety cushion, about " + money(cushionTotal) + ", is only spent if something goes wrong. Whatever is left is returned in the same shares it was paid."]);
     h += '<h2 class="sec">Prices and assumptions</h2><p>Inputs below use ' + num(s.priceYear, 2026) + ' prices. The model adds ' + num(s.airInflation, 3) + '% per year to international airfare and ' + num(s.landInflation, 4) + '% to other costs for ' + m.years + ' years, then converts euros at $' + num(s.fx, 1.18) + '. If you enter final trip-year quotes, set the price year to the trip year. Custom purchases are already trip-year USD.</p>';
@@ -1010,7 +1029,7 @@ if (typeof document !== "undefined") (function () {
       { id: "rooms", from: start, to: addMonths(start, 3), when: fmtMonth(start) + " to " + fmtMonth(addMonths(start, 3)), what: "Decide the rooms: whether Mom and Matthew share, and whether Avery and Ryder will still share with Jennifer by then. Ask Mom for an honest read on her walking range and stairs." },
       { id: "passports", from: mb(30), to: mb(19), when: span(30, 19), what: "Check every passport. Each must be valid at least three months past the flight home (aim for six) and be less than 10 years old. Children's passports last only five years." },
       { id: "calendar", from: mb(18), to: mb(13), when: span(18, 13), what: "Confirm the school calendar for Avery and Ryder and confirm ten days in Greece plus travel from each home airport. Re-price the budget." },
-      { id: "flights", from: mb(11), to: mb(9), when: span(11, 9), what: "Flights go on sale about 11 months ahead. Book all seven on the same Chicago to Athens nonstop, the Bay Area three connecting from SFO on one ticket, with aisle seats near the front for Mom and wheelchair assistance requested." + (s.insurance === "full" ? " Buy travel insurance at the same time." : s.insurance === "mom" ? " Buy Mom's medical travel policy at the same time." : s.insurance === "medical" ? " Buy the travel medical policies at the same time." : "") },
+      { id: "flights", from: mb(11), to: mb(9), when: span(11, 9), what: "Flights go on sale about 11 months ahead. Book all seven on the same Chicago to Athens nonstop, the Bay Area three connecting from " + (s.bayAirport || "SFO") + " on one ticket, with aisle seats near the front for Mom and wheelchair assistance requested." + (s.insurance === "full" ? " Buy travel insurance at the same time." : s.insurance === "mom" ? " Buy Mom's medical travel policy at the same time." : s.insurance === "medical" ? " Buy the travel medical policies at the same time." : "") },
       { id: "hotels", from: mb(10), to: mb(7), when: span(10, 7), what: (s.apartments ? "Book the apartments on free-cancellation terms as soon as dates open, and the hotel rooms for the last night in Athens. " : "Book hotels on free-cancellation rates as the calendars open. ") + (d.skipSantorini ? "Naxos first, then Athens." : "Santorini first, then Naxos, then Athens.") + " Confirm elevators or ground floors, air conditioning, and the number of steps to each room." },
       { id: "island", from: mb(6), to: mb(4), when: span(6, 4), what: (d.flyToNaxos && !d.ferryBack ? "Book the flights to Naxos and back to Athens while fares are low." : d.flyToNaxos ? "Book the flight to Naxos while fares are low." : d.ferryBack ? "" : "Book the island flight back to Athens while fares are low.") + (d.privateDrivers ? " Reserve the drivers." : d.rentalVan ? " Reserve the Naxos rental van; automatics are scarce." : " Check the Naxos village bus timetable.") + (d.guides ? " Reserve the guides." : "") + (d.sunsetCruise && !d.skipSantorini ? " Reserve the sunset cruise." : "") + (d.cookingClass ? " Reserve the cooking class." : "") },
       { id: "ferries", from: mb(4), to: mb(2), when: span(4, 2), what: (function () { var n = (d.flyToNaxos ? 0 : 1) + (d.skipSantorini ? 0 : 1) + (d.ferryBack ? 1 : 0); return n === 0 ? "" : "Book the Blue Star " + (n === 1 ? "ferry" : "ferries") + (d.skipSantorini ? "" : d.ferryBack ? " and both Santorini port transfers" : " and the Santorini port transfer") + " when the summer schedule is published. "; })() + "Mom sees her doctor about heat, medications, and the long flight." },
@@ -1143,7 +1162,7 @@ if (typeof document !== "undefined") (function () {
     h += '<h3>Extras you can add</h3><p class="hint flights">Only selected extras are included. They are optional.</p>';
     EXTRAS.forEach(function (x) { h += sw("dial." + x[0], x[1], x[2], s.dials[x[0]]); });
 
-    h += '<h3>Prices</h3><p class="hint flights">All seven share the nonstop from Chicago O\'Hare to Athens. Matthew, Chris, and Friend fly in from SFO to join it. Fares are per person, round trip. Hotel and food prices are in euros. Rates use the price year below; adjust it when entering newer quotes.</p>' +
+    h += '<h3>Prices</h3><p class="hint flights">All seven share the nonstop from Chicago O\'Hare to Athens. Matthew, Chris, and his friend fly in from <span data-airport>' + esc(s.bayAirport || "SFO") + '</span> to join it. Fares are per person, round trip. Hotel and food prices are in euros. Rates use the price year below; adjust it when entering newer quotes.</p>' +
       '<div class="grid2"><label class="field"><span>Airfare from Chicago</span><span class="moneyin"><input inputmode="decimal" data-set="airfareChicago" value="' + esc(s.airfareChicago) + '"></span></label>' +
       '<label class="field"><span>Airfare from the Bay Area</span><span class="moneyin"><input inputmode="decimal" data-set="airfareBayArea" value="' + esc(s.airfareBayArea) + '"></span></label>' +
       '<label class="field"><span>Athens room, a night</span><span class="moneyin euro"><input inputmode="decimal" data-set="hotelAthens" value="' + esc(s.hotelAthens) + '"></span></label>' +
@@ -1195,6 +1214,7 @@ if (typeof document !== "undefined") (function () {
     $("#inshint", d).textContent = "Medicare generally does not pay for care outside the United States. Medical cover for Mom adds about " + money(derive(insMom, [], today()).goal - g0) +
       ". Comprehensive cover adds about " + money(derive(insFull, [], today()).goal - g0) + ". All premiums require policy-specific quotes; coverage and exclusions vary.";
     document.getElementById("plan-err").textContent = D.dateIssue;
+    Array.prototype.forEach.call(d.querySelectorAll("[data-airport]"), function (el) { el.textContent = s.bayAirport || "SFO"; });
     Array.prototype.forEach.call(d.querySelectorAll("[data-auto]"), function (el) { el.textContent = money(D.buy[el.getAttribute("data-auto")] || 0) + " auto"; });
     Array.prototype.forEach.call(d.querySelectorAll("[data-effect]"), function (el) {
       el.textContent = effectLabel(el.getAttribute("data-effect"));
@@ -1352,7 +1372,8 @@ if (typeof document !== "undefined") (function () {
     else if (act === "stranded-download" || act === "stranded-drop") {
       var sid = b.getAttribute("data-id"), item = strandedList.filter(function (x) { return x.id === sid; })[0]; if (!item) return;
       if (act === "stranded-download") { var sa = document.createElement("a"); sa.href = URL.createObjectURL(new Blob([buildDocument(normalize(item.state), $("#app-css").textContent, $("#app-js").textContent)], { type: "text/html" })); sa.download = "unpublished-draft-" + item.at.slice(0, 10) + ".html"; document.body.appendChild(sa); sa.click(); setTimeout(function () { URL.revokeObjectURL(sa.href); sa.remove(); }, 2000); }
-      else { if (b.getAttribute("data-armed") !== "1") { b.setAttribute("data-armed", "1"); b.textContent = "Tap again to discard"; return; } strandedList = strandedList.filter(function (x) { return x.id !== sid; }); lsSet("gwm.strandedList", strandedList.length ? strandedList : null); renderMain(); }
+      else { if (b.getAttribute("data-armed") !== "1") { b.setAttribute("data-armed", "1"); b.textContent = "Tap again to discard"; return; } var latest = storedStranded(); strandedList.forEach(function (x) { if (!latest.some(function (y) { return y.id === x.id; })) latest.push(x); });
+        latest = latest.filter(function (x) { return x.id !== sid; }); lsSet("gwm.strandedList", latest.length ? latest : null); strandedList = latest; renderMain(); }
     }
     else if (act === "gh-publish") ghPublish();
     else if (act === "open-gh") renderGh();
@@ -1437,7 +1458,11 @@ if (typeof document !== "undefined") (function () {
   document.addEventListener("keydown", function (ev) { if (ev.key === "Enter" && ev.target.closest && ev.target.closest("#dlg-pay") && ev.target.tagName === "INPUT") { ev.preventDefault(); $('[data-act="save-pay"]').click(); } });
   window.addEventListener("hashchange", function () { readTab(); renderMain(); });
   if (editorMode) {
-    var wasStale = false, recheck = function () { var now = staleTab(); if (now !== wasStale && !document.querySelector("dialog[open]")) { wasStale = now; renderMain(); } };
+    var wasStale = false, recheck = function () {
+      var now = staleTab(), stored = storedStranded(), ids = function (l) { return l.map(function (x) { return x.id; }).sort().join(","); }, listChanged = ids(stored) !== ids(strandedList);
+      if (listChanged) strandedList = stored;
+      if ((now !== wasStale || listChanged) && !document.querySelector("dialog[open]")) { wasStale = now; renderMain(); }
+    };
     window.addEventListener("storage", recheck); window.addEventListener("focus", recheck); document.addEventListener("visibilitychange", function () { if (!document.hidden) recheck(); });
   }
 
