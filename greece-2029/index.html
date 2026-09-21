@@ -272,6 +272,20 @@ select{-webkit-appearance:none;appearance:none;background-image:linear-gradient(
 body{-webkit-font-smoothing:antialiased;overflow-wrap:break-word}
 .sheetbar .btn{min-width:0;white-space:normal;line-height:1.15}
 .grid2>*{min-width:0}
+input[aria-invalid=true],select[aria-invalid=true]{border-color:var(--bloom)!important;outline:2px solid var(--bloom);outline-offset:0}
+.trybar.stranded{display:block}
+.trybar.stranded .copy{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px;font-size:13.5px}
+/* small phones: columns never grow past a third, long status chips wrap, and short sheets can scroll */
+.people,.colonnade{grid-template-columns:repeat(3,minmax(0,1fr))}
+.person{min-width:0}
+.chip{white-space:normal;max-width:100%;line-height:1.15;text-align:center}
+.sheet{overflow-y:auto;-webkit-overflow-scrolling:touch;max-height:inherit}
+.sheetbar{position:sticky;bottom:0;z-index:1}
+.payrow{grid-template-columns:minmax(64px,auto) minmax(0,1fr) auto}
+.payrow label{overflow-wrap:normal;word-break:keep-all}
+@media (max-width:359px){.payrow label{font-size:14.5px}.payrow .btn.small{padding-left:8px;padding-right:8px;font-size:12.5px}.person .saved{font-size:20px}.chip{font-size:11px;padding:4px 6px}}
+.actionbar .btn{min-width:0}
+@media (max-width:359px){.actionbar{gap:8px;padding-left:10px;padding-right:10px}.actionbar .btn{font-size:13.5px;padding-left:6px;padding-right:6px}.sheetbar .btn{font-size:14px}}
 </style>
 </head>
 <body>
@@ -586,13 +600,19 @@ function derive(s, payments, now, spending) {
       expectedPct: goal[p] > 0 ? exp / goal[p] * 100 : 0, catchUp: n > dueCount ? up5(togo / (n - dueCount)) : togo });
     /* What to pay from here on: whatever is still owed, spread evenly over the deposits that are left.
        A deposit due today still counts as left until it has been paid, so the figure does not jump on due dates. */
-    var me = D.payers[D.payers.length - 1], dueToday = dueCount > 0 && toISO(dates[dueCount - 1]) === isoNow && diff < -.005;
-    var leftDates = dates.slice(dueCount); if (dueToday) leftDates = [dates[dueCount - 1]].concat(leftDates);
-    var level = leftDates.length ? togo / leftDates.length : togo, owed = 0;
-    list.forEach(function (x) { owed += x.allocation[p] || 0; var k = leftDates.filter(function (d) { return d <= x.date; }).length; if (k > 0) level = Math.max(level, (owed - saved[p]) / k); });
-    me.now = cents(leftDates.length ? Math.min(togo, up5(level)) : togo);
-    me.nextDue = leftDates[0] || null; me.left = leftDates.length;
-    me.changed = st !== 'done' && st !== 'waiting' && Math.abs(me.now - Math.min(monthly[p], togo)) >= 5;
+    var me = D.payers[D.payers.length - 1], future = dates.slice(dueCount);
+    var todayDue = dueCount > 0 && toISO(dates[dueCount - 1]) === isoNow, prevISO = dueCount > 1 ? toISO(dates[dueCount - 2]) : "", inPeriod = 0;
+    if (todayDue) (payments || []).forEach(function (x) { if (x.who === p && validISO(x.date) && x.date <= isoNow && x.date > prevISO) inPeriod += num(x.amount, 0); });
+    var levelFor = function (settled, slots) {      /* an even amount per remaining date that also meets every purchase deadline */
+      var lv = slots.length ? (goal[p] - settled) / slots.length : Math.max(0, goal[p] - settled), owed = 0;
+      list.forEach(function (x) { owed += x.allocation[p] || 0; var k = slots.filter(function (d) { return d <= x.date; }).length; if (k > 0) lv = Math.max(lv, (owed - settled) / k); });
+      return up5(Math.max(0, lv));
+    };
+    var todays = todayDue ? levelFor(saved[p] - inPeriod, [dates[dueCount - 1]].concat(future)) : 0;
+    var openToday = todayDue && diff < -.005 && togo > 0 && inPeriod + .005 < todays;
+    if (openToday) { me.now = cents(Math.max(0, Math.min(togo, todays - inPeriod))); me.nextDue = dates[dueCount - 1]; me.left = future.length + 1; me.level = todays; me.partToday = inPeriod > 0; }
+    else { me.now = cents(future.length ? Math.min(togo, levelFor(saved[p], future)) : togo); me.nextDue = future[0] || null; me.left = future.length; me.level = me.now; me.partToday = false; }
+    me.changed = st !== 'done' && st !== 'waiting' && Math.abs(me.level - Math.min(monthly[p], Math.max(me.level, togo))) >= 5;
     D.goal += goal[p]; D.saved += saved[p]; D.expected += exp;
   });
   D.goal = cents(D.goal); D.saved = cents(D.saved); D.cash = cents(D.saved - D.spent);
@@ -676,10 +696,28 @@ if (typeof document !== "undefined") (function () {
   function lsGet(k) { try { var raw=localStorage.getItem(storagePrefix+k); if(raw===null&&(k==='gwm.local'||k==='gwm.gh'))raw=localStorage.getItem(k);return JSON.parse(raw||'null'); } catch(e){return null;} }
   function lsSet(k, v) { try { if (v == null) localStorage.removeItem(storagePrefix+k); else localStorage.setItem(storagePrefix+k, JSON.stringify(v)); return true; } catch (e) { return false; } }
   var publishedSnapshot=JSON.stringify(normalize(state));
+  function sameState(a, b) { try { return JSON.stringify(normalize(a)) === JSON.stringify(normalize(b)); } catch (e) { return false; } }
+  function knownStates() { return lsGet("gwm.known") || []; }
+  function addKnown(st) { var k = knownStates(); if (!k.some(function (x) { return sameState(x, st); })) { k.push(clone(st)); lsSet("gwm.known", k.slice(-8)); } }
+  var tabBase = publishedSnapshot;      /* the site copy that THIS tab's records were built on */
+  function headState() { return lsGet("gwm.local") || lsGet("gwm.baseState"); }
+  function staleTab() { if (!editorMode) return false; var h = headState(); return !!h && !sameState(h, state); }
+  var STALE_MSG = "This tab is out of date: another tab or window in this browser has newer records. Reload this tab before you record, download, or publish.";
+  var strandedList = [];
+  function setAside(st) {      /* never overwrite an earlier recovery copy; returns false when the browser could not store it */
+    if (!strandedList.some(function (x) { return sameState(x.state, st); })) strandedList.push({ id: uid(), at: new Date().toISOString(), state: clone(st) });
+    return lsSet("gwm.strandedList", strandedList);
+  }
   if (editorMode) {
     canSave = true;
-    var mine = lsGet("gwm.local");
-    if (mine && (mine.rev || 0) > siteRev) state = normalize(mine); else lsSet("gwm.local", null);
+    strandedList = lsGet("gwm.strandedList") || [];
+    var legacy = lsGet("gwm.stranded"); if (legacy && setAside(legacy)) lsSet("gwm.stranded", null);
+    var mine = lsGet("gwm.local"), siteState = clone(state), baseState = lsGet("gwm.baseState");
+    var startFresh = function () { lsSet("gwm.local", null); lsSet("gwm.base", publishedSnapshot); lsSet("gwm.baseState", siteState); lsSet("gwm.known", [siteState]); lsSet("gwm.publishedSnapshot", null); };
+    if (!mine || sameState(mine, siteState)) startFresh();                     /* nothing unpublished here, or the site has caught up */
+    else if ((baseState && sameState(baseState, siteState)) || knownStates().some(function (x) { return sameState(x, siteState); })) { state = normalize(mine); tabBase = lsGet("gwm.base") || publishedSnapshot; }   /* the site is the copy this draft was built on, or one this browser sent */
+    else if (setAside(mine)) startFresh();                                     /* someone else changed the site, including deletions: keep the site, keep the draft as a recovery copy */
+    else state = normalize(mine);                                              /* could not store a recovery copy, so do not let go of the draft */
   }
   function unpublished() { return editorMode && JSON.stringify(normalize(state)) !== (lsGet("gwm.publishedSnapshot") || publishedSnapshot); }
   function ghConfig() {
@@ -739,7 +777,8 @@ if (typeof document !== "undefined") (function () {
     D.payers.forEach(function (p) {
       h += '<div class="person"><h2>' + esc(p.id) + '</h2><div class="saved">' + money(p.saved) + '</div><div class="of">of ' + money(p.goal) + "</div>" + statusChip(p, D) +
         (p.status === "done" ? '<div class="monthly">Nothing more to pay</div>'
-          : p.changed ? '<div class="monthly now ' + (p.now > p.monthly ? "up" : "down") + '"><b>' + money(p.now) + '</b> a month now</div><div class="expected">Plan was ' + money(p.monthly) + "</div>"
+          : p.partToday ? '<div class="monthly now up"><b>' + money(p.now) + "</b> more today</div>"
+          : p.changed ? '<div class="monthly now ' + (p.level > p.monthly ? "up" : "down") + '"><b>' + money(p.level) + '</b> a month now</div><div class="expected">Plan was ' + money(p.monthly) + "</div>"
           : '<div class="monthly">' + money(p.monthly) + " a month</div>") +
         '<div class="expected">By today: ' + money(p.expected) + "</div></div>";
     });
@@ -748,12 +787,13 @@ if (typeof document !== "undefined") (function () {
     h += '<section class="together"><p>Together we have saved <strong>' + money(D.saved) + "</strong> of <strong>" + money(D.goal) + "</strong>. " +
       (D.deposits.due === 0 ? "Saving starts <strong>" + esc(fmtDay(D.deposits.first)) + "</strong>, with " + D.deposits.n + " monthly deposits."
         : "By today the plan calls for <strong>" + money(D.expected) + "</strong>.") + "</p>";
-    if (D.deposits.next) {
-      var due = D.payers.filter(function (p) { return p.now > 0 && p.nextDue; }), firstDue = due.length ? due.reduce(function (a, p) { return p.nextDue < a ? p.nextDue : a; }, due[0].nextDue) : D.deposits.next;
-      h += '<p class="nextdue">Next deposits are due <strong>' + esc(fmtDay(firstDue)) + "</strong>: " +
-        D.payers.map(function (p) { return esc(p.id) + " " + money(p.now); }).join(", ") + "." +
-        (D.payers.some(function (p) { return p.changed; }) ? " Amounts rise after a missed or short payment and fall after an extra one, so everyone still finishes on time." : "") + "</p>";
-    }
+    var owing = D.payers.filter(function (p) { return p.now > 0; }), byDate = {}, isoToday = toISO(today());
+    owing.forEach(function (p) { var k = p.nextDue ? toISO(p.nextDue) : ""; (byDate[k] = byDate[k] || []).push(p); });
+    Object.keys(byDate).sort().forEach(function (k) {
+      var who = byDate[k].map(function (p) { return esc(p.id) + " " + money(p.now); }).join(", ");
+      h += '<p class="nextdue">' + (k === "" ? "The last deposit date has passed. Still owed: " : k === isoToday ? "Due <strong>today</strong>: " : "Next deposits are due <strong>" + esc(fmtDay(parseISO(k))) + "</strong>: ") + who + ".</p>";
+    });
+    if (owing.some(function (p) { return p.changed && p.nextDue; })) h += '<p class="nextdue">Amounts rise after a missed or short payment and fall after an extra one, so everyone still finishes on time.</p>';
     h += "</section>";
     h += '<div class="funds" aria-label="Trip fund balances"><div><span>Contributed</span><strong>'+moneyExact(D.saved)+'</strong></div><div><span>Spent</span><strong>'+moneyExact(D.spent)+'</strong></div><div><span>Cash held</span><strong>'+moneyExact(D.cash)+'</strong></div></div>';
     if(D.cash<-.005)h+='<p class="err">Spending exceeds recorded contributions. Reconcile the bank balance and any missing contributions.</p>';
@@ -969,6 +1009,13 @@ if (typeof document !== "undefined") (function () {
     var s = settings(), D = derive(s, state.payments, today(), state.spending), h = "";
     h += '<h1 class="sr-only">Greece with Mom: the family trip plan and savings tracker</h1>';
     h += '<nav class="tabs" aria-label="Sections">' + TABS.map(function (t) { return '<button data-act="tab" data-tab="' + t[0] + '"' + (tab === t[0] ? ' aria-current="page"' : "") + ">" + t[1] + "</button>"; }).join("") + "</nav>";
+    if (staleTab()) {
+      h += '<div class="trybar stalebar" role="alert"><span><b>This tab is out of date.</b> Another tab or window in this browser has newer records. Reload before you record, download, or publish anything here.</span><span><button class="btn small primary" data-act="reload-tab">Reload this tab</button></span></div>';
+    }
+    if (editorMode && strandedList.length) {
+      h += '<div class="trybar stranded" role="alert"><span><b>' + (strandedList.length === 1 ? "This browser holds a draft that never reached the site" : "This browser holds " + strandedList.length + " drafts that never reached the site") + "</b>, and the site was changed from somewhere else. Nothing was deleted. Download each copy, compare it with the site, and enter anything that is missing.</span>" +
+        strandedList.map(function (x) { return '<span class="copy">Draft from ' + esc(new Date(x.at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })) + ", " + ((x.state.payments || []).length) + ' payments <button class="btn small primary" data-act="stranded-download" data-id="' + esc(x.id) + '">Download</button><button class="btn small" data-act="stranded-drop" data-id="' + esc(x.id) + '">Discard</button></span>'; }).join("") + "</div>";
+    }
     if (editorMode) {
       h += '<div class="edbar" role="status"><span><b>Editor mode.</b> ' + (unpublished() ? "Your changes are saved in this browser but are not on the site yet." : "This copy has no unpublished local edits. Refresh the family link after a deployment to confirm it.") + "</span><span>" +
         (ghConfig().token ? '<button class="btn small' + (unpublished() ? " primary" : "") + '" data-act="gh-publish">Publish to the site</button>' : "") +
@@ -1006,7 +1053,7 @@ if (typeof document !== "undefined") (function () {
 
   function renderPay() {
     var D = derive(state.settings, state.payments, today(), state.spending), d = dialog("dlg-pay");
-    var h = '<div class="sheet"><h2>Record contributions</h2><p class="sub">Enter money Jennifer or Matthew paid to Chris, or Chris’s own contribution. Leave unused boxes empty.</p>' +
+    var h = '<div class="sheet"><h2>Record payments</h2><p class="sub">Enter money Jennifer or Matthew paid to Chris, or Chris’s own contribution. Leave unused boxes empty.</p>' +
       '<label class="field"><span>Date received</span><input type="date" id="pay-date" value="' + toISO(today()) + '"></label>';
     D.payers.forEach(function (p) {
       var sug = p.now;
@@ -1014,7 +1061,7 @@ if (typeof document !== "undefined") (function () {
         '<button class="btn small" data-act="fill" data-who="' + p.id + '" data-amt="' + sug + '">Use ' + money(sug) + "</button></div>";
     });
     h += '<label class="field"><span>Note (optional)</span><input type="text" id="pay-note" maxlength="80" placeholder="For example: October deposit"></label>' +
-      '<p class="err" id="pay-err" role="alert"></p><div class="sheetbar"><button class="btn primary" data-act="save-pay">Record contributions</button><button class="btn" data-act="close-pay">Cancel</button></div></div>';
+      '<p class="err" id="pay-err" role="alert"></p><div class="sheetbar"><button class="btn primary" data-act="save-pay">Save payments</button><button class="btn" data-act="close-pay">Cancel</button></div></div>';
     d.innerHTML = h; openDialog(d);
   }
 
@@ -1109,6 +1156,8 @@ if (typeof document !== "undefined") (function () {
   }
   function validatePlanInputs(){
     var issue='',dialog=document.getElementById('dlg-plan');if(!dialog)return issue;
+    Array.prototype.forEach.call(dialog.querySelectorAll('input[type=date]'),function(el){var optional=el.getAttribute('data-set')==='finishBy',bad=!el.value&&!optional;el.setAttribute('aria-invalid',bad?'true':'false');if(bad)issue='Every date needs a value. Fill in the highlighted date before saving.';});
+    var fxEl=dialog.querySelector('input[data-set="fx"]');if(fxEl){var fxBad=!(configNumber(fxEl.value)>0);fxEl.setAttribute('aria-invalid',fxBad?'true':'false');if(fxBad)issue='The exchange rate must be greater than zero.';}
     Array.prototype.forEach.call(dialog.querySelectorAll('input[data-set]'),function(el){if(el.type==='date'||el.type==='checkbox')return;var v=configNumber(el.value);if(!isFinite(v)||v<0)issue='Correct the invalid price or rate before saving.';});
     Array.prototype.forEach.call(dialog.querySelectorAll('input[data-extra][data-k="amount"]'),function(el){if(el.value.trim()&&!isFinite(numericInput(el.value)))issue='Correct the invalid purchase amount before saving.';});return issue;
   }
@@ -1143,12 +1192,13 @@ if (typeof document !== "undefined") (function () {
   function saveShared(next, doneMsg, errEl, isRetry) {
     if (saving && !isRetry) return Promise.resolve(false);
     if (editorMode) {
-      var other=lsGet('gwm.local');
-      if(other && (other.rev||0)>(state.rev||0)){var conflict='Another tab has newer changes. Download this draft as a backup, then reload before recording more.';if(errEl)errEl.textContent=conflict;else toast(conflict,true);return Promise.resolve(false);}
+      if (staleTab()) { if (errEl) errEl.textContent = STALE_MSG; else toast(STALE_MSG, true); renderMain(); return Promise.resolve(false); }
       if(!lsGet('gwm.base'))lsSet('gwm.base',publishedSnapshot);
+      if(!lsGet('gwm.baseState'))lsSet('gwm.baseState',JSON.parse(publishedSnapshot));
       next.rev = (state.rev || 0) + 1; next.updated = new Date().toISOString();
       if (!lsSet("gwm.local", next)) { var m0 = "This browser would not store the change. Check that private browsing is off."; if (errEl) errEl.textContent = m0; else toast(m0); return Promise.resolve(false); }
-      state = next; draft = null;
+      if (draft && JSON.stringify(next.settings) === JSON.stringify(draft)) draft = null;   /* only a saved plan clears the draft */
+      state = next;
       ["dlg-pay", "dlg-plan", "dlg-spend"].forEach(function (id) { var d = document.getElementById(id); if (d) closeDialog(d); });
       renderMain(); toast(doneMsg + " Publish when you are ready.");
       return Promise.resolve(true);
@@ -1160,7 +1210,8 @@ if (typeof document !== "undefined") (function () {
     stash("gwm.toast", doneMsg); stash("gwm.tab", tab);
     return artifactNs.publish(html).then(function () {
       saving = false; document.body.classList.remove("saving");
-      state = next; draft = null;
+      if (draft && JSON.stringify(next.settings) === JSON.stringify(draft)) draft = null;   /* only a saved plan clears the draft */
+      state = next;
       ["dlg-pay", "dlg-plan", "dlg-spend"].forEach(function (id) { var d = document.getElementById(id); if (d) closeDialog(d); });
       renderMain(); toast(doneMsg);
       return true;
@@ -1182,19 +1233,22 @@ if (typeof document !== "undefined") (function () {
   }
 
   function downloadPage() {
+    if (staleTab()) { toast(STALE_MSG, true); renderMain(); return; }
     if(dirty()){toast("Save or discard plan changes before downloading.");return;}
     var a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([pageHTML()], { type: "text/html" })); a.download = "index.html";
     document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+    addKnown(state);
     toast("Downloaded index.html. Upload it to the site in place of the old one.");
   }
   function ghPublish() {
     if(saving)return;
+    if (staleTab()) { toast(STALE_MSG, true); renderMain(); return; }
     if(dirty()){toast('Save or discard the plan changes before publishing.');return;}
     var g=ghConfig();if(!g.token){renderGh();return;}
     if(!g.owner||!g.repo||!g.branch||!g.path){toast('Complete the publish settings first.');return;}
     var api='https://api.github.com/repos/'+encodeURIComponent(g.owner)+'/'+encodeURIComponent(g.repo)+'/contents/'+g.path.split('/').map(encodeURIComponent).join('/');
     var headers={Authorization:'Bearer '+g.token,Accept:'application/vnd.github+json','Content-Type':'application/json'};
-    var pendingHTML=pageHTML(),pendingState=clone(state),expected=lsGet('gwm.base')||publishedSnapshot;
+    var pendingHTML=pageHTML(),pendingState=clone(state),expected=tabBase;
     saving=true;document.body.classList.add('saving');toast('Checking the published copy...',true);
     fetch(api+'?ref='+encodeURIComponent(g.branch),{headers:headers,cache:'no-store'})
       .then(function(r){if(r.status===404)return null;if(!r.ok)throw new Error('GitHub returned '+r.status+' while reading the file.');return r.json();})
@@ -1205,14 +1259,16 @@ if (typeof document !== "undefined") (function () {
           var html=new TextDecoder().decode(bytes),match=/<script\b[^>]*\bid=["']app-state["'][^>]*>([\s\S]*?)<\/script>/i.exec(html);
           if(!match)throw new Error('The existing file is not a recognized trip page. Check the repository and path.');
           var remote=JSON.stringify(normalize(JSON.parse(match[1])));
-          if(remote!==expected && remote!==JSON.stringify(normalize(pendingState)))throw new Error('The site has a different saved version. Download this draft as a backup, then reload the latest site and reconcile the records. Nothing was overwritten.');
+          var remoteState=JSON.parse(match[1]),mineBefore=knownStates().some(function(x){return sameState(x,remoteState);});   /* a page this browser downloaded or published earlier */
+          if(remote!==expected && remote!==JSON.stringify(normalize(pendingState)) && !mineBefore)throw new Error('The site has a different saved version. Download this draft as a backup, then reload the latest site and reconcile the records. Nothing was overwritten.');
         }
+        if (staleTab()) throw new Error('Another tab in this browser saved newer records while this one was publishing. Nothing was overwritten. Reload this tab.');
         var bytes=new TextEncoder().encode(pendingHTML),binary='';bytes.forEach(function(b){binary+=String.fromCharCode(b);});
         var body={message:'Update the Greece trip page',content:btoa(binary),branch:g.branch};if(cur&&cur.sha)body.sha=cur.sha;
         return fetch(api,{method:'PUT',headers:headers,body:JSON.stringify(body)});
       })
       .then(function(r){if(r.ok)return r.json();return r.json().then(function(j){throw new Error(j.message||('GitHub returned '+r.status));});})
-      .then(function(){publishedSnapshot=JSON.stringify(normalize(pendingState));siteRev=pendingState.rev||0;lsSet('gwm.base',publishedSnapshot);lsSet('gwm.publishedSnapshot',publishedSnapshot);saving=false;document.body.classList.remove('saving');renderMain();toast('GitHub accepted the update. Wait for the Pages deployment, then refresh the family link to confirm.');})
+      .then(function(){addKnown(pendingState);lsSet('gwm.baseState',pendingState);publishedSnapshot=JSON.stringify(normalize(pendingState));tabBase=publishedSnapshot;siteRev=pendingState.rev||0;lsSet('gwm.base',publishedSnapshot);lsSet('gwm.publishedSnapshot',publishedSnapshot);saving=false;document.body.classList.remove('saving');renderMain();toast('GitHub accepted the update. Wait for the Pages deployment, then refresh the family link to confirm.');})
       .catch(function(e){saving=false;document.body.classList.remove('saving');toast('Publish was not confirmed: '+(e&&e.message?e.message:'connection error')+' Your local draft is retained.',true);});
   }
   function renderGh() {
@@ -1222,7 +1278,7 @@ if (typeof document !== "undefined") (function () {
   }
 
   /* ---------- music: off until someone asks for it; the choice is remembered on this device ---------- */
-  var music = null, musicOn = false;
+  var music = null, musicOn = false, armed = false;
   var NOTE = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>';
   function musicButton() {
     return '<button class="musicfab' + (musicOn ? " on" : "") + '" data-act="music" aria-pressed="' + (musicOn ? "true" : "false") + '" aria-label="' + (musicOn ? "Turn the music off" : "Turn the music on") + '" title="' + (musicOn ? "Music is on" : "Music is off") + '">' + NOTE + (musicOn ? "" : '<path d="M3 3l18 18"/>') + "</svg></button>";
@@ -1240,7 +1296,10 @@ if (typeof document !== "undefined") (function () {
       if (p && p.catch) p.catch(function (e) {
         if (e && e.name === "NotAllowedError") { /* the browser wants a tap first */
           musicOn = false; paintMusic();
-          var evs = ["click", "touchend", "keydown"], go = function () { evs.forEach(function (n) { document.removeEventListener(n, go, true); }); if (lsGet("gwm.music") === true && !musicOn) setMusic(true, false); };
+          var evs = ["click", "touchend", "keydown"], go = function (ev) {
+            if (ev && ev.target && ev.target.closest && ev.target.closest('[data-act="music"]')) return;   /* a tap on the music button is handled by the button itself */
+            evs.forEach(function (n) { document.removeEventListener(n, go, true); }); armed = false; if (lsGet("gwm.music") === true && !musicOn) setMusic(true, false); };
+          if (armed) return; armed = true;
           evs.forEach(function (n) { document.addEventListener(n, go, true); });
         }
       });
@@ -1252,7 +1311,11 @@ if (typeof document !== "undefined") (function () {
     var openSheet = document.querySelector("dialog[open]");
     if (hiddenAt && Date.now() - hiddenAt > 30 * 60 * 1000 && !editorMode && !dirty() && !openSheet && location.protocol !== "file:") location.reload();
   });
-  document.addEventListener("visibilitychange", function () { if (!music || !musicOn) return; if (document.hidden) music.pause(); else { var p = music.play(); if (p && p.catch) p.catch(function () {}); } });
+  document.addEventListener("visibilitychange", function () {
+    if (!music || !musicOn) return;
+    if (document.hidden) { music.pause(); return; }
+    var p = music.play(); if (p && p.catch) p.catch(function () { musicOn = false; paintMusic(); });   /* the browser refused: show the truth; the next tap on the button starts it again */
+  });
 
   /* ---------- events ---------- */
   document.addEventListener("click", function (ev) {
@@ -1261,7 +1324,13 @@ if (typeof document !== "undefined") (function () {
     if(saving)return;
     if (act === "tab") { tab = b.getAttribute("data-tab"); try { history.replaceState(null, "", "#" + tab + (editorMode ? "&editor" : "")); } catch (e) {} renderMain(); window.scrollTo(0, 0); }
     else if (act === "music") setMusic(!musicOn, true);
+    else if (act === "reload-tab") location.reload();
     else if (act === "download-page") downloadPage();
+    else if (act === "stranded-download" || act === "stranded-drop") {
+      var sid = b.getAttribute("data-id"), item = strandedList.filter(function (x) { return x.id === sid; })[0]; if (!item) return;
+      if (act === "stranded-download") { var sa = document.createElement("a"); sa.href = URL.createObjectURL(new Blob([buildDocument(normalize(item.state), $("#app-css").textContent, $("#app-js").textContent)], { type: "text/html" })); sa.download = "unpublished-draft-" + item.at.slice(0, 10) + ".html"; document.body.appendChild(sa); sa.click(); setTimeout(function () { URL.revokeObjectURL(sa.href); sa.remove(); }, 2000); }
+      else { if (b.getAttribute("data-armed") !== "1") { b.setAttribute("data-armed", "1"); b.textContent = "Tap again to discard"; return; } strandedList = strandedList.filter(function (x) { return x.id !== sid; }); lsSet("gwm.strandedList", strandedList.length ? strandedList : null); renderMain(); }
+    }
     else if (act === "gh-publish") ghPublish();
     else if (act === "open-gh") renderGh();
     else if (act === "gh-close") closeDialog(dialog("dlg-gh"));
@@ -1315,15 +1384,15 @@ if (typeof document !== "undefined") (function () {
       if (key === "insurance" || key === "bayAirport") s[key] = el.value;
       else if (key.indexOf("dial.") === 0) s.dials[key.slice(5)] = el.checked;
       else if (el.type === "checkbox") s[key] = el.checked;
-      else if (key === "tripDate") { if (!el.value || ev.type !== "change") return; shiftDates(s, s.tripDate, el.value); s.tripDate = el.value; rerender = true; }
-      else if (key === "startDate") { if (!el.value) return; s.startDate = el.value; }
+      else if (key === "tripDate") { el.setAttribute("aria-invalid", el.value ? "false" : "true"); if (!el.value || ev.type !== "change") return; shiftDates(s, s.tripDate, el.value); s.tripDate = el.value; rerender = true; }
+      else if (key === "startDate") { el.setAttribute("aria-invalid", el.value ? "false" : "true"); if (!el.value) return; s.startDate = el.value; }
       else if (key === "finishBy") { s.finishBy = el.value && el.value !== toISO(autoLast(s)) ? el.value : null; if (!el.value && ev.type === "change") rerender = true; }
-      else { var v=configNumber(el.value);if(!isFinite(v)||v<0||(key==="fx"&&v<=0)){document.getElementById("plan-err").textContent="Enter a valid number; the exchange rate must be positive.";return;}s[key]=v; }
+      else { var v=configNumber(el.value);if(!isFinite(v)||v<0||(key==="fx"&&v<=0)){el.setAttribute("aria-invalid","true");document.getElementById("plan-err").textContent="Enter a valid number; the exchange rate must be positive.";return;}el.setAttribute("aria-invalid","false");document.getElementById("plan-err").textContent="";s[key]=v; }
     } else if (k) {
       var row = el.hasAttribute("data-buy") ? s.purchases[+el.getAttribute("data-buy")] : s.extras[+el.getAttribute("data-extra")]; if (!row) return;
       if (k === "bought") row.bought = el.checked;
       else if(k==="amount"){var amount=el.value.trim()===""?0:numericInput(el.value);if(!isFinite(amount)){document.getElementById("plan-err").textContent="Enter a valid purchase amount with at most two decimals.";return;}row.amount=amount;}
-      else if (k === "date") { if (!el.value) return; row.date = el.value; }
+      else if (k === "date") { el.setAttribute("aria-invalid", el.value ? "false" : "true"); if (!el.value) return; row.date = el.value; }
       else row[k] = el.value;
     } else return;
     if (rerender) renderPlan(); else refreshPlan();
@@ -1340,6 +1409,10 @@ if (typeof document !== "undefined") (function () {
   document.addEventListener("change", onEdit);
   document.addEventListener("keydown", function (ev) { if (ev.key === "Enter" && ev.target.closest && ev.target.closest("#dlg-pay") && ev.target.tagName === "INPUT") { ev.preventDefault(); $('[data-act="save-pay"]').click(); } });
   window.addEventListener("hashchange", function () { readTab(); renderMain(); });
+  if (editorMode) {
+    var wasStale = false, recheck = function () { var now = staleTab(); if (now !== wasStale && !document.querySelector("dialog[open]")) { wasStale = now; renderMain(); } };
+    window.addEventListener("storage", recheck); window.addEventListener("focus", recheck); document.addEventListener("visibilitychange", function () { if (!document.hidden) recheck(); });
+  }
 
   /* ---------- start ---------- */
   readTab();
