@@ -64,6 +64,7 @@
       --rule:rgba(10,10,10,.16);
       --rule-soft:rgba(10,10,10,.08);
       --tile:#E3E3DF;
+      --quote:#413726;
       --f-display:"CC Accidentals","Archivo","Arial Narrow","Helvetica Neue",Arial,sans-serif;
       --f-text:"CC Accidentals","Piazzolla",Georgia,"Times New Roman",serif;
       --m:clamp(20px,5vw,72px);
@@ -86,6 +87,7 @@
       --rule:rgba(201,204,209,.2);
       --rule-soft:rgba(201,204,209,.1);
       --tile:#161616;
+      --quote:#E4D9CA;
       color-scheme:dark;
     }
 
@@ -219,7 +221,7 @@
     .credits-names .nm{color:var(--ink)}
     .quote{grid-column:4 / -1;margin:clamp(72px,9vw,150px) 0 0}
     .quote blockquote{margin:0}
-    .quote p{margin:0;font-style:italic;font-weight:300;font-size:clamp(26px,3vw,48px);line-height:1.22;letter-spacing:-.008em;text-indent:-.36em;text-wrap:balance}
+    .quote p{margin:0;font-style:italic;font-weight:300;font-size:clamp(26px,3vw,48px);line-height:1.22;letter-spacing:-.008em;text-indent:-.36em;text-wrap:balance;color:var(--quote)}
     .quote figcaption{margin-top:clamp(16px,1.8vw,26px);font-family:var(--f-display);font-weight:500;font-size:15px;line-height:1.2;color:var(--ink-2)}
 
     /* ---------- teaching and learning ---------- */
@@ -367,6 +369,8 @@
       .mic-help,.mic-note .mn-say,#inviteHow{font-size:13px}
       html.is-listening .hero-bottom{margin-top:clamp(12px,2vh,24px)}
       .l::after{display:none}
+      .bio-statement{margin-top:36px}
+      .quote{margin-top:48px}
       .name{white-space:normal;line-height:.8}
       .word{display:block}
       .hero-bottom{flex-direction:column;align-items:flex-start}
@@ -457,7 +461,7 @@
             <button class="invite-btn" id="inviteBtn" type="button" aria-pressed="false"><span class="dot" aria-hidden="true"><svg class="ico-play" viewBox="0 0 24 24"><use href="#i-play"/></svg><svg class="ico-stop" viewBox="0 0 24 24"><use href="#i-stop"/></svg></span><span id="inviteLabel">Click to activate generative audio</span></button>
             <p class="invite-text" id="inviteHow" hidden>Tuned to B♭1. Across for pitch, down for chaos. Every line and heading on the page is an instrument.</p>
             <button class="invite-btn mic-btn" id="micBtn" type="button" aria-pressed="false" title="Uses your microphone to hear pitch. Nothing leaves your device."><span class="dot" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#i-mic"/></svg></span><span id="micLabel">Sing to the page</span></button>
-            <p class="mic-help" id="micHelp">Hum or sing a note: every letter and string that shares its harmonics will ring.</p>
+            <p class="mic-help" id="micHelp">Hum or sing a steady note, then stop: every letter and string that shares its harmonics will ring back.</p>
             <p class="mic-note" id="micNote" hidden></p>
           </div>
         </div>
@@ -1346,8 +1350,9 @@
       // The engine's own page-bottom gate stays open (scrollDepth 0); the hero fader does the fading.
       try { dssNode.port.postMessage({ type: 'params', value: { mouseX: mouseX, mouseY: mouseY, scrollDepth: 0 } }); } catch (e) {}
     }
-    // Automation only when something changes, to keep the audio thread light.
-    if (dssBus && Math.abs(heroMix - lastHeroMix) > 0.004) { lastHeroMix = heroMix; dssBus.gain.setTargetAtTime(heroMix * heroMix, audioCtx.currentTime, 0.12); }
+    // The engine goes quiet while the page listens to a singer. Automation only when something changes.
+    var dssTarget = mic.on ? 0 : heroMix * heroMix;
+    if (dssBus && Math.abs(dssTarget - lastHeroMix) > 0.004) { lastHeroMix = dssTarget; dssBus.gain.setTargetAtTime(dssTarget, audioCtx.currentTime, mic.on ? 0.08 : 0.12); }
   }
 
   // Stochastic structural events (Xenakis Poisson process): a chord voice
@@ -1384,7 +1389,8 @@
   /* ---------- the voices: every instrument on the page, for any audio context ----------
      Each voice takes the context and destination, so the same code plays live and
      renders the score offline. */
-  var voicesLive = 0, sketchGain = null;
+  var voicesLive = 0, sketchGain = null, outBusyUntil = 0;
+  function markOut(ms) { var t = performance.now() + ms; if (t > outBusyUntil) outBusyUntil = t; }
   function ET(midi) { return 440 * Math.pow(2, (midi - 69) / 12); }
   function ctxCache(c) { return c.__cc || (c.__cc = { waves: {}, noise: null }); }
   function noiseOf(c) {
@@ -1566,6 +1572,7 @@
     if (!audioCtx || !audioActive || voicesLive > 64) return;
     var t = Math.max(audioCtx.currentTime, when || 0);
     var dur = vPluck(audioCtx, dest || sfxBus, freq, p, vel, pan, t, mul);
+    markOut(900);
     voicesLive++; setTimeout(function () { voicesLive--; }, (dur + 0.1) * 1000);
   }
   function sfxVoice(v) { if (!audioCtx) return; if (!v.dest) v.dest = sfxBus; vTone(audioCtx, v); }
@@ -1573,10 +1580,11 @@
   function sfxNoise(t, dest, dur, vol, hp) { vNoise(audioCtx, dest, t, dur, vol, hp); }
   function sfxSnare(t, dest, vol) { vSnare(audioCtx, dest, t, vol); }
   function sfxHat(t, dest, vol) { vHat(audioCtx, dest, t, vol, false); }
-  function sfxBell(f) { if (!audioCtx || !audioActive) return; vChime(audioCtx, sfxBus, f, audioCtx.currentTime + 0.01); }
+  function sfxBell(f) { if (!audioCtx || !audioActive) return; vChime(audioCtx, sfxBus, f, audioCtx.currentTime + 0.01); markOut(1400); }
   function sfxPlay(kind, f, vel, pan, p, n) {
     if (!audioCtx || !audioActive || voicesLive > 64) return;
     var dur = playVoice(audioCtx, sfxBus, kind, f, audioCtx.currentTime, vel, pan, p, n);
+    markOut(1100);
     voicesLive++; setTimeout(function () { voicesLive--; }, (dur + 0.1) * 1000);
   }
   function stopSketch() {
@@ -1590,6 +1598,7 @@
   function playSketch(kind, title, idx) {
     if (!audioActive || !audioCtx) return;
     stopSketch();
+    markOut(2600);
     var g = audioCtx.createGain(); g.gain.value = 1; g.connect(sfxBus); sketchGain = g;
     var t = audioCtx.currentTime + 0.03, i;
     if (kind === 'dss') {                       // the real engine: jump to a new partial
@@ -2135,21 +2144,28 @@
     }
     return out;
   }
-  function showMicSay(f0) {
+  function stringShares(fS, f0) {   // does any of the string's first four modes land on a harmonic of the note?
+    for (var n = 1; n <= 4; n++) { var h = Math.round(n * fS / f0); if (h >= 1 && h <= 16 && Math.abs(1200 * Math.log(n * fS / (h * f0)) / Math.LN2) < 30) return true; }
+    return false;
+  }
+  function showMicSay(f0, state) {
     var head, say;
-    if (!f0) { head = 'Listening'; say = 'Hum or sing a steady note. Try a B\u266D or an F.'; }
+    if (state === 'echo' && mic.echo) { head = 'Ringing back'; say = mic.echo; }
+    else if (state === 'busy') { head = 'Listening'; say = 'Waiting for the page\'s own notes to fade.'; }
+    else if (!f0) { head = 'Listening'; say = 'Hum or sing a steady note, then stop. Try a B\u266D or an F.'; }
     else {
       head = noteText(f0) + (mic.tuned > 0 && mic.tunedFired ? ', in tune' : '');
-      var idx = sharedPartials(f0);
-      say = idx.length ? 'It lights ' + listWords(idx.map(function (i) { return LETTER_NAMES.charAt(i); })) + ': the letters that share its harmonics.'
-                       : 'No letter shares its harmonics. Try a B\u266D, an F, or a D.';
+      var idx = sharedPartials(f0), anyString = strings.some(function (S) { return stringShares(S.f, f0); });
+      if (idx.length) say = 'It lights ' + listWords(idx.map(function (i) { return LETTER_NAMES.charAt(i); })) + '. Stop singing to hear them ring back.';
+      else if (anyString) say = 'Stop singing to hear the strings that share its harmonics ring back.';
+      else say = 'Nothing on the page shares its harmonics. Try a B\u266D, an F, or a D.';
     }
     var key = head + '|' + say;
     if (key === mic.lastText) return;
     mic.lastText = key;
     micNote.innerHTML = '<span class="mn-head"></span><span class="mn-say"></span>';
     micNote.firstChild.textContent = head; micNote.lastChild.textContent = say;
-    micChipNote.textContent = f0 ? noteName(f0) : 'Listening';
+    micChipNote.textContent = f0 ? noteName(f0) : (state === 'echo' ? 'Ringing' : 'Listening');
   }
   function micStart() {
     if (mic.on || mic.busy || !micSupported || !unlockAudio()) return;
@@ -2161,7 +2177,7 @@
       mic.sink = audioCtx.createGain(); mic.sink.gain.value = 0;      // analysis only: your voice never reaches the speakers
       mic.src.connect(mic.an); mic.an.connect(mic.sink); mic.sink.connect(audioCtx.destination);
       mic.time = new Float32Array(mic.an.fftSize); mic.freq = new Float32Array(mic.an.frequencyBinCount); mic.d = new Float32Array(1024);
-      mic.on = true; setMicUI(); visitMark('mic');
+      mic.on = true; resetAcc(); mic.quietUntil = 0; setMicUI(); visitMark('mic');
     }).catch(function (err) {
       mic.busy = false; setMicUI();
       var n = err && err.name;
@@ -2223,6 +2239,51 @@
     strings.forEach(function (S) { if (S.vis && (n % S.n === 0 || oct)) pluckString(S, S.x0 + (S.x1 - S.x0) * 0.5, 0.6, false); });
     if (oct) letters.forEach(function (L, i) { setTimeout(function () { L.e = Math.max(L.e, 0.55); L.t0 = performance.now(); }, i * 45); });
   }
+  function resetAcc() {
+    mic.acc = { n: 0, name: new Float32Array(12), str: new Float32Array(strings.length), head: heads.map(function (H) { return new Float32Array(H.letters.length); }) };
+    mic.voicedMs = 0;
+  }
+  function accumulate() {   // 50 ms of how strongly the voice meets each letter and string
+    var a = mic.acc, i, j;
+    a.n++;
+    for (i = 0; i < 12; i++) a.name[i] += micLevel(F0 * (4 + i));
+    for (j = 0; j < strings.length; j++) a.str[j] += micString(strings[j].f);
+    heads.forEach(function (H, h) { if (H.voice === 'drum') return; for (var k = 0; k < H.letters.length; k++) a.head[h][k] += micLevel(H.letters[k].f); });
+  }
+  function ringTone(f, t, dur, amp) {   // a soft sympathetic ring: a slow swell and a long decay, dry so it never feeds the reverb
+    var o = audioCtx.createOscillator(), o2 = audioCtx.createOscillator(), g = audioCtx.createGain(), g2 = audioCtx.createGain();
+    o.frequency.value = f; o2.frequency.value = f * 2; g2.gain.value = 0.18;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(amp, t + 0.09); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); o2.connect(g2); g2.connect(g); g.connect(comp);
+    o.start(t); o2.start(t); o.stop(t + dur + 0.05); o2.stop(t + dur + 0.05);
+    o.onended = function () { try { g.disconnect(); g2.disconnect(); } catch (e) {} };
+  }
+  function ringBack(now) {   // the singer stopped: everything that shares the note's harmonics rings back, like strings with the pedal down
+    var a = mic.acc, n = Math.max(1, a.n), list = [], i, j;
+    for (i = 0; i < 12; i++) if (a.name[i] / n > 0.15) list.push({ kind: 'name', i: i, f: F0 * (4 + i), lv: a.name[i] / n });
+    for (j = 0; j < strings.length; j++) if (a.str[j] / n > 0.15) list.push({ kind: 'string', j: j, f: strings[j].f, lv: a.str[j] / n });
+    heads.forEach(function (H, h) { if (H.voice === 'drum') return; for (var k = 0; k < H.letters.length; k++) if (a.head[h][k] / n > 0.15) list.push({ kind: 'head', h: h, k: k, f: H.letters[k].f, lv: a.head[h][k] / n }); });
+    resetAcc();
+    if (!list.length || !audioCtx) return;
+    list.sort(function (x, y) { return y.lv - x.lv; });
+    if (list.length > 16) list.length = 16;
+    var dur = 3.2, amp = 0.09 / Math.sqrt(list.length), t = audioCtx.currentTime + 0.03, names = [], nStr = 0, nHead = 0;
+    list.forEach(function (it, q) {
+      ringTone(it.f, t + q * 0.012, dur, amp * (0.55 + 0.45 * Math.min(1, it.lv)));
+      visitNote(it.f, true, 'mode', 0.5, 0.5, 0);
+      if (it.kind === 'name') { var L = letters[it.i]; L.e = Math.max(L.e, 0.35 + 0.5 * Math.min(1, it.lv)); L.t0 = performance.now(); names.push({ i: it.i, c: LETTER_NAMES.charAt(it.i) }); }
+      else if (it.kind === 'string') { var S = strings[it.j]; pluckString(S, S.x0 + (S.x1 - S.x0) * 0.5, 0.35 + 0.4 * Math.min(1, it.lv), false); nStr++; }
+      else { var HL = heads[it.h].letters[it.k]; HL.e = Math.max(HL.e, 0.35 + 0.5 * Math.min(1, it.lv)); HL.t0 = performance.now(); nHead++; }
+    });
+    names.sort(function (x, y) { return x.i - y.i; });
+    var extras = [];
+    if (nStr) extras.push(nStr + (nStr === 1 ? ' string' : ' strings'));
+    if (nHead) extras.push(nHead + (nHead === 1 ? ' letter' : ' letters') + ' in the section titles');
+    var nameText = listWords(names.map(function (x) { return x.c; }));
+    mic.echo = (nameText ? nameText + (extras.length ? ', with ' + listWords(extras) : '') : listWords(extras)) + '.';
+    mic.quietUntil = now + dur * 1000 + 700;   // listening pauses until the ring has faded, so the page never hears itself
+    mic.lastSay = 0;
+  }
   function updateMic(now) {
     if (!mic.on || !mic.an) return;
     mic.an.getFloatFrequencyData(mic.freq);
@@ -2231,13 +2292,28 @@
     mic.peakDb = pk;
     if (now - mic.lastDetect < 50) return;
     mic.lastDetect = now;
+    // The page's own sounds (its ring-back, notes you play, the score, a line being drawn) are never taken for a singer.
+    var echoing = now < mic.quietUntil, busy = now < outBusyUntil || scorePlaying || !!drawing;
+    if (echoing || busy) {
+      mic.f0 = 0; mic.rms = 0; mic.tuned = -1;
+      if (mic.acc && mic.acc.n) resetAcc();
+      if (now - mic.lastSay > 250) { mic.lastSay = now; showMicSay(0, echoing ? 'echo' : 'busy'); }
+      return;
+    }
     mic.an.getFloatTimeDomainData(mic.time);
     var r = detectPitch(mic.time, audioCtx.sampleRate, mic.d);
     mic.rms = r.rms;
     if (r.f > 0 && r.conf > 0.8) mic.f0 = mic.f0 && Math.abs(Math.log(r.f / mic.f0)) < 0.06 ? mic.f0 * 0.6 + r.f * 0.4 : r.f;
     else mic.f0 = 0;
+    if (mic.f0) {
+      visitVoice(mic.f0, r.rms);
+      accumulate();
+      mic.voicedMs += 50; mic.lastVoiced = now;
+    } else if (mic.voicedMs >= 400 && now - mic.lastVoiced >= 150) {
+      ringBack(now);
+      return;
+    } else if (mic.voicedMs && now - mic.lastVoiced > 400) resetAcc();
     if (now - mic.lastSay > 250) { mic.lastSay = now; showMicSay(mic.f0); }
-    if (mic.f0) visitVoice(mic.f0, r.rms);
     var q = mic.f0 / F0, pr = Math.round(q), dev = mic.f0 ? Math.abs(1200 * Math.log(q / pr) / Math.LN2) : 99;
     if (pr >= 2 && pr <= 24 && dev < 12) {
       if (mic.tuned !== pr) { mic.tuned = pr; mic.tunedSince = now; mic.tunedFired = false; }
