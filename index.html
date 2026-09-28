@@ -1944,9 +1944,9 @@
     var now = performance.now(), vel = clamp(Math.abs(y1 - y0) / 26, 0.18, 1);
     if (scrolled) vel = Math.min(0.5, vel);
     for (var i = 0; i < strings.length; i++) {
-      var S = strings[i];
-      if (!S.vis || x < S.x0 || x > S.x1) continue;
-      if ((y0 - S.docY) * (y1 - S.docY) < 0 && now - S.last > 40) { S.last = now; pluckString(S, x, vel, true); }
+      var S = strings[i], px = x === null ? S.x0 + (S.x1 - S.x0) * 0.27 : x;   // no pointer: pluck a quarter of the way along
+      if (!S.vis || px < S.x0 || px > S.x1) continue;
+      if ((y0 - S.docY) * (y1 - S.docY) < 0 && now - S.last > 40) { S.last = now; pluckString(S, px, vel, true); }
     }
   }
   // Plucks fire inside the pointer event itself, for every coalesced sample, so sound lands with the motion.
@@ -1961,10 +1961,11 @@
       prevDocY = y;
     }
   }, { passive: true });
-  function checkCrossings() {   // the page scrolled under a still mouse
+  function checkCrossings() {   // the page scrolled: strings are plucked as they pass the mouse, or, on phones, the middle of the screen
     var sy = window.scrollY;
     if (sy === prevScrollY) return;
     if (ptr.has) { var y1 = ptr.y + sy; crossStrings(ptr.x, ptr.y + prevScrollY, y1, true); prevDocY = y1; }
+    else { var pick = window.innerHeight * 0.5; crossStrings(null, pick + prevScrollY, pick + sy, true); }
     prevScrollY = sy;
   }
   function touchPluck(e) {
