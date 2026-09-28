@@ -2172,7 +2172,7 @@
       mic.sink = audioCtx.createGain(); mic.sink.gain.value = 0;      // analysis only: your voice never reaches the speakers
       mic.src.connect(mic.an); mic.an.connect(mic.sink); mic.sink.connect(audioCtx.destination);
       mic.time = new Float32Array(mic.an.fftSize); mic.freq = new Float32Array(mic.an.frequencyBinCount); mic.d = new Float32Array(1024);
-      mic.on = true; buildRes(); mic.live = false; mic.relAt = 0; mic.rmsH = [0, 0]; mic.hp = []; mic.hd = []; mic.ho = []; mic.dither = 0; setMicUI(); visitMark('mic');
+      mic.on = true; buildRes(); mic.live = false; mic.relAt = 0; mic.es = { run: 0, lag: 0 }; mic.rmsH = [0, 0]; mic.hp = []; mic.hd = []; mic.ho = []; mic.dither = 0; setMicUI(); visitMark('mic');
       var track = stream.getAudioTracks()[0];
       if (track) track.addEventListener('ended', function () {
         if (!mic.on || mic.stream !== stream) return;
@@ -2272,7 +2272,7 @@
       r.o = r.o2 = r.g = r.g2 = null;
     }
   }
-  function pushHist(a, v) { a.push(v); if (a.length > 30) a.shift(); }   // the last 1.5 seconds, one value per 50 ms
+  function pushHist(a, v) { a.push(v); if (a.length > 60) a.shift(); }   // the last 3 seconds, one value per 50 ms
   var outBuf = null;
   function outLevel() {   // what the page itself is sending to the speakers right now
     if (!analyser) return 0;
@@ -2306,6 +2306,54 @@
       if (c.r > best.r) best = c;
     }
     return { r: best.r, beta: best.beta, n: most };
+  }
+  /* The echo judge. Pure functions, tested offline over many simulated sessions of singing and echo.
+     A heard pitch is the page's own echo only if, at one steady delay, it follows the fingerprint strongly (r >= 0.8),
+     at the fingerprint's own scale (0.7 to 1.35), with almost nothing else moving it (under 2 cents left over),
+     and all of that holds for half a second straight. A living voice always leaves more than 2 cents of its own motion. */
+  function echoFit(hp, hd, win, maxLag) {
+    // An echo reaches the microphone as a blend of two consecutive fingerprint values (sound takes time, and the
+    // detector listens over 21 ms), so each delay is fitted with both, as weights that must be positive and sum to about 1.
+    var N = hp.length, S = Math.max(0, N - win), fin = [], i, L, best = { r: 0, beta: 0, sres: 99, n: 0, lag: 0, span: 0 };
+    for (i = S; i < N; i++) if (isFinite(hp[i])) fin.push(hp[i]);
+    if (fin.length < 10) return best;
+    fin.sort(function (a, b) { return a - b; });
+    var med = fin[fin.length >> 1];
+    for (L = 1; L <= maxLag; L++) {
+      var xs = [], y1 = [], y2 = [];
+      for (i = Math.max(S, L + 1); i < N; i++) {
+        if (!isFinite(hp[i]) || i - L >= hd.length) continue;
+        var x = hp[i] - 1200 * Math.round((hp[i] - med) / 1200);   // an octave slip in the detector is not a change of pitch
+        if (Math.abs(x - med) > 60) continue;                      // nor is a jump to another harmonic
+        xs.push(x); y1.push(hd[i - L]); y2.push(hd[i - L - 1]);
+      }
+      var m = xs.length;
+      if (m < 10) continue;
+      var st = 0, stt = 0, stx = 0, sx = 0, s1 = 0, s2 = 0, j;
+      for (j = 0; j < m; j++) { st += j; stt += j * j; stx += j * xs[j]; sx += xs[j]; s1 += y1[j]; s2 += y2[j]; }
+      var den = m * stt - st * st, slope = den ? (m * stx - st * sx) / den : 0, icpt = (sx - slope * st) / m, m1 = s1 / m, m2 = s2 / m;
+      var e = [], cxx = 0, S11 = 0, S22 = 0, S12 = 0, S1e = 0, S2e = 0;
+      for (j = 0; j < m; j++) {
+        e[j] = xs[j] - (icpt + slope * j); var a1 = y1[j] - m1, a2 = y2[j] - m2;
+        cxx += e[j] * e[j]; S11 += a1 * a1; S22 += a2 * a2; S12 += a1 * a2; S1e += a1 * e[j]; S2e += a2 * e[j];
+      }
+      var det = S11 * S22 - S12 * S12;
+      if (cxx < 1e-9 || det < 1e-9) continue;
+      var b1 = (S22 * S1e - S12 * S2e) / det, b2 = (S11 * S2e - S12 * S1e) / det, expl = b1 * S1e + b2 * S2e;
+      if (b1 < -0.3 || b2 < -0.3) continue;                        // a physical blend has no negative weight
+      var r = Math.sqrt(Math.max(0, expl) / cxx);
+      if (r <= best.r) continue;
+      var sres = Math.sqrt(Math.max(0, cxx - expl) / m), k = m - 1, tol = Math.max(2.5, 2.5 * sres);
+      while (k >= 0 && Math.abs(e[k] - b1 * (y1[k] - m1) - b2 * (y2[k] - m2)) <= tol) k--;   // how far back the pitch fits the echo
+      best = { r: r, beta: b1 + b2, sres: sres, n: m, lag: L, span: m - 1 - k };
+    }
+    return best;
+  }
+  function echoStep(st, f) {   // sustained evidence: one steady delay (give or take one step) must pass every test for 10 updates in a row
+    var ok = f.n >= 30 && f.r >= 0.8 && f.beta >= 0.7 && f.beta <= 1.35 && f.sres <= 2;
+    if (ok && st.run > 0 && Math.abs(f.lag - st.lag) <= 1) st.run++; else st.run = ok ? 1 : 0;
+    if (ok) st.lag = f.lag;
+    return st.run >= 10;
   }
   function notUsLately() {   // 0.8 s of pitch since the last release that plainly doesn't follow the fingerprint: a singer, not the echo
     if (performance.now() - (mic.relAt || 0) < 800) return false;
@@ -2364,7 +2412,7 @@
     mic.lastDetect = now;
     // Notes the page plays for other reasons (plucks you play, your score, a line being drawn) are never taken for a singer.
     if (now < outBusyUntil || scorePlaying || drawing) {
-      mic.f0 = 0; mic.rms = 0; mic.tuned = -1; mic.live = false; mic.hp = []; mic.hd = []; mic.ho = [];
+      mic.f0 = 0; mic.rms = 0; mic.tuned = -1; mic.live = false; mic.hp = []; mic.hd = []; mic.ho = []; mic.es = { run: 0, lag: 0 };
       updateRes(false, dtm);
       if (now - mic.lastSay > 250) { mic.lastSay = now; showMicSay(0, 'busy'); }
       return;
@@ -2386,21 +2434,21 @@
     mic.rmsH = [h[1], lv];
     var cents = r.f > 0 && r.conf > 0.8 ? 1200 * Math.log(r.f) / Math.LN2 : NaN;
     pushHist(mic.hp, cents);
+    stepDither();                                              // recorded with the heard pitch, so both histories stay in step
     pushHist(mic.ho, outLevel());
-    var peak = resPeak(), fp = peak > 0.004 ? fingerprint() : { r: 0, beta: 0, n: 0 };
+    var peak = resPeak(), ef = peak > 0.004 ? echoFit(mic.hp, mic.hd, 40, 6) : { r: 0, beta: 0, sres: 99, n: 0, lag: 0, span: 0 };
     var o = mic.ho, k = o.length, outJump = 1;                 // how much the page's own output rose lately
     for (jj = Math.max(2, k - 8); jj < k; jj++) outJump = Math.max(outJump, o[jj - 2] > 1e-4 ? o[jj] / o[jj - 2] : (o[jj] > 1e-4 ? 99 : 1));
     var strongAttack = l100 > 0 && lv >= l100 * 2 && outJump <= 1.15;   // +6 dB in 100 ms that the page's output can't explain
-    var usForSure = fp.n >= 20 && fp.r >= 0.6 && fp.beta >= 0.7;      // the heard pitch moves almost entirely with the fingerprint
+    var usForSure = echoStep(mic.es, ef);                              // proven, sustained: the microphone is hearing the page itself
     if (mic.live) {
-      if (usForSure) { mic.live = false; mic.relAt = now; trimVoice(1.2); }   // the page's own echo: let go at once
+      if (usForSure) { mic.live = false; mic.relAt = now; trimVoice(Math.min(2, ef.span * 0.05 + 0.05)); }   // let go, and remove only the points that fit the echo
       else if (pitched && lv >= l100 * 0.8) mic.lapse = 0;
       else if (++mic.lapse >= 3) { mic.live = false; mic.relAt = now; }
     } else if (pitched && (peak === 0 || strongAttack || notUsLately())) {
       mic.live = true; mic.lapse = 0;
     }
     var voiced = mic.live && pitched;
-    stepDither();
     updateRes(voiced, dtm);
     if (voiced) visitVoice(mic.f0, r.rms);
     if (now - mic.lastSay > 250) { mic.lastSay = now; showMicSay(voiced ? mic.f0 : 0); }
