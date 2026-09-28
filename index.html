@@ -351,11 +351,21 @@
       .play{min-width:0}
     }
     @media (max-width:768px){
-      .mobile-break{display:block}
+      .foot p{white-space:nowrap;font-stretch:85%;font-size:min(13px,calc((100vw - 2 * var(--m)) / 27.2))}
     }
     @media (max-width:720px){
-      .hero-top{flex-direction:column;align-items:flex-start}
-      .invite{align-items:flex-start;text-align:left}
+      .hero-inner{display:flex;flex-direction:column}
+      .hero-top{display:contents}
+      .roles{order:1;margin-bottom:clamp(12px,2vh,20px)}
+      .name{order:2}
+      .hero-bottom{order:3}
+      .invite{order:4;position:relative;z-index:3;align-items:flex-start;text-align:left;gap:10px;margin-top:clamp(22px,3.4vh,34px);padding-top:clamp(16px,2.4vh,22px);border-top:1px solid var(--rule)}
+      .invite-btn{font-size:14px;gap:11px}
+      .invite-btn .dot,.mic-btn .dot{width:36px;height:36px}
+      .invite-btn .dot svg{width:12px;height:12px}
+      .mic-btn .dot svg{width:15px;height:15px}
+      .mic-help,.mic-note .mn-say,#inviteHow{font-size:13px}
+      html.is-listening .hero-bottom{margin-top:clamp(12px,2vh,24px)}
       .l::after{display:none}
       .name{white-space:normal;line-height:.8}
       .word{display:block}
@@ -881,12 +891,12 @@
   var gyroBound = false;
   var ptr = { x: -1, y: -1, has: false, lastY: -1 };   // a real mouse, for plucking strings
 
-  doc.addEventListener('mousemove', function (e) { tgtX = e.clientX / vw; tgtY = e.clientY / vh; lastInputTime = performance.now(); });
+  doc.addEventListener('mousemove', function (e) { tgtX = clamp(e.clientX / vw, 0, 1); tgtY = clamp(e.clientY / vh, 0, 1); lastInputTime = performance.now(); });
   doc.addEventListener('touchmove', function (e) {
-    if (e.touches.length) { tgtX = e.touches[0].clientX / vw; tgtY = e.touches[0].clientY / vh; lastInputTime = performance.now(); }
+    if (e.touches.length) { tgtX = clamp(e.touches[0].clientX / vw, 0, 1); tgtY = clamp(e.touches[0].clientY / vh, 0, 1); lastInputTime = performance.now(); }
   }, { passive: true });
   doc.addEventListener('touchstart', function (e) {
-    if (e.touches.length) { tgtX = e.touches[0].clientX / vw; tgtY = e.touches[0].clientY / vh; lastInputTime = performance.now(); }
+    if (e.touches.length) { tgtX = clamp(e.touches[0].clientX / vw, 0, 1); tgtY = clamp(e.touches[0].clientY / vh, 0, 1); lastInputTime = performance.now(); }
   }, { passive: true });
   doc.addEventListener('pointermove', function (e) {
     if (e.pointerType === 'mouse' || e.pointerType === 'pen') { ptr.x = e.clientX; ptr.y = e.clientY; ptr.has = true; }
@@ -1075,7 +1085,7 @@
     '    this.port.onmessage = function(e) {',
     '      var d = e.data;',
     '      if (d.type === "params") {',
-    '        for (var k in d.value) this.params[k] = d.value[k];',
+    '        for (var k in d.value) { var pv = +d.value[k]; if (isFinite(pv)) this.params[k] = pv < 0 ? 0 : (pv > 1 ? 1 : pv); }',
     '        this.applyParams();',
     '      } else if (d.type === "event") {',
     '        var idx = (typeof d.idx === "number" && d.idx >= 0 && d.idx < this.chord.length) ? d.idx : Math.floor(Math.random() * this.chord.length);',
@@ -1146,6 +1156,10 @@
     '    this.chaos.targetGain = voiceMix * chaosGain;',
     '  }',
     '  process(inputs, outputs) {',
+    '    // Self-healing: a bad number must never silence the engine for good.',
+    '    var vs = [this.bass, this.chord[0], this.chord[1], this.chord[2], this.chaos];',
+    '    for (var q = 0; q < vs.length; q++) { if (!isFinite(vs[q].gain)) vs[q].gain = 0; if (!isFinite(vs[q].smoothedPeriod)) vs[q].smoothedPeriod = vs[q].targetPeriod; }',
+    '    if (!isFinite(this.smoothedDrive)) this.smoothedDrive = 1;',
     '    var output = outputs[0];',
     '    var L = output[0];',
     '    var R = output.length > 1 ? output[1] : L;',
@@ -1645,9 +1659,11 @@
     fW = Math.max(1, r.width); fH = Math.max(1, r.height);
     field.width = Math.round(fW * d); field.height = Math.round(fH * d);
     fctx.setTransform(d, 0, 0, d, 0, 0);
-    var hr = hero.getBoundingClientRect(), tr = heroTopEl.getBoundingClientRect();
+    var hr = hero.getBoundingClientRect(), topY = Infinity;
+    [$('.roles'), $('.invite')].forEach(function (el) { var r = el && el.getBoundingClientRect(); if (r && r.height && r.top < topY) topY = r.top; });
+    if (!isFinite(topY)) topY = hr.bottom - 240;
     fTop = $('#transport').offsetHeight + 6;
-    fBot = clamp(tr.top - hr.top - 4, fTop + 140, fH);
+    fBot = clamp(topY - hr.top - 4, fTop + 140, fH);
     fieldDirty = true;
   }
   function waveAt(v, ph) {
@@ -2377,8 +2393,7 @@
     starting = true;
     var startAudio = function () {
       starting = false;
-      masterGain.gain.cancelScheduledValues(audioCtx.currentTime);
-      masterGain.gain.setValueAtTime(masterGain.gain.value || 0.001, audioCtx.currentTime);
+      holdGain(masterGain.gain, audioCtx.currentTime);
       masterGain.gain.linearRampToValueAtTime(0.4, audioCtx.currentTime + 2);
       audioActive = true;
       lastHeroMix = -1;
@@ -2391,9 +2406,15 @@
     if (audioCtx.state === 'suspended') audioCtx.resume().then(startAudio, function () { starting = false; });
     else startAudio();
   }
+  function holdGain(param, t) {   // freeze a parameter where it is now, cancelling anything still scheduled
+    if (param.cancelAndHoldAtTime) { param.cancelAndHoldAtTime(t); return; }
+    var v = param.value; param.cancelScheduledValues(t); param.setValueAtTime(v, t);
+  }
   function stopSound() {
     if (!audioCtx) return;
-    masterGain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 1);
+    var tStop = audioCtx.currentTime;
+    holdGain(masterGain.gain, tStop);   // cancel the start fade, or it could bring the sound back
+    masterGain.gain.linearRampToValueAtTime(0, tStop + 1);
     audioActive = false;
     setPlayUI(false);
     if (stochasticTimer) clearTimeout(stochasticTimer);
@@ -2530,7 +2551,8 @@
     // iOS: reclaim audio session after a YouTube iframe releases it
     if (audioCtx && audioActive) {
       audioCtx.resume().then(function () {
-        masterGain.gain.setValueAtTime(masterGain.gain.value, audioCtx.currentTime);
+        if (!audioActive) return;   // stopped meanwhile: stay silent
+        holdGain(masterGain.gain, audioCtx.currentTime);
         masterGain.gain.linearRampToValueAtTime(0.4, audioCtx.currentTime + 0.5);
       });
     }
@@ -2779,7 +2801,7 @@
   }
   function invalidateTake() { takeVersion++; takeDirty = true; bm.key = ''; }
   function dropTake() {
-    if (!take || scorePlaying || drawing) return;
+    if (!take || scorePlaying || drawing || renderBusy) return;
     take = null; takeDirty = true; lastScore = 0; status(''); setScoreUI();
   }
   function setScoreUI() {
@@ -3033,21 +3055,22 @@
       try { var pr = oc.startRendering(); if (pr && pr.then) pr.then(fin, function () { fin(null); }); } catch (e) { fin(null); }
     });
   }
-  function withTakeBuffer(cb) {
+  function withTakeBuffer(cb) {   // cb(buffer, take): each operation keeps its own take, whatever happens meanwhile
     var tk = ensureTake();
-    if (tk.buf && tk.version === takeVersion) { cb(tk.buf); return; }
+    if (tk.buf && tk.version === takeVersion) { cb(tk.buf, tk); return; }
     if (renderBusy) return;
     renderBusy = true; status('Rendering your score...');
     renderTake(tk, function (buf) {
       renderBusy = false;
       if (!buf) { status('This browser cannot render the audio.'); return; }
-      status(''); setScoreUI(); cb(buf);
+      status(''); setScoreUI(); cb(buf, tk);
+      if (!scoreVis) dropTake();
     });
   }
   function playTake() {
     if (!unlockAudio()) { status('Sound is not available in this browser.'); return; }
     var r = scorePlayBtn.getBoundingClientRect();
-    withTakeBuffer(function (buf) {
+    withTakeBuffer(function (buf, tk) {
       if (!audioCtx) return;
       stopTakePlayback(true);
       var src = audioCtx.createBufferSource(), g = audioCtx.createGain(), t = audioCtx.currentTime + 0.06;
@@ -3056,6 +3079,7 @@
       src.onended = function () { if (scoreSrc === src) { scoreSrc = null; finishPlayback(); } };
       if (!audioActive && lightsTarget === 0) { scoreLights = true; setLights(true, r); }
       setScoreUI();
+      if (isMobile) setTimeout(function () { try { wavFor(tk); } catch (e) {} }, 500);   // ready ahead of a Save tap
     });
   }
   function stopTakePlayback(quiet) {
@@ -3098,26 +3122,43 @@
     }
     return new Blob([ab], { type: 'audio/wav' });
   }
+  function wavFor(tk) {   // encode each rendered take once
+    if (tk.wav && tk.wavVersion === tk.version) return tk.wav;
+    var name = 'chriscolatos-score-no-' + scoreNo + '.wav', d = new Date();
+    var blob = encodeWAV(tk.buf, {
+      INAM: 'Score No. ' + scoreNo,
+      IART: 'A visitor to chriscolatos.com',
+      ICRD: d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()),
+      ICMT: instrumentation(tk.notes, visit.arcs, tk.voice),
+      ISFT: 'chriscolatos.com'
+    });
+    var file = null;
+    try { file = new File([blob], name, { type: 'audio/wav' }); } catch (e) {}
+    tk.wav = { blob: blob, file: file, name: name }; tk.wavVersion = tk.version;
+    return tk.wav;
+  }
+  function downloadWav(w, tk) {
+    var url = URL.createObjectURL(w.blob), a = doc.createElement('a');
+    a.href = url; a.download = w.name; doc.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 4000);
+    status('Saved ' + w.name + ' (' + fmtDur(tk.playDur) + ', WAV).');
+  }
+  function canShareWav(w) { try { return isMobile && !!w.file && !!navigator.canShare && navigator.canShare({ files: [w.file] }); } catch (e) { return false; } }
   function saveTake() {
-    withTakeBuffer(function (buf) {
-      var name = 'chriscolatos-score-no-' + scoreNo + '.wav', d = new Date();
-      var blob = encodeWAV(buf, {
-        INAM: 'Score No. ' + scoreNo,
-        IART: 'A visitor to chriscolatos.com',
-        ICRD: d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()),
-        ICMT: instrumentation(take.notes, visit.arcs, take.voice),
-        ISFT: 'chriscolatos.com'
+    var tk = ensureTake();
+    if (tk.buf && tk.version === takeVersion) {   // ready: share or save inside this very tap
+      var w = wavFor(tk);
+      if (!canShareWav(w)) { downloadWav(w, tk); return; }
+      navigator.share({ files: [w.file], title: 'Score No. ' + scoreNo }).then(function () { status('Shared ' + w.name + '.'); }, function (err) {
+        if (err && err.name === 'AbortError') return;   // the share sheet was closed
+        downloadWav(w, tk);                             // sharing refused: save it instead
       });
-      var file = null;
-      try { file = new File([blob], name, { type: 'audio/wav' }); } catch (e) {}
-      if (isMobile && file && navigator.canShare && navigator.canShare({ files: [file] })) {
-        navigator.share({ files: [file], title: 'Score No. ' + scoreNo }).then(function () { status('Shared ' + name + '.'); }).catch(function () {});
-        return;
-      }
-      var url = URL.createObjectURL(blob), a = doc.createElement('a');
-      a.href = url; a.download = name; doc.body.appendChild(a); a.click();
-      setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 4000);
-      status('Saved ' + name + ' (' + fmtDur(take.playDur) + ', WAV).');
+      return;
+    }
+    withTakeBuffer(function (buf, tk2) {
+      var w2 = wavFor(tk2);
+      if (canShareWav(w2)) status('Your score is ready. Tap Save audio again to share it.');   // a phone needs a fresh tap to open the share sheet
+      else downloadWav(w2, tk2);
     });
   }
   if (scorePlayBtn) scorePlayBtn.addEventListener('click', function () { if (scorePlaying) stopTakePlayback(false); else playTake(); });
@@ -3453,6 +3494,28 @@
       return {x:1, y:ROWS-2};
     }
 
+    // Shortest path through the maze (breadth-first), obeying the same walls and gate as canMove.
+    function pathDir(sx, sy, tx, ty) {
+      if (sx === tx && sy === ty) return -1;
+      var seen = {}, queue = [[sx, sy, -1]], head = 0;
+      seen[sx + ',' + sy] = 1;
+      while (head < queue.length) {
+        var cur = queue[head++];
+        for (var d = 0; d < 4; d++) {
+          if (!canMove(cur[0], cur[1], d, true)) continue;
+          var nx = cur[0], ny = cur[1];
+          if (d === 0) ny--; else if (d === 1) nx++; else if (d === 2) ny++; else nx--;
+          var key = nx + ',' + ny;
+          if (seen[key]) continue;
+          seen[key] = 1;
+          var first = cur[2] < 0 ? d : cur[2];
+          if (nx === tx && ny === ty) return first;
+          queue.push([nx, ny, first]);
+        }
+      }
+      return -1;
+    }
+
     function moveGhost(ghost, idx) {
       if (ghost.homeTimer > 0) { ghost.homeTimer--; return; }
       // If eaten and home, respawn
@@ -3466,6 +3529,11 @@
         target = {x:9, y:7}; // exit point above gate
       } else {
         target = getGhostTarget(ghost, idx);
+      }
+      // Eaten ghosts take the true shortest path home (a greedy step can loop forever beside a wall)
+      if (ghost.eaten) {
+        var homeDir = pathDir(ghost.x, ghost.y, target.x, target.y);
+        if (homeDir >= 0) { ghost.dir = homeDir; moveEntity(ghost, true); return; }
       }
       var dirs = [0,1,2,3];
       var opposite = (ghost.dir + 2) % 4;
