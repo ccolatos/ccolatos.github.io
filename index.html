@@ -212,7 +212,6 @@
     .bio-mid{grid-column:1 / -1;display:grid;grid-template-columns:repeat(12,minmax(0,1fr));column-gap:var(--g)}
     .bio-body{grid-column:5 / span 7;grid-row:1}
     .bio-body p{margin:0 0 1.15em}
-    .bio-note{grid-column:1 / span 3;grid-row:1;align-self:start;position:sticky;top:calc(var(--hh) + 32px);margin:0;padding-top:16px;border-top:1px solid var(--ink);font-family:var(--f-display);font-weight:500;font-size:15px;line-height:1.55;color:var(--ink-2)}
     .bio-statement{grid-column:1 / span 9;margin:clamp(80px,10vw,168px) 0 clamp(36px,4vw,60px);font-weight:300;font-size:clamp(24px,2.5vw,38px);line-height:1.24;letter-spacing:-.008em;text-wrap:balance}
     .bio-credits{grid-column:1 / -1;margin:0}
     .credits-intro{display:block;margin-bottom:clamp(14px,1.6vw,22px);font-family:var(--f-display);font-weight:500;font-size:15px;line-height:1.4;color:var(--ink-2)}
@@ -330,8 +329,7 @@
       .tiles{grid-column:1 / -1}
     }
     @media (max-width:1000px){
-      .bio-lead,.bio-body,.bio-note,.bio-statement,.bio-credits,.quote{grid-column:1 / -1;grid-row:auto}
-      .bio-note{position:static;margin-top:10px}
+      .bio-lead,.bio-body,.bio-statement,.bio-credits,.quote{grid-column:1 / -1;grid-row:auto}
       .phil-side{display:none}
       .phil-body{grid-column:1 / -1}
       .principle h3 .mode-ico{display:block}
@@ -478,8 +476,8 @@
               <p>Former creative arts college Director of Education, North America Director of Learning Design, Chief Learning Officer, and Chief Learning and Development Officer. Currently, Vice President for Academic Affairs at San Francisco School of Creative Arts and Chief Creative at THE STUDI/O.</p>
               <p>Graduate and post-graduate studies at The University of Edinburgh, Columbia University, Stanford University, and the University of California; currently pursuing a doctorate at the University of Illinois Urbana-Champaign, with research investigating Human+AI co-intelligence in creative and educational contexts.</p>
               <p>Written and presented on numerous creative, technological, and educational subjects. Work in symbolic AI-based music composition began in 2006. Serving on the board of an AI company and contributing as an expert to machine learning platforms.</p>
+              <p>28x Apple Certified Master Trainer, 9x DHS Certified for 508, Trusted Tester Tools, and IT Program Management for Accessible Systems &amp; Technology, and Fellow of Advance HE (the UK Professional Standards Framework for teaching in higher education).</p>
             </div>
-            <p class="bio-note">28x Apple Certified Master Trainer, 9x DHS Certified for 508, Trusted Tester Tools, and IT Program Management for Accessible Systems &amp; Technology, and Fellow of Advance HE (the UK Professional Standards Framework for teaching in higher education).</p>
           </div>
           <p class="bio-statement">For years, worked closely with one of Billboard Magazine's "Top Ten Producers of All Time": 57 #1 Hits, multi-GRAMMY, Emmy &amp; multi-Platinum Producer and Artist Narada Michael Walden at Tarpan Studios.</p>
           <p class="bio-credits"><span class="credits-intro">As Producer, Engineer, Songwriter, Arranger, and Performer, worked with artists and companies, including</span> <span class="credits-names"><span class="nm">Apple</span>, <span class="nm">Google</span>, <span class="nm">Legends The Game</span>, <span class="nm">Robot Invader</span>, <span class="nm">Eagre Games</span>, <span class="nm">LeapFrog</span>, <span class="nm">PETA</span>, <span class="nm">Twisted Tools</span>, <span class="nm">Siedah Garrett</span>, <span class="nm">Greg Phillinganes</span>, <span class="nm">Scientist</span><span class="par"> (dub pioneer)</span>, <span class="nm">PSY</span>, <span class="nm">Playboy</span>, <span class="nm">GQ</span>, <span class="nm">Vogue</span>, <span class="nm">Salvatore Ferragamo</span>, <span class="nm">James Taylor</span>, <span class="nm">Carole King</span>, <span class="nm">Smokey Robinson</span>, <span class="nm">Sting</span>, <span class="nm">Billy Joel</span>, <span class="nm">Katy Perry</span>, and <span class="nm">Elton John</span>.</span></p>
@@ -1309,13 +1307,10 @@
 
     loadDSSWorklet();
 
-    // iOS 16.4 and later: declare media playback, so Web Audio plays directly with no added delay.
-    var hasAudioSession = false;
-    try { if ('audioSession' in navigator) { navigator.audioSession.type = 'playback'; hasAudioSession = true; } } catch (e) {}
-    // Older iOS: route the full audio graph through an HTML <audio> element.
+    // iOS: route the full audio graph through an HTML <audio> element.
     // Web Audio alone doesn't fully activate the iOS audio session, but an
     // <audio> element with .play() from a user gesture does.
-    if (isMobile && !hasAudioSession && audioCtx.createMediaStreamDestination) {
+    if (isMobile && audioCtx.createMediaStreamDestination) {
       var msDest = audioCtx.createMediaStreamDestination();
       analyser.connect(msDest);
       var iosAudio = document.createElement('audio');
@@ -1360,13 +1355,17 @@
   }
 
   // iOS audio session watchdog: check every 500ms and force resume if suspended
-  setInterval(function () { if (audioCtx && audioActive && audioCtx.state === 'suspended') audioCtx.resume(); }, 500);
+  setInterval(function () { if (audioCtx && audioActive && audioCtx.state !== 'running') audioCtx.resume(); }, 500);
   doc.addEventListener('visibilitychange', function () {
-    if (!doc.hidden && audioCtx && audioActive && audioCtx.state === 'suspended') audioCtx.resume();
+    if (!doc.hidden && audioCtx && audioActive && audioCtx.state !== 'running') audioCtx.resume();
   });
   doc.addEventListener('touchstart', function () {
-    if (audioCtx && audioActive && audioCtx.state === 'suspended') audioCtx.resume();
+    if (audioCtx && audioActive && audioCtx.state !== 'running') audioCtx.resume();
   }, { passive: true });
+  // Any click or key is a user gesture Safari accepts for resuming stalled audio.
+  function reclaimAudio() { if (audioCtx && (audioActive || scorePlaying) && audioCtx.state !== 'running') audioCtx.resume(); }
+  doc.addEventListener('pointerdown', reclaimAudio, { passive: true });
+  doc.addEventListener('keydown', reclaimAudio);
 
   /* ---------- the voices: every instrument on the page, for any audio context ----------
      Each voice takes the context and destination, so the same code plays live and
@@ -2146,9 +2145,13 @@
       mic.src.connect(mic.an); mic.an.connect(mic.sink); mic.sink.connect(audioCtx.destination);
       mic.time = new Float32Array(mic.an.fftSize); mic.freq = new Float32Array(mic.an.frequencyBinCount); mic.d = new Float32Array(1024);
       mic.on = true; setMicUI(); visitMark('mic');
-    }).catch(function () {
+    }).catch(function (err) {
       mic.busy = false; setMicUI();
-      micNote.hidden = false; micNote.textContent = 'The microphone is not available.';
+      var n = err && err.name;
+      micNote.hidden = false;
+      micNote.textContent = n === 'NotAllowedError' ? 'Microphone access was declined. You can allow it in this site\'s browser settings.'
+        : n === 'NotFoundError' ? 'No microphone was found.'
+        : 'The microphone could not start' + (n ? ' (' + n + ').' : '.');
     });
   }
   function micStop() {
@@ -2792,7 +2795,7 @@
   var drawing = null, preview = null;
   function unlockAudio() {
     if (!hasAudio) return false;
-    try { if (!audioCtx) initAudio(); if (audioCtx.state === 'suspended') audioCtx.resume(); return true; } catch (e) { return false; }
+    try { if (!audioCtx) initAudio(); if (audioCtx.state !== 'running') audioCtx.resume(); return true; } catch (e) { return false; }
   }
   function waveSnapshot() {   // the waveform the DSS engine is drawing right now, as a wavetable
     var v = voices[1], N = 256, HN = 24, re = new Float32Array(HN + 1), im = new Float32Array(HN + 1), smp = new Float32Array(N), i, h, mean = 0;
