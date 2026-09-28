@@ -64,7 +64,7 @@
       --rule:rgba(10,10,10,.16);
       --rule-soft:rgba(10,10,10,.08);
       --tile:#E3E3DF;
-      --quote:#413726;
+      --quote:#7B5F34;
       --f-display:"CC Accidentals","Archivo","Arial Narrow","Helvetica Neue",Arial,sans-serif;
       --f-text:"CC Accidentals","Piazzolla",Georgia,"Times New Roman",serif;
       --m:clamp(20px,5vw,72px);
@@ -87,7 +87,7 @@
       --rule:rgba(201,204,209,.2);
       --rule-soft:rgba(201,204,209,.1);
       --tile:#161616;
-      --quote:#E4D9CA;
+      --quote:#D3BC98;
       color-scheme:dark;
     }
 
@@ -461,7 +461,7 @@
             <button class="invite-btn" id="inviteBtn" type="button" aria-pressed="false"><span class="dot" aria-hidden="true"><svg class="ico-play" viewBox="0 0 24 24"><use href="#i-play"/></svg><svg class="ico-stop" viewBox="0 0 24 24"><use href="#i-stop"/></svg></span><span id="inviteLabel">Click to activate generative audio</span></button>
             <p class="invite-text" id="inviteHow" hidden>Tuned to B♭1. Across for pitch, down for chaos. Every line and heading on the page is an instrument.</p>
             <button class="invite-btn mic-btn" id="micBtn" type="button" aria-pressed="false" title="Uses your microphone to hear pitch. Nothing leaves your device."><span class="dot" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#i-mic"/></svg></span><span id="micLabel">Sing to the page</span></button>
-            <p class="mic-help" id="micHelp">Hum or sing a steady note, then stop: every letter and string that shares its harmonics will ring back.</p>
+            <p class="mic-help" id="micHelp">Hum or sing a steady note: every letter and string that shares its harmonics rings along with you.</p>
             <p class="mic-note" id="micNote" hidden></p>
           </div>
         </div>
@@ -819,7 +819,7 @@
       <div class="wrap">
         <div class="coda-grid">
           <h2 class="coda-title" id="scoreTitle">The score of your visit</h2>
-          <p class="coda-text">Your visit, written as a score: the pitch you steered, every string, letter, and bell you played, and anything you sang. Draw on it to add voices of your own, then play the whole piece or save it as audio.</p>
+          <p class="coda-text">Your visit, written as a graphic score: the pitch you steered, every string, letter, and bell you played, and anything you sang. Draw on it to add voices of your own, then play the whole piece or save it as audio.</p>
         </div>
         <div class="score-frame">
           <canvas class="score-canvas" id="scoreCanvas" role="img" aria-label="A graphic score of your visit to this page"></canvas>
@@ -1858,7 +1858,7 @@
     var ink = pal('ink'), acc = pal('acc');
     for (var i = 0; i < letters.length; i++) {
       var L = letters[i];
-      var tg = Math.max(audioActive ? bandLevel(F0 * (4 + i)) : 0, mic.on ? micLevel(F0 * (4 + i)) : 0);
+      var tg = Math.max(audioActive ? bandLevel(F0 * (4 + i)) : 0, L.resE || 0);
       L.sym += (tg - L.sym) * (tg > L.sym ? 0.35 : 0.12);
       if (L.e > 0.003) L.e *= Math.exp(-dt / 0.55); else L.e = 0;
       var en = L.e;
@@ -1987,7 +1987,7 @@
   function updateStrings(now) {
     for (var i = 0; i < strings.length; i++) {
       var S = strings[i]; if (!S.vis) continue;
-      var tg = Math.max(audioActive ? bandLevel(S.f) * 0.9 : 0, mic.on ? micString(S.f) : 0);
+      var tg = Math.max(audioActive ? bandLevel(S.f) * 0.9 : 0, S.resE || 0);
       S.sym += (tg - S.sym) * (tg > S.sym ? 0.3 : 0.06);
       drawString(S, now);
     }
@@ -2081,7 +2081,7 @@
       var H = heads[h], drum = H.voice === 'drum';
       for (var i = 0; i < H.letters.length; i++) {
         var L = H.letters[i];
-        var tg = !drum && mic.on ? micLevel(L.f) : 0;
+        var tg = !drum ? (L.resE || 0) : 0;
         if (tg > 0.005 || L.sym > 0.005) L.sym += (tg - L.sym) * (tg > L.sym ? 0.35 : 0.1); else L.sym = 0;
         if (!L.e && !L.sym && !L.c && !L.x && !L.y && L.w === HEAD_W) continue;
         if (L.e > 0.003) L.e *= Math.exp(-dt / (drum ? 0.28 : 0.5)); else L.e = 0;
@@ -2144,28 +2144,23 @@
     }
     return out;
   }
-  function stringShares(fS, f0) {   // does any of the string's first four modes land on a harmonic of the note?
-    for (var n = 1; n <= 4; n++) { var h = Math.round(n * fS / f0); if (h >= 1 && h <= 16 && Math.abs(1200 * Math.log(n * fS / (h * f0)) / Math.LN2) < 30) return true; }
-    return false;
-  }
   function showMicSay(f0, state) {
-    var head, say;
-    if (state === 'echo' && mic.echo) { head = 'Ringing back'; say = mic.echo; }
-    else if (state === 'busy') { head = 'Listening'; say = 'Waiting for the page\'s own notes to fade.'; }
-    else if (!f0) { head = 'Listening'; say = 'Hum or sing a steady note, then stop. Try a B\u266D or an F.'; }
-    else {
+    var head = 'Listening', say, ring;
+    if (state === 'busy') say = 'Waiting for the page\'s own notes to fade.';
+    else if (f0) {
       head = noteText(f0) + (mic.tuned > 0 && mic.tunedFired ? ', in tune' : '');
-      var idx = sharedPartials(f0), anyString = strings.some(function (S) { return stringShares(S.f, f0); });
-      if (idx.length) say = 'It lights ' + listWords(idx.map(function (i) { return LETTER_NAMES.charAt(i); })) + '. Stop singing to hear them ring back.';
-      else if (anyString) say = 'Stop singing to hear the strings that share its harmonics ring back.';
-      else say = 'Nothing on the page shares its harmonics. Try a B\u266D, an F, or a D.';
+      ring = ringingText(0.12);
+      say = ring ? 'Ringing with you: ' + ring : 'Nothing on the page shares its harmonics. Try a B\u266D, an F, or a D.';
+    } else {
+      ring = ringingText(0.08);
+      say = ring ? 'Still ringing: ' + ring : 'Hum or sing a steady note. Try a B\u266D or an F.';
     }
     var key = head + '|' + say;
     if (key === mic.lastText) return;
     mic.lastText = key;
     micNote.innerHTML = '<span class="mn-head"></span><span class="mn-say"></span>';
     micNote.firstChild.textContent = head; micNote.lastChild.textContent = say;
-    micChipNote.textContent = f0 ? noteName(f0) : (state === 'echo' ? 'Ringing' : 'Listening');
+    micChipNote.textContent = f0 ? noteName(f0) : 'Listening';
   }
   function micStart() {
     if (mic.on || mic.busy || !micSupported || !unlockAudio()) return;
@@ -2177,7 +2172,7 @@
       mic.sink = audioCtx.createGain(); mic.sink.gain.value = 0;      // analysis only: your voice never reaches the speakers
       mic.src.connect(mic.an); mic.an.connect(mic.sink); mic.sink.connect(audioCtx.destination);
       mic.time = new Float32Array(mic.an.fftSize); mic.freq = new Float32Array(mic.an.frequencyBinCount); mic.d = new Float32Array(1024);
-      mic.on = true; resetAcc(); mic.quietUntil = 0; setMicUI(); visitMark('mic');
+      mic.on = true; buildRes(); mic.live = false; mic.rmsH = [0, 0]; mic.ph = []; setMicUI(); visitMark('mic');
     }).catch(function (err) {
       mic.busy = false; setMicUI();
       var n = err && err.name;
@@ -2191,9 +2186,11 @@
     if (!mic.on) return;
     try { mic.stream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {}
     try { mic.src.disconnect(); mic.an.disconnect(); mic.sink.disconnect(); } catch (e) {}
+    silenceRes(); mic.live = false;
     mic.on = false; mic.f0 = 0; mic.rms = 0; mic.tuned = -1;
     setMicUI();
   }
+  doc.addEventListener('visibilitychange', function () { if (doc.hidden) silenceRes(); });
   if (micSupported && micBtn) {
     micBtn.addEventListener('click', function () { if (mic.on) micStop(); else micStart(); });
     micChip.addEventListener('click', micStop);
@@ -2239,50 +2236,73 @@
     strings.forEach(function (S) { if (S.vis && (n % S.n === 0 || oct)) pluckString(S, S.x0 + (S.x1 - S.x0) * 0.5, 0.6, false); });
     if (oct) letters.forEach(function (L, i) { setTimeout(function () { L.e = Math.max(L.e, 0.55); L.t0 = performance.now(); }, i * 45); });
   }
-  function resetAcc() {
-    mic.acc = { n: 0, name: new Float32Array(12), str: new Float32Array(strings.length), head: heads.map(function (H) { return new Float32Array(H.letters.length); }) };
-    mic.voicedMs = 0;
+  /* Sympathetic resonance. Every letter and string that shares the singer's harmonics rings along live,
+     swells while the note is held, changes the moment the note changes, and rings out when it ends.
+     Only a live voice drives it: a fresh attack (or any voice on a silent page), then a voice that holds.
+     The page's own ringing only ever fades, so it can never drive itself, even if the microphone hears it. */
+  var res = [], RES_AMP = 0.019;
+  function buildRes() {
+    if (res.length) return;
+    letters.forEach(function (L, i) { res.push({ kind: 'name', L: L, c: LETTER_NAMES.charAt(i), i: i, f: F0 * (4 + i), E: 0 }); });
+    strings.forEach(function (S) { res.push({ kind: 'string', S: S, f: S.f, E: 0 }); });
+    heads.forEach(function (H) { if (H.voice === 'drum') return; H.letters.forEach(function (L) { res.push({ kind: 'head', L: L, f: L.f, E: 0 }); }); });
   }
-  function accumulate() {   // 50 ms of how strongly the voice meets each letter and string
-    var a = mic.acc, i, j;
-    a.n++;
-    for (i = 0; i < 12; i++) a.name[i] += micLevel(F0 * (4 + i));
-    for (j = 0; j < strings.length; j++) a.str[j] += micString(strings[j].f);
-    heads.forEach(function (H, h) { if (H.voice === 'drum') return; for (var k = 0; k < H.letters.length; k++) a.head[h][k] += micLevel(H.letters[k].f); });
+  function resVisual(r) { if (r.kind === 'string') r.S.resE = r.E; else r.L.resE = r.E; }
+  function resTone(r, on) {
+    if (on) {
+      if (r.o || !audioCtx || !comp) return;
+      var o = audioCtx.createOscillator(), o2 = audioCtx.createOscillator(), g = audioCtx.createGain(), g2 = audioCtx.createGain();
+      o.frequency.value = r.f; o2.frequency.value = r.f * 2; g2.gain.value = 0.16; g.gain.value = 0;
+      o.connect(g); o2.connect(g2); g2.connect(g); g.connect(comp);
+      o.start(); o2.start();
+      r.o = o; r.o2 = o2; r.g = g; r.g2 = g2;
+    } else if (r.o) {
+      var t = audioCtx.currentTime, gg = r.g, g22 = r.g2;
+      gg.gain.cancelScheduledValues(t); gg.gain.setTargetAtTime(0, t, 0.03);
+      r.o.stop(t + 0.3); r.o2.stop(t + 0.3);
+      r.o.onended = function () { try { gg.disconnect(); g22.disconnect(); } catch (e) {} };
+      r.o = r.o2 = r.g = r.g2 = null;
+    }
   }
-  function ringTone(f, t, dur, amp) {   // a soft sympathetic ring: a slow swell and a long decay, dry so it never feeds the reverb
-    var o = audioCtx.createOscillator(), o2 = audioCtx.createOscillator(), g = audioCtx.createGain(), g2 = audioCtx.createGain();
-    o.frequency.value = f; o2.frequency.value = f * 2; g2.gain.value = 0.18;
-    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(amp, t + 0.09); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g); o2.connect(g2); g2.connect(g); g.connect(comp);
-    o.start(t); o2.start(t); o.stop(t + dur + 0.05); o2.stop(t + dur + 0.05);
-    o.onended = function () { try { g.disconnect(); g2.disconnect(); } catch (e) {} };
+  function pitchSpread(a) {   // standard deviation, in cents
+    var m = 0, v = 0, i;
+    for (i = 0; i < a.length; i++) m += a[i];
+    m /= a.length;
+    for (i = 0; i < a.length; i++) v += (a[i] - m) * (a[i] - m);
+    return Math.sqrt(v / a.length);
   }
-  function ringBack(now) {   // the singer stopped: everything that shares the note's harmonics rings back, like strings with the pedal down
-    var a = mic.acc, n = Math.max(1, a.n), list = [], i, j;
-    for (i = 0; i < 12; i++) if (a.name[i] / n > 0.15) list.push({ kind: 'name', i: i, f: F0 * (4 + i), lv: a.name[i] / n });
-    for (j = 0; j < strings.length; j++) if (a.str[j] / n > 0.15) list.push({ kind: 'string', j: j, f: strings[j].f, lv: a.str[j] / n });
-    heads.forEach(function (H, h) { if (H.voice === 'drum') return; for (var k = 0; k < H.letters.length; k++) if (a.head[h][k] / n > 0.15) list.push({ kind: 'head', h: h, k: k, f: H.letters[k].f, lv: a.head[h][k] / n }); });
-    resetAcc();
-    if (!list.length || !audioCtx) return;
-    list.sort(function (x, y) { return y.lv - x.lv; });
-    if (list.length > 16) list.length = 16;
-    var dur = 3.2, amp = 0.09 / Math.sqrt(list.length), t = audioCtx.currentTime + 0.03, names = [], nStr = 0, nHead = 0;
-    list.forEach(function (it, q) {
-      ringTone(it.f, t + q * 0.012, dur, amp * (0.55 + 0.45 * Math.min(1, it.lv)));
-      visitNote(it.f, true, 'mode', 0.5, 0.5, 0);
-      if (it.kind === 'name') { var L = letters[it.i]; L.e = Math.max(L.e, 0.35 + 0.5 * Math.min(1, it.lv)); L.t0 = performance.now(); names.push({ i: it.i, c: LETTER_NAMES.charAt(it.i) }); }
-      else if (it.kind === 'string') { var S = strings[it.j]; pluckString(S, S.x0 + (S.x1 - S.x0) * 0.5, 0.35 + 0.4 * Math.min(1, it.lv), false); nStr++; }
-      else { var HL = heads[it.h].letters[it.k]; HL.e = Math.max(HL.e, 0.35 + 0.5 * Math.min(1, it.lv)); HL.t0 = performance.now(); nHead++; }
-    });
-    names.sort(function (x, y) { return x.i - y.i; });
+  function resPeak() { var m = 0; for (var q = 0; q < res.length; q++) if (res[q].E > m) m = res[q].E; return m; }
+  function updateRes(voiced) {   // 20 times a second
+    var t = audioCtx.currentTime;
+    for (var q = 0; q < res.length; q++) {
+      var r = res[q], d = voiced ? (r.kind === 'string' ? micString(r.f) : micLevel(r.f)) : 0;
+      if (d > 0.08) r.E += (Math.min(1, d) - r.E) * 0.3;   // swell toward how strongly the voice meets it
+      else r.E *= 0.955;                                     // ring out: about three seconds to silence
+      if (r.rec && r.E < 0.1) r.rec = false;
+      if (r.E < 0.004) { r.E = 0; if (r.o) resTone(r, false); resVisual(r); continue; }
+      if (!r.o) resTone(r, true);
+      if (r.g) {
+        r.g.gain.cancelScheduledValues(t);
+        r.g.gain.setTargetAtTime(RES_AMP * r.E, t, 0.05);
+        r.g.gain.setTargetAtTime(0, t + 0.2, 1.2);   // if updates ever stop, the ring still fades by itself
+      }
+      if (!r.rec && r.E > 0.3) { r.rec = true; visitNote(r.f, true, 'mode', Math.min(1, r.E), 0.5, 0); }   // each new ring enters the score once
+      resVisual(r);
+    }
+  }
+  function silenceRes() { res.forEach(function (r) { r.E = 0; r.rec = false; if (r.o) resTone(r, false); resVisual(r); }); }
+  function ringingText(min) {
+    var names = [], nStr = 0, nHead = 0;
+    var seen = {};
+    res.forEach(function (r) { if (r.E <= min) return; if (r.kind === 'name') names.push(r); else if (r.kind === 'string') nStr++; else nHead++; });
+    names.sort(function (a, b) { return a.i - b.i; });
+    names = names.filter(function (r) { if (seen[r.c]) return false; seen[r.c] = 1; return true; });
     var extras = [];
     if (nStr) extras.push(nStr + (nStr === 1 ? ' string' : ' strings'));
     if (nHead) extras.push(nHead + (nHead === 1 ? ' letter' : ' letters') + ' in the section titles');
-    var nameText = listWords(names.map(function (x) { return x.c; }));
-    mic.echo = (nameText ? nameText + (extras.length ? ', with ' + listWords(extras) : '') : listWords(extras)) + '.';
-    mic.quietUntil = now + dur * 1000 + 700;   // listening pauses until the ring has faded, so the page never hears itself
-    mic.lastSay = 0;
+    var nameText = listWords(names.map(function (r) { return r.c; }));
+    if (!nameText && !extras.length) return '';
+    return (nameText ? nameText + (extras.length ? ', with ' + listWords(extras) : '') : listWords(extras)) + '.';
   }
   function updateMic(now) {
     if (!mic.on || !mic.an) return;
@@ -2292,12 +2312,11 @@
     mic.peakDb = pk;
     if (now - mic.lastDetect < 50) return;
     mic.lastDetect = now;
-    // The page's own sounds (its ring-back, notes you play, the score, a line being drawn) are never taken for a singer.
-    var echoing = now < mic.quietUntil, busy = now < outBusyUntil || scorePlaying || !!drawing;
-    if (echoing || busy) {
-      mic.f0 = 0; mic.rms = 0; mic.tuned = -1;
-      if (mic.acc && mic.acc.n) resetAcc();
-      if (now - mic.lastSay > 250) { mic.lastSay = now; showMicSay(0, echoing ? 'echo' : 'busy'); }
+    // Notes the page plays for other reasons (plucks you play, your score, a line being drawn) are never taken for a singer.
+    if (now < outBusyUntil || scorePlaying || drawing) {
+      mic.f0 = 0; mic.rms = 0; mic.tuned = -1; mic.live = false; mic.ph.length = 0;
+      updateRes(false);
+      if (now - mic.lastSay > 250) { mic.lastSay = now; showMicSay(0, 'busy'); }
       return;
     }
     mic.an.getFloatTimeDomainData(mic.time);
@@ -2305,16 +2324,21 @@
     mic.rms = r.rms;
     if (r.f > 0 && r.conf > 0.8) mic.f0 = mic.f0 && Math.abs(Math.log(r.f / mic.f0)) < 0.06 ? mic.f0 * 0.6 + r.f * 0.4 : r.f;
     else mic.f0 = 0;
-    if (mic.f0) {
-      visitVoice(mic.f0, r.rms);
-      accumulate();
-      mic.voicedMs += 50; mic.lastVoiced = now;
-    } else if (mic.voicedMs >= 400 && now - mic.lastVoiced >= 150) {
-      ringBack(now);
-      return;
-    } else if (mic.voicedMs && now - mic.lastVoiced > 400) resetAcc();
-    if (now - mic.lastSay > 250) { mic.lastSay = now; showMicSay(mic.f0); }
-    var q = mic.f0 / F0, pr = Math.round(q), dev = mic.f0 ? Math.abs(1200 * Math.log(q / pr) / Math.LN2) : 99;
+    // A live voice begins with an attack (or on a silent page) and then holds. Two facts keep the page from driving itself:
+    // its own ringing only fades, and its tones are exact, while a human pitch always wavers by a few cents.
+    var h = mic.rmsH, r100 = h[0], pitched = mic.f0 > 0 && r.rms > 0.012;
+    mic.rmsH = [h[1], r.rms];
+    if (r.f > 0 && r.conf > 0.8) { mic.ph.push(1200 * Math.log(r.f) / Math.LN2); if (mic.ph.length > 10) mic.ph.shift(); } else mic.ph.length = 0;
+    var human = mic.ph.length < 6 || pitchSpread(mic.ph) >= 2.5;
+    if (mic.live) {
+      if (pitched && human && r.rms >= r100 * 0.8 && now - mic.liveSince < 12000) mic.lapse = 0;
+      else if (++mic.lapse >= 2) mic.live = false;
+    } else if (pitched && (r.rms >= r100 * 1.3 || (resPeak() < 0.05 && human))) { mic.live = true; mic.liveSince = now; mic.lapse = 0; }
+    var voiced = mic.live && pitched;
+    updateRes(voiced);
+    if (voiced) visitVoice(mic.f0, r.rms);
+    if (now - mic.lastSay > 250) { mic.lastSay = now; showMicSay(voiced ? mic.f0 : 0); }
+    var q = mic.f0 / F0, pr = Math.round(q), dev = voiced ? Math.abs(1200 * Math.log(q / pr) / Math.LN2) : 99;
     if (pr >= 2 && pr <= 24 && dev < 12) {
       if (mic.tuned !== pr) { mic.tuned = pr; mic.tunedSince = now; mic.tunedFired = false; }
       else if (!mic.tunedFired && now - mic.tunedSince > 250) { mic.tunedFired = true; inTune(pr); }
