@@ -3824,7 +3824,8 @@
     function gameOut() { if (!gBus && gameAudioCtx) gBus = busFor(gameAudioCtx); return gBus; }
     function keyRoot() { return 233.08 * Math.pow(2, KEYS[keyIdx] / 12); }
     function degHz(d) { var o = Math.floor(d / 5); return keyRoot() / 2 * Math.pow(2, (PENT[d - o * 5] + 12 * o) / 12); }
-    function panTo(c, node, out, pan) { if (c.createStereoPanner) { var p = c.createStereoPanner(); p.pan.value = pan || 0; node.connect(p); p.connect(out); } else node.connect(out); }
+    function panTo(c, node, out, pan) { if (c.createStereoPanner) { var p = c.createStereoPanner(); p.pan.value = pan || 0; node.connect(p); p.connect(out); return p; } node.connect(out); return null; }
+    function letGo(src, nodes) { src.onended = function () { nodes.forEach(function (n) { try { if (n) n.disconnect(); } catch (x) {} }); }; }
     function noiseBufOf(c) { if (!c.__nz) { var n = c.sampleRate * 2, b = c.createBuffer(1, n, c.sampleRate), d = b.getChannelData(0); for (var i = 0; i < n; i++) d[i] = Math.random() * 2 - 1; c.__nz = b; } return c.__nz; }
     function rideOf(c) { if (!c.__ride) { var n = Math.floor(c.sampleRate * 0.35), b = c.createBuffer(1, n, c.sampleRate), d = b.getChannelData(0); for (var i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (c.sampleRate * 0.09)); c.__ride = b; } return c.__ride; }
     // Every sound the suite makes, written so it can be played live or rendered later from the score.
@@ -3836,24 +3837,24 @@
       ride: function (c, out, t, v) {
         var sr = c.createBufferSource(), hp = c.createBiquadFilter(), g = c.createGain();
         sr.buffer = rideOf(c); hp.type = 'highpass'; hp.frequency.value = 6500; g.gain.value = v;
-        sr.connect(hp); hp.connect(g); g.connect(out); sr.start(t);
+        sr.connect(hp); hp.connect(g); g.connect(out); sr.start(t); letGo(sr, [hp, g]);
       },
       sin: function (c, out, t, f, v, p, dur) {   // a pure partial with a bell's envelope
         var o = c.createOscillator(), g = c.createGain(); o.frequency.value = f;
         g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-        o.connect(g); panTo(c, g, out, p); o.start(t); o.stop(t + dur + 0.05);
+        o.connect(g); letGo(o, [g, panTo(c, g, out, p)]); o.start(t); o.stop(t + dur + 0.05);
       },
       gls: function (c, out, t, f, v, p, ratio, dur) {   // a glissando
         var o = c.createOscillator(), g = c.createGain();
         o.frequency.setValueAtTime(f, t); o.frequency.exponentialRampToValueAtTime(f * ratio, t + dur * 0.9);
         g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.04); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-        o.connect(g); panTo(c, g, out, p); o.start(t); o.stop(t + dur + 0.05);
+        o.connect(g); letGo(o, [g, panTo(c, g, out, p)]); o.start(t); o.stop(t + dur + 0.05);
       },
       hold: function (c, out, t, f, v, p, dur) {   // a sustained drone that swells in and fades out
         var o = c.createOscillator(), g = c.createGain(); o.frequency.value = f;
         g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(v, t + Math.min(3, dur * 0.3));
         g.gain.setValueAtTime(v, t + Math.max(0.2, dur - 1.2)); g.gain.linearRampToValueAtTime(0.0001, t + dur);
-        o.connect(g); panTo(c, g, out, p); o.start(t); o.stop(t + dur + 0.05);
+        o.connect(g); letGo(o, [g, panTo(c, g, out, p)]); o.start(t); o.stop(t + dur + 0.05);
       }
     };
     // ---------- the performance, written down as it happens ----------
@@ -4248,7 +4249,12 @@
       '.sc-btns button{font:600 14px var(--f-display);padding:11px 18px;border:1px solid #0A0A0A;background:#0A0A0A;color:#F2F2EF;cursor:pointer}' +
       '.sc-btns button.alt{background:transparent;color:#0A0A0A}' +
       '.sc-note{font-size:12.5px;color:#5B5E63;margin-top:12px}' +
-      '.sc-tilt{position:absolute;left:50%;bottom:max(28px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:10002;font:600 14px var(--f-display);padding:11px 18px;border:1px solid rgba(196,168,130,.6);background:transparent;color:#C4A882}';
+      '.sc-tilt{position:absolute;left:50%;bottom:max(28px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:10002;font:600 14px var(--f-display);padding:11px 18px;border:1px solid rgba(196,168,130,.6);background:transparent;color:#C4A882}' +
+      '.sc-god{position:absolute;left:max(12px,env(safe-area-inset-left));top:max(12px,env(safe-area-inset-top));z-index:10002;display:flex;flex-wrap:wrap;align-items:center;gap:6px;max-width:calc(100vw - 96px);padding:8px 10px;background:rgba(10,10,10,.8);border:1px solid rgba(196,168,130,.45);font:600 12px var(--f-display);color:#C4A882;letter-spacing:.08em;text-transform:uppercase}' +
+      '.sc-god span{margin-right:4px}' +
+      '.sc-god button{font:600 12px var(--f-display);letter-spacing:.06em;text-transform:uppercase;min-width:34px;height:32px;padding:0 9px;border:1px solid rgba(196,168,130,.55);background:transparent;color:#C4A882;cursor:pointer}' +
+      '.sc-god button[aria-pressed="true"]{background:#C4A882;color:#0A0A0A}' +
+      '@media (max-height:500px){.sc-god{flex-direction:column;align-items:stretch;max-width:none}}';
     function ensureStyle() { if (overlay.querySelector('style.sc-style')) return; var st = document.createElement('style'); st.className = 'sc-style'; st.textContent = SC_CSS; overlay.appendChild(st); }
     function titleUI(show) {
       if (!isMobile || !(window.DeviceOrientationEvent)) return;
@@ -4263,15 +4269,61 @@
     function burst(x, y, bell) { rings.push({ x: x, y: y, t: performance.now(), bell: bell }); }
     function deathFx(x, y) { deathAnim = { x: x, y: y, t: performance.now(), ang: playerDir === 0 ? -Math.PI / 2 : playerDir === 1 ? 0 : playerDir === 2 ? Math.PI / 2 : Math.PI }; trail = []; }
     function pluckFx() { clearAnim = performance.now(); }
+    // ---------- god mode: audition the suite without playing through it ----------
+    // Hidden: type G O D on the title page, or open the site with ?god. Jump to any movement, clear it, or end the run;
+    // by default the ghosts pass through you, so you can hear them at full proximity. God-mode runs never set a best score.
+    var god = { on: false, inv: true, panel: null, keys: '', btns: [], invBtn: null, cur: null };
+    function enableGod() {
+      if (god.on) return;
+      god.on = true; ensureStyle();
+      var p = document.createElement('div'); p.className = 'sc-ui sc-god'; p.setAttribute('role', 'toolbar'); p.setAttribute('aria-label', 'God mode');
+      var lab = document.createElement('span'); lab.textContent = 'God mode'; p.appendChild(lab);
+      function gb(label, tip, fn) { var b = document.createElement('button'); b.textContent = label; b.title = tip; bindTap(b, fn); p.appendChild(b); return b; }
+      god.btns = MOVS.map(function (M2, m) { return gb(M2.n, 'Movement ' + M2.n + ': ' + M2.name + ' (key ' + (m + 1) + ')', function () { godJump(m); }); });
+      gb('Clear', 'Clear this movement (key C)', godClear);
+      gb('End', 'End the run and see its score (key E)', godEnd);
+      god.invBtn = gb('Invincible', 'Ghosts pass through you (key I)', function () { god.inv = !god.inv; godSync(true); });
+      overlay.appendChild(p); god.panel = p; godSync(true);
+    }
+    function godSync(force) {
+      if (!god.panel) return;
+      var m = gameState === 'title' ? -1 : movIdx();
+      if (!force && god.cur === m) return;
+      god.cur = m;
+      god.btns.forEach(function (b, i) { b.setAttribute('aria-pressed', i === m ? 'true' : 'false'); });
+      god.invBtn.setAttribute('aria-pressed', god.inv ? 'true' : 'false');
+    }
+    function godJump(m) {   // straight to movement m on a fresh maze; the run's score records the jump
+      if (gameState === 'title') { clearInterval(titleTimer); titleUI(false); ghostVoicesKill(); }
+      if (gameAudioCtx && gameAudioCtx.state !== 'running') gameAudioCtx.resume();
+      hideCard(); stopMusic();
+      level = m + 1;
+      initGame(true);
+      if (lives < 1) lives = 3;
+      startMusic(); godSync(true);
+    }
+    function godClear() { if (gameState !== 'playing') return; gameState = 'won'; stopMusic(); playWinSound(); }
+    function godEnd() { if (gameState !== 'playing' && gameState !== 'won') return; gameState = 'gameover'; stopMusic(); }
+    function godKey(e, k) {   // keys: 1 to 4 jump to a movement, C clears it, E ends the run, I toggles invincibility
+      if (e.metaKey || e.ctrlKey || e.altKey) return false;
+      var lk = k.toLowerCase();
+      if (k.length === 1 && k >= '1' && k <= '4') godJump(+k - 1);
+      else if (lk === 'c') godClear();
+      else if (lk === 'e') godEnd();
+      else if (lk === 'i') { god.inv = !god.inv; godSync(true); }
+      else return false;
+      e.preventDefault(); return true;
+    }
     // ---------- the score of your run ----------
     // Each finished run keeps its own recording, its own rendered audio, and its own saved file. The card holds the run it
     // shows; once a card is dismissed, anything still pending for that run is cancelled, so nothing started for one run
     // can reach another run's card, cache, or file.
-    var card = null, runSrc = null, runRaf = 0, runAt = 0;
+    var card = null, live = null, runRaf = 0;
     var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
     function finishRun() {
       perf.done = true; perf.end = Math.max(1, pt(gameAudioCtx ? gameAudioCtx.currentTime : 0)); perf.score = score;
-      try { var best = +(localStorage.getItem('signalChaseBest') || 0); perf.newBest = score > best; if (perf.newBest) localStorage.setItem('signalChaseBest', String(score)); } catch (x) {}
+      perf.god = god.on;
+      try { var best = +(localStorage.getItem('signalChaseBest') || 0); perf.newBest = !god.on && score > best; if (perf.newBest) localStorage.setItem('signalChaseBest', String(score)); } catch (x) {}
       var run = perf;
       setTimeout(function () { showCard(run); }, 1400);   // after the glissandi have fallen away
     }
@@ -4288,11 +4340,11 @@
       el('div', 'sc-sub', 'Signal Chase, for one player and four oscillators');
       el('div', 'sc-meta', MONTHS[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear() + ', ' + hh + ':' + pad2(d.getMinutes()) + ' ' + (d.getHours() < 12 ? 'AM' : 'PM') +
         '  \u00b7  ' + run.score + ' Hz' + (run.newBest ? ' (your best)' : '') + '  \u00b7  ' + (movs.length > 1 ? 'movements ' : 'movement ') + listWords(movs) + '  \u00b7  ' + fmtDur(run.end) +
-        (run.end > 240 ? '  \u00b7  audio: the first four minutes' : ''));
+        (run.end > 240 ? '  \u00b7  audio: the first four minutes' : '') + (run.god ? '  \u00b7  god mode' : ''));
       var cv = el('canvas', 'sc-cv'); cv.width = 1720; cv.height = 760; card.cv = cv;
       var bt = el('div', 'sc-btns');
       function btn(label, alt, fn) { var b = document.createElement('button'); b.textContent = label; if (alt) b.className = 'alt'; bindTap(b, fn); bt.appendChild(b); return b; }
-      card.play = btn('Play', false, function () { if (runSrc) { stopRun(); return; } withRun(run, function (buf) { if (buf && mine(run)) playRun(run, buf); }); });
+      card.play = btn('Play', false, function () { if (live && live.run === run) { stopRun(); return; } playRun(run); });
       card.save = btn('Save audio', true, function () { saveRun(run); });
       btn('Play again', true, function () { if (gameState === 'gameover') { hideCard(); initGame(false); startMusic(); } });
       el('div', 'sc-note', 'Your solo is also written into the score of your visit.');
@@ -4300,39 +4352,55 @@
       drawRunScore(cv, run, -1);
     }
     function hideCard() { stopRun(); if (card) { card.run.abandoned = true; card.remove(); card = null; } }
-    function withRun(run, cb) {   // each run is rendered once, into its own cache; a click that arrives while it renders waits for it
+    function withRun(run, cb) {   // each run is rendered once (for saving), into its own cache; a second request waits for the first
       if (run.buf) { cb(run.buf); return; }
       (run.waiters = run.waiters || []).push(cb);
       if (run.rendering) return;
       run.rendering = true;
-      if (mine(run)) card.play.textContent = 'Rendering...';
+      if (mine(run)) card.save.textContent = 'Rendering';
       renderRun(run, function (buf) {
         run.rendering = false; run.buf = buf;
-        if (mine(run) && !runSrc) card.play.textContent = 'Play';
         var ws = run.waiters; run.waiters = [];
         ws.forEach(function (w) { w(buf); });
-      });
+      }, function (fr) { if (mine(run)) card.save.textContent = 'Rendering ' + Math.round(fr * 100) + '%'; });
     }
-    function playRun(run, buf) {
-      var c = gameAudioCtx; if (!c || !mine(run)) return;
+    function playRun(run) {   // Play performs the run again live from its score, so it starts at once
+      var c = gameAudioCtx, bus = gameOut(); if (!c || !bus || !mine(run)) return;
       if (c.state !== 'running') c.resume();
       stopRun();
-      var src = runSrc = c.createBufferSource(); src.buffer = buf; src.connect(c.destination);
-      runAt = c.currentTime + 0.05; src.start(runAt);
-      src.onended = function () { if (runSrc === src) stopRun(); };
+      var lim = Math.min(run.end, 240), pg = c.createGain(); pg.connect(bus);
+      var L = live = { pg: pg, t0: 0, timer: 0, run: run, sched: null };
       card.play.textContent = 'Stop';
-      (function frame() { if (runSrc !== src || !mine(run)) return; drawRunScore(card.cv, run, c.currentTime - runAt - 0.05); runRaf = requestAnimationFrame(frame); })();
+      var T0 = L.t0 = c.currentTime + 0.12;
+      ghostPlayer(c, pg, run, lim, T0);
+      L.sched = eventPlayer(c, pg, run, lim, T0);
+      L.sched(T0 + 1.5);
+      L.timer = setInterval(function () { if (live !== L) return; L.sched(c.currentTime + 1.5); if (c.currentTime > T0 + lim + 3) stopRun(); }, 250);
+      (function frame() { if (live !== L || !mine(run)) return; drawRunScore(card.cv, run, c.currentTime - T0); runRaf = requestAnimationFrame(frame); })();
+      dssSpans(run, c.sampleRate, lim, function () { return live !== L; }, function (spans) {   // the stochastic voices are computed in the background and join on time
+        if (live !== L || !spans) return;
+        spans.forEach(function (sp) {
+          var b = c.createBuffer(2, sp.L.length, c.sampleRate); b.getChannelData(0).set(sp.L); b.getChannelData(1).set(sp.R);
+          var s0 = c.createBufferSource(), at = T0 + sp.a, now = c.currentTime + 0.05; s0.buffer = b; s0.connect(pg);
+          if (at >= now) s0.start(at); else if (now - at < b.duration) s0.start(now, now - at);
+        });
+      });
     }
     function stopRun() {
-      if (runSrc) { var s0 = runSrc; runSrc = null; try { s0.onended = null; s0.stop(); } catch (x) {} }
+      if (live) {
+        var L = live, c = gameAudioCtx; live = null; clearInterval(L.timer);
+        try { L.pg.gain.setTargetAtTime(0, c.currentTime, 0.03); if (L.sched) L.sched.end(c.currentTime + 0.3); } catch (x) {}
+        setTimeout(function () { try { L.pg.disconnect(); } catch (x) {} }, 300);
+      }
       cancelAnimationFrame(runRaf);
-      if (card) { card.play.textContent = card.run.rendering ? 'Rendering...' : 'Play'; drawRunScore(card.cv, card.run, -1); }
+      if (card) { card.play.textContent = 'Play'; drawRunScore(card.cv, card.run, -1); }
     }
     function saveRun(run) {
       if (!mine(run)) return;
       if (run.wav && run.wav.share) { shareWav(run); return; }   // a fresh tap: the share sheet is allowed
       withRun(run, function (buf) {
-        if (!buf || !mine(run)) return;   // this run's card was dismissed: its save is cancelled, and nothing else is touched
+        if (!mine(run)) return;   // this run's card was dismissed: its save is cancelled, and nothing else is touched
+        if (!buf) { card.save.textContent = 'Save audio'; return; }
         if (!run.wav) {
           var d = new Date(run.w0), name = 'signal-chase-score-no-' + run.no + '.wav';
           var blob = encodeWAV(buf, { INAM: 'Signal Chase, Score No. ' + run.no, IART: 'A visitor to chriscolatos.com', ICRD: d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()), ICMT: 'for one player and four oscillators', ISFT: 'chriscolatos.com' });
@@ -4351,52 +4419,108 @@
       setTimeout(function () { URL.revokeObjectURL(url); a2.remove(); }, 4000);
       if (mine(run)) card.save.textContent = 'Saved';
     }
-    function renderRun(run, cb) {   // the whole run, rendered again from its score: every note, every glissando, every stochastic voice
-      var OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
-      if (!OAC || !run) { cb(null); return; }
-      var sr = 44100, lim = Math.min(run.end, 240), oc;
-      try { oc = new OAC(2, Math.ceil((lim + 3.5) * sr), sr); } catch (x) { cb(null); return; }
-      var out = busFor(oc), D = 0.05;
-      run.ev.forEach(function (e) {
-        if (e[0] > lim || e[1] === 'pad' || e[1] === 'padoff') return;
-        try { SND[e[1]](oc, out, e[0] + D, e[2], e[3], e[4], e[5], e[6]); } catch (x) {}
-      });
-      var pads = [];   // the harmonic-series pad
-      run.ev.forEach(function (e) {
-        if (e[0] > lim) return;
-        if (e[1] === 'pad') {
-          var n = e[2];
-          if (!pads[n]) { var o = oc.createOscillator(), g = oc.createGain(); o.frequency.value = F1 * n * (n < 3 ? 2 : 1); g.gain.value = 0; o.connect(g); panTo(oc, g, out, ((n % 5) - 2) * 0.25); o.start(0); o.stop(lim + 3); pads[n] = g; }
-          pads[n].gain.setTargetAtTime(e[3] * 0.012, e[0] + D, 0.6);
-        } else if (e[1] === 'padoff') pads.forEach(function (g) { if (g) g.gain.setTargetAtTime(0, e[0] + D, 0.8); });
-      });
-      var chains = {}, lastTy = [null, null, null, null];   // the four ghosts, moving exactly as they moved
-      function chain(i, ty) {
-        var k = i + ty; if (chains[k]) return chains[k];
-        var o = null, nz = null, bp = null, src;
-        if (ty === 'noise') { nz = oc.createBufferSource(); nz.buffer = noiseBufOf(oc); nz.loop = true; bp = oc.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 18; nz.connect(bp); src = bp; }
-        else { o = oc.createOscillator(); o.type = ty; src = o; }
-        var lp = oc.createBiquadFilter(); lp.type = 'lowpass'; var g = oc.createGain(); g.gain.value = 0;
-        src.connect(lp); lp.connect(g); panTo(oc, g, out, 0);
-        if (o) o.start(0); if (nz) nz.start(0);
-        return (chains[k] = { o: o, bp: bp, lp: lp, g: g, ty: ty });
+    // ---------- performing a run again from its score: the same code plays it live and renders it offline ----------
+    function eventPlayer(c, dest, run, lim, off) {   // returns sched(tEnd), which creates every event of the run that starts before tEnd
+      var evs = run.ev.filter(function (e) { return e[0] <= lim; }).sort(function (a, b) { return a[0] - b[0]; }), ei = 0, pads = [];
+      function sched(tEnd) {
+        while (ei < evs.length && evs[ei][0] + off < tEnd) {
+          var e = evs[ei++], t = e[0] + off;
+          if (e[1] === 'pad') {   // the harmonic-series pad: a partial joins the chord and keeps ringing
+            var n = e[2], pd = pads[n];
+            if (!pd) { var o = c.createOscillator(), g = c.createGain(); o.frequency.value = F1 * n * (n < 3 ? 2 : 1); g.gain.value = 0; o.connect(g); letGo(o, [g, panTo(c, g, dest, ((n % 5) - 2) * 0.25)]); o.start(t); pd = pads[n] = { o: o, g: g }; }
+            pd.g.gain.setTargetAtTime(e[3] * 0.012, t, 0.6);
+          } else if (e[1] === 'padoff') sched.end(t);
+          else { try { SND[e[1]](c, dest, t, e[2], e[3], e[4], e[5], e[6]); } catch (x) {} }
+        }
       }
+      sched.end = function (t) { pads.forEach(function (p2) { if (p2) { try { p2.g.gain.setTargetAtTime(0, t, 0.8); p2.o.stop(t + 4); } catch (x) {} } }); pads = []; };
+      return sched;
+    }
+    function ghostPlayer(c, dest, run, lim, off) {   // the four ghosts, moving exactly as they moved: one set of voices per stretch of play
+      var seg = null;
+      function chain(ty, t) {
+        var o = null, nz = null, bp = null, src;
+        if (ty === 'noise') { nz = c.createBufferSource(); nz.buffer = noiseBufOf(c); nz.loop = true; bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 18; nz.connect(bp); src = bp; }
+        else { o = c.createOscillator(); o.type = ty; src = o; }
+        var lp = c.createBiquadFilter(); lp.type = 'lowpass'; var g = c.createGain(); g.gain.setValueAtTime(0, t);
+        src.connect(lp); lp.connect(g);
+        var pn = c.createStereoPanner ? c.createStereoPanner() : null;
+        if (pn) { g.connect(pn); pn.connect(dest); } else g.connect(dest);
+        var s0 = o || nz; s0.start(t); letGo(s0, [bp, lp, g, pn]);
+        return { o: o, bp: bp, lp: lp, g: g, pn: pn, ty: ty, s0: s0, fresh: true };
+      }
+      function endSeg(tEnd) { if (!seg) return; seg.ch.forEach(function (ch) { ch.g.gain.linearRampToValueAtTime(0, tEnd); ch.s0.stop(tEnd + 0.3); }); seg = null; }
       run.gh.forEach(function (s2) {
-        var t = s2[0] + D; if (s2[0] > lim) return;
+        if (s2[0] > lim) return;
+        var t = s2[0] + off, m = s2[1];
+        if (s2[18]) { endSeg(t); return; }   // here the stochastic engine was voicing the ghosts
+        if (seg && (seg.m !== m || s2[0] - seg.last > 0.5)) endSeg(seg.last + off + 0.1);
+        if (!seg) seg = { m: m, last: s2[0], ch: [0, 1, 2, 3].map(function (i) { return chain(voiceType(m, i), t); }) };
+        seg.last = s2[0];
         for (var i = 0; i < 4; i++) {
-          var ty = voiceType(s2[1], i), b = 2 + i * 4, gn = s2[18] ? 0 : s2[b + 1] * typeMul(ty);
-          if (lastTy[i] && lastTy[i] !== ty) chain(i, lastTy[i]).g.gain.linearRampToValueAtTime(0, t);
-          lastTy[i] = ty;
-          var ch = chain(i, ty);
-          if (ch.o) ch.o.frequency.linearRampToValueAtTime(s2[b], t);
-          if (ch.bp) ch.bp.frequency.linearRampToValueAtTime(s2[b], t);
-          ch.lp.frequency.linearRampToValueAtTime(300 + s2[b + 3] * 5200, t);
+          var ch = seg.ch[i], b = 2 + i * 4, f = s2[b], gn = s2[b + 1] * typeMul(ch.ty), pan = s2[b + 2], cut = 300 + s2[b + 3] * 5200;
+          if (ch.fresh) {
+            ch.fresh = false;
+            if (ch.o) ch.o.frequency.setValueAtTime(f, t); if (ch.bp) ch.bp.frequency.setValueAtTime(f, t);
+            ch.lp.frequency.setValueAtTime(cut, t); if (ch.pn) ch.pn.pan.setValueAtTime(pan, t);
+            ch.g.gain.linearRampToValueAtTime(gn, t + 0.08);
+            continue;
+          }
+          if (ch.o) ch.o.frequency.linearRampToValueAtTime(f, t);
+          if (ch.bp) ch.bp.frequency.linearRampToValueAtTime(f, t);
+          ch.lp.frequency.linearRampToValueAtTime(cut, t);
+          if (ch.pn) ch.pn.pan.linearRampToValueAtTime(pan, t);
           ch.g.gain.linearRampToValueAtTime(gn, t);
         }
       });
-      Object.keys(chains).forEach(function (k) { var ch = chains[k]; ch.g.gain.linearRampToValueAtTime(0, lim + D + 0.5); if (ch.o) ch.o.stop(lim + 3); });
-      renderDSS(run, oc, out, lim, D, function (ok) {
-        if (!ok) { cb(null); return; }
+      if (seg) endSeg(seg.last + off + 0.1);
+    }
+    function dssSpans(run, sr, lim, dead, done) {   // the stochastic voices, computed sample by sample from their recorded parameters
+      var spans = [], cur = null;
+      run.bed.forEach(function (r) { if (r[0] > lim) return; if (!cur || r[0] - cur.last > 0.6) { cur = { a: r[0], last: r[0], rows: [] }; spans.push(cur); } cur.rows.push(r); cur.last = r[0]; });
+      if (!spans.length) { done(dead() ? null : []); return; }
+      var Cls = new Function(DSS_SRC + '\nreturn BrightDSS;')(), si = 0;
+      function nextSpan() {
+        if (dead()) { done(null); return; }
+        if (si >= spans.length) { done(spans); return; }
+        var sp = spans[si++], n = Math.ceil((sp.last - sp.a + 1.2) * sr), eng = new Cls(sr), ri = 0, pos = 0;
+        sp.L = new Float32Array(n); sp.R = new Float32Array(n);
+        (function chunk() {
+          if (dead()) { done(null); return; }   // no longer wanted: stop computing
+          var stopAt = Math.min(n, pos + sr * 2);
+          while (pos < stopAt) {
+            var tNow = sp.a + pos / sr;
+            while (ri < sp.rows.length && sp.rows[ri][0] <= tNow) { var r2 = sp.rows[ri++], P2 = []; for (var i = 0; i < 5; i++) P2.push([r2[1 + i * 5], r2[2 + i * 5], r2[3 + i * 5], r2[4 + i * 5], r2[5 + i * 5]]); eng.set(P2); }
+            if (ri >= sp.rows.length && tNow > sp.last + 0.05) eng.set([]);
+            var m2 = Math.min(2048, stopAt - pos); eng.render(sp.L, sp.R, m2, pos); pos += m2;
+          }
+          if (pos < n) { setTimeout(chunk, 0); return; }
+          nextSpan();
+        })();
+      }
+      nextSpan();
+    }
+    function renderRun(run, cb, progress) {   // the whole run rendered offline, for saving: every note, every glissando, every stochastic voice
+      var OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+      if (!OAC || !run) { cb(null); return; }
+      var sr = 44100, lim = Math.min(run.end, 240), len = lim + 3.5, D = 0.05;
+      dssSpans(run, sr, lim, function () { return !!run.abandoned; }, function (spans) {
+        if (!spans) { cb(null); return; }
+        var oc; try { oc = new OAC(2, Math.ceil(len * sr), sr); } catch (x) { cb(null); return; }
+        var out = busFor(oc);
+        spans.forEach(function (sp) { var b = oc.createBuffer(2, sp.L.length, sr); b.getChannelData(0).set(sp.L); b.getChannelData(1).set(sp.R); var s0 = oc.createBufferSource(); s0.buffer = b; s0.connect(out); s0.start(sp.a + D); });
+        ghostPlayer(oc, out, run, lim, D);
+        var sched = eventPlayer(oc, out, run, lim, D), S = 2;
+        if (typeof oc.suspend === 'function') {   // in two-second steps: notes are created just ahead of the render and let go as they end
+          sched(S + 0.6);
+          for (var k = 1; k * S < len - 0.25; k++) (function (tk) {
+            oc.suspend(tk).then(function () {
+              if (run.abandoned) return;   // its card was dismissed: stop rendering
+              sched(tk + S + 0.6); if (progress) progress(tk / len);
+              setTimeout(function () { oc.resume(); }, 0);
+            });
+          })(k * S);
+        } else sched(Infinity);
         oc.startRendering().then(function (buf) {
           if (run.abandoned) { cb(null); return; }
           var peak = 0, cN, i2, dd;
@@ -4405,31 +4529,6 @@
           cb(buf);
         }, function () { cb(null); });
       });
-    }
-    function renderDSS(run, oc, out, lim, D, done) {   // the stochastic voices, computed sample by sample from their recorded parameters
-      var spans = [], cur = null;
-      run.bed.forEach(function (r) { if (r[0] > lim) return; if (!cur || r[0] - cur.last > 0.6) { cur = { a: r[0], last: r[0], rows: [] }; spans.push(cur); } cur.rows.push(r); cur.last = r[0]; });
-      if (!spans.length) { done(!run.abandoned); return; }
-      var Cls = new Function(DSS_SRC + '\nreturn BrightDSS;')(), sr = oc.sampleRate, si = 0;
-      function nextSpan() {
-        if (run.abandoned) { done(false); return; }
-        if (si >= spans.length) { done(true); return; }
-        var sp = spans[si++], n = Math.ceil((sp.last - sp.a + 1.2) * sr), buf = oc.createBuffer(2, n, sr), L = buf.getChannelData(0), R = buf.getChannelData(1), eng = new Cls(sr), ri = 0, pos = 0;
-        (function chunk() {
-          if (run.abandoned) { done(false); return; }   // its card was dismissed: stop computing
-          var stopAt = Math.min(n, pos + sr * 2);
-          while (pos < stopAt) {
-            var tNow = sp.a + pos / sr;
-            while (ri < sp.rows.length && sp.rows[ri][0] <= tNow) { var r2 = sp.rows[ri++], P2 = []; for (var i = 0; i < 5; i++) P2.push([r2[1 + i * 5], r2[2 + i * 5], r2[3 + i * 5], r2[4 + i * 5], r2[5 + i * 5]]); eng.set(P2); }
-            if (ri >= sp.rows.length && tNow > sp.last + 0.05) eng.set([]);
-            var m2 = Math.min(2048, stopAt - pos); eng.render(L, R, m2, pos); pos += m2;
-          }
-          if (pos < n) { setTimeout(chunk, 0); return; }
-          var src = oc.createBufferSource(); src.buffer = buf; src.connect(out); src.start(sp.a + D);
-          nextSpan();
-        })();
-      }
-      nextSpan();
     }
     function glyph(x, kind, px, py, r) {   // noteheads, after the page's score: electric piano stemmed, marimba a diamond, strings filled, partials square
       x.fillStyle = '#7B5F34'; x.strokeStyle = '#7B5F34'; x.lineWidth = r * 0.3;
@@ -4570,7 +4669,7 @@
       spaced(0);
     }
     function drawGame() {
-      suiteTick();
+      suiteTick(); godSync(false);
       var w = gameCanvas.width, h = gameCanvas.height, ctx = gameCtx, now = Date.now(), pnow = performance.now(), M = mov(), mi = movIdx(), r, c, x, y, cx, cy, q;
       if (gameState === 'title') { ctx.fillStyle = '#0a0a0a'; ctx.fillRect(0, 0, w, h); drawTitle(ctx, w, h, pnow); return; }
       ctx.fillStyle = M.bg; ctx.fillRect(0, 0, w, h);
@@ -4778,7 +4877,7 @@
             g.frightened = false;
             score += 200;
             playGhostEatSound();
-          } else if (!g.eaten) {
+          } else if (!g.eaten && !(god.on && god.inv)) {   // god mode: the ghosts pass through you
             // Player dies
             lives--;
             playDeathSound();
@@ -4816,6 +4915,8 @@
       var k = e.key || '';
       if ((k === 'Enter' || k === ' ') && onControl(e)) return;
       if (k === 'Escape') { e.preventDefault(); closeGame(); return; }
+      if (god.on && godKey(e, k)) return;
+      if (gameState === 'title' && k.length === 1) { god.keys = (god.keys + k.toLowerCase()).slice(-3); if (god.keys === 'god') { enableGod(); return; } }
       if (gameState === 'title') {
         if (k === 'Enter' || k === ' ' || k.indexOf('Arrow') === 0) {
           e.preventDefault();
@@ -4926,6 +5027,7 @@
     initGame();
     dssLoad();
     titleEnter();
+    if (/[?&]god(=|&|$)/.test(location.search)) enableGod();   // or open the site with ?god
     animFrame = requestAnimationFrame(gameLoop);
   }
   // ===== END SIGNAL CHASE =====
