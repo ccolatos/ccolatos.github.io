@@ -3795,108 +3795,691 @@
       o.start(); o.stop(gameAudioCtx.currentTime + dur);
     }
 
-    // === THE MUSIC: YOUR PATH COMPOSES THE SOLO ===
-    // Every dot plays the next note of an improvised line in B-flat on the page's electric piano: up and right climb,
-    // down and left fall, your height on the maze sets the register, and your place in it pans the sound. Each power
-    // pellet fires a rapid run and moves the key center by a major third (B-flat, G-flat, D: the cycle Coltrane explored).
-    // Underneath, a trio: swung ride cymbal, walking bass, soft piano chords. Eaten ghosts ring harmonics on bells, and a
-    // lost life falls away in glissandi. Original music, generated as you play.
-    var gBus = null, rideBuf = null, KEYS = [0, -4, 4], KEY_NAMES = ['B\u266D', 'G\u266D', 'D'], keyIdx = 0, soloDeg = 7, cellQ = [], PENT = [0, 2, 4, 7, 9];
+    // =====================================================================================
+    // SIGNAL CHASE, for one player and four oscillators. A suite in four movements:
+    //   I. Trio   II. Drone   III. Stochastic   IV. Harmonic Series
+    // Everything is generated as you play. The four ghosts are four oscillators you can hear
+    // coming; the music tightens as they close in; and every run is written down as a score
+    // that can be played back and kept. Original music throughout.
+    // =====================================================================================
+    var F1 = 58.27;
+    var MOVS = [
+      { n: 'I', name: 'Trio', sub: 'for signal, walking bass, ride cymbal, and electric piano', bg: '#0A0A0A', line: 'rgba(201,204,209,0.42)', dot: 'rgba(201,204,209,0.62)', acc: '#C4A882', ink: '#F5F4F0', dim: 'rgba(201,204,209,0.6)', ghosts: ['#F5F4F0', '#C9CCD1', '#E6DCC8', '#A9AEB6'], dark: true },
+      { n: 'II', name: 'Drone', sub: 'for signal, tanpura, marimba, and bells', bg: '#06080C', line: 'rgba(165,188,214,0.42)', dot: 'rgba(186,204,224,0.62)', acc: '#D8C39A', ink: '#EEF3F8', dim: 'rgba(170,192,216,0.62)', ghosts: ['#EEF3F8', '#B9CBE0', '#DCE6F0', '#98AFC8'], dark: true },
+      { n: 'III', name: 'Stochastic', sub: 'for signal and four stochastic voices, after Xenakis', bg: '#0B0908', line: 'rgba(226,122,82,0.42)', dot: 'rgba(238,200,182,0.62)', acc: '#E27A52', ink: '#F7EFEA', dim: 'rgba(230,160,130,0.62)', ghosts: ['#F7EFEA', '#EBC7B6', '#F0DCCF', '#D9A48C'], dark: true },
+      { n: 'IV', name: 'Harmonic Series', sub: 'for signal and the partials of B\u266D', bg: '#F2F2EF', line: 'rgba(10,10,10,0.55)', dot: 'rgba(10,10,10,0.55)', acc: '#A88A5A', ink: '#0A0A0A', dim: 'rgba(10,10,10,0.5)', ghosts: ['#0A0A0A', '#3A3C40', '#26282C', '#5B5E63'], dark: false }
+    ];
+    function movIdx() { return ((level || 1) - 1) % 4; }
+    function mov() { return MOVS[movIdx()]; }
+    var gBus = null, KEYS = [0, -4, 4], KEY_NAMES = ['B\u266D', 'G\u266D', 'D'], keyIdx = 0, soloDeg = 7, cellQ = [];
+    var PENT = [0, 2, 4, 7, 9], LYD = [0, 2, 4, 6, 7, 9, 11], GTYPES = ['sine', 'square', 'sawtooth', 'noise'];
     var CELLS_UP = [[1, 2, 3, 4], [1, 2, 4, 5], [2, 1, 2, 4], [1, 3, 2, 4]], CELLS_DN = [[-1, -2, -3, -4], [-1, -2, -4, -5], [-2, -1, -2, -4], [-1, -3, -2, -4]];
-    function gameOut() {
-      if (gBus || !gameAudioCtx) return gBus;
-      var c = gameAudioCtx, comp = c.createDynamicsCompressor(), verb = c.createConvolver(), wet = c.createGain();
+    function busFor(c) {   // a small room and a gentle compressor, the same live and when a run is rendered
+      var comp = c.createDynamicsCompressor(), verb = c.createConvolver(), wet = c.createGain(), bus = c.createGain();
       comp.threshold.value = -18; comp.ratio.value = 3; comp.connect(c.destination);
-      gBus = c.createGain(); gBus.gain.value = 0.9; gBus.connect(comp);
-      verb.buffer = makeReverbIR(c, 2.2, 3); wet.gain.value = 0.2; gBus.connect(verb); verb.connect(wet); wet.connect(comp);
-      return gBus;
+      bus.gain.value = 0.9; bus.connect(comp);
+      verb.buffer = makeReverbIR(c, 2.4, 3); wet.gain.value = 0.22; bus.connect(verb); verb.connect(wet); wet.connect(comp);
+      return bus;
     }
+    function gameOut() { if (!gBus && gameAudioCtx) gBus = busFor(gameAudioCtx); return gBus; }
     function keyRoot() { return 233.08 * Math.pow(2, KEYS[keyIdx] / 12); }
     function degHz(d) { var o = Math.floor(d / 5); return keyRoot() / 2 * Math.pow(2, (PENT[d - o * 5] + 12 * o) / 12); }
-    function playDotSound() {
+    function panTo(c, node, out, pan) { if (c.createStereoPanner) { var p = c.createStereoPanner(); p.pan.value = pan || 0; node.connect(p); p.connect(out); } else node.connect(out); }
+    function noiseBufOf(c) { if (!c.__nz) { var n = c.sampleRate * 2, b = c.createBuffer(1, n, c.sampleRate), d = b.getChannelData(0); for (var i = 0; i < n; i++) d[i] = Math.random() * 2 - 1; c.__nz = b; } return c.__nz; }
+    function rideOf(c) { if (!c.__ride) { var n = Math.floor(c.sampleRate * 0.35), b = c.createBuffer(1, n, c.sampleRate), d = b.getChannelData(0); for (var i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (c.sampleRate * 0.09)); c.__ride = b; } return c.__ride; }
+    // Every sound the suite makes, written so it can be played live or rendered later from the score.
+    var SND = {
+      ep: function (c, out, t, f, v, p) { vEP(c, out, f, t, v, p); },
+      mal: function (c, out, t, f, v, p) { vMallet(c, out, f, t, v, p); },
+      plk: function (c, out, t, f, v, p, q) { vPluck(c, out, f, q, v, p, t, 1); },
+      chm: function (c, out, t, f) { vChime(c, out, f, t); },
+      ride: function (c, out, t, v) {
+        var sr = c.createBufferSource(), hp = c.createBiquadFilter(), g = c.createGain();
+        sr.buffer = rideOf(c); hp.type = 'highpass'; hp.frequency.value = 6500; g.gain.value = v;
+        sr.connect(hp); hp.connect(g); g.connect(out); sr.start(t);
+      },
+      sin: function (c, out, t, f, v, p, dur) {   // a pure partial with a bell's envelope
+        var o = c.createOscillator(), g = c.createGain(); o.frequency.value = f;
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        o.connect(g); panTo(c, g, out, p); o.start(t); o.stop(t + dur + 0.05);
+      },
+      gls: function (c, out, t, f, v, p, ratio, dur) {   // a glissando
+        var o = c.createOscillator(), g = c.createGain();
+        o.frequency.setValueAtTime(f, t); o.frequency.exponentialRampToValueAtTime(f * ratio, t + dur * 0.9);
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.04); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        o.connect(g); panTo(c, g, out, p); o.start(t); o.stop(t + dur + 0.05);
+      },
+      hold: function (c, out, t, f, v, p, dur) {   // a sustained drone that swells in and fades out
+        var o = c.createOscillator(), g = c.createGain(); o.frequency.value = f;
+        g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(v, t + Math.min(3, dur * 0.3));
+        g.gain.setValueAtTime(v, t + Math.max(0.2, dur - 1.2)); g.gain.linearRampToValueAtTime(0.0001, t + dur);
+        o.connect(g); panTo(c, g, out, p); o.start(t); o.stop(t + dur + 0.05);
+      }
+    };
+    // ---------- the performance, written down as it happens ----------
+    var perf = null;
+    function perfStart() {
+      perf = { a0: gameAudioCtx ? gameAudioCtx.currentTime : 0, w0: Date.now(), ev: [], solo: [], gh: [], bed: [], path: [], marks: [], no: 1000 + Math.floor(Math.random() * 9000), lastLevel: null, done: false };
+    }
+    function pt(t) { return perf ? Math.max(0, t - perf.a0) : 0; }
+    function logMark(kind, v) { if (perf && !perf.done && gameAudioCtx) perf.marks.push([pt(gameAudioCtx.currentTime), kind, v == null ? 0 : v]); }
+    function play(kind, t, a, b, c2, d, e) {   // play it now, and write it into the score
       var c = gameAudioCtx, out = gameOut(); if (!c || !out) return;
-      if (!cellQ.length) {   // a new four-note cell, leaning toward your height on the maze
-        var target = Math.round(4 + (1 - playerY / (ROWS - 1)) * 10), up = playerDir === 0 || playerDir === 1;
+      try { SND[kind](c, out, t, a, b, c2, d, e); } catch (x) {}
+      if (perf && !perf.done) perf.ev.push([pt(t), kind, a, b, c2, d, e]);
+    }
+    function soloNote(f, kind, glyph) {   // your solo: into this run's score, and into the score of your visit
+      if (perf && !perf.done && gameAudioCtx) perf.solo.push([pt(gameAudioCtx.currentTime), f, glyph]);
+      try { visitNote(f, true, kind, 0.5, 0.3, 0); } catch (x) {}
+    }
+    function nextSoloDeg(maxDeg) {   // four-note cells: up and right climb, down and left fall, leaning toward your height on the maze
+      if (!cellQ.length) {
+        var target = Math.round(4 + (1 - playerY / (ROWS - 1)) * (maxDeg - 6)), up = playerDir === 0 || playerDir === 1;
         if (soloDeg > target + 3) up = false; else if (soloDeg < target - 3) up = true;
         var cells = up ? CELLS_UP : CELLS_DN, cl = cells[Math.floor(Math.random() * cells.length)], from = soloDeg;
         cellQ = cl.map(function (st) { return from + st; });
       }
-      soloDeg = Math.max(0, Math.min(16, cellQ.shift()));
-      var pan = Math.max(-0.6, Math.min(0.6, (playerX / (COLS - 1) - 0.5) * 1.2));
-      vEP(c, out, degHz(soloDeg), c.currentTime + 0.005, 0.42 + Math.random() * 0.12, pan);
+      soloDeg = Math.max(0, Math.min(maxDeg, cellQ.shift()));
+      return soloDeg;
     }
-    function playPowerSound() {   // a rapid run, and the key center takes a giant step
-      var c = gameAudioCtx, out = gameOut(); if (!c || !out) return;
-      keyIdx = (keyIdx + 1) % KEYS.length;
-      var t = c.currentTime + 0.01, d = Math.max(2, soloDeg - 3);
-      for (var i = 0; i < 12; i++) vEP(c, out, degHz(d + i), t + i * 0.038, 0.3 + i * 0.02, (i / 11 - 0.5) * 0.8);
-      vChime(c, out, keyRoot() * 4, t + 12 * 0.038);
-      soloDeg = Math.min(16, d + 11); cellQ = [];
+    // ---------- what each event plays, movement by movement ----------
+    function playDotSound() {
+      var c = gameAudioCtx; if (!c) return;
+      var m = movIdx(), t = c.currentTime + 0.005, pan = Math.max(-0.6, Math.min(0.6, (playerX / (COLS - 1) - 0.5) * 1.2)), f, d;
+      if (m === 0) { f = degHz(nextSoloDeg(16)); play('ep', t, f, 0.42 + Math.random() * 0.12, pan); soloNote(f, 'ep', 'ep'); }
+      else if (m === 1) { d = nextSoloDeg(16); var o = Math.floor(d / 7); f = 233.08 * Math.pow(2, (LYD[d - o * 7] + 12 * o) / 12); play('mal', t, f, 0.5 + Math.random() * 0.15, pan); soloNote(f, 'mallet', 'mal'); }
+      else if (m === 2) { f = F1 * (8 + nextSoloDeg(16)); play('plk', t, f, 0.5, pan, 0.08 + Math.random() * 0.4); soloNote(f, 'string', 'plk'); }
+      else { var n = rowPartial(playerY); f = F1 * n; play('sin', t, f, 0.075, pan, 2.4); padAdd(n, 0.22); soloNote(f, 'mode', 'sin'); }
     }
-    function playGhostEatSound() {   // bells ring the harmonics of the key
-      var c = gameAudioCtx, out = gameOut(); if (!c || !out) return;
-      var r = keyRoot() / 2, t = c.currentTime + 0.01;
-      [4, 5, 6, 8].forEach(function (n, i) { vChime(c, out, r * n, t + i * 0.07); });
+    function rowPartial(r) { return 24 - Math.round(r / (ROWS - 1) * 20); }   // in the finale, each row of the maze is a partial of B-flat
+    function playPowerSound() {
+      var c = gameAudioCtx; if (!c) return;
+      var m = movIdx(), t = c.currentTime + 0.01, i;
+      burst(playerX, playerY, false); logMark('power');
+      if (m === 0) {   // sheets of sound, and the key center takes a giant step (B-flat, G-flat, D)
+        keyIdx = (keyIdx + 1) % KEYS.length;
+        var d = Math.max(2, soloDeg - 3);
+        for (i = 0; i < 12; i++) play('ep', t + i * 0.038, degHz(d + i), 0.3 + i * 0.02, (i / 11 - 0.5) * 0.8);
+        play('chm', t + 12 * 0.038, keyRoot() * 4); soloDeg = Math.min(16, d + 11); cellQ = [];
+      } else if (m === 1) {
+        for (i = 0; i < 9; i++) { var o = Math.floor(i / 7); play('mal', t + i * 0.06, 466.16 * Math.pow(2, (LYD[i % 7] + 12 * o) / 12), 0.35 + i * 0.03, (i / 8 - 0.5) * 0.8); }
+        play('chm', t + 0.6, 932.33);
+      } else if (m === 2) {   // a stochastic cloud
+        for (i = 0; i < 18; i++) play('plk', t + Math.random() * 0.7, F1 * (12 + Math.floor(Math.random() * 20)), 0.25 + Math.random() * 0.2, Math.random() * 1.6 - 0.8, 0.05 + Math.random() * 0.5);
+      } else {
+        for (i = 8; i <= 16; i++) play('sin', t + (i - 8) * 0.07, F1 * i, 0.06, ((i % 4) - 1.5) * 0.4, 2.2);
+        for (var n = 1; n <= 24; n++) if (padLv[n] > 0) padAdd(n, padLv[n] * 0.3);
+      }
+    }
+    function ghostAtPlayer() { for (var i = 0; i < ghosts.length; i++) if (ghosts[i].x === playerX && ghosts[i].y === playerY) return i; return 0; }
+    function playGhostEatSound() {
+      var c = gameAudioCtx; if (!c) return;
+      var m = movIdx(), t = c.currentTime + 0.01;
+      burst(playerX, playerY, true); logMark('ghost');
+      if (m === 3) { var n = [7, 11, 13, 14][ghostAtPlayer()]; padAdd(n, 0.8); play('sin', t, F1 * n, 0.08, 0, 3); play('chm', t + 0.05, F1 * n * 2); return; }   // a blue partial resolves into the chord
+      var r = (m === 0 ? keyRoot() : 233.08) / 2;
+      [4, 5, 6, 8].forEach(function (k, i) { play('chm', t + i * 0.07, r * k); });
+      if (m === 2) play('gls', t, r * 4, 0.05, 0, 2, 0.8);
     }
     function playDeathSound() {   // the signal falls away in glissandi
-      var c = gameAudioCtx, out = gameOut(); if (!c || !out) return;
-      var r = keyRoot(), t = c.currentTime + 0.01;
-      [1, 1.25, 1.5, 2].forEach(function (m, i) {
-        var o = c.createOscillator(), g = c.createGain(), pn = c.createStereoPanner ? c.createStereoPanner() : null, t0 = t + i * 0.05;
-        o.frequency.setValueAtTime(r * m, t0); o.frequency.exponentialRampToValueAtTime(r * m / 4, t0 + 1.4);
-        g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.06, t0 + 0.04); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.6);
-        o.connect(g); if (pn) { pn.pan.value = (i - 1.5) * 0.3; g.connect(pn); pn.connect(out); } else g.connect(out);
-        o.start(t0); o.stop(t0 + 1.65);
-      });
+      var c = gameAudioCtx; if (!c) return;
+      var r = movIdx() === 0 ? keyRoot() : 233.08, t = c.currentTime + 0.01;
+      deathFx(playerX, playerY); logMark('death');
+      [1, 1.25, 1.5, 2].forEach(function (mm, i) { play('gls', t + i * 0.05, r * mm, 0.06, (i - 1.5) * 0.3, 0.25, 1.6); });
     }
     function playStartSound() {   // tuning: the harmonic series of B-flat
-      var c = gameAudioCtx, out = gameOut(); if (!c || !out) return;
+      var c = gameAudioCtx; if (!c) return;
       keyIdx = 0; soloDeg = 7; cellQ = [];
       var t = c.currentTime + 0.05;
-      [2, 3, 4, 5, 6].forEach(function (n, i) { vChime(c, out, 116.54 * n, t + i * 0.12); });
+      [2, 3, 4, 5, 6].forEach(function (n, i) { play('chm', t + i * 0.12, 116.54 * n); });
     }
-    function playWinSound() {   // the harmonic series rises
-      var c = gameAudioCtx, out = gameOut(); if (!c || !out) return;
-      var t = c.currentTime + 0.02;
-      for (var n = 4; n <= 12; n++) vChime(c, out, 116.54 * n, t + (n - 4) * 0.09);
+    function playWinSound() {   // each movement ends in its own way
+      var c = gameAudioCtx; if (!c) return;
+      var m = movIdx(), t = c.currentTime + 0.02, n;
+      pluckFx(); logMark('clear', m);
+      if (m === 3) { for (n = 1; n <= 24; n++) play('sin', t + n * 0.02, F1 * n * (n < 3 ? 2 : 1), 0.045, ((n % 5) - 2) * 0.3, 5); return; }   // the whole harmonic series
+      if (m === 2) { [8, 10, 12, 15, 16].forEach(function (k, i) { play('sin', t + i * 0.03, F1 * k, 0.06, (i - 2) * 0.3, 4); }); return; }   // chaos resolves into a chord
+      for (n = 4; n <= 12; n++) play('chm', t + (n - 4) * 0.09, 116.54 * n);
+      if (m === 0) { var R = keyRoot(); [0, 4, 7, 11, 14].forEach(function (k) { play('ep', t, R * Math.pow(2, k / 12), 0.3, 0.1); }); }
     }
-    var musicInterval = null, musicStep = 0, BPM = 132, stepDur = 60 / BPM / 2, walkDeg = 0;
-    function ride(c, out, t, vol) {   // a ride cymbal: bright noise with a quick decay
-      if (!rideBuf) {
-        var n = Math.floor(c.sampleRate * 0.35); rideBuf = c.createBuffer(1, n, c.sampleRate);
-        var dd = rideBuf.getChannelData(0); for (var i = 0; i < n; i++) dd[i] = (Math.random() * 2 - 1) * Math.exp(-i / (c.sampleRate * 0.09));
-      }
-      var src = c.createBufferSource(), hp = c.createBiquadFilter(), g = c.createGain();
-      src.buffer = rideBuf; hp.type = 'highpass'; hp.frequency.value = 6500; g.gain.value = vol;
-      src.connect(hp); hp.connect(g); g.connect(out); src.start(t);
-    }
+    // ---------- the beds: a trio, a drone, a stochastic chorus, a harmonic-series pad ----------
+    var musicInterval = null, musicStep = 0, BPM = 132, stepDur = 60 / 132 / 2, walkDeg = 0, danger = 0, bedHolds = [], padOsc = null, padLv = [];
     function startMusic() {
       if (musicInterval) return;
-      musicStep = 0; walkDeg = 0;
-      BPM = 132 + (level - 1) * 8;
-      stepDur = 60 / BPM / 2;   // eighth notes
-      musicInterval = setInterval(function () {
-        var c = gameAudioCtx, out = gameOut();
-        if (!c || !out || gameState !== 'playing') return;
-        var step = musicStep++ % 8, beat = step >> 1, off = step & 1, t = c.currentTime + 0.02 + (off ? stepDur * 0.34 : 0);   // swung eighths
-        if (!off) ride(c, out, t, beat % 2 ? 0.05 : 0.035); else if (beat === 1 || beat === 3) ride(c, out, t, 0.025);
-        if (!off) {   // walking bass: home on beat one, stepping through the scale between
-          if (beat === 0) walkDeg = 0; else walkDeg += Math.random() < 0.7 ? 1 : -1;
-          walkDeg = Math.max(-2, Math.min(5, walkDeg));
-          var o = Math.floor(walkDeg / 5);
-          vPluck(c, out, keyRoot() / 2 * Math.pow(2, (PENT[walkDeg - o * 5] + 12 * o) / 12), 0.18, 0.55, -0.15, t, 1);
+      hideCard();
+      if (!perf || perf.done) perfStart();
+      if (perf.lastLevel !== level) { perf.lastLevel = level; logMark('mov', movIdx()); movTitleAt = performance.now(); }
+      var m = movIdx(), cyc = Math.floor(((level || 1) - 1) / 4);
+      musicStep = 0; walkDeg = 0; danger = 0; tilt.g0 = null;
+      BPM = [132, 76, 100, 84][m] + cyc * 8;
+      stepDur = 60 / BPM / 2;
+      bedStart(m); ghostVoicesBuild(m, false);
+      musicInterval = setInterval(musicTick, stepDur * 1000);
+    }
+    function musicTick() {
+      var c = gameAudioCtx, out = gameOut();
+      if (!c || !out || gameState !== 'playing') return;
+      var m = movIdx(), step = musicStep++ % 8, beat = step >> 1, off = step & 1, pw = frightenedTimer > 0;
+      var t = c.currentTime + 0.03 + (off && m === 0 ? stepDur * 0.34 : 0);   // the trio swings its eighths
+      if (m === 0) trioTick(t, beat, off, pw); else if (m === 1) droneTick(t, beat, off, pw); else if (m === 2) stochTick(t, off, pw); else seriesTick(t, beat, off, pw);
+    }
+    function trioTick(t, beat, off, pw) {
+      var dg = danger, R = keyRoot();
+      if (pw) {   // powered up: half time, the ride opens out, bells on the downbeats
+        if (!off && (beat === 1 || beat === 3)) play('ride', t, 0.03);
+        if (!off && beat === 0) { play('plk', t, R / 2, 0.55, -0.15, 0.2); play('chm', t, R * 2); }
+        if (!off && beat === 2) play('chm', t, R * 3);
+        return;
+      }
+      if (!off) play('ride', t, (beat % 2 ? 0.05 : 0.035) * (1 + dg * 0.6));   // the ride gets busier as the ghosts close in
+      else if (beat === 1 || beat === 3 || dg > 0.55) play('ride', t, 0.025 * (1 + dg));
+      if (!off && (dg > 0.25 || beat % 2 === 0)) {   // the bass: a two-feel when calm, walking when hunted
+        if (beat === 0) walkDeg = 0; else walkDeg += Math.random() < 0.7 ? 1 : -1;
+        walkDeg = Math.max(-2, Math.min(5, walkDeg));
+        var o = Math.floor(walkDeg / 5);
+        play('plk', t, R / 2 * Math.pow(2, (PENT[walkDeg - o * 5] + 12 * o) / 12), 0.55, -0.15, 0.18);
+      }
+      if (off && (beat === 1 || Math.random() < 0.12 + dg * 0.45)) [0, 4, 10, 14].forEach(function (k) { play('ep', t, R * Math.pow(2, k / 12), 0.16 + dg * 0.08, 0.2); });
+    }
+    function droneTick(t, beat, off, pw) {   // the tanpura: F, B-flat, B-flat, low B-flat, one string per beat, faster when hunted
+      var dg = danger;
+      if (!off || dg > 0.5) {
+        var TAN = [174.61, 233.08, 233.08, 116.54], s2 = TAN[(musicStep >> (dg > 0.5 ? 0 : 1)) % 4];
+        play('plk', t, s2, 0.42, s2 < 120 ? -0.3 : 0.25, 0.47);
+      }
+      if (pw && !off) play('chm', t, 116.54 * [4, 5, 6, 8, 9, 10][Math.floor(Math.random() * 6)]);
+    }
+    function stochTick(t, off, pw) {   // stochastic events: grains on the partials of B-flat, denser as danger rises
+      if (Math.random() < 0.12 + danger * 0.5) play('plk', t + Math.random() * stepDur * 0.9, F1 * (8 + Math.floor(Math.random() * 17)), 0.2 + Math.random() * 0.2, Math.random() * 1.6 - 0.8, 0.05 + Math.random() * 0.5);
+      if (pw && Math.random() < 0.5) play('sin', t, F1 * (16 + Math.floor(Math.random() * 16)), 0.05, Math.random() * 1.6 - 0.8, 1.2);
+    }
+    function seriesTick(t, beat, off, pw) {   // the finale: the partials you have played return, one at a time
+      if (off) return;
+      var lit = []; for (var n = 1; n <= 24; n++) if (padLv[n] > 0.02) lit.push(n);
+      if (lit.length && Math.random() < 0.5 + danger * 0.4) { var k = lit[Math.floor(Math.random() * lit.length)]; play('sin', t, F1 * k * (k < 4 ? 2 : 1), 0.05, (k % 5) / 2.5 - 0.8, 2.4); }
+      if (pw && beat === 0) for (var q = 8; q <= 16; q += 2) play('sin', t + (q - 8) * 0.06, F1 * q, 0.05, 0, 1.8);
+    }
+    function bedStart(m) {
+      bedStop();
+      var c = gameAudioCtx, out = gameOut(); if (!c || !out) return;
+      var t = c.currentTime + 0.05;
+      if (m === 1) [[58.27, 0.05, -0.3], [87.31, 0.035, 0.3], [116.54, 0.03, 0]].forEach(function (h) {   // the shruti, breathing under the tanpura
+        var o = c.createOscillator(), g = c.createGain(); o.frequency.value = h[0];
+        g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(h[1], t + 3);
+        o.connect(g); panTo(c, g, out, h[2]); o.start(t);
+        bedHolds.push({ o: o, g: g, f: h[0], v: h[1], p: h[2], t0: t });
+      });
+      if (m === 2) dssStart();
+      if (m === 3) padStart();
+    }
+    function bedStop() {
+      var c = gameAudioCtx; if (!c) return;
+      var t = c.currentTime;
+      bedHolds.forEach(function (h) {
+        try { h.g.gain.cancelScheduledValues(t); h.g.gain.setTargetAtTime(0.0001, t, 0.4); h.o.stop(t + 2.5); } catch (x) {}
+        if (perf && !perf.done) perf.ev.push([pt(h.t0), 'hold', h.f, h.v, h.p, t + 1.2 - h.t0]);
+      });
+      bedHolds = [];
+      dssStop(); padStop();
+    }
+    function padStart() {
+      var c = gameAudioCtx, out = gameOut(); if (!c || !out) return;
+      padOsc = []; padLv = [];
+      for (var n = 1; n <= 24; n++) {
+        var o = c.createOscillator(), g = c.createGain(); o.frequency.value = F1 * n * (n < 3 ? 2 : 1); g.gain.value = 0;
+        o.connect(g); panTo(c, g, out, ((n % 5) - 2) * 0.25); o.start();
+        padOsc[n] = { o: o, g: g }; padLv[n] = 0;
+      }
+    }
+    function padAdd(n, amt) {   // a partial joins the chord and keeps ringing
+      if (!padOsc || !padOsc[n]) return;
+      padLv[n] = Math.min(1, padLv[n] + amt);
+      var c = gameAudioCtx; padOsc[n].g.gain.setTargetAtTime(padLv[n] * 0.012, c.currentTime, 0.6);
+      if (perf && !perf.done) perf.ev.push([pt(c.currentTime), 'pad', n, padLv[n]]);
+    }
+    function padStop() {
+      if (!padOsc) return;
+      var c = gameAudioCtx, t = c.currentTime;
+      for (var n = 1; n <= 24; n++) if (padOsc[n]) { try { padOsc[n].g.gain.setTargetAtTime(0, t, 0.8); padOsc[n].o.stop(t + 4); } catch (x) {} }
+      if (perf && !perf.done) perf.ev.push([pt(t), 'padoff']);
+      padOsc = null;
+    }
+    // ---------- the bright stochastic engine (movement III) ----------
+    // After Xenakis's dynamic stochastic synthesis, voiced differently from the page's hero: each voice's pitch is held
+    // on a partial of B-flat while its waveform wanders, so it glows when calm and only roughens as danger nears.
+    var DSS_SRC = [
+      'function BrightDSS(sr) {',
+      '  this.sr = sr; this.v = [];',
+      '  for (var i = 0; i < 5; i++) {',
+      '    var N = 12, a = [], d = [];',
+      '    for (var k = 0; k < N; k++) { a.push(Math.sin(6.283185 * k / N) * 0.7); d.push(1); }',
+      '    this.v.push({ N: N, a: a, d: d, dsum: N, k: 0, pos: 0, len: sr / 440 / N, f: 440, chaos: 0, gain: 0, g: 0, pan: 0, cut: 0.2, lp: 0 });',
+      '  }',
+      '}',
+      'BrightDSS.prototype.set = function (p) {',
+      '  for (var i = 0; i < 5; i++) {',
+      '    var v = this.v[i], q = p && p[i];',
+      '    if (!q) { v.gain = 0; continue; }',
+      '    v.f = Math.max(40, Math.min(4000, q[0])); v.chaos = Math.max(0, Math.min(1, q[1])); v.gain = Math.max(0, Math.min(0.3, q[2]));',
+      '    v.pan = Math.max(-1, Math.min(1, q[3])); v.cut = Math.max(0.02, Math.min(0.95, q[4]));',
+      '  }',
+      '};',
+      'BrightDSS.prototype.render = function (L, R, n, off) {',
+      '  off = off || 0;',
+      '  for (var j = 0; j < n; j++) {',
+      '    var l = 0, r = 0;',
+      '    for (var i = 0; i < 5; i++) {',
+      '      var v = this.v[i];',
+      '      v.g += (v.gain - v.g) * 0.0008;',
+      '      if (v.g < 1e-5 && v.gain === 0) continue;',
+      '      v.pos += 1;',
+      '      if (v.pos >= v.len) {',
+      '        v.pos -= v.len; v.k = (v.k + 1) % v.N;',
+      '        var nx = (v.k + 1) % v.N, st = v.chaos;',
+      '        v.a[nx] = rA(v.a[nx] + gs() * (0.015 + st * 0.2));',
+      '        var od = v.d[v.k]; v.d[v.k] = rD(v.d[v.k] + gs() * (0.01 + st * 0.18)); v.dsum += v.d[v.k] - od;',
+      '        v.len = Math.max(1, this.sr / v.f * v.d[v.k] / v.dsum * (1 + st * 0.03 * gs()));',
+      '      }',
+      '      var x = v.a[v.k] + (v.a[(v.k + 1) % v.N] - v.a[v.k]) * (v.pos / v.len);',
+      '      v.lp += (x - v.lp) * v.cut;',
+      '      var y = v.lp * v.g;',
+      '      l += y * (1 - v.pan) * 0.5; r += y * (1 + v.pan) * 0.5;',
+      '    }',
+      '    L[off + j] = Math.tanh(l * 1.4) * 0.72; R[off + j] = Math.tanh(r * 1.4) * 0.72;',
+      '  }',
+      '};',
+      'function gs() { var u = Math.random() || 1e-9, w = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(6.283185 * w); }',
+      'function rA(x) { while (x > 0.9 || x < -0.9) x = x > 0.9 ? 1.8 - x : -1.8 - x; return x; }',
+      'function rD(x) { while (x > 1.8 || x < 0.4) x = x > 1.8 ? 3.6 - x : 0.8 - x; return x; }'
+    ].join('\n');
+    var DSS_WORKLET = DSS_SRC + '\nclass BrightDSSProc extends AudioWorkletProcessor {\n  constructor() { super(); this.e = new BrightDSS(sampleRate); var s = this; this.port.onmessage = function (m) { s.e.set(m.data); }; }\n  process(inp, outp) { var o = outp[0]; if (o && o[0]) this.e.render(o[0], o[1] || o[0], o[0].length, 0); return true; }\n}\nregisterProcessor("bright-dss", BrightDSSProc);';
+    var dssNode = null, dssReady = false, dssBusy = false, shimmerK = 8;
+    function dssLoad() {
+      var c = gameAudioCtx; if (!c || !c.audioWorklet || dssReady || dssBusy) return;
+      dssBusy = true;
+      try { c.audioWorklet.addModule(URL.createObjectURL(new Blob([DSS_WORKLET], { type: 'application/javascript' }))).then(function () { dssReady = true; if (gameState === 'playing' && movIdx() === 2 && !dssNode) { dssStart(); ghostVoicesBuild(2, false); } }, function () {}); } catch (x) {}
+    }
+    function dssStart() {
+      var c = gameAudioCtx, out = gameOut(); if (!c || !out || !dssReady || dssNode) return;
+      try { dssNode = new AudioWorkletNode(c, 'bright-dss', { numberOfInputs: 0, outputChannelCount: [2] }); dssNode.connect(out); } catch (x) { dssNode = null; }
+    }
+    function dssStop() {
+      if (!dssNode) return;
+      var n = dssNode; dssNode = null;
+      try { n.port.postMessage([]); } catch (x) {}
+      setTimeout(function () { try { n.disconnect(); } catch (x) {} }, 500);
+      if (perf && !perf.done && gameAudioCtx) { var z = [pt(gameAudioCtx.currentTime)]; for (var i = 0; i < 25; i++) z.push(0); perf.bed.push(z); }
+    }
+    // ---------- the ghosts you can hear ----------
+    // Each ghost is its oscillator, panned to where it is and swelling as it nears; its height in the maze sets its pitch.
+    var GV = null;
+    function voiceType(m, i) { return m === 0 ? GTYPES[i] : m === 2 ? 'sawtooth' : 'sine'; }
+    function typeMul(ty) { return ty === 'square' ? 0.45 : ty === 'sawtooth' ? 0.55 : ty === 'noise' ? 1.6 : 1; }
+    function ghostVoicesBuild(m, title) {
+      ghostVoicesKill();
+      var c = gameAudioCtx, out = gameOut(); if (!c || !out) return;
+      if (m === 2 && dssNode && !title) return;   // in movement III the stochastic engine voices the ghosts
+      GV = [];
+      for (var i = 0; i < 4; i++) {
+        var ty = title ? GTYPES[i] : voiceType(m, i), o = null, nz = null, bp = null, src;
+        if (ty === 'noise') { nz = c.createBufferSource(); nz.buffer = noiseBufOf(c); nz.loop = true; bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 18; nz.connect(bp); src = bp; }
+        else { o = c.createOscillator(); o.type = ty; src = o; }
+        var lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 800; lp.Q.value = 0.5;
+        var g = c.createGain(); g.gain.value = 0;
+        var pn = c.createStereoPanner ? c.createStereoPanner() : null;
+        src.connect(lp); lp.connect(g); if (pn) { g.connect(pn); pn.connect(out); } else g.connect(out);
+        if (o) o.start(); if (nz) nz.start();
+        GV.push({ o: o, nz: nz, bp: bp, lp: lp, g: g, pn: pn, ty: ty });
+      }
+    }
+    function ghostVoicesKill() {
+      if (!GV || !gameAudioCtx) { GV = null; return; }
+      var t = gameAudioCtx.currentTime;
+      GV.forEach(function (v) { try { v.g.gain.cancelScheduledValues(t); v.g.gain.setTargetAtTime(0, t, 0.06); if (v.o) v.o.stop(t + 0.5); if (v.nz) v.nz.stop(t + 0.5); } catch (x) {} });
+      GV = null;
+      if (perf && !perf.done) { var z = [pt(t), movIdx()]; for (var i = 0; i < 4; i++) z.push(220, 0, 0, 0); z.push(0); perf.gh.push(z); }
+    }
+    function ghostTargets(now) {
+      var title = gameState === 'title', m = title ? 0 : movIdx(), res = [];
+      for (var i = 0; i < 4; i++) {
+        var g = ghosts[i], dx = g.x - playerX, dy = g.y - playerY, prox = Math.max(0, 1 - Math.sqrt(dx * dx + dy * dy) / 12);
+        var hi = Math.max(0, Math.min(1, 1 - g.y / (ROWS - 1))), f;
+        if (m === 0) f = keyRoot() / 2 * Math.pow(2, ([0, 4, 7, 10][i] + 12 * Math.round(hi * 2)) / 12);   // the ghosts are the chord
+        else if (m === 1) { var k = Math.round(hi * 10) + i * 2, o = Math.floor(k / 7); f = 116.54 * Math.pow(2, (LYD[k - o * 7] + 12 * o) / 12); }
+        else if (m === 2) f = F1 * (6 + Math.round(hi * 12) + i);   // stochastic voices, held on the harmonic series
+        else f = F1 * [7, 11, 13, 14][i] * (hi > 0.55 ? 2 : 1);   // the finale's four blue partials
+        var fr = !title && !!g.frightened;
+        if (fr) { if (m === 3) f = 440 * Math.pow(2, Math.round(12 * Math.log(f / 440) / Math.LN2) / 12); else f /= 2; }   // frightened: an octave down; in the finale, they fall into equal temperament
+        var active = title || (g.homeTimer <= 0 && !g.eaten);
+        var gain = title ? 0.016 * (0.6 + 0.4 * Math.sin(now * 0.0006 + i * 1.7)) : active ? (0.004 + 0.07 * Math.pow(prox, 1.6)) * (fr ? 0.6 : 1) : 0;
+        res.push({ f: f, gain: gain, pan: Math.max(-0.9, Math.min(0.9, g.x / (COLS - 1) * 2 - 1)), bright: fr ? 0.08 : title ? 0.25 : prox, fr: fr, prox: active && !title ? prox : 0 });
+      }
+      return res;
+    }
+    var lastTick = 0, lastLog = 0, lastPX = -1, lastPY = -1;
+    function suiteTick() {   // every frame: the trail; twenty times a second: the ghosts' voices and the danger they bring
+      var now = performance.now(), i;
+      if (playerX !== lastPX || playerY !== lastPY) {
+        lastPX = playerX; lastPY = playerY;
+        if (gameState === 'playing') { trail.push({ x: playerX, y: playerY, t: now }); if (trail.length > 40) trail.shift(); }
+      }
+      if (!gameAudioCtx || now - lastTick < 50) return;
+      lastTick = now;
+      var T = ghostTargets(now), dmax = 0, m = movIdx();
+      for (i = 0; i < 4; i++) { var g = ghosts[i]; if (!g.frightened && !g.eaten && g.homeTimer <= 0) dmax = Math.max(dmax, T[i].prox); }
+      danger += (dmax - danger) * 0.12;
+      var t = gameAudioCtx.currentTime;
+      if (GV) for (i = 0; i < 4 && i < GV.length; i++) {
+        var v = GV[i], s2 = T[i];
+        if (v.o) v.o.frequency.setTargetAtTime(s2.f, t, 0.12);
+        if (v.bp) v.bp.frequency.setTargetAtTime(s2.f, t, 0.12);
+        v.lp.frequency.setTargetAtTime(300 + s2.bright * 5200, t, 0.1);
+        v.g.gain.setTargetAtTime(s2.gain * typeMul(v.ty), t, 0.08);
+        if (v.pn) v.pn.pan.setTargetAtTime(s2.pan, t, 0.1);
+      }
+      var P = null;
+      if (m === 2 && dssNode && gameState === 'playing') {
+        if (Math.random() < 0.06) shimmerK = Math.max(0, Math.min(16, shimmerK + (Math.random() < 0.5 ? -1 : 1)));
+        P = T.map(function (q) { return [q.f, q.fr ? 0 : Math.min(1, 0.04 + q.prox * 0.96), q.gain > 0 ? Math.max(0.016, q.gain * 1.25) : 0, q.pan, 0.06 + q.bright * 0.5]; });
+        P.push([F1 * (32 + shimmerK), 0.1, 0.02, Math.sin(now * 0.0003) * 0.7, 0.4]);   // a fifth voice, high above: shimmer
+        dssNode.port.postMessage(P);
+      }
+      if (perf && !perf.done && gameState === 'playing' && now - lastLog >= 100) {   // ten times a second, into the score
+        lastLog = now;
+        var row = [pt(t), m];
+        for (i = 0; i < 4; i++) row.push(T[i].f, T[i].gain, T[i].pan, T[i].bright);
+        row.push(GV ? 0 : 1);
+        perf.gh.push(row);
+        if (P) { var b = [pt(t)]; P.forEach(function (q) { b.push(q[0], q[1], q[2], q[3], q[4]); }); perf.bed.push(b); }
+        perf.path.push([pt(t), playerX, playerY]);
+      }
+    }
+    // ---------- the title card, and tilt ----------
+    var titleTimer = null, movTitleAt = 0, trail = [], rings = [], deathAnim = null, clearAnim = null;
+    var tilt = { on: false, g0: null, b0: null, btn: null };
+    var iosTilt = window.DeviceOrientationEvent && typeof window.DeviceOrientationEvent.requestPermission === 'function';
+    try { tilt.on = !iosTilt && localStorage.getItem('signalChaseTilt') === '1'; } catch (x) {}
+    function titleEnter() {
+      gameState = 'title';
+      ghostVoicesBuild(0, true);   // the four oscillators, tuning softly
+      titleUI(true);
+      clearInterval(titleTimer);
+      titleTimer = setInterval(function () {
+        if (gameState !== 'title' || !gameAudioCtx) return;
+        var t = gameAudioCtx.currentTime + 0.05;
+        [2, 3, 4, 5].forEach(function (n, i) { SND.chm(gameAudioCtx, gameOut(), t + i * 0.9, 116.54 * n); });
+      }, 5200);
+    }
+    function beginRun() {
+      if (gameState !== 'title') return;
+      clearInterval(titleTimer); titleUI(false); ghostVoicesKill();
+      if (gameAudioCtx && gameAudioCtx.state !== 'running') gameAudioCtx.resume();
+      gameState = 'playing';
+      perfStart(); playStartSound();
+      setTimeout(startMusic, 500);
+    }
+    function tiltHandler(e) {
+      if (!tilt.on || gameState !== 'playing' || e.gamma == null || e.beta == null) return;
+      if (tilt.g0 === null) { tilt.g0 = e.gamma; tilt.b0 = e.beta; return; }   // wherever you hold the phone is level
+      var dg = e.gamma - tilt.g0, db = e.beta - tilt.b0;
+      if (Math.max(Math.abs(dg), Math.abs(db)) < 9) return;
+      playerNextDir = Math.abs(dg) > Math.abs(db) ? (dg > 0 ? 1 : 3) : (db > 0 ? 2 : 0);
+    }
+    if (tilt.on) window.addEventListener('deviceorientation', tiltHandler);
+    function setTiltLabel() { if (tilt.btn) tilt.btn.textContent = 'Tilt to steer: ' + (tilt.on ? 'on' : 'off'); }
+    function enableTilt() { tilt.on = true; tilt.g0 = null; try { localStorage.setItem('signalChaseTilt', '1'); } catch (x) {} window.addEventListener('deviceorientation', tiltHandler); setTiltLabel(); }
+    function toggleTilt() {
+      if (tilt.on) { tilt.on = false; try { localStorage.setItem('signalChaseTilt', '0'); } catch (x) {} setTiltLabel(); return; }
+      var DOE = window.DeviceOrientationEvent;
+      if (iosTilt) DOE.requestPermission().then(function (st) { if (st === 'granted') enableTilt(); }, function () {});
+      else if (DOE) enableTilt();
+    }
+    function bindTap(el, fn) {
+      el.addEventListener('click', function (e) { e.stopPropagation(); fn(); });
+      el.addEventListener('touchend', function (e) { e.preventDefault(); e.stopPropagation(); fn(); }, { passive: false });
+    }
+    var SC_CSS = '.sc-ui{touch-action:manipulation}' +
+      '.sc-card{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(92vw,860px);max-height:92vh;overflow:auto;background:#F2F2EF;color:#0A0A0A;padding:clamp(16px,3vw,30px);box-shadow:0 30px 90px rgba(0,0,0,.55);z-index:10002;font-family:var(--f-display)}' +
+      '.sc-no{font-weight:600;font-size:clamp(17px,2vw,21px);letter-spacing:.01em}' +
+      '.sc-sub{font-family:var(--f-text);font-style:italic;font-weight:300;font-size:clamp(16px,1.9vw,20px);color:#26282C;margin-top:2px}' +
+      '.sc-meta{font-size:13px;color:#5B5E63;margin-top:8px}' +
+      '.sc-cv{display:block;width:100%;height:auto;margin:14px 0 14px;border-top:1px solid rgba(10,10,10,.25);border-bottom:1px solid rgba(10,10,10,.25)}' +
+      '.sc-btns{display:flex;flex-wrap:wrap;gap:10px}' +
+      '.sc-btns button{font:600 14px var(--f-display);padding:11px 18px;border:1px solid #0A0A0A;background:#0A0A0A;color:#F2F2EF;cursor:pointer}' +
+      '.sc-btns button.alt{background:transparent;color:#0A0A0A}' +
+      '.sc-note{font-size:12.5px;color:#5B5E63;margin-top:12px}' +
+      '.sc-tilt{position:absolute;left:50%;bottom:max(28px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:10002;font:600 14px var(--f-display);padding:11px 18px;border:1px solid rgba(196,168,130,.6);background:transparent;color:#C4A882}';
+    function ensureStyle() { if (overlay.querySelector('style.sc-style')) return; var st = document.createElement('style'); st.className = 'sc-style'; st.textContent = SC_CSS; overlay.appendChild(st); }
+    function titleUI(show) {
+      if (!isMobile || !(window.DeviceOrientationEvent)) return;
+      if (show && !tilt.btn) { ensureStyle(); tilt.btn = document.createElement('button'); tilt.btn.className = 'sc-ui sc-tilt'; setTiltLabel(); bindTap(tilt.btn, toggleTilt); overlay.appendChild(tilt.btn); }
+      if (!show && tilt.btn) { tilt.btn.remove(); tilt.btn = null; }
+    }
+    function suiteClose() {
+      clearInterval(titleTimer); stopRun();
+      window.removeEventListener('deviceorientation', tiltHandler);
+    }
+    // ---------- visual events ----------
+    function burst(x, y, bell) { rings.push({ x: x, y: y, t: performance.now(), bell: bell }); }
+    function deathFx(x, y) { deathAnim = { x: x, y: y, t: performance.now(), ang: playerDir === 0 ? -Math.PI / 2 : playerDir === 1 ? 0 : playerDir === 2 ? Math.PI / 2 : Math.PI }; trail = []; }
+    function pluckFx() { clearAnim = performance.now(); }
+    // ---------- the score of your run ----------
+    var card = null, runBuf = null, runSrc = null, runRaf = 0, runAt = 0, rendering = false, runWav = null;
+    var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    function finishRun() {
+      perf.done = true; perf.end = Math.max(1, pt(gameAudioCtx ? gameAudioCtx.currentTime : 0)); perf.score = score;
+      try { var best = +(localStorage.getItem('signalChaseBest') || 0); perf.newBest = score > best; if (perf.newBest) localStorage.setItem('signalChaseBest', String(score)); } catch (x) {}
+      runBuf = null; runWav = null;
+      setTimeout(showCard, 1400);   // after the glissandi have fallen away
+    }
+    function showCard() {
+      if (!perf || !perf.done || card || gameState !== 'gameover') return;
+      ensureStyle();
+      var d = new Date(perf.w0), hh = d.getHours() % 12 || 12, movs = [];
+      perf.marks.forEach(function (k) { if (k[1] === 'mov' && movs.indexOf(MOVS[k[2]].n) < 0) movs.push(MOVS[k[2]].n); });
+      card = document.createElement('div'); card.className = 'sc-ui sc-card';
+      card.setAttribute('role', 'dialog'); card.setAttribute('aria-label', 'The score of your run');
+      function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; card.appendChild(e); return e; }
+      el('div', 'sc-no', 'Score No. ' + perf.no);
+      el('div', 'sc-sub', 'Signal Chase, for one player and four oscillators');
+      el('div', 'sc-meta', MONTHS[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear() + ', ' + hh + ':' + pad2(d.getMinutes()) + ' ' + (d.getHours() < 12 ? 'AM' : 'PM') +
+        '  \u00b7  ' + perf.score + ' Hz' + (perf.newBest ? ' (your best)' : '') + '  \u00b7  ' + (movs.length > 1 ? 'movements ' : 'movement ') + listWords(movs) + '  \u00b7  ' + fmtDur(perf.end) +
+        (perf.end > 240 ? '  \u00b7  audio: the first four minutes' : ''));
+      var cv = el('canvas', 'sc-cv'); cv.width = 1720; cv.height = 760; card.cv = cv;
+      var bt = el('div', 'sc-btns');
+      function btn(label, alt, fn) { var b = document.createElement('button'); b.textContent = label; if (alt) b.className = 'alt'; bindTap(b, fn); bt.appendChild(b); return b; }
+      card.play = btn('Play', false, function () { if (runSrc) { stopRun(); return; } withRun(function (buf) { if (buf) playRun(buf); }); });
+      card.save = btn('Save audio', true, saveRun);
+      btn('Play again', true, function () { if (gameState === 'gameover') { hideCard(); initGame(false); startMusic(); } });
+      el('div', 'sc-note', 'Your solo is also written into the score of your visit.');
+      overlay.appendChild(card);
+      drawRunScore(cv, -1);
+    }
+    function hideCard() { stopRun(); if (card) { card.remove(); card = null; } }
+    function withRun(cb) {
+      if (runBuf) { cb(runBuf); return; }
+      if (rendering) return;
+      rendering = true; if (card) card.play.textContent = 'Rendering...';
+      renderRun(function (buf) { rendering = false; runBuf = buf; if (card) card.play.textContent = runSrc ? 'Stop' : 'Play'; cb(buf); });
+    }
+    function playRun(buf) {
+      var c = gameAudioCtx; if (!c || !card) return;
+      if (c.state !== 'running') c.resume();
+      stopRun();
+      runSrc = c.createBufferSource(); runSrc.buffer = buf; runSrc.connect(c.destination);
+      runAt = c.currentTime + 0.05; runSrc.start(runAt);
+      runSrc.onended = function () { stopRun(); };
+      card.play.textContent = 'Stop';
+      (function frame() { if (!runSrc || !card) return; drawRunScore(card.cv, c.currentTime - runAt - 0.05); runRaf = requestAnimationFrame(frame); })();
+    }
+    function stopRun() {
+      if (runSrc) { try { runSrc.onended = null; runSrc.stop(); } catch (x) {} runSrc = null; }
+      cancelAnimationFrame(runRaf);
+      if (card) { card.play.textContent = 'Play'; drawRunScore(card.cv, -1); }
+    }
+    function saveRun() {
+      var share = isMobile && navigator.canShare;
+      if (runWav && share) { shareWav(runWav); return; }   // a fresh tap: the share sheet is allowed
+      withRun(function (buf) {
+        if (!buf) return;
+        var d = new Date(perf.w0), name = 'signal-chase-score-no-' + perf.no + '.wav';
+        var blob = encodeWAV(buf, { INAM: 'Signal Chase, Score No. ' + perf.no, IART: 'A visitor to chriscolatos.com', ICRD: d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()), ICMT: 'for one player and four oscillators', ISFT: 'chriscolatos.com' });
+        var file = null; try { file = new File([blob], name, { type: 'audio/wav' }); } catch (x) {}
+        runWav = { blob: blob, file: file, name: name };
+        var canFile = false; try { canFile = !!(share && file && navigator.canShare({ files: [file] })); } catch (x) {}
+        if (canFile) { if (card) card.save.textContent = 'Share audio'; }   // tap again to share
+        else downloadRun(runWav);
+      });
+    }
+    function shareWav(w) { navigator.share({ files: [w.file], title: 'Signal Chase, Score No. ' + perf.no }).then(function () {}, function (e) { if (!e || e.name !== 'AbortError') downloadRun(w); }); }
+    function downloadRun(w) {
+      var url = URL.createObjectURL(w.blob), a2 = document.createElement('a');
+      a2.href = url; a2.download = w.name; document.body.appendChild(a2); a2.click();
+      setTimeout(function () { URL.revokeObjectURL(url); a2.remove(); }, 4000);
+      if (card) card.save.textContent = 'Saved';
+    }
+    function renderRun(cb) {   // the whole run, rendered again from its score: every note, every glissando, every stochastic voice
+      var OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+      if (!OAC || !perf) { cb(null); return; }
+      var sr = 44100, lim = Math.min(perf.end, 240), oc;
+      try { oc = new OAC(2, Math.ceil((lim + 3.5) * sr), sr); } catch (x) { cb(null); return; }
+      var out = busFor(oc), D = 0.05;
+      perf.ev.forEach(function (e) {
+        if (e[0] > lim || e[1] === 'pad' || e[1] === 'padoff') return;
+        try { SND[e[1]](oc, out, e[0] + D, e[2], e[3], e[4], e[5], e[6]); } catch (x) {}
+      });
+      var pads = [];   // the harmonic-series pad
+      perf.ev.forEach(function (e) {
+        if (e[0] > lim) return;
+        if (e[1] === 'pad') {
+          var n = e[2];
+          if (!pads[n]) { var o = oc.createOscillator(), g = oc.createGain(); o.frequency.value = F1 * n * (n < 3 ? 2 : 1); g.gain.value = 0; o.connect(g); panTo(oc, g, out, ((n % 5) - 2) * 0.25); o.start(0); o.stop(lim + 3); pads[n] = g; }
+          pads[n].gain.setTargetAtTime(e[3] * 0.012, e[0] + D, 0.6);
+        } else if (e[1] === 'padoff') pads.forEach(function (g) { if (g) g.gain.setTargetAtTime(0, e[0] + D, 0.8); });
+      });
+      var chains = {}, lastTy = [null, null, null, null];   // the four ghosts, moving exactly as they moved
+      function chain(i, ty) {
+        var k = i + ty; if (chains[k]) return chains[k];
+        var o = null, nz = null, bp = null, src;
+        if (ty === 'noise') { nz = oc.createBufferSource(); nz.buffer = noiseBufOf(oc); nz.loop = true; bp = oc.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 18; nz.connect(bp); src = bp; }
+        else { o = oc.createOscillator(); o.type = ty; src = o; }
+        var lp = oc.createBiquadFilter(); lp.type = 'lowpass'; var g = oc.createGain(); g.gain.value = 0;
+        src.connect(lp); lp.connect(g); panTo(oc, g, out, 0);
+        if (o) o.start(0); if (nz) nz.start(0);
+        return (chains[k] = { o: o, bp: bp, lp: lp, g: g, ty: ty });
+      }
+      perf.gh.forEach(function (s2) {
+        var t = s2[0] + D; if (s2[0] > lim) return;
+        for (var i = 0; i < 4; i++) {
+          var ty = voiceType(s2[1], i), b = 2 + i * 4, gn = s2[18] ? 0 : s2[b + 1] * typeMul(ty);
+          if (lastTy[i] && lastTy[i] !== ty) chain(i, lastTy[i]).g.gain.linearRampToValueAtTime(0, t);
+          lastTy[i] = ty;
+          var ch = chain(i, ty);
+          if (ch.o) ch.o.frequency.linearRampToValueAtTime(s2[b], t);
+          if (ch.bp) ch.bp.frequency.linearRampToValueAtTime(s2[b], t);
+          ch.lp.frequency.linearRampToValueAtTime(300 + s2[b + 3] * 5200, t);
+          ch.g.gain.linearRampToValueAtTime(gn, t);
         }
-        if (off && (beat === 1 || (beat === 3 && Math.random() < 0.4))) {   // soft piano chords: root, third, seventh, ninth
-          var R = keyRoot();
-          [1, Math.pow(2, 4 / 12), Math.pow(2, 10 / 12), Math.pow(2, 14 / 12)].forEach(function (m) { vEP(c, out, R * m, t, 0.18, 0.2); });
-        }
-      }, stepDur * 1000);
+      });
+      Object.keys(chains).forEach(function (k) { var ch = chains[k]; ch.g.gain.linearRampToValueAtTime(0, lim + D + 0.5); if (ch.o) ch.o.stop(lim + 3); });
+      renderDSS(oc, out, lim, D, function () {
+        oc.startRendering().then(function (buf) {
+          var peak = 0, cN, i2, dd;
+          for (cN = 0; cN < buf.numberOfChannels; cN++) { dd = buf.getChannelData(cN); for (i2 = 0; i2 < dd.length; i2++) { var a3 = Math.abs(dd[i2]); if (a3 > peak) peak = a3; } }
+          if (peak > 0.01) { var k2 = 0.891 / peak; for (cN = 0; cN < buf.numberOfChannels; cN++) { dd = buf.getChannelData(cN); for (i2 = 0; i2 < dd.length; i2++) dd[i2] *= k2; } }
+          cb(buf);
+        }, function () { cb(null); });
+      });
+    }
+    function renderDSS(oc, out, lim, D, done) {   // the stochastic voices, computed sample by sample from their recorded parameters
+      var spans = [], cur = null;
+      perf.bed.forEach(function (r) { if (r[0] > lim) return; if (!cur || r[0] - cur.last > 0.6) { cur = { a: r[0], last: r[0], rows: [] }; spans.push(cur); } cur.rows.push(r); cur.last = r[0]; });
+      if (!spans.length) { done(); return; }
+      var Cls = new Function(DSS_SRC + '\nreturn BrightDSS;')(), sr = oc.sampleRate, si = 0;
+      function nextSpan() {
+        if (si >= spans.length) { done(); return; }
+        var sp = spans[si++], n = Math.ceil((sp.last - sp.a + 1.2) * sr), buf = oc.createBuffer(2, n, sr), L = buf.getChannelData(0), R = buf.getChannelData(1), eng = new Cls(sr), ri = 0, pos = 0;
+        (function chunk() {
+          var stopAt = Math.min(n, pos + sr * 2);
+          while (pos < stopAt) {
+            var tNow = sp.a + pos / sr;
+            while (ri < sp.rows.length && sp.rows[ri][0] <= tNow) { var r2 = sp.rows[ri++], P2 = []; for (var i = 0; i < 5; i++) P2.push([r2[1 + i * 5], r2[2 + i * 5], r2[3 + i * 5], r2[4 + i * 5], r2[5 + i * 5]]); eng.set(P2); }
+            if (ri >= sp.rows.length && tNow > sp.last + 0.05) eng.set([]);
+            var m2 = Math.min(2048, stopAt - pos); eng.render(L, R, m2, pos); pos += m2;
+          }
+          if (pos < n) { setTimeout(chunk, 0); return; }
+          var src = oc.createBufferSource(); src.buffer = buf; src.connect(out); src.start(sp.a + D);
+          nextSpan();
+        })();
+      }
+      nextSpan();
+    }
+    function glyph(x, kind, px, py, r) {   // noteheads, after the page's score: electric piano stemmed, marimba a diamond, strings filled, partials square
+      x.fillStyle = '#7B5F34'; x.strokeStyle = '#7B5F34'; x.lineWidth = r * 0.3;
+      if (kind === 'mal') { x.beginPath(); x.moveTo(px, py - r * 1.2); x.lineTo(px + r, py); x.lineTo(px, py + r * 1.2); x.lineTo(px - r, py); x.closePath(); x.fill(); return; }
+      if (kind === 'sin') { x.fillRect(px - r * 0.8, py - r * 0.8, r * 1.6, r * 1.6); return; }
+      x.beginPath(); x.ellipse(px, py, r * 1.15, r * 0.85, -0.35, 0, 6.2832); x.fill();
+      if (kind === 'ep') { x.beginPath(); x.moveTo(px + r * 1.05, py); x.lineTo(px + r * 1.05, py - r * 4.2); x.stroke(); }
+    }
+    function drawRunScore(cv, playT) {
+      if (!perf) return;
+      var x = cv.getContext('2d'), W = cv.width, H = cv.height, L = W * 0.055, R = W * 0.975, top = H * 0.2, bot = H * 0.88, T = Math.max(1, perf.end), i;
+      x.fillStyle = '#F2F2EF'; x.fillRect(0, 0, W, H);
+      function X(t) { return L + (R - L) * Math.max(0, Math.min(1, t / T)); }
+      function Y(f) { var p = Math.log(Math.max(20, f) / F1) / Math.LN2; return bot - (bot - top) * Math.max(0, Math.min(1, p / 5.2)); }
+      x.textAlign = 'right'; x.font = '600 ' + Math.round(H * 0.026) + 'px Archivo, sans-serif';
+      for (var n = 1; n <= 36; n++) {   // the harmonic series of B-flat as the staff
+        var y = Y(F1 * n), oct = (n & (n - 1)) === 0;
+        x.strokeStyle = oct ? 'rgba(10,10,10,0.28)' : 'rgba(10,10,10,0.07)'; x.lineWidth = oct ? 1.4 : 1;
+        x.beginPath(); x.moveTo(L, y); x.lineTo(R, y); x.stroke();
+        if (oct) { x.fillStyle = 'rgba(10,10,10,0.5)'; x.fillText(String(n), L - H * 0.014, y + H * 0.009); }
+      }
+      var mv = perf.marks.filter(function (k) { return k[1] === 'mov'; });   // the movements, along the top
+      x.textAlign = 'left';
+      mv.forEach(function (k, j) {
+        var a = X(k[0]), b = j + 1 < mv.length ? X(mv[j + 1][0]) : X(T), M2 = MOVS[k[2]];
+        x.fillStyle = M2.dark ? M2.acc : '#0A0A0A'; x.fillRect(a, H * 0.09, Math.max(2, b - a - 4), H * 0.012);
+        x.fillStyle = '#0A0A0A'; x.font = '600 ' + Math.round(H * 0.03) + 'px "CC Accidentals", Archivo, sans-serif';
+        if (b - a > H * 0.2) x.fillText(M2.n + '. ' + M2.name, a, H * 0.07);
+      });
+      for (i = 0; i < 4; i++) {   // the four oscillators: glissandi, darker as they came closer
+        var prev = null;
+        perf.gh.forEach(function (s2) {
+          var f = s2[2 + i * 4], gn = s2[18] ? 0 : s2[3 + i * 4], px = X(s2[0]), py = Y(f);
+          if (prev && gn > 0.002 && prev[2] > 0.002 && s2[0] - prev[3] < 0.5) {
+            x.strokeStyle = 'rgba(10,10,10,' + Math.min(0.85, 0.2 + gn * 9).toFixed(3) + ')'; x.lineWidth = 1.3 + gn * 26;
+            x.beginPath(); x.moveTo(prev[0], prev[1]); x.lineTo(px, py); x.stroke();
+          }
+          prev = [px, py, gn, s2[0]];
+        });
+      }
+      x.strokeStyle = 'rgba(10,10,10,0.35)'; x.lineWidth = 1;   // the stochastic voices: scribbled, where they sang
+      perf.bed.forEach(function (r2, j) {
+        if (j % 2) return;
+        for (var v = 0; v < 4; v++) { var gg = r2[3 + v * 5]; if (gg < 0.004) continue; var cx = X(r2[0]), cy = Y(r2[1 + v * 5]), amp = H * 0.012 * (0.3 + r2[2 + v * 5] * 2);
+          x.beginPath(); x.moveTo(cx, cy); for (var q = 1; q <= 4; q++) x.lineTo(cx + q * (R - L) / T * 0.05, cy + (Math.random() * 2 - 1) * amp); x.stroke(); }
+      });
+      perf.solo.forEach(function (s2) { glyph(x, s2[2], X(s2[0]), Y(s2[1]), H * 0.0105); });   // your solo
+      perf.marks.forEach(function (k) {   // what happened: power, eaten ghosts, lost lives, cleared movements
+        var px = X(k[0]), yy = top - H * 0.035;
+        if (k[1] === 'power') { x.strokeStyle = '#A88A5A'; x.lineWidth = 2; x.beginPath(); x.arc(px, yy, H * 0.013, 0, 6.2832); x.stroke(); }
+        else if (k[1] === 'ghost') { x.fillStyle = '#26282C'; x.beginPath(); x.moveTo(px, yy - H * 0.014); x.lineTo(px + H * 0.012, yy + H * 0.01); x.lineTo(px - H * 0.012, yy + H * 0.01); x.closePath(); x.fill(); }
+        else if (k[1] === 'death') { x.fillStyle = '#0A0A0A'; x.fillRect(px - H * 0.011, yy - H * 0.011, H * 0.022, H * 0.022); }
+        else if (k[1] === 'clear') { x.strokeStyle = '#0A0A0A'; x.lineWidth = 1.5; x.beginPath(); x.moveTo(px - 3, top); x.lineTo(px - 3, bot); x.moveTo(px + 2, top); x.lineTo(px + 2, bot); x.stroke(); }
+      });
+      x.fillStyle = '#0A0A0A'; x.fillRect(X(T) - 2, top, 4, bot - top);   // the final barline
+      x.textAlign = 'center'; x.font = '600 ' + Math.round(H * 0.024) + 'px Archivo, sans-serif'; x.fillStyle = 'rgba(10,10,10,0.55)';
+      var stepT = T > 240 ? 60 : T > 90 ? 30 : 10;
+      for (var tt = 0; tt <= T; tt += stepT) x.fillText(fmtDur(tt), X(tt), bot + H * 0.05);
+      if (playT >= 0) { var ph = X(playT); x.strokeStyle = '#A88A5A'; x.lineWidth = 3; x.beginPath(); x.moveTo(ph, top - H * 0.06); x.lineTo(ph, bot + H * 0.02); x.stroke(); }
     }
     function stopMusic() {
       if (musicInterval) { clearInterval(musicInterval); musicInterval = null; }
+      bedStop(); ghostVoicesKill();
+      if (gameState === 'gameover' && perf && !perf.done) finishRun();
     }
     // === RENDERING ===
-    var noiseTab = [], noiseAt = 0;
+    var noiseTab = [], noiseAt = 0, wob = null, wobAt = 0;
     function ghostWave(kind, x) {   // the four ghosts are the four classic oscillator waveforms
       var f = x - Math.floor(x);
       if (kind === 0) return Math.sin(f * 6.2832);   // sine
@@ -3905,102 +4488,201 @@
       return noiseTab[Math.floor(f * 12) % 12] || 0; // noise: stochastic breakpoints, redrawn a few times a second
     }
     function hudFont(weight, size) { return weight + ' ' + size + 'px "CC Accidentals", Archivo, sans-serif'; }
+    function serifFont(size) { return 'italic 300 ' + size + 'px "CC Accidentals", Piazzolla, Georgia, serif'; }
     function spaced(px) { if ('letterSpacing' in gameCtx) gameCtx.letterSpacing = px + 'px'; }
-    function drawGame() {
-      var w = gameCanvas.width, h = gameCanvas.height, ctx = gameCtx, now = Date.now(), r, c, x, y;
-      ctx.fillStyle = '#0a0a0a';
-      ctx.fillRect(0, 0, w, h);
-      var maxW = w * 0.92, maxH = h * 0.82;
-      cellSize = Math.floor(Math.min(maxW / COLS, maxH / ROWS));
-      offsetX = Math.floor((w - cellSize * COLS) / 2);
-      offsetY = Math.floor((h - cellSize * ROWS) / 2) + cellSize;
-      var hair = Math.max(1, cellSize / 22);
-      // The maze as a graphic score: a hairline wherever a wall meets the path
-      ctx.strokeStyle = 'rgba(201,204,209,0.42)'; ctx.lineWidth = hair; ctx.beginPath();
-      for (r = 0; r < ROWS; r++) for (c = 0; c < COLS; c++) {
-        if (maze[r][c] !== 1) continue;
-        x = offsetX + c * cellSize; y = offsetY + r * cellSize;
-        if (r > 0 && maze[r-1][c] !== 1) { ctx.moveTo(x, y); ctx.lineTo(x + cellSize, y); }
-        if (r < ROWS-1 && maze[r+1][c] !== 1) { ctx.moveTo(x, y + cellSize); ctx.lineTo(x + cellSize, y + cellSize); }
-        if (c > 0 && maze[r][c-1] !== 1) { ctx.moveTo(x, y); ctx.lineTo(x, y + cellSize); }
-        if (c < COLS-1 && maze[r][c+1] !== 1) { ctx.moveTo(x + cellSize, y); ctx.lineTo(x + cellSize, y + cellSize); }
+    function hexA(col, a) { if (col.charAt(0) !== '#') return col; var n = parseInt(col.slice(1), 16); return 'rgba(' + (n >> 16 & 255) + ',' + (n >> 8 & 255) + ',' + (n & 255) + ',' + a.toFixed(3) + ')'; }
+    function drawGhost(ctx, gx, gy, gs, kind, col, st, now, hair, pdx, pdy, eye, pupil) {   // st: 0 hunting, 1 frightened, 2 eaten (eyes only)
+      if (st !== 2) {
+        ctx.beginPath(); ctx.arc(gx, gy - gs * 0.1, gs * 0.9, Math.PI, 0, false);
+        var x0 = gx + gs * 0.9, x1 = gx - gs * 0.9, yb = gy + gs * 0.7, ph = now * 0.004 + kind * 0.37;
+        for (var k = 0; k <= 18; k++) { var u = k / 18; ctx.lineTo(x0 + (x1 - x0) * u, yb + ghostWave(kind, u * 2 + ph) * gs * 0.2); }
+        ctx.closePath();
+        if (st === 1) { ctx.setLineDash([hair * 3, hair * 2.5]); ctx.strokeStyle = col; ctx.lineWidth = hair * 1.5; ctx.stroke(); ctx.setLineDash([]); }
+        else { ctx.globalAlpha = 0.14; ctx.fillStyle = col; ctx.fill(); ctx.globalAlpha = 1; ctx.strokeStyle = col; ctx.lineWidth = hair * 1.7; ctx.stroke(); }
       }
-      ctx.stroke();
-      for (r = 0; r < ROWS; r++) for (c = 0; c < COLS; c++) {
-        x = offsetX + c * cellSize; y = offsetY + r * cellSize;
-        var cx = x + cellSize / 2, cy = y + cellSize / 2;
-        if (maze[r][c] === 4) {   // the ghost gate: a dashed gold line
-          ctx.strokeStyle = 'rgba(196,168,130,0.7)'; ctx.lineWidth = hair * 1.4; ctx.setLineDash([hair * 3, hair * 2.5]);
-          ctx.beginPath(); ctx.moveTo(x + 2, cy); ctx.lineTo(x + cellSize - 2, cy); ctx.stroke(); ctx.setLineDash([]);
-        } else if (maze[r][c] === 0) {   // a dot: a point of sound waiting to be played
-          ctx.fillStyle = 'rgba(201,204,209,0.62)'; ctx.beginPath(); ctx.arc(cx, cy, cellSize * 0.07, 0, 6.2832); ctx.fill();
-        } else if (maze[r][c] === 2) {   // a power pellet: the page's gold event ring, breathing
-          var pr0 = cellSize * (0.24 + 0.05 * Math.sin(now * 0.005));
-          ctx.strokeStyle = '#c4a882'; ctx.lineWidth = hair * 1.6; ctx.beginPath(); ctx.arc(cx, cy, pr0, 0, 6.2832); ctx.stroke();
-          ctx.strokeStyle = 'rgba(196,168,130,0.3)'; ctx.lineWidth = hair; ctx.beginPath(); ctx.arc(cx, cy, pr0 * 1.9, 0, 6.2832); ctx.stroke();
-          ctx.fillStyle = '#c4a882'; ctx.beginPath(); ctx.arc(cx, cy, cellSize * 0.07, 0, 6.2832); ctx.fill();
-        }
+      if (st === 1) {
+        ctx.strokeStyle = col; ctx.lineWidth = hair * 1.5; ctx.beginPath();
+        ctx.moveTo(gx - gs * 0.42, gy - gs * 0.15); ctx.lineTo(gx - gs * 0.18, gy - gs * 0.15); ctx.moveTo(gx + gs * 0.18, gy - gs * 0.15); ctx.lineTo(gx + gs * 0.42, gy - gs * 0.15); ctx.stroke();
+      } else {
+        ctx.fillStyle = eye;
+        ctx.beginPath(); ctx.arc(gx - gs * 0.3, gy - gs * 0.15, gs * 0.2, 0, 6.2832); ctx.fill();
+        ctx.beginPath(); ctx.arc(gx + gs * 0.3, gy - gs * 0.15, gs * 0.2, 0, 6.2832); ctx.fill();
+        ctx.fillStyle = pupil;
+        ctx.beginPath(); ctx.arc(gx - gs * 0.3 + gs * pdx, gy - gs * 0.15 + gs * pdy, gs * 0.09, 0, 6.2832); ctx.fill();
+        ctx.beginPath(); ctx.arc(gx + gs * 0.3 + gs * pdx, gy - gs * 0.15 + gs * pdy, gs * 0.09, 0, 6.2832); ctx.fill();
       }
-      if (now - noiseAt > 90) { noiseAt = now; for (var q = 0; q < 12; q++) noiseTab[q] = Math.random() * 2 - 1; }
-      // The ghosts: a dome over a waveform, each one a different oscillator
-      for (var gi = 0; gi < ghosts.length; gi++) {
-        var g = ghosts[gi];
-        if (g.homeTimer > 0 && !g.eaten) continue;
-        var gx = offsetX + g.x * cellSize + cellSize / 2, gy = offsetY + g.y * cellSize + cellSize / 2, gs = cellSize * 0.42;
-        var pdx = playerX > g.x ? 0.08 : playerX < g.x ? -0.08 : 0, pdy = playerY > g.y ? 0.08 : playerY < g.y ? -0.08 : 0;
-        if (!g.eaten) {
-          var flash = g.frightened && frightenedTimer < 60 && frightenedTimer % 10 < 5;
-          var col = g.frightened ? (flash ? '#F5F4F0' : 'rgba(201,204,209,0.55)') : GHOST_COLORS[gi % 4];
-          ctx.beginPath(); ctx.arc(gx, gy - gs * 0.1, gs * 0.9, Math.PI, 0, false);
-          var x0 = gx + gs * 0.9, x1 = gx - gs * 0.9, yb = gy + gs * 0.7, ph = now * 0.004 + gi * 0.37;
-          for (var k = 0; k <= 18; k++) { var u = k / 18; ctx.lineTo(x0 + (x1 - x0) * u, yb + ghostWave(gi % 4, u * 2 + ph) * gs * 0.2); }
-          ctx.closePath();
-          if (g.frightened) { ctx.setLineDash([hair * 3, hair * 2.5]); ctx.strokeStyle = col; ctx.lineWidth = hair * 1.5; ctx.stroke(); ctx.setLineDash([]); }
-          else { ctx.globalAlpha = 0.14; ctx.fillStyle = col; ctx.fill(); ctx.globalAlpha = 1; ctx.strokeStyle = col; ctx.lineWidth = hair * 1.7; ctx.stroke(); }
-        }
-        if (g.frightened && !g.eaten) {   // frightened: two short dashes for eyes
-          ctx.strokeStyle = col; ctx.lineWidth = hair * 1.5; ctx.beginPath();
-          ctx.moveTo(gx - gs * 0.42, gy - gs * 0.15); ctx.lineTo(gx - gs * 0.18, gy - gs * 0.15); ctx.moveTo(gx + gs * 0.18, gy - gs * 0.15); ctx.lineTo(gx + gs * 0.42, gy - gs * 0.15); ctx.stroke();
-        } else {   // eyes that follow you (eaten ghosts are only their eyes, heading home)
-          ctx.fillStyle = '#F5F4F0';
-          ctx.beginPath(); ctx.arc(gx - gs * 0.3, gy - gs * 0.15, gs * 0.2, 0, 6.2832); ctx.fill();
-          ctx.beginPath(); ctx.arc(gx + gs * 0.3, gy - gs * 0.15, gs * 0.2, 0, 6.2832); ctx.fill();
-          ctx.fillStyle = '#0a0a0a';
-          ctx.beginPath(); ctx.arc(gx - gs * 0.3 + gs * pdx, gy - gs * 0.15 + gs * pdy, gs * 0.09, 0, 6.2832); ctx.fill();
-          ctx.beginPath(); ctx.arc(gx + gs * 0.3 + gs * pdx, gy - gs * 0.15 + gs * pdy, gs * 0.09, 0, 6.2832); ctx.fill();
-        }
-      }
-      // You: the page's gold Signal button, its play triangle pointing where you're going
-      var px = offsetX + playerX * cellSize + cellSize / 2, py = offsetY + playerY * cellSize + cellSize / 2, prr = cellSize * 0.42;
-      mouthAngle += 0.15;
-      var ang = playerDir === 0 ? -Math.PI / 2 : playerDir === 1 ? 0 : playerDir === 2 ? Math.PI / 2 : Math.PI, tr = prr * (0.42 + 0.05 * Math.sin(mouthAngle));
-      ctx.strokeStyle = 'rgba(196,168,130,0.25)'; ctx.lineWidth = hair; ctx.beginPath(); ctx.arc(px, py, prr * 1.6, 0, 6.2832); ctx.stroke();
-      ctx.fillStyle = '#c4a882'; ctx.beginPath(); ctx.arc(px, py, prr, 0, 6.2832); ctx.fill();
-      ctx.fillStyle = '#0a0a0a'; ctx.beginPath();
+    }
+    function drawSignal(ctx, px, py, prr, ang, fill, tri, pulse, hair, ring) {   // you: the page's own Signal button
+      ctx.strokeStyle = ring; ctx.lineWidth = hair; ctx.beginPath(); ctx.arc(px, py, prr * 1.6, 0, 6.2832); ctx.stroke();
+      ctx.fillStyle = fill; ctx.beginPath(); ctx.arc(px, py, prr, 0, 6.2832); ctx.fill();
+      var tr = prr * (0.42 + 0.05 * pulse);
+      ctx.fillStyle = tri; ctx.beginPath();
       ctx.moveTo(px + Math.cos(ang) * tr * 1.15, py + Math.sin(ang) * tr * 1.15);
       ctx.lineTo(px + Math.cos(ang + 2.3) * tr, py + Math.sin(ang + 2.3) * tr);
       ctx.lineTo(px + Math.cos(ang - 2.3) * tr, py + Math.sin(ang - 2.3) * tr);
       ctx.closePath(); ctx.fill();
-      // The score line: frequency on the left, lives as gold points on the right, title and key above
-      ctx.font = hudFont(500, Math.round(cellSize * 0.62)); ctx.textAlign = 'left'; ctx.fillStyle = 'rgba(245,244,240,0.88)';
-      ctx.fillText(score + ' Hz', offsetX, offsetY - cellSize * 0.4);
-      ctx.fillStyle = '#c4a882';
-      for (var li = 0; li < lives; li++) { ctx.beginPath(); ctx.arc(offsetX + COLS * cellSize - cellSize * (0.3 + li * 0.62), offsetY - cellSize * 0.62, cellSize * 0.17, 0, 6.2832); ctx.fill(); }
-      ctx.textAlign = 'center'; ctx.font = hudFont(600, Math.round(cellSize * 0.4)); ctx.fillStyle = 'rgba(201,204,209,0.55)'; spaced(cellSize * 0.1);
-      ctx.fillText('SIGNAL CHASE  \u00b7  LEVEL ' + level + '  \u00b7  ' + KEY_NAMES[keyIdx], w / 2, offsetY - cellSize * 1.15);
+    }
+    function drawTitle(ctx, w, h, pnow) {   // the title page of the score: the work, its players, its four movements
+      var u = Math.min(w / 16, h / 22), cx = w / 2, y0 = h * 0.5 - u * 7, i;
+      ctx.textAlign = 'center';
+      ctx.font = hudFont(600, Math.round(u * 0.42)); spaced(u * 0.12); ctx.fillStyle = 'rgba(196,168,130,0.9)';
+      ctx.fillText('A SUITE IN FOUR MOVEMENTS', cx, y0); spaced(0);
+      if ('fontStretch' in ctx) ctx.fontStretch = 'condensed';
+      var ts = Math.round(u * 2.5); ctx.font = hudFont(200, ts);
+      var tw = ctx.measureText('SIGNAL CHASE').width; if (tw > w * 0.86) { ts = Math.floor(ts * w * 0.86 / tw); ctx.font = hudFont(200, ts); }   // always fits the screen
+      ctx.fillStyle = '#F5F4F0'; ctx.fillText('SIGNAL CHASE', cx, y0 + u * 2.6);
+      if ('fontStretch' in ctx) ctx.fontStretch = 'normal';
+      ctx.font = serifFont(Math.round(u * 0.85)); ctx.fillStyle = 'rgba(201,204,209,0.85)'; ctx.fillText('for one player and four oscillators', cx, y0 + u * 3.8);
+      var names = ['YOU', 'SINE', 'SQUARE', 'SAWTOOTH', 'NOISE'], gap = Math.min(w * 0.18, u * 3), gx0 = cx - gap * 2, gy = y0 + u * 6.2, hair = Math.max(1, u / 22);
+      if (pnow - noiseAt > 90) { noiseAt = pnow; for (i = 0; i < 12; i++) noiseTab[i] = Math.random() * 2 - 1; }
+      for (i = 0; i < 5; i++) {
+        var gx = gx0 + i * gap;
+        if (i === 0) drawSignal(ctx, gx, gy, u * 0.55, 0, '#C4A882', '#0A0A0A', Math.sin(pnow * 0.004), hair, 'rgba(196,168,130,0.25)');
+        else drawGhost(ctx, gx, gy, u * 0.55, i - 1, MOVS[0].ghosts[i - 1], 0, pnow, hair, Math.sin(pnow * 0.0015 + i) * 0.08, 0, '#F5F4F0', '#0a0a0a');
+        ctx.font = hudFont(600, Math.round(u * 0.34)); spaced(u * 0.08); ctx.fillStyle = 'rgba(201,204,209,0.7)'; ctx.fillText(names[i], gx, gy + u * 1.35); spaced(0);
+      }
+      ctx.font = serifFont(Math.round(u * 0.7)); ctx.fillStyle = 'rgba(245,244,240,0.92)';
+      var line = 'I. Trio     II. Drone     III. Stochastic     IV. Harmonic Series', ly = gy + u * 3;
+      if (ctx.measureText(line).width > w * 0.9) { ctx.fillText('I. Trio     II. Drone', cx, ly); ly += u * 0.95; ctx.fillText('III. Stochastic     IV. Harmonic Series', cx, ly); }
+      else ctx.fillText(line, cx, ly);
+      var best = 0; try { best = +(localStorage.getItem('signalChaseBest') || 0); } catch (x) {}
+      if (best) { ctx.font = hudFont(500, Math.round(u * 0.5)); ctx.fillStyle = '#C4A882'; ctx.fillText('Best ' + best + ' Hz', cx, ly + u * 1.5); }
+      ctx.font = hudFont(600, Math.round(u * 0.36)); spaced(u * 0.1);
+      ctx.fillStyle = 'rgba(201,204,209,' + (0.62 + 0.25 * Math.sin(pnow * 0.004)).toFixed(3) + ')';
+      ctx.fillText(isMobile ? 'SWIPE' + (tilt.on ? ' OR TILT' : '') + ' TO STEER  \u00b7  TAP TO BEGIN' : 'ARROW KEYS TO STEER  \u00b7  PRESS ENTER TO BEGIN', cx, ly + u * 2.6);
       spaced(0);
+    }
+    function drawGame() {
+      suiteTick();
+      var w = gameCanvas.width, h = gameCanvas.height, ctx = gameCtx, now = Date.now(), pnow = performance.now(), M = mov(), mi = movIdx(), r, c, x, y, cx, cy, q;
+      if (gameState === 'title') { ctx.fillStyle = '#0a0a0a'; ctx.fillRect(0, 0, w, h); drawTitle(ctx, w, h, pnow); return; }
+      ctx.fillStyle = M.bg; ctx.fillRect(0, 0, w, h);
+      var maxW = w * 0.92, maxH = h * 0.82;
+      cellSize = Math.floor(Math.min(maxW / COLS, maxH / ROWS));
+      offsetX = Math.floor((w - cellSize * COLS) / 2);
+      offsetY = Math.floor((h - cellSize * ROWS) / 2) + cellSize;
+      var hair = Math.max(1, cellSize / 22), pl = clearAnim ? (pnow - clearAnim) / 1000 : -1;
+      if (pl > 2.2) { clearAnim = null; pl = -1; }
+      if (mi === 2) {   // movement III: every corner of the maze takes a small random walk, like the breakpoints of a stochastic wave
+        if (!wob) { wob = []; for (q = 0; q < (COLS + 1) * (ROWS + 1); q++) wob.push([0, 0]); }
+        if (pnow - wobAt > 80) { wobAt = pnow; var stp = 0.35 + danger * 0.9; for (q = 0; q < wob.length; q++) { var wv = wob[q]; wv[0] = Math.max(-1, Math.min(1, wv[0] * 0.96 + (Math.random() - 0.5) * stp)); wv[1] = Math.max(-1, Math.min(1, wv[1] * 0.96 + (Math.random() - 0.5) * stp)); } }
+      }
+      var J = mi === 2 && wob ? cellSize * 0.075 : 0, ei = 0;
+      function corner(cc, rr) { var o2 = J ? wob[rr * (COLS + 1) + cc] : null; return [offsetX + cc * cellSize + (o2 ? o2[0] * J : 0), offsetY + rr * cellSize + (o2 ? o2[1] * J : 0)]; }
+      function edge(c1, r1, c2, r2) {
+        var p1 = corner(c1, r1), p2 = corner(c2, r2);
+        ctx.moveTo(p1[0], p1[1]);
+        if (pl >= 0) {   // a cleared level: every line of the maze rings like a plucked string
+          var amp = cellSize * 0.2 * Math.exp(-pl * 2) * Math.sin(pl * 36 + ei * 0.9), horiz = r1 === r2;
+          ctx.quadraticCurveTo((p1[0] + p2[0]) / 2 + (horiz ? 0 : amp), (p1[1] + p2[1]) / 2 + (horiz ? amp : 0), p2[0], p2[1]);
+        } else ctx.lineTo(p2[0], p2[1]);
+        ei++;
+      }
+      ctx.strokeStyle = M.line; ctx.lineWidth = hair; ctx.beginPath();
+      for (r = 0; r < ROWS; r++) for (c = 0; c < COLS; c++) {
+        if (maze[r][c] !== 1) continue;
+        if (r > 0 && maze[r-1][c] !== 1) edge(c, r, c + 1, r);
+        if (r < ROWS-1 && maze[r+1][c] !== 1) edge(c, r + 1, c + 1, r + 1);
+        if (c > 0 && maze[r][c-1] !== 1) edge(c, r, c, r + 1);
+        if (c < COLS-1 && maze[r][c+1] !== 1) edge(c + 1, r, c + 1, r + 1);
+      }
+      ctx.stroke();
+      if (mi === 3 && padLv.length) for (r = 0; r < ROWS; r++) {   // the finale: the partials you have played glow as staff lines
+        var lv = padLv[rowPartial(r)] || 0;
+        if (lv > 0.02) { ctx.strokeStyle = hexA(M.acc, Math.min(0.5, lv * 0.45)); ctx.lineWidth = hair * 1.3; y = offsetY + r * cellSize + cellSize / 2; ctx.beginPath(); ctx.moveTo(offsetX, y); ctx.lineTo(offsetX + COLS * cellSize, y); ctx.stroke(); }
+      }
+      for (r = 0; r < ROWS; r++) for (c = 0; c < COLS; c++) {
+        x = offsetX + c * cellSize; y = offsetY + r * cellSize; cx = x + cellSize / 2; cy = y + cellSize / 2;
+        if (maze[r][c] === 4) {   // the ghost gate: a dashed line
+          ctx.strokeStyle = hexA(M.acc, 0.7); ctx.lineWidth = hair * 1.4; ctx.setLineDash([hair * 3, hair * 2.5]);
+          ctx.beginPath(); ctx.moveTo(x + 2, cy); ctx.lineTo(x + cellSize - 2, cy); ctx.stroke(); ctx.setLineDash([]);
+        } else if (maze[r][c] === 0) {   // a dot: a note waiting to be played
+          ctx.fillStyle = M.dot; ctx.beginPath(); ctx.arc(cx, cy, cellSize * 0.07, 0, 6.2832); ctx.fill();
+        } else if (maze[r][c] === 2) {   // a power pellet: the page's event ring, breathing
+          var pr0 = cellSize * (0.24 + 0.05 * Math.sin(now * 0.005));
+          ctx.strokeStyle = M.acc; ctx.lineWidth = hair * 1.6; ctx.beginPath(); ctx.arc(cx, cy, pr0, 0, 6.2832); ctx.stroke();
+          ctx.strokeStyle = hexA(M.acc, 0.3); ctx.lineWidth = hair; ctx.beginPath(); ctx.arc(cx, cy, pr0 * 1.9, 0, 6.2832); ctx.stroke();
+          ctx.fillStyle = M.acc; ctx.beginPath(); ctx.arc(cx, cy, cellSize * 0.07, 0, 6.2832); ctx.fill();
+        }
+      }
+      if (trail.length > 1 && gameState === 'playing') {   // your trail: gold, fading like a string that was plucked, still vibrating
+        ctx.lineCap = 'round';
+        for (q = 1; q < trail.length; q++) {
+          var a0 = trail[q - 1], a1 = trail[q], age = (pnow - a1.t) / 1600;
+          if (age >= 1 || Math.abs(a0.x - a1.x) + Math.abs(a0.y - a1.y) !== 1) continue;
+          var x0 = offsetX + a0.x * cellSize + cellSize / 2, y0 = offsetY + a0.y * cellSize + cellSize / 2, x1 = offsetX + a1.x * cellSize + cellSize / 2, y1 = offsetY + a1.y * cellSize + cellSize / 2;
+          var vib = Math.sin(pnow * 0.03 + q) * cellSize * 0.07 * (1 - age);
+          ctx.strokeStyle = hexA(M.acc, 0.6 * (1 - age)); ctx.lineWidth = hair * (1 + 2 * (1 - age));
+          ctx.beginPath(); ctx.moveTo(x0, y0); ctx.quadraticCurveTo((x0 + x1) / 2 + (y0 === y1 ? 0 : vib), (y0 + y1) / 2 + (y0 === y1 ? vib : 0), x1, y1); ctx.stroke();
+        }
+        ctx.lineCap = 'butt';
+      }
+      rings = rings.filter(function (k) { return pnow - k.t < 1100; });   // events blossom into rings
+      rings.forEach(function (k) {
+        var age2 = (pnow - k.t) / 1100, rx = offsetX + k.x * cellSize + cellSize / 2, ry = offsetY + k.y * cellSize + cellSize / 2;
+        for (var n2 = 0; n2 < 3; n2++) { var a2 = age2 - n2 * 0.12; if (a2 <= 0) continue; ctx.strokeStyle = hexA(k.bell ? M.ink : M.acc, 0.8 * (1 - a2)); ctx.lineWidth = hair * 1.4; ctx.beginPath(); ctx.arc(rx, ry, cellSize * (0.3 + a2 * 2.6), 0, 6.2832); ctx.stroke(); }
+      });
+      if (now - noiseAt > 90) { noiseAt = now; for (q = 0; q < 12; q++) noiseTab[q] = Math.random() * 2 - 1; }
+      for (var gi = 0; gi < ghosts.length; gi++) {   // the four oscillators
+        var g = ghosts[gi];
+        if (g.homeTimer > 0 && !g.eaten) continue;
+        var gx = offsetX + g.x * cellSize + cellSize / 2, gy = offsetY + g.y * cellSize + cellSize / 2;
+        var pdx = playerX > g.x ? 0.08 : playerX < g.x ? -0.08 : 0, pdy = playerY > g.y ? 0.08 : playerY < g.y ? -0.08 : 0;
+        var flash = g.frightened && frightenedTimer < 60 && frightenedTimer % 10 < 5;
+        drawGhost(ctx, gx, gy, cellSize * 0.42, gi % 4, g.frightened ? (flash ? M.ink : M.dim) : M.ghosts[gi % 4], g.eaten ? 2 : g.frightened ? 1 : 0, now, hair, pdx, pdy, M.dark ? '#F5F4F0' : '#0A0A0A', M.dark ? '#0a0a0a' : '#F2F2EF');
+      }
+      mouthAngle += 0.15;
+      var px = offsetX + playerX * cellSize + cellSize / 2, py = offsetY + playerY * cellSize + cellSize / 2, prr = cellSize * 0.42;
+      var ang = playerDir === 0 ? -Math.PI / 2 : playerDir === 1 ? 0 : playerDir === 2 ? Math.PI / 2 : Math.PI;
+      var sFill = M.dark ? M.acc : '#0A0A0A', sTri = M.dark ? M.bg : '#F2F2EF';
+      if (!(deathAnim && pnow - deathAnim.t < 450)) drawSignal(ctx, px, py, prr, ang, sFill, sTri, Math.sin(mouthAngle), hair, hexA(M.acc, 0.25));
+      if (deathAnim) {   // a lost life: the play triangle becomes a stop square
+        var da = (pnow - deathAnim.t) / 900;
+        if (da >= 1) deathAnim = null;
+        else {
+          var dx0 = offsetX + deathAnim.x * cellSize + cellSize / 2, dy0 = offsetY + deathAnim.y * cellSize + cellSize / 2, rr2 = prr * (1 - 0.35 * da), e2 = Math.min(1, da * 2.4), A = deathAnim.ang, tr = rr2 * 0.42, sq = rr2 * 0.34;
+          var TR = [[Math.cos(A) * tr * 1.15, Math.sin(A) * tr * 1.15], [Math.cos(A + 2.3) * tr, Math.sin(A + 2.3) * tr], [Math.cos(A - 2.3) * tr, Math.sin(A - 2.3) * tr], [Math.cos(A - 2.3) * tr, Math.sin(A - 2.3) * tr]];
+          var SQ = [[sq, -sq], [sq, sq], [-sq, sq], [-sq, -sq]];
+          ctx.globalAlpha = 1 - da * da; ctx.fillStyle = sFill; ctx.beginPath(); ctx.arc(dx0, dy0, rr2, 0, 6.2832); ctx.fill();
+          ctx.fillStyle = sTri; ctx.beginPath();
+          for (q = 0; q < 4; q++) { var qx = dx0 + TR[q][0] + (SQ[q][0] - TR[q][0]) * e2, qy = dy0 + TR[q][1] + (SQ[q][1] - TR[q][1]) * e2; if (q) ctx.lineTo(qx, qy); else ctx.moveTo(qx, qy); }
+          ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1;
+        }
+      }
+      ctx.font = hudFont(500, Math.round(cellSize * 0.62)); ctx.textAlign = 'left'; ctx.fillStyle = hexA(M.ink, 0.88);
+      ctx.fillText(score + ' Hz', offsetX, offsetY - cellSize * 0.4);
+      ctx.fillStyle = sFill;
+      for (var li = 0; li < lives; li++) { ctx.beginPath(); ctx.arc(offsetX + COLS * cellSize - cellSize * (0.3 + li * 0.62), offsetY - cellSize * 0.62, cellSize * 0.17, 0, 6.2832); ctx.fill(); }
+      ctx.textAlign = 'center'; ctx.font = hudFont(600, Math.round(cellSize * 0.4)); ctx.fillStyle = M.dim; spaced(cellSize * 0.1);
+      ctx.fillText('SIGNAL CHASE  \u00b7  ' + M.n + '. ' + M.name.toUpperCase() + (mi === 0 ? '  \u00b7  ' + KEY_NAMES[keyIdx] : '') + '  \u00b7  LEVEL ' + level, w / 2, offsetY - cellSize * 1.15);
+      spaced(0);
+      if (movTitleAt && gameState === 'playing') {   // each movement announces itself
+        var mt = (pnow - movTitleAt) / 3400;
+        if (mt < 1) {
+          var al = mt < 0.12 ? mt / 0.12 : mt > 0.62 ? Math.max(0, 1 - (mt - 0.62) / 0.38) : 1, ty0 = offsetY + cellSize * 6.2;
+          ctx.globalAlpha = al * 0.85; ctx.fillStyle = M.bg; ctx.fillRect(offsetX, ty0 - cellSize * 3.1, COLS * cellSize, cellSize * 4.5); ctx.globalAlpha = al;
+          ctx.font = hudFont(600, Math.round(cellSize * 0.46)); spaced(cellSize * 0.14); ctx.fillStyle = M.dark ? M.acc : '#7B5F34'; ctx.fillText('MOVEMENT ' + M.n, w / 2, ty0 - cellSize * 1.9); spaced(0);
+          if ('fontStretch' in ctx) ctx.fontStretch = 'condensed';
+          ctx.font = hudFont(200, Math.round(cellSize * (M.name.length > 10 ? 1.5 : 2))); ctx.fillStyle = M.ink; ctx.fillText(M.name.toUpperCase(), w / 2, ty0);
+          if ('fontStretch' in ctx) ctx.fontStretch = 'normal';
+          ctx.font = serifFont(Math.round(cellSize * 0.56)); ctx.fillStyle = M.dim; ctx.fillText(M.sub, w / 2, ty0 + cellSize * 0.95);
+          ctx.globalAlpha = 1;
+        }
+      }
       if (gameState === 'gameover' || gameState === 'won') {
-        ctx.fillStyle = 'rgba(10,10,10,0.86)'; ctx.fillRect(0, 0, w, h);
+        ctx.globalAlpha = gameState === 'won' && pl >= 0 ? Math.max(0, Math.min(1, (pl - 0.9) / 0.6)) : 1;   // let the plucked maze ring before the card fades in
+        ctx.fillStyle = M.dark ? 'rgba(10,10,10,0.86)' : 'rgba(242,242,239,0.9)'; ctx.fillRect(0, 0, w, h);
         ctx.textAlign = 'center';
         if ('fontStretch' in ctx) ctx.fontStretch = 'condensed';
-        ctx.font = hudFont(200, Math.round(cellSize * 2.4)); ctx.fillStyle = '#F5F4F0';
+        ctx.font = hudFont(200, Math.round(cellSize * 2.4)); ctx.fillStyle = M.ink;
         ctx.fillText(gameState === 'won' ? 'SIGNAL CLEAR' : 'SIGNAL LOST', w / 2, h / 2 - cellSize * 0.8);
         if ('fontStretch' in ctx) ctx.fontStretch = 'normal';
-        ctx.font = hudFont(500, Math.round(cellSize * 0.7)); ctx.fillStyle = '#c4a882';
+        ctx.font = hudFont(500, Math.round(cellSize * 0.7)); ctx.fillStyle = M.dark ? M.acc : '#7B5F34';
         ctx.fillText(score + ' Hz', w / 2, h / 2 + cellSize * 0.6);
-        ctx.font = hudFont(600, Math.round(cellSize * 0.42)); ctx.fillStyle = 'rgba(201,204,209,0.6)'; spaced(cellSize * 0.1);
-        ctx.fillText(gameState === 'won' ? 'TAP OR PRESS ENTER FOR NEXT LEVEL' : 'TAP OR PRESS ENTER TO RESTART', w / 2, h / 2 + cellSize * 1.9);
-        spaced(0);
+        if (gameState === 'won') { var NM = MOVS[level % 4]; ctx.font = serifFont(Math.round(cellSize * 0.62)); ctx.fillStyle = M.dim; ctx.fillText('Next: ' + NM.n + '. ' + NM.name, w / 2, h / 2 + cellSize * 1.5); }
+        ctx.font = hudFont(600, Math.round(cellSize * 0.42)); ctx.fillStyle = M.dim; spaced(cellSize * 0.1);
+        ctx.fillText(gameState === 'won' ? 'TAP OR PRESS ENTER FOR NEXT LEVEL' : 'TAP OR PRESS ENTER TO RESTART', w / 2, h / 2 + cellSize * (gameState === 'won' ? 2.5 : 1.9));
+        spaced(0); ctx.globalAlpha = 1;
       }
     }
     // === GAME LOOP ===
@@ -4110,6 +4792,14 @@
 
     // === INPUT ===
     function handleGameKey(e) {
+      if (gameState === 'title') {
+        if (e.key === 'Escape') { closeGame(); return; }
+        if (e.key === 'Enter' || e.key === ' ' || e.key.indexOf('Arrow') === 0) {
+          beginRun();
+          if (e.key === 'ArrowUp') playerNextDir = 0; else if (e.key === 'ArrowRight') playerNextDir = 1; else if (e.key === 'ArrowDown') playerNextDir = 2; else if (e.key === 'ArrowLeft') playerNextDir = 3;
+        }
+        e.preventDefault(); return;
+      }
       if (gameState === 'gameover' || gameState === 'won') {
         if (e.key === 'Enter' || e.key === ' ') {
           var advancing = gameState === 'won';
@@ -4129,7 +4819,9 @@
     }
 
     function handleSwipeStart(e) {
+      if (isUI(e)) return;
       e.preventDefault();
+      if (gameState === 'title') { beginRun(); return; }
       if (gameState === 'gameover' || gameState === 'won') {
         var advancing = gameState === 'won';
         if (advancing) level++;
@@ -4142,8 +4834,10 @@
     }
 
     function handleSwipeEnd(e) {
+      var sx0 = swipeStartX, sy0 = swipeStartY; swipeStartX = null;
+      if (isUI(e) || sx0 == null) return;
       var t = e.changedTouches[0];
-      var dx = t.clientX - swipeStartX, dy = t.clientY - swipeStartY;
+      var dx = t.clientX - sx0, dy = t.clientY - sy0;
       var absDx = Math.abs(dx), absDy = Math.abs(dy);
       if (absDx < 15 && absDy < 15) return; // too small
       if (absDx > absDy) {
@@ -4182,6 +4876,7 @@
     window.addEventListener('resize', resizeGameCanvas);
 
     function closeGame() {
+      suiteClose();
       stopMusic();
       cancelAnimationFrame(animFrame);
       document.removeEventListener('keydown', handleGameKey);
@@ -4197,7 +4892,8 @@
 
     // Bind input
     document.addEventListener('keydown', handleGameKey);
-    function blockTouch(e) { e.preventDefault(); }
+    function isUI(e) { return !!(e.target && e.target.closest && e.target.closest('.sc-ui')); }
+    function blockTouch(e) { if (isUI(e)) return; e.preventDefault(); }
     overlay.addEventListener('touchstart', handleSwipeStart, {passive: false});
     overlay.addEventListener('touchend', handleSwipeEnd, {passive: false});
     overlay.addEventListener('touchmove', blockTouch, {passive: false});
@@ -4205,8 +4901,8 @@
     // Start
     initGameAudio();
     initGame();
-    playStartSound();
-    setTimeout(startMusic, 500);
+    dssLoad();
+    titleEnter();
     animFrame = requestAnimationFrame(gameLoop);
   }
   // ===== END SIGNAL CHASE =====
