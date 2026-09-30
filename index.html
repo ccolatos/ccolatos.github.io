@@ -3554,18 +3554,7 @@
      ========================================================================== */
   // The game draws its text in the original site's two typefaces; fetch them only when it launches.
   var gameFontsRequested = false;
-  function loadGameFonts() {
-    if (gameFontsRequested) return;
-    gameFontsRequested = true;
-    try {
-      var l = doc.createElement('link');
-      l.rel = 'stylesheet';
-      l.href = 'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap';
-      l.onload = function () { if (doc.fonts && doc.fonts.load) { doc.fonts.load('400 16px "DM Sans"').catch(function () {}); doc.fonts.load('400 32px "Cormorant Garamond"').catch(function () {}); } };
-      doc.head.appendChild(l);
-    } catch (e) {}
-  }
-  function launchGame() { loadGameFonts(); launchSignalChase(); }
+  function launchGame() { launchSignalChase(); }
   var konamiSequence = [38, 38, 40, 40, 37, 39, 37, 39, 66, 65];
   var konamiIndex = 0;
   var logoTapCount = 0, logoTapTimer = null;
@@ -3622,7 +3611,7 @@
     var animFrame;
 
     // Ghost colors
-    var GHOST_COLORS = ['#ff4444','#ffb8ff','#00ffff','#ffb852'];
+    var GHOST_COLORS = ['#F5F4F0','#C9CCD1','#E6DCC8','#A9AEB6'];   // four waveforms: sine, square, sawtooth, noise
     var GHOST_NAMES = ['BLINKY','PINKY','INKY','CLYDE'];
 
     function initGame(keepProgress) {
@@ -3806,311 +3795,212 @@
       o.start(); o.stop(gameAudioCtx.currentTime + dur);
     }
 
-    function playDotSound() { playTone(880, 0.05, 'square', 0.04); }
-    function playPowerSound() {
-      playTone(220, 0.3, 'sawtooth', 0.06);
-      setTimeout(function(){playTone(330, 0.3, 'sawtooth', 0.06);}, 100);
+    // === THE MUSIC: YOUR PATH COMPOSES THE SOLO ===
+    // Every dot plays the next note of an improvised line in B-flat on the page's electric piano: up and right climb,
+    // down and left fall, your height on the maze sets the register, and your place in it pans the sound. Each power
+    // pellet fires a rapid run and moves the key center by a major third (B-flat, G-flat, D: the cycle Coltrane explored).
+    // Underneath, a trio: swung ride cymbal, walking bass, soft piano chords. Eaten ghosts ring harmonics on bells, and a
+    // lost life falls away in glissandi. Original music, generated as you play.
+    var gBus = null, rideBuf = null, KEYS = [0, -4, 4], KEY_NAMES = ['B\u266D', 'G\u266D', 'D'], keyIdx = 0, soloDeg = 7, cellQ = [], PENT = [0, 2, 4, 7, 9];
+    var CELLS_UP = [[1, 2, 3, 4], [1, 2, 4, 5], [2, 1, 2, 4], [1, 3, 2, 4]], CELLS_DN = [[-1, -2, -3, -4], [-1, -2, -4, -5], [-2, -1, -2, -4], [-1, -3, -2, -4]];
+    function gameOut() {
+      if (gBus || !gameAudioCtx) return gBus;
+      var c = gameAudioCtx, comp = c.createDynamicsCompressor(), verb = c.createConvolver(), wet = c.createGain();
+      comp.threshold.value = -18; comp.ratio.value = 3; comp.connect(c.destination);
+      gBus = c.createGain(); gBus.gain.value = 0.9; gBus.connect(comp);
+      verb.buffer = makeReverbIR(c, 2.2, 3); wet.gain.value = 0.2; gBus.connect(verb); verb.connect(wet); wet.connect(comp);
+      return gBus;
     }
-    function playGhostEatSound() {
-      playTone(440, 0.15, 'sine', 0.08);
-      setTimeout(function(){playTone(660, 0.15, 'sine', 0.08);}, 80);
-      setTimeout(function(){playTone(880, 0.15, 'sine', 0.08);}, 160);
-    }
-    function playDeathSound() {
-      for (var i = 0; i < 8; i++) {
-        (function(j) { setTimeout(function(){ playTone(440 - j*40, 0.12, 'sawtooth', 0.06); }, j*80); })(i);
+    function keyRoot() { return 233.08 * Math.pow(2, KEYS[keyIdx] / 12); }
+    function degHz(d) { var o = Math.floor(d / 5); return keyRoot() / 2 * Math.pow(2, (PENT[d - o * 5] + 12 * o) / 12); }
+    function playDotSound() {
+      var c = gameAudioCtx, out = gameOut(); if (!c || !out) return;
+      if (!cellQ.length) {   // a new four-note cell, leaning toward your height on the maze
+        var target = Math.round(4 + (1 - playerY / (ROWS - 1)) * 10), up = playerDir === 0 || playerDir === 1;
+        if (soloDeg > target + 3) up = false; else if (soloDeg < target - 3) up = true;
+        var cells = up ? CELLS_UP : CELLS_DN, cl = cells[Math.floor(Math.random() * cells.length)], from = soloDeg;
+        cellQ = cl.map(function (st) { return from + st; });
       }
+      soloDeg = Math.max(0, Math.min(16, cellQ.shift()));
+      var pan = Math.max(-0.6, Math.min(0.6, (playerX / (COLS - 1) - 0.5) * 1.2));
+      vEP(c, out, degHz(soloDeg), c.currentTime + 0.005, 0.42 + Math.random() * 0.12, pan);
     }
-    function playStartSound() {
-      var notes = [262,330,392,523];
-      for (var i = 0; i < notes.length; i++) {
-        (function(j){ setTimeout(function(){ playTone(notes[j], 0.2, 'sine', 0.06); }, j*120); })(i);
+    function playPowerSound() {   // a rapid run, and the key center takes a giant step
+      var c = gameAudioCtx, out = gameOut(); if (!c || !out) return;
+      keyIdx = (keyIdx + 1) % KEYS.length;
+      var t = c.currentTime + 0.01, d = Math.max(2, soloDeg - 3);
+      for (var i = 0; i < 12; i++) vEP(c, out, degHz(d + i), t + i * 0.038, 0.3 + i * 0.02, (i / 11 - 0.5) * 0.8);
+      vChime(c, out, keyRoot() * 4, t + 12 * 0.038);
+      soloDeg = Math.min(16, d + 11); cellQ = [];
+    }
+    function playGhostEatSound() {   // bells ring the harmonics of the key
+      var c = gameAudioCtx, out = gameOut(); if (!c || !out) return;
+      var r = keyRoot() / 2, t = c.currentTime + 0.01;
+      [4, 5, 6, 8].forEach(function (n, i) { vChime(c, out, r * n, t + i * 0.07); });
+    }
+    function playDeathSound() {   // the signal falls away in glissandi
+      var c = gameAudioCtx, out = gameOut(); if (!c || !out) return;
+      var r = keyRoot(), t = c.currentTime + 0.01;
+      [1, 1.25, 1.5, 2].forEach(function (m, i) {
+        var o = c.createOscillator(), g = c.createGain(), pn = c.createStereoPanner ? c.createStereoPanner() : null, t0 = t + i * 0.05;
+        o.frequency.setValueAtTime(r * m, t0); o.frequency.exponentialRampToValueAtTime(r * m / 4, t0 + 1.4);
+        g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.06, t0 + 0.04); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.6);
+        o.connect(g); if (pn) { pn.pan.value = (i - 1.5) * 0.3; g.connect(pn); pn.connect(out); } else g.connect(out);
+        o.start(t0); o.stop(t0 + 1.65);
+      });
+    }
+    function playStartSound() {   // tuning: the harmonic series of B-flat
+      var c = gameAudioCtx, out = gameOut(); if (!c || !out) return;
+      keyIdx = 0; soloDeg = 7; cellQ = [];
+      var t = c.currentTime + 0.05;
+      [2, 3, 4, 5, 6].forEach(function (n, i) { vChime(c, out, 116.54 * n, t + i * 0.12); });
+    }
+    function playWinSound() {   // the harmonic series rises
+      var c = gameAudioCtx, out = gameOut(); if (!c || !out) return;
+      var t = c.currentTime + 0.02;
+      for (var n = 4; n <= 12; n++) vChime(c, out, 116.54 * n, t + (n - 4) * 0.09);
+    }
+    var musicInterval = null, musicStep = 0, BPM = 132, stepDur = 60 / BPM / 2, walkDeg = 0;
+    function ride(c, out, t, vol) {   // a ride cymbal: bright noise with a quick decay
+      if (!rideBuf) {
+        var n = Math.floor(c.sampleRate * 0.35); rideBuf = c.createBuffer(1, n, c.sampleRate);
+        var dd = rideBuf.getChannelData(0); for (var i = 0; i < n; i++) dd[i] = (Math.random() * 2 - 1) * Math.exp(-i / (c.sampleRate * 0.09));
       }
+      var src = c.createBufferSource(), hp = c.createBiquadFilter(), g = c.createGain();
+      src.buffer = rideBuf; hp.type = 'highpass'; hp.frequency.value = 6500; g.gain.value = vol;
+      src.connect(hp); hp.connect(g); g.connect(out); src.start(t);
     }
-    function playWinSound() {
-      var notes = [392,494,523,587,659,784];
-      for (var i = 0; i < notes.length; i++) {
-        (function(j){ setTimeout(function(){ playTone(notes[j], 0.35, 'sine', 0.07); }, j*100); })(i);
-      }
-      setTimeout(function(){ playTone(1047, 0.6, 'sine', 0.08); }, 650);
-    }
-
-    // === CHIPTUNE MUSIC ===
-    var musicInterval = null;
-    var musicStep = 0;
-    // Pentatonic minor bass + melody in the key of A minor
-    var bassPat = [110,110,131,131,147,147,131,131, 110,110,131,131,165,165,147,147];
-    var melodyPat = [440,0,523,0,440,330,0,392, 523,0,440,0,330,392,0,330,
-                     440,0,523,0,659,523,0,440, 392,0,330,0,392,440,0,0];
-    var hihatPat = [1,0,1,0,1,0,1,0, 1,0,1,0,1,1,1,0];
-    var kickPat =  [1,0,0,0,1,0,0,0, 1,0,0,0,1,0,0,1];
-    var BPM = 140;
-    var stepDur = 60 / BPM / 2; // 16th notes
-
-    function playNote(freq, dur, type, vol, ctx) {
-      if (!ctx || freq === 0) return;
-      var o = ctx.createOscillator();
-      var g = ctx.createGain();
-      o.type = type;
-      o.frequency.value = freq;
-      g.gain.setValueAtTime(vol, ctx.currentTime);
-      g.gain.linearRampToValueAtTime(vol * 0.6, ctx.currentTime + dur * 0.3);
-      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur * 0.95);
-      o.connect(g); g.connect(ctx.destination);
-      o.start(); o.stop(ctx.currentTime + dur);
-    }
-
-    function playNoise(dur, vol, ctx) {
-      if (!ctx) return;
-      var bufSz = ctx.sampleRate * dur;
-      var buf = ctx.createBuffer(1, bufSz, ctx.sampleRate);
-      var d = buf.getChannelData(0);
-      for (var i = 0; i < bufSz; i++) d[i] = Math.random() * 2 - 1;
-      var src = ctx.createBufferSource();
-      src.buffer = buf;
-      var hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 8000;
-      var g = ctx.createGain();
-      g.gain.setValueAtTime(vol, ctx.currentTime);
-      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur * 0.8);
-      src.connect(hp); hp.connect(g); g.connect(ctx.destination);
-      src.start(); src.stop(ctx.currentTime + dur);
-    }
-
-    function playKick(ctx) {
-      if (!ctx) return;
-      var o = ctx.createOscillator();
-      var g = ctx.createGain();
-      o.frequency.setValueAtTime(150, ctx.currentTime);
-      o.frequency.exponentialRampToValueAtTime(30, ctx.currentTime + 0.08);
-      g.gain.setValueAtTime(0.12, ctx.currentTime);
-      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
-      o.connect(g); g.connect(ctx.destination);
-      o.start(); o.stop(ctx.currentTime + 0.15);
-    }
-
     function startMusic() {
       if (musicInterval) return;
-      musicStep = 0;
-      BPM = 140 + (level - 1) * 8;
-      stepDur = 60 / BPM / 2;
-      musicInterval = setInterval(function() {
-        if (!gameAudioCtx || gameState !== 'playing') return;
-        var bi = musicStep % bassPat.length;
-        var mi = musicStep % melodyPat.length;
-        var hi = musicStep % hihatPat.length;
-        var ki = musicStep % kickPat.length;
-        // Bass (triangle wave, warm)
-        playNote(bassPat[bi], stepDur * 0.9, 'triangle', 0.06, gameAudioCtx);
-        // Melody (square wave, chiptune)
-        if (melodyPat[mi] > 0) playNote(melodyPat[mi], stepDur * 0.7, 'square', 0.025, gameAudioCtx);
-        // Hi-hat
-        if (hihatPat[hi]) playNoise(0.03, 0.015, gameAudioCtx);
-        // Kick
-        if (kickPat[ki]) playKick(gameAudioCtx);
-        musicStep++;
+      musicStep = 0; walkDeg = 0;
+      BPM = 132 + (level - 1) * 8;
+      stepDur = 60 / BPM / 2;   // eighth notes
+      musicInterval = setInterval(function () {
+        var c = gameAudioCtx, out = gameOut();
+        if (!c || !out || gameState !== 'playing') return;
+        var step = musicStep++ % 8, beat = step >> 1, off = step & 1, t = c.currentTime + 0.02 + (off ? stepDur * 0.34 : 0);   // swung eighths
+        if (!off) ride(c, out, t, beat % 2 ? 0.05 : 0.035); else if (beat === 1 || beat === 3) ride(c, out, t, 0.025);
+        if (!off) {   // walking bass: home on beat one, stepping through the scale between
+          if (beat === 0) walkDeg = 0; else walkDeg += Math.random() < 0.7 ? 1 : -1;
+          walkDeg = Math.max(-2, Math.min(5, walkDeg));
+          var o = Math.floor(walkDeg / 5);
+          vPluck(c, out, keyRoot() / 2 * Math.pow(2, (PENT[walkDeg - o * 5] + 12 * o) / 12), 0.18, 0.55, -0.15, t, 1);
+        }
+        if (off && (beat === 1 || (beat === 3 && Math.random() < 0.4))) {   // soft piano chords: root, third, seventh, ninth
+          var R = keyRoot();
+          [1, Math.pow(2, 4 / 12), Math.pow(2, 10 / 12), Math.pow(2, 14 / 12)].forEach(function (m) { vEP(c, out, R * m, t, 0.18, 0.2); });
+        }
       }, stepDur * 1000);
     }
-
     function stopMusic() {
       if (musicInterval) { clearInterval(musicInterval); musicInterval = null; }
     }
     // === RENDERING ===
+    var noiseTab = [], noiseAt = 0;
+    function ghostWave(kind, x) {   // the four ghosts are the four classic oscillator waveforms
+      var f = x - Math.floor(x);
+      if (kind === 0) return Math.sin(f * 6.2832);   // sine
+      if (kind === 1) return f < 0.5 ? 1 : -1;       // square
+      if (kind === 2) return 1 - 2 * f;              // sawtooth
+      return noiseTab[Math.floor(f * 12) % 12] || 0; // noise: stochastic breakpoints, redrawn a few times a second
+    }
+    function hudFont(weight, size) { return weight + ' ' + size + 'px "CC Accidentals", Archivo, sans-serif'; }
+    function spaced(px) { if ('letterSpacing' in gameCtx) gameCtx.letterSpacing = px + 'px'; }
     function drawGame() {
-      var w = gameCanvas.width, h = gameCanvas.height;
-      gameCtx.fillStyle = '#0a0a0a';
-      gameCtx.fillRect(0, 0, w, h);
-
-      // Calculate cell size to fit screen
+      var w = gameCanvas.width, h = gameCanvas.height, ctx = gameCtx, now = Date.now(), r, c, x, y;
+      ctx.fillStyle = '#0a0a0a';
+      ctx.fillRect(0, 0, w, h);
       var maxW = w * 0.92, maxH = h * 0.82;
       cellSize = Math.floor(Math.min(maxW / COLS, maxH / ROWS));
       offsetX = Math.floor((w - cellSize * COLS) / 2);
       offsetY = Math.floor((h - cellSize * ROWS) / 2) + cellSize;
-
-      // Draw maze walls as circuit traces
-      for (var r = 0; r < ROWS; r++) {
-        for (var c = 0; c < COLS; c++) {
-          var x = offsetX + c * cellSize;
-          var y = offsetY + r * cellSize;
-
-          if (maze[r][c] === 1) {
-            // Wall: dark fill with amber border glow
-            gameCtx.fillStyle = '#141414';
-            gameCtx.fillRect(x + 1, y + 1, cellSize - 2, cellSize - 2);
-            // Draw borders only where adjacent to path
-            gameCtx.strokeStyle = 'rgba(196,168,130,0.35)';
-            gameCtx.lineWidth = 1.5;
-            if (r > 0 && maze[r-1][c] !== 1) { gameCtx.beginPath(); gameCtx.moveTo(x, y); gameCtx.lineTo(x+cellSize, y); gameCtx.stroke(); }
-            if (r < ROWS-1 && maze[r+1][c] !== 1) { gameCtx.beginPath(); gameCtx.moveTo(x, y+cellSize); gameCtx.lineTo(x+cellSize, y+cellSize); gameCtx.stroke(); }
-            if (c > 0 && maze[r][c-1] !== 1) { gameCtx.beginPath(); gameCtx.moveTo(x, y); gameCtx.lineTo(x, y+cellSize); gameCtx.stroke(); }
-            if (c < COLS-1 && maze[r][c+1] !== 1) { gameCtx.beginPath(); gameCtx.moveTo(x+cellSize, y); gameCtx.lineTo(x+cellSize, y+cellSize); gameCtx.stroke(); }
-          }
-          else if (maze[r][c] === 4) {
-            // Ghost gate
-            gameCtx.strokeStyle = 'rgba(196,168,130,0.5)';
-            gameCtx.lineWidth = 2;
-            gameCtx.beginPath();
-            gameCtx.moveTo(x + 2, y + cellSize/2);
-            gameCtx.lineTo(x + cellSize - 2, y + cellSize/2);
-            gameCtx.stroke();
-          }
-          else if (maze[r][c] === 0) {
-            // Dot: tiny waveform squiggle
-            var cx = x + cellSize/2, cy = y + cellSize/2;
-            var dotSize = cellSize * 0.12;
-            gameCtx.beginPath();
-            gameCtx.arc(cx, cy, dotSize, 0, Math.PI * 2);
-            gameCtx.fillStyle = 'rgba(196,168,130,0.7)';
-            gameCtx.fill();
-          }
-          else if (maze[r][c] === 2) {
-            // Power pellet: pulsing glow
-            var cx = x + cellSize/2, cy = y + cellSize/2;
-            var pulseSize = cellSize * 0.25 + Math.sin(Date.now() * 0.005) * cellSize * 0.08;
-            gameCtx.beginPath();
-            gameCtx.arc(cx, cy, pulseSize, 0, Math.PI * 2);
-            gameCtx.fillStyle = 'rgba(196,168,130,0.9)';
-            gameCtx.fill();
-            // Glow
-            gameCtx.beginPath();
-            gameCtx.arc(cx, cy, pulseSize * 2, 0, Math.PI * 2);
-            gameCtx.fillStyle = 'rgba(196,168,130,0.08)';
-            gameCtx.fill();
-          }
+      var hair = Math.max(1, cellSize / 22);
+      // The maze as a graphic score: a hairline wherever a wall meets the path
+      ctx.strokeStyle = 'rgba(201,204,209,0.42)'; ctx.lineWidth = hair; ctx.beginPath();
+      for (r = 0; r < ROWS; r++) for (c = 0; c < COLS; c++) {
+        if (maze[r][c] !== 1) continue;
+        x = offsetX + c * cellSize; y = offsetY + r * cellSize;
+        if (r > 0 && maze[r-1][c] !== 1) { ctx.moveTo(x, y); ctx.lineTo(x + cellSize, y); }
+        if (r < ROWS-1 && maze[r+1][c] !== 1) { ctx.moveTo(x, y + cellSize); ctx.lineTo(x + cellSize, y + cellSize); }
+        if (c > 0 && maze[r][c-1] !== 1) { ctx.moveTo(x, y); ctx.lineTo(x, y + cellSize); }
+        if (c < COLS-1 && maze[r][c+1] !== 1) { ctx.moveTo(x + cellSize, y); ctx.lineTo(x + cellSize, y + cellSize); }
+      }
+      ctx.stroke();
+      for (r = 0; r < ROWS; r++) for (c = 0; c < COLS; c++) {
+        x = offsetX + c * cellSize; y = offsetY + r * cellSize;
+        var cx = x + cellSize / 2, cy = y + cellSize / 2;
+        if (maze[r][c] === 4) {   // the ghost gate: a dashed gold line
+          ctx.strokeStyle = 'rgba(196,168,130,0.7)'; ctx.lineWidth = hair * 1.4; ctx.setLineDash([hair * 3, hair * 2.5]);
+          ctx.beginPath(); ctx.moveTo(x + 2, cy); ctx.lineTo(x + cellSize - 2, cy); ctx.stroke(); ctx.setLineDash([]);
+        } else if (maze[r][c] === 0) {   // a dot: a point of sound waiting to be played
+          ctx.fillStyle = 'rgba(201,204,209,0.62)'; ctx.beginPath(); ctx.arc(cx, cy, cellSize * 0.07, 0, 6.2832); ctx.fill();
+        } else if (maze[r][c] === 2) {   // a power pellet: the page's gold event ring, breathing
+          var pr0 = cellSize * (0.24 + 0.05 * Math.sin(now * 0.005));
+          ctx.strokeStyle = '#c4a882'; ctx.lineWidth = hair * 1.6; ctx.beginPath(); ctx.arc(cx, cy, pr0, 0, 6.2832); ctx.stroke();
+          ctx.strokeStyle = 'rgba(196,168,130,0.3)'; ctx.lineWidth = hair; ctx.beginPath(); ctx.arc(cx, cy, pr0 * 1.9, 0, 6.2832); ctx.stroke();
+          ctx.fillStyle = '#c4a882'; ctx.beginPath(); ctx.arc(cx, cy, cellSize * 0.07, 0, 6.2832); ctx.fill();
         }
       }
-
-      // Draw ghosts
+      if (now - noiseAt > 90) { noiseAt = now; for (var q = 0; q < 12; q++) noiseTab[q] = Math.random() * 2 - 1; }
+      // The ghosts: a dome over a waveform, each one a different oscillator
       for (var gi = 0; gi < ghosts.length; gi++) {
         var g = ghosts[gi];
         if (g.homeTimer > 0 && !g.eaten) continue;
-        var gx = offsetX + g.x * cellSize + cellSize/2;
-        var gy = offsetY + g.y * cellSize + cellSize/2;
-        var gs = cellSize * 0.4;
-
-        if (g.eaten) {
-          // Just eyes
-          gameCtx.fillStyle = '#fff';
-          gameCtx.beginPath(); gameCtx.arc(gx - gs*0.3, gy - gs*0.1, gs*0.2, 0, Math.PI*2); gameCtx.fill();
-          gameCtx.beginPath(); gameCtx.arc(gx + gs*0.3, gy - gs*0.1, gs*0.2, 0, Math.PI*2); gameCtx.fill();
-          gameCtx.fillStyle = '#111';
-          gameCtx.beginPath(); gameCtx.arc(gx - gs*0.3, gy - gs*0.1, gs*0.08, 0, Math.PI*2); gameCtx.fill();
-          gameCtx.beginPath(); gameCtx.arc(gx + gs*0.3, gy - gs*0.1, gs*0.08, 0, Math.PI*2); gameCtx.fill();
+        var gx = offsetX + g.x * cellSize + cellSize / 2, gy = offsetY + g.y * cellSize + cellSize / 2, gs = cellSize * 0.42;
+        var pdx = playerX > g.x ? 0.08 : playerX < g.x ? -0.08 : 0, pdy = playerY > g.y ? 0.08 : playerY < g.y ? -0.08 : 0;
+        if (!g.eaten) {
+          var flash = g.frightened && frightenedTimer < 60 && frightenedTimer % 10 < 5;
+          var col = g.frightened ? (flash ? '#F5F4F0' : 'rgba(201,204,209,0.55)') : GHOST_COLORS[gi % 4];
+          ctx.beginPath(); ctx.arc(gx, gy - gs * 0.1, gs * 0.9, Math.PI, 0, false);
+          var x0 = gx + gs * 0.9, x1 = gx - gs * 0.9, yb = gy + gs * 0.7, ph = now * 0.004 + gi * 0.37;
+          for (var k = 0; k <= 18; k++) { var u = k / 18; ctx.lineTo(x0 + (x1 - x0) * u, yb + ghostWave(gi % 4, u * 2 + ph) * gs * 0.2); }
+          ctx.closePath();
+          if (g.frightened) { ctx.setLineDash([hair * 3, hair * 2.5]); ctx.strokeStyle = col; ctx.lineWidth = hair * 1.5; ctx.stroke(); ctx.setLineDash([]); }
+          else { ctx.globalAlpha = 0.14; ctx.fillStyle = col; ctx.fill(); ctx.globalAlpha = 1; ctx.strokeStyle = col; ctx.lineWidth = hair * 1.7; ctx.stroke(); }
         }
-        else if (g.frightened) {
-          // Frightened: draw as sine wave shape (smooth, blue-ish)
-          var flashColor = (frightenedTimer < 60 && frightenedTimer % 10 < 5) ? '#fff' : '#4488ff';
-          gameCtx.fillStyle = flashColor;
-          // Body
-          gameCtx.beginPath();
-          gameCtx.arc(gx, gy - gs*0.15, gs, Math.PI, 0, false);
-          // Wavy bottom (sine wave!)
-          for (var wi = 0; wi <= 8; wi++) {
-            var wx = gx - gs + (gs*2/8) * wi;
-            var wy = gy + gs*0.85 + Math.sin(wi * Math.PI * 0.5) * gs * 0.25;
-            gameCtx.lineTo(wx, wy);
-          }
-          gameCtx.closePath(); gameCtx.fill();
-        }
-        else {
-          // Normal ghost: static/noisy appearance
-          var col = GHOST_COLORS[gi];
-          // Body shape
-          gameCtx.fillStyle = col;
-          gameCtx.beginPath();
-          gameCtx.arc(gx, gy - gs*0.15, gs, Math.PI, 0, false);
-          // Jagged bottom (noise!)
-          for (var ji = 0; ji <= 6; ji++) {
-            var jx = gx - gs + (gs*2/6) * ji;
-            var jy = gy + gs*0.85 + (Math.random() > 0.5 ? gs*0.2 : -gs*0.1);
-            gameCtx.lineTo(jx, jy);
-          }
-          gameCtx.closePath(); gameCtx.fill();
-          // Eyes
-          gameCtx.fillStyle = '#fff';
-          gameCtx.beginPath(); gameCtx.arc(gx - gs*0.3, gy - gs*0.15, gs*0.25, 0, Math.PI*2); gameCtx.fill();
-          gameCtx.beginPath(); gameCtx.arc(gx + gs*0.3, gy - gs*0.15, gs*0.25, 0, Math.PI*2); gameCtx.fill();
-          // Pupils (look toward player)
-          var pdx = playerX > g.x ? 0.08 : playerX < g.x ? -0.08 : 0;
-          var pdy = playerY > g.y ? 0.08 : playerY < g.y ? -0.08 : 0;
-          gameCtx.fillStyle = '#111';
-          gameCtx.beginPath(); gameCtx.arc(gx - gs*0.3 + gs*pdx, gy - gs*0.15 + gs*pdy, gs*0.12, 0, Math.PI*2); gameCtx.fill();
-          gameCtx.beginPath(); gameCtx.arc(gx + gs*0.3 + gs*pdx, gy - gs*0.15 + gs*pdy, gs*0.12, 0, Math.PI*2); gameCtx.fill();
+        if (g.frightened && !g.eaten) {   // frightened: two short dashes for eyes
+          ctx.strokeStyle = col; ctx.lineWidth = hair * 1.5; ctx.beginPath();
+          ctx.moveTo(gx - gs * 0.42, gy - gs * 0.15); ctx.lineTo(gx - gs * 0.18, gy - gs * 0.15); ctx.moveTo(gx + gs * 0.18, gy - gs * 0.15); ctx.lineTo(gx + gs * 0.42, gy - gs * 0.15); ctx.stroke();
+        } else {   // eyes that follow you (eaten ghosts are only their eyes, heading home)
+          ctx.fillStyle = '#F5F4F0';
+          ctx.beginPath(); ctx.arc(gx - gs * 0.3, gy - gs * 0.15, gs * 0.2, 0, 6.2832); ctx.fill();
+          ctx.beginPath(); ctx.arc(gx + gs * 0.3, gy - gs * 0.15, gs * 0.2, 0, 6.2832); ctx.fill();
+          ctx.fillStyle = '#0a0a0a';
+          ctx.beginPath(); ctx.arc(gx - gs * 0.3 + gs * pdx, gy - gs * 0.15 + gs * pdy, gs * 0.09, 0, 6.2832); ctx.fill();
+          ctx.beginPath(); ctx.arc(gx + gs * 0.3 + gs * pdx, gy - gs * 0.15 + gs * pdy, gs * 0.09, 0, 6.2832); ctx.fill();
         }
       }
-
-      // Draw player (pac-man with mouth)
-      var px = offsetX + playerX * cellSize + cellSize/2;
-      var py = offsetY + playerY * cellSize + cellSize/2;
-      var pr = cellSize * 0.42;
+      // You: the page's gold Signal button, its play triangle pointing where you're going
+      var px = offsetX + playerX * cellSize + cellSize / 2, py = offsetY + playerY * cellSize + cellSize / 2, prr = cellSize * 0.42;
       mouthAngle += 0.15;
-      var mouth = Math.abs(Math.sin(mouthAngle)) * 0.35;
-      var angle = playerDir === 0 ? -Math.PI/2 : playerDir === 1 ? 0 : playerDir === 2 ? Math.PI/2 : Math.PI;
-
-      // Glow
-      gameCtx.beginPath();
-      gameCtx.arc(px, py, pr * 1.8, 0, Math.PI * 2);
-      gameCtx.fillStyle = 'rgba(196,168,130,0.06)';
-      gameCtx.fill();
-
-      // Body
-      gameCtx.beginPath();
-      gameCtx.arc(px, py, pr, angle + mouth, angle + Math.PI*2 - mouth);
-      gameCtx.lineTo(px, py);
-      gameCtx.closePath();
-      gameCtx.fillStyle = '#c4a882';
-      gameCtx.fill();
-
-      // Eye
-      var ex = px + Math.cos(angle - 0.6) * pr * 0.4;
-      var ey = py + Math.sin(angle - 0.6) * pr * 0.4;
-      gameCtx.beginPath(); gameCtx.arc(ex, ey, pr * 0.12, 0, Math.PI*2);
-      gameCtx.fillStyle = '#0a0a0a'; gameCtx.fill();
-
-      // HUD
-      gameCtx.font = (cellSize * 0.7) + 'px "DM Sans", sans-serif';
-      gameCtx.textAlign = 'left';
-      gameCtx.fillStyle = 'rgba(196,168,130,0.8)';
-      gameCtx.fillText(score + ' Hz', offsetX, offsetY - cellSize * 0.4);
-
-      gameCtx.textAlign = 'right';
-      gameCtx.fillStyle = 'rgba(196,168,130,0.6)';
-      var livesText = '';
-      for (var li = 0; li < lives; li++) livesText += '\u25CF ';
-      gameCtx.fillText(livesText, offsetX + COLS * cellSize, offsetY - cellSize * 0.4);
-
-      gameCtx.textAlign = 'center';
-      gameCtx.font = (cellSize * 0.5) + 'px "DM Sans", sans-serif';
-      gameCtx.fillStyle = 'rgba(196,168,130,0.3)';
-      gameCtx.fillText('SIGNAL CHASE  \u00b7  LEVEL ' + level, w/2, offsetY - cellSize * 1.1);
-
-      if (gameState === 'gameover') {
-        gameCtx.fillStyle = 'rgba(10,10,10,0.85)';
-        gameCtx.fillRect(0, 0, w, h);
-        gameCtx.font = (cellSize * 1.8) + 'px "Cormorant Garamond", serif';
-        gameCtx.textAlign = 'center';
-        gameCtx.fillStyle = '#c4a882';
-        gameCtx.fillText('SIGNAL LOST', w/2, h/2 - cellSize);
-        gameCtx.font = (cellSize * 0.7) + 'px "DM Sans", sans-serif';
-        gameCtx.fillStyle = 'rgba(196,168,130,0.7)';
-        gameCtx.fillText(score + ' Hz', w/2, h/2 + cellSize * 0.5);
-        gameCtx.font = (cellSize * 0.5) + 'px "DM Sans", sans-serif';
-        gameCtx.fillStyle = 'rgba(196,168,130,0.4)';
-        gameCtx.fillText('TAP OR PRESS ENTER TO RESTART', w/2, h/2 + cellSize * 1.8);
-      }
-
-      if (gameState === 'won') {
-        gameCtx.fillStyle = 'rgba(10,10,10,0.85)';
-        gameCtx.fillRect(0, 0, w, h);
-        gameCtx.font = (cellSize * 1.8) + 'px "Cormorant Garamond", serif';
-        gameCtx.textAlign = 'center';
-        gameCtx.fillStyle = '#c4a882';
-        gameCtx.fillText('SIGNAL CLEAR', w/2, h/2 - cellSize);
-        gameCtx.font = (cellSize * 0.7) + 'px "DM Sans", sans-serif';
-        gameCtx.fillStyle = 'rgba(196,168,130,0.7)';
-        gameCtx.fillText(score + ' Hz', w/2, h/2 + cellSize * 0.5);
-        gameCtx.font = (cellSize * 0.5) + 'px "DM Sans", sans-serif';
-        gameCtx.fillStyle = 'rgba(196,168,130,0.4)';
-        gameCtx.fillText('TAP OR PRESS ENTER FOR NEXT LEVEL', w/2, h/2 + cellSize * 1.8);
+      var ang = playerDir === 0 ? -Math.PI / 2 : playerDir === 1 ? 0 : playerDir === 2 ? Math.PI / 2 : Math.PI, tr = prr * (0.42 + 0.05 * Math.sin(mouthAngle));
+      ctx.strokeStyle = 'rgba(196,168,130,0.25)'; ctx.lineWidth = hair; ctx.beginPath(); ctx.arc(px, py, prr * 1.6, 0, 6.2832); ctx.stroke();
+      ctx.fillStyle = '#c4a882'; ctx.beginPath(); ctx.arc(px, py, prr, 0, 6.2832); ctx.fill();
+      ctx.fillStyle = '#0a0a0a'; ctx.beginPath();
+      ctx.moveTo(px + Math.cos(ang) * tr * 1.15, py + Math.sin(ang) * tr * 1.15);
+      ctx.lineTo(px + Math.cos(ang + 2.3) * tr, py + Math.sin(ang + 2.3) * tr);
+      ctx.lineTo(px + Math.cos(ang - 2.3) * tr, py + Math.sin(ang - 2.3) * tr);
+      ctx.closePath(); ctx.fill();
+      // The score line: frequency on the left, lives as gold points on the right, title and key above
+      ctx.font = hudFont(500, Math.round(cellSize * 0.62)); ctx.textAlign = 'left'; ctx.fillStyle = 'rgba(245,244,240,0.88)';
+      ctx.fillText(score + ' Hz', offsetX, offsetY - cellSize * 0.4);
+      ctx.fillStyle = '#c4a882';
+      for (var li = 0; li < lives; li++) { ctx.beginPath(); ctx.arc(offsetX + COLS * cellSize - cellSize * (0.3 + li * 0.62), offsetY - cellSize * 0.62, cellSize * 0.17, 0, 6.2832); ctx.fill(); }
+      ctx.textAlign = 'center'; ctx.font = hudFont(600, Math.round(cellSize * 0.4)); ctx.fillStyle = 'rgba(201,204,209,0.55)'; spaced(cellSize * 0.1);
+      ctx.fillText('SIGNAL CHASE  \u00b7  LEVEL ' + level + '  \u00b7  ' + KEY_NAMES[keyIdx], w / 2, offsetY - cellSize * 1.15);
+      spaced(0);
+      if (gameState === 'gameover' || gameState === 'won') {
+        ctx.fillStyle = 'rgba(10,10,10,0.86)'; ctx.fillRect(0, 0, w, h);
+        ctx.textAlign = 'center';
+        if ('fontStretch' in ctx) ctx.fontStretch = 'condensed';
+        ctx.font = hudFont(200, Math.round(cellSize * 2.4)); ctx.fillStyle = '#F5F4F0';
+        ctx.fillText(gameState === 'won' ? 'SIGNAL CLEAR' : 'SIGNAL LOST', w / 2, h / 2 - cellSize * 0.8);
+        if ('fontStretch' in ctx) ctx.fontStretch = 'normal';
+        ctx.font = hudFont(500, Math.round(cellSize * 0.7)); ctx.fillStyle = '#c4a882';
+        ctx.fillText(score + ' Hz', w / 2, h / 2 + cellSize * 0.6);
+        ctx.font = hudFont(600, Math.round(cellSize * 0.42)); ctx.fillStyle = 'rgba(201,204,209,0.6)'; spaced(cellSize * 0.1);
+        ctx.fillText(gameState === 'won' ? 'TAP OR PRESS ENTER FOR NEXT LEVEL' : 'TAP OR PRESS ENTER TO RESTART', w / 2, h / 2 + cellSize * 1.9);
+        spaced(0);
       }
     }
     // === GAME LOOP ===
