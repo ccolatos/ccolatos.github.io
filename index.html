@@ -3805,14 +3805,17 @@
     var F1 = 58.27;
     var MOVS = [
       { n: 'I', name: 'Trio', sub: 'for signal, walking bass, ride cymbal, and electric piano', bg: '#0A0A0A', line: 'rgba(201,204,209,0.42)', dot: 'rgba(201,204,209,0.62)', acc: '#C4A882', ink: '#F5F4F0', dim: 'rgba(201,204,209,0.6)', ghosts: ['#F5F4F0', '#C9CCD1', '#E6DCC8', '#A9AEB6'], dark: true },
-      { n: 'II', name: 'Drone', sub: 'for signal, tanpura, marimba, and bells', bg: '#06080C', line: 'rgba(165,188,214,0.42)', dot: 'rgba(186,204,224,0.62)', acc: '#D8C39A', ink: '#EEF3F8', dim: 'rgba(170,192,216,0.62)', ghosts: ['#EEF3F8', '#B9CBE0', '#DCE6F0', '#98AFC8'], dark: true },
+      { n: 'II', name: 'Drone', sub: 'for signal, tanpura, shruti box, and voice', bg: '#06080C', line: 'rgba(165,188,214,0.42)', dot: 'rgba(186,204,224,0.62)', acc: '#D8C39A', ink: '#EEF3F8', dim: 'rgba(170,192,216,0.62)', ghosts: ['#EEF3F8', '#B9CBE0', '#DCE6F0', '#98AFC8'], dark: true },
       { n: 'III', name: 'Stochastic', sub: 'for signal and four stochastic voices, after Xenakis', bg: '#0B0908', line: 'rgba(226,122,82,0.42)', dot: 'rgba(238,200,182,0.62)', acc: '#E27A52', ink: '#F7EFEA', dim: 'rgba(230,160,130,0.62)', ghosts: ['#F7EFEA', '#EBC7B6', '#F0DCCF', '#D9A48C'], dark: true },
-      { n: 'IV', name: 'Harmonic Series', sub: 'for signal and the partials of B\u266D', bg: '#F2F2EF', line: 'rgba(10,10,10,0.55)', dot: 'rgba(10,10,10,0.55)', acc: '#A88A5A', ink: '#0A0A0A', dim: 'rgba(10,10,10,0.5)', ghosts: ['#0A0A0A', '#3A3C40', '#26282C', '#5B5E63'], dark: false }
+      { n: 'IV', name: 'Harmonic Series', sub: 'for signal, natural horn, and rhythmicon, after Cowell', bg: '#07070C', line: 'rgba(236,232,224,0.26)', dot: 'rgba(236,232,224,0.55)', acc: '#D9B36A', ink: '#F4F1EA', dim: 'rgba(236,232,224,0.6)', ghosts: [7, 11, 13, 14].map(function (n) { return 'hsl(' + hueOf(n).toFixed(0) + ',72%,80%)'; }), dark: true }
     ];
     function movIdx() { return ((level || 1) - 1) % 4; }
     function mov() { return MOVS[movIdx()]; }
     var gBus = null, KEYS = [0, -4, 4], KEY_NAMES = ['B\u266D', 'G\u266D', 'D'], keyIdx = 0, soloDeg = 7, cellQ = [];
     var PENT = [0, 2, 4, 7, 9], LYD = [0, 2, 4, 6, 7, 9, 11], GTYPES = ['sine', 'square', 'sawtooth', 'noise'];
+    var YAMAN = [1, 9 / 8, 5 / 4, 45 / 32, 3 / 2, 5 / 3, 15 / 8], PAD_GAIN = 0.006;   // Raga Yaman's notes (the same as Lydian), in just intonation over the drone
+    function hueOf(n) { return (38 + ((1200 * Math.log(n) / Math.LN2) % 1200) * 0.3) % 360; }   // a partial's color: its pitch class on the color wheel, B-flat in the page's gold
+    function hsla(h, s2, l, a) { return 'hsla(' + h.toFixed(1) + ',' + s2 + '%,' + l + '%,' + a.toFixed(3) + ')'; }
     var CELLS_UP = [[1, 2, 3, 4], [1, 2, 4, 5], [2, 1, 2, 4], [1, 3, 2, 4]], CELLS_DN = [[-1, -2, -3, -4], [-1, -2, -4, -5], [-2, -1, -2, -4], [-1, -3, -2, -4]];
     function busFor(c) {   // a small room and a gentle compressor, the same live and when a run is rendered
       var comp = c.createDynamicsCompressor(), verb = c.createConvolver(), wet = c.createGain(), bus = c.createGain();
@@ -3855,8 +3858,80 @@
         g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(v, t + Math.min(3, dur * 0.3));
         g.gain.setValueAtTime(v, t + Math.max(0.2, dur - 1.2)); g.gain.linearRampToValueAtTime(0.0001, t + dur);
         o.connect(g); letGo(o, [g, panTo(c, g, out, p)]); o.start(t); o.stop(t + dur + 0.05);
-      }
+      },
+      tan: function (c, out, t, f, v, p) {   // a tanpura string: its curved bridge (jawari) makes the overtones buzz, a bright band sweeping up through them as it rings
+        var o = c.createOscillator(), o2 = c.createOscillator(), bp = c.createBiquadFilter(), lp = c.createBiquadFilter(), gb = c.createGain(), gl = c.createGain(), g = c.createGain(), pk = 0.045 + v * 0.05;
+        o.type = 'sawtooth'; o2.type = 'sawtooth'; o.frequency.value = f; o2.frequency.value = f * 1.0017;
+        bp.type = 'bandpass'; bp.Q.value = 2.2; bp.frequency.setValueAtTime(f * 3, t); bp.frequency.exponentialRampToValueAtTime(Math.min(5200, f * 14), t + 2.6);
+        lp.type = 'lowpass'; lp.frequency.value = f * 2.5; lp.Q.value = 0.4;
+        gb.gain.value = 0.9; gl.gain.value = 0.55;
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(pk, t + 0.012); g.gain.exponentialRampToValueAtTime(pk * 0.45, t + 0.9); g.gain.exponentialRampToValueAtTime(0.0001, t + 5.5);
+        o.connect(bp); o2.connect(bp); o.connect(lp); o2.connect(lp); bp.connect(gb); lp.connect(gl); gb.connect(g); gl.connect(g);
+        var pn = panTo(c, g, out, p);
+        o.start(t); o2.start(t); o.stop(t + 5.6); o2.stop(t + 5.6);
+        letGo(o, [bp, lp, gb, gl, g, pn]);
+      },
+      horn: function (c, out, t, f, v, p) {   // a natural horn: it can only play the partials of B-flat; each note is slurred up into from just below
+        var o = c.createOscillator(), o2 = c.createOscillator(), lp = c.createBiquadFilter(), g2 = c.createGain(), g = c.createGain(), pk = 0.035 + v * 0.045;
+        o.type = 'sawtooth'; o2.type = 'triangle';
+        o.frequency.setValueAtTime(f * 0.982, t); o.frequency.exponentialRampToValueAtTime(f, t + 0.07);
+        o2.frequency.setValueAtTime(f * 0.982, t); o2.frequency.exponentialRampToValueAtTime(f, t + 0.07);
+        lp.type = 'lowpass'; lp.Q.value = 0.9;
+        lp.frequency.setValueAtTime(f * 1.5, t); lp.frequency.exponentialRampToValueAtTime(Math.min(9000, f * (3.5 + v * 5)), t + 0.06); lp.frequency.exponentialRampToValueAtTime(f * 2, t + 0.7);
+        g2.gain.value = 0.6;
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(pk, t + 0.035); g.gain.exponentialRampToValueAtTime(pk * 0.5, t + 0.3); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.1);
+        o.connect(lp); o2.connect(g2); g2.connect(lp); lp.connect(g);
+        var pn = panTo(c, g, out, p);
+        o.start(t); o2.start(t); o.stop(t + 1.15); o2.stop(t + 1.15);
+        letGo(o, [lp, g, pn]); letGo(o2, [g2]);
+      },
+      rp: function (c, out, t, f, v, p, dur) { SND.sin(c, out, t, f, v, p, dur); },   // a rhythmicon pulse
+      reed: function (c, out, t, f, v, p, dur) { reedVoice(c, out, t, f, v, p).stop(t + Math.max(0.2, dur - 1.2)); }
     };
+    function reedVoice(c, out, t, f, v, p) {   // a shruti box reed: buzzy, softly filtered, breathing with the bellows
+      var o = c.createOscillator(), o2 = c.createOscillator(), m2 = c.createGain(), lp = c.createBiquadFilter(), gb = c.createGain(), g = c.createGain(), br = c.createOscillator(), bg = c.createGain();
+      o.type = 'sawtooth'; o2.type = 'square'; o.frequency.value = f; o2.frequency.value = f * 1.0012; m2.gain.value = 0.3;
+      lp.type = 'lowpass'; lp.frequency.value = Math.min(1800, f * 8); lp.Q.value = 0.6;
+      br.frequency.value = 0.09 + (f % 5) * 0.012; bg.gain.value = 0.22; gb.gain.value = 1;
+      br.connect(bg); bg.connect(gb.gain);
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(v, t + 3);
+      o.connect(lp); o2.connect(m2); m2.connect(lp); lp.connect(gb); gb.connect(g);
+      var pn = panTo(c, g, out, p);
+      o.start(t); o2.start(t); br.start(t);
+      return { stop: function (te) {
+        var ts = Math.max(te, t + 3.05);
+        g.gain.setTargetAtTime(0, ts, 0.35);
+        o.stop(ts + 2); o2.stop(ts + 2); br.stop(ts + 2);
+        letGo(o, [lp, gb, g, pn]); letGo(o2, [m2]); letGo(br, [bg]);
+      } };
+    }
+    function makeSinger(c, out, t0) {   // one continuous voice, gliding (meend) from note to note, its vibrato blooming as each note settles
+      var o = c.createOscillator(), o2 = c.createOscillator(), b1 = c.createBiquadFilter(), b2 = c.createBiquadFilter(), a = c.createGain(), b = c.createGain(), s3 = c.createGain(), g = c.createGain(), vib = c.createOscillator(), vg = c.createGain();
+      o.type = 'sawtooth'; o2.type = 'sine';
+      b1.type = 'bandpass'; b1.frequency.value = 760; b1.Q.value = 5;   // the formants of an open "ah"
+      b2.type = 'bandpass'; b2.frequency.value = 1180; b2.Q.value = 6;
+      a.gain.value = 1; b.gain.value = 0.55; s3.gain.value = 0.4;
+      vib.frequency.value = 5.3; vg.gain.value = 0;
+      vib.connect(vg); vg.connect(o.frequency); vg.connect(o2.frequency);
+      o.connect(b1); o.connect(b2); b1.connect(a); b2.connect(b); o2.connect(s3); a.connect(g); b.connect(g); s3.connect(g);
+      var pn = panTo(c, g, out, 0.12);
+      g.gain.setValueAtTime(0, t0); o.frequency.setValueAtTime(233.08, t0); o2.frequency.setValueAtTime(233.08, t0);
+      o.start(t0); o2.start(t0); vib.start(t0);
+      return {
+        note: function (t, f, v) {
+          o.frequency.setTargetAtTime(f, t, 0.05); o2.frequency.setTargetAtTime(f, t, 0.05);
+          vg.gain.setTargetAtTime(f * (0.004 + v * 0.008), t + 0.18, 0.25);
+          g.gain.cancelScheduledValues(t);
+          g.gain.setTargetAtTime(0.06 + v * 0.06, t, 0.035);
+          g.gain.setTargetAtTime(0, t + 1.7, 0.6);
+        },
+        end: function (t) {
+          g.gain.cancelScheduledValues(t); g.gain.setTargetAtTime(0, t, 0.25);
+          o.stop(t + 2); o2.stop(t + 2); vib.stop(t + 2);
+          letGo(o, [b1, b2, a, b, g, pn]); letGo(o2, [s3]); letGo(vib, [vg]);
+        }
+      };
+    }
     // ---------- the performance, written down as it happens ----------
     var perf = null;
     function perfStart() {
@@ -3864,6 +3939,7 @@
     }
     function pt(t) { return perf ? Math.max(0, t - perf.a0) : 0; }
     function logMark(kind, v) { if (perf && !perf.done && gameAudioCtx) perf.marks.push([pt(gameAudioCtx.currentTime), kind, v == null ? 0 : v]); }
+    function logEvAt(t, kind) { if (perf && !perf.done) perf.ev.push([pt(t), kind].concat(Array.prototype.slice.call(arguments, 2))); }
     function play(kind, t, a, b, c2, d, e) {   // play it now, and write it into the score
       var c = gameAudioCtx, out = gameOut(); if (!c || !out) return;
       try { SND[kind](c, out, t, a, b, c2, d, e); } catch (x) {}
@@ -3888,9 +3964,9 @@
       var c = gameAudioCtx; if (!c) return;
       var m = movIdx(), t = c.currentTime + 0.005, pan = Math.max(-0.6, Math.min(0.6, (playerX / (COLS - 1) - 0.5) * 1.2)), f, d;
       if (m === 0) { f = degHz(nextSoloDeg(16)); play('ep', t, f, 0.42 + Math.random() * 0.12, pan); soloNote(f, 'ep', 'ep'); }
-      else if (m === 1) { d = nextSoloDeg(16); var o = Math.floor(d / 7); f = 233.08 * Math.pow(2, (LYD[d - o * 7] + 12 * o) / 12); play('mal', t, f, 0.5 + Math.random() * 0.15, pan); soloNote(f, 'mallet', 'mal'); }
+      else if (m === 1) { d = nextSoloDeg(14); var o = Math.floor(d / 7), v2 = 0.4 + danger * 0.6; f = 233.08 * YAMAN[d - o * 7] * Math.pow(2, o); if (singer) singer.note(t, f, v2); logEvAt(t, 'sng', f, v2); soloNote(f, 'string', 'sng'); }   // the voice glides (meend) to each new note
       else if (m === 2) { f = F1 * (8 + nextSoloDeg(16)); play('plk', t, f, 0.5, pan, 0.08 + Math.random() * 0.4); soloNote(f, 'string', 'plk'); }
-      else { var n = rowPartial(playerY); f = F1 * n; play('sin', t, f, 0.075, pan, 2.4); padAdd(n, 0.22); soloNote(f, 'mode', 'sin'); }
+      else { f = F1 * (6 + nextSoloDeg(14)); play('horn', t, f, 0.45 + danger * 0.45, pan); padAdd(rowPartial(playerY), 0.22); soloNote(f, 'mode', 'hrn'); }   // the horn plays partials 6 to 20; the row you are on lights its partial in the rhythmicon
     }
     function rowPartial(r) { return 24 - Math.round(r / (ROWS - 1) * 20); }   // in the finale, each row of the maze is a partial of B-flat
     function playPowerSound() {
@@ -3902,13 +3978,15 @@
         var d = Math.max(2, soloDeg - 3);
         for (i = 0; i < 12; i++) play('ep', t + i * 0.038, degHz(d + i), 0.3 + i * 0.02, (i / 11 - 0.5) * 0.8);
         play('chm', t + 12 * 0.038, keyRoot() * 4); soloDeg = Math.min(16, d + 11); cellQ = [];
-      } else if (m === 1) {
-        for (i = 0; i < 9; i++) { var o = Math.floor(i / 7); play('mal', t + i * 0.06, 466.16 * Math.pow(2, (LYD[i % 7] + 12 * o) / 12), 0.35 + i * 0.03, (i / 8 - 0.5) * 0.8); }
-        play('chm', t + 0.6, 932.33);
+      } else if (m === 1) {   // a taan: the voice races up the scale
+        var d0 = soloDeg;
+        for (i = 0; i < 8; i++) { var dd = Math.min(14, d0 + i), oo = Math.floor(dd / 7), ff = 233.08 * YAMAN[dd - oo * 7] * Math.pow(2, oo); if (singer) singer.note(t + i * 0.075, ff, 0.9); logEvAt(t + i * 0.075, 'sng', ff, 0.9); }
+        soloDeg = Math.min(14, d0 + 7); cellQ = [];
+        play('chm', t + 0.62, 932.33);
       } else if (m === 2) {   // a stochastic cloud
         for (i = 0; i < 18; i++) play('plk', t + Math.random() * 0.7, F1 * (12 + Math.floor(Math.random() * 20)), 0.25 + Math.random() * 0.2, Math.random() * 1.6 - 0.8, 0.05 + Math.random() * 0.5);
-      } else {
-        for (i = 8; i <= 16; i++) play('sin', t + (i - 8) * 0.07, F1 * i, 0.06, ((i % 4) - 1.5) * 0.4, 2.2);
+      } else {   // the horn climbs the natural scale (and the rhythmicon spins twice as fast while you are powered up)
+        for (i = 8; i <= 16; i++) play('horn', t + (i - 8) * 0.07, F1 * i, 0.6, ((i % 4) - 1.5) * 0.4);
         for (var n = 1; n <= 24; n++) if (padLv[n] > 0) padAdd(n, padLv[n] * 0.3);
       }
     }
@@ -3938,20 +4016,30 @@
       var c = gameAudioCtx; if (!c) return;
       var m = movIdx(), t = c.currentTime + 0.02, n;
       pluckFx(); logMark('clear', m);
-      if (m === 3) { for (n = 1; n <= 24; n++) play('sin', t + n * 0.02, F1 * n * (n < 3 ? 2 : 1), 0.045, ((n % 5) - 2) * 0.3, 5); return; }   // the whole harmonic series
+      if (m === 3) {   // the rhythmicon's last downbeat: every partial at once, each ringing for its own length; then the horn's call
+        for (n = 1; n <= 24; n++) play('rp', t, F1 * n * (n < 3 ? 2 : 1), 0.05 / Math.pow(n, 0.3), ((n % 5) - 2) * 0.3, 1.5 + 6 / Math.sqrt(n));
+        [8, 10, 12, 16].forEach(function (k, i) { play('horn', t + 0.9 + i * 0.32, F1 * k, 0.8, 0); });
+        return;
+      }
+      if (m === 1) {   // all four strings of the tanpura together, and bells
+        [116.54, 174.61, 233.08, 233.08].forEach(function (f2, i) { play('tan', t + i * 0.22, f2, 0.9, (i - 1.5) * 0.3); });
+        [4, 6, 8].forEach(function (k, i) { play('chm', t + 0.5 + i * 0.3, 116.54 * k); });
+        return;
+      }
       if (m === 2) { [8, 10, 12, 15, 16].forEach(function (k, i) { play('sin', t + i * 0.03, F1 * k, 0.06, (i - 2) * 0.3, 4); }); return; }   // chaos resolves into a chord
       for (n = 4; n <= 12; n++) play('chm', t + (n - 4) * 0.09, 116.54 * n);
       if (m === 0) { var R = keyRoot(); [0, 4, 7, 11, 14].forEach(function (k) { play('ep', t, R * Math.pow(2, k / 12), 0.3, 0.1); }); }
     }
     // ---------- the beds: a trio, a drone, a stochastic chorus, a harmonic-series pad ----------
-    var musicInterval = null, musicStep = 0, BPM = 132, stepDur = 60 / 132 / 2, walkDeg = 0, danger = 0, bedHolds = [], padOsc = null, padLv = [];
+    var musicInterval = null, musicStep = 0, BPM = 132, stepDur = 60 / 132 / 2, walkDeg = 0, danger = 0, bedHolds = [], padOsc = null, padLv = [], tanIdx = 0, singer = null;
     function startMusic() {
+      clearTimeout(startTimer); startTimer = 0;
       if (musicInterval) return;
       hideCard();
       if (!perf || perf.done) perfStart();
       if (perf.lastLevel !== level) { perf.lastLevel = level; logMark('mov', movIdx()); movTitleAt = performance.now(); }
       var m = movIdx(), cyc = Math.floor(((level || 1) - 1) / 4);
-      musicStep = 0; walkDeg = 0; danger = 0; tilt.g0 = null;
+      musicStep = 0; walkDeg = 0; danger = 0; tanIdx = 0; tilt.g0 = null;
       BPM = [132, 76, 100, 84][m] + cyc * 8;
       stepDur = 60 / BPM / 2;
       bedStart(m); ghostVoicesBuild(m, false);
@@ -3982,46 +4070,40 @@
       }
       if (off && (beat === 1 || Math.random() < 0.12 + dg * 0.45)) [0, 4, 10, 14].forEach(function (k) { play('ep', t, R * Math.pow(2, k / 12), 0.16 + dg * 0.08, 0.2); });
     }
-    function droneTick(t, beat, off, pw) {   // the tanpura: F, B-flat, B-flat, low B-flat, one string per beat, faster when hunted
+    function droneTick(t, beat, off, pw) {   // the tanpura: Pa, Sa, Sa, low Sa, one string at a time; a little faster when hunted
       var dg = danger;
-      if (!off || dg > 0.5) {
-        var TAN = [174.61, 233.08, 233.08, 116.54], s2 = TAN[(musicStep >> (dg > 0.5 ? 0 : 1)) % 4];
-        play('plk', t, s2, 0.42, s2 < 120 ? -0.3 : 0.25, 0.47);
+      if (!off || dg > 0.55) {
+        var s2 = [174.61, 233.08, 233.08, 116.54][tanIdx++ % 4];
+        play('tan', t, s2, 0.5 + dg * 0.35, s2 < 120 ? -0.3 : s2 > 200 ? 0.25 : -0.1);
       }
-      if (pw && !off) play('chm', t, 116.54 * [4, 5, 6, 8, 9, 10][Math.floor(Math.random() * 6)]);
+      if (pw && !off && beat % 2 === 0) play('chm', t, 116.54 * [4, 5, 6, 8][Math.floor(Math.random() * 4)]);
     }
     function stochTick(t, off, pw) {   // stochastic events: grains on the partials of B-flat, denser as danger rises
       if (Math.random() < 0.12 + danger * 0.5) play('plk', t + Math.random() * stepDur * 0.9, F1 * (8 + Math.floor(Math.random() * 17)), 0.2 + Math.random() * 0.2, Math.random() * 1.6 - 0.8, 0.05 + Math.random() * 0.5);
       if (pw && Math.random() < 0.5) play('sin', t, F1 * (16 + Math.floor(Math.random() * 16)), 0.05, Math.random() * 1.6 - 0.8, 1.2);
     }
-    function seriesTick(t, beat, off, pw) {   // the finale: the partials you have played return, one at a time
-      if (off) return;
-      var lit = []; for (var n = 1; n <= 24; n++) if (padLv[n] > 0.02) lit.push(n);
-      if (lit.length && Math.random() < 0.5 + danger * 0.4) { var k = lit[Math.floor(Math.random() * lit.length)]; play('sin', t, F1 * k * (k < 4 ? 2 : 1), 0.05, (k % 5) / 2.5 - 0.8, 2.4); }
-      if (pw && beat === 0) for (var q = 8; q <= 16; q += 2) play('sin', t + (q - 8) * 0.06, F1 * q, 0.05, 0, 1.8);
-    }
+    function seriesTick() {}   // the finale keeps its own time: see the rhythmicon below
     function bedStart(m) {
       bedStop();
       var c = gameAudioCtx, out = gameOut(); if (!c || !out) return;
       var t = c.currentTime + 0.05;
-      if (m === 1) [[58.27, 0.05, -0.3], [87.31, 0.035, 0.3], [116.54, 0.03, 0]].forEach(function (h) {   // the shruti, breathing under the tanpura
-        var o = c.createOscillator(), g = c.createGain(); o.frequency.value = h[0];
-        g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(h[1], t + 3);
-        o.connect(g); panTo(c, g, out, h[2]); o.start(t);
-        bedHolds.push({ o: o, g: g, f: h[0], v: h[1], p: h[2], t0: t });
-      });
+      if (m === 1) {   // the drone: a shruti box's reeds on Sa, Pa, and the upper Sa, breathing under the tanpura; and the voice
+        [[116.54, 0.026, -0.35], [174.61, 0.02, 0.35], [233.08, 0.014, 0.05]].forEach(function (h) { bedHolds.push({ r: reedVoice(c, out, t, h[0], h[1], h[2]), f: h[0], v: h[1], p: h[2], t0: t }); });
+        singer = makeSinger(c, out, t); logEvAt(t, 'sgon');
+      }
       if (m === 2) dssStart();
-      if (m === 3) padStart();
+      if (m === 3) { padStart(); rhyStart(); }
     }
     function bedStop() {
       var c = gameAudioCtx; if (!c) return;
       var t = c.currentTime;
       bedHolds.forEach(function (h) {
-        try { h.g.gain.cancelScheduledValues(t); h.g.gain.setTargetAtTime(0.0001, t, 0.4); h.o.stop(t + 2.5); } catch (x) {}
-        if (perf && !perf.done) perf.ev.push([pt(h.t0), 'hold', h.f, h.v, h.p, t + 1.2 - h.t0]);
+        try { h.r.stop(t); } catch (x) {}
+        if (perf && !perf.done) perf.ev.push([pt(h.t0), 'reed', h.f, h.v, h.p, t - h.t0 + 1.2]);
       });
       bedHolds = [];
-      dssStop(); padStop();
+      if (singer) { try { singer.end(t); } catch (x) {} singer = null; logEvAt(t, 'sgoff'); }
+      dssStop(); padStop(); rhyStop();
     }
     function padStart() {
       var c = gameAudioCtx, out = gameOut(); if (!c || !out) return;
@@ -4034,8 +4116,8 @@
     }
     function padAdd(n, amt) {   // a partial joins the chord and keeps ringing
       if (!padOsc || !padOsc[n]) return;
-      padLv[n] = Math.min(1, padLv[n] + amt);
-      var c = gameAudioCtx; padOsc[n].g.gain.setTargetAtTime(padLv[n] * 0.012, c.currentTime, 0.6);
+      padLv[n] = Math.min(1, Math.max(0.3, padLv[n] + amt));   // a newly lit partial is heard at once
+      var c = gameAudioCtx; padOsc[n].g.gain.setTargetAtTime(padLv[n] * PAD_GAIN, c.currentTime, 0.6);
       if (perf && !perf.done) perf.ev.push([pt(c.currentTime), 'pad', n, padLv[n]]);
     }
     function padStop() {
@@ -4044,6 +4126,34 @@
       for (var n = 1; n <= 24; n++) if (padOsc[n]) { try { padOsc[n].g.gain.setTargetAtTime(0, t, 0.8); padOsc[n].o.stop(t + 4); } catch (x) {} }
       if (perf && !perf.done) perf.ev.push([pt(t), 'padoff']);
       padOsc = null;
+    }
+    // ---------- the rhythmicon (movement IV) ----------
+    // After Henry Cowell's Rhythmicon (built by Leon Theremin, 1931): rhythm and pitch are one series. Partial n of B-flat
+    // pulses n times in every measure, so the lit partials ripple in polyrhythm and all meet on each downbeat. Danger
+    // quickens the measure; a power pellet doubles it.
+    var rhy = { on: false, ph: 0, at: 0, timer: 0 }, rhyPulses = [];
+    function rhyStart() { var c = gameAudioCtx; if (!c) return; rhy.on = true; rhy.ph = 0; rhy.at = c.currentTime + 0.1; rhyPulses = []; clearInterval(rhy.timer); rhy.timer = setInterval(rhyTick, 90); }
+    function rhyStop() { rhy.on = false; clearInterval(rhy.timer); rhy.timer = 0; }
+    function rhyEach(n, phA, phB, tA, T, fn) { for (var k = Math.ceil(phA * n - 1e-9); k < phB * n; k++) fn(tA + (k / n - phA) * T, k); }
+    function rhyTick() {
+      var c = gameAudioCtx; if (!c || !rhy.on || gameState !== 'playing') return;
+      var tB = c.currentTime + 0.25; if (tB <= rhy.at) return;
+      var T = (4.2 - 1.8 * danger) * (frightenedTimer > 0 ? 0.5 : 1), tA = rhy.at, phA = rhy.ph, phB = phA + (tB - tA) / T, lit = 0, n;
+      for (n = 1; n <= 24; n++) if (padLv[n] > 0.02) lit++;
+      var norm = 1 / Math.sqrt(Math.max(1, lit));
+      for (n = 1; n <= 24; n++) {
+        var L = padLv[n] || 0; if (L <= 0.02) continue;
+        (function (n, L) {
+          rhyEach(n, phA, phB, tA, T, function (t, k) {
+            var v = L * norm * (k % n === 0 ? 0.32 : 0.2) / Math.pow(n, 0.25);   // each downbeat, where every partial meets, a little stronger
+            play('rp', t, F1 * n * (n < 3 ? 2 : 1), v, ((n % 5) - 2) * 0.3, 0.06 + 1.5 / Math.sqrt(n));
+            rhyPulses.push([t, n]);
+          });
+        })(n, L);
+      }
+      var Tg = ghostTargets(performance.now());   // the four ghosts pulse too, at their own partials' rates, louder as they near
+      Tg.forEach(function (q, i) { if (q.gain <= 0.006) return; rhyEach([7, 11, 13, 14][i], phA, phB, tA, T, function (t) { play('rp', t, q.f, q.gain * 1.2, q.pan, 0.1); }); });
+      rhy.at = tB; rhy.ph = phB;
     }
     // ---------- the bright stochastic engine (movement III) ----------
     // After Xenakis's dynamic stochastic synthesis, voiced differently from the page's hero: each voice's pitch is held
@@ -4146,7 +4256,7 @@
         var g = ghosts[i], dx = g.x - playerX, dy = g.y - playerY, prox = Math.max(0, 1 - Math.sqrt(dx * dx + dy * dy) / 12);
         var hi = Math.max(0, Math.min(1, 1 - g.y / (ROWS - 1))), f;
         if (m === 0) f = keyRoot() / 2 * Math.pow(2, ([0, 4, 7, 10][i] + 12 * Math.round(hi * 2)) / 12);   // the ghosts are the chord
-        else if (m === 1) { var k = Math.round(hi * 10) + i * 2, o = Math.floor(k / 7); f = 116.54 * Math.pow(2, (LYD[k - o * 7] + 12 * o) / 12); }
+        else if (m === 1) f = 116.54 * [1, 1.5, 1.25, 1.125][i] * (hi > 0.5 ? 2 : 1) * Math.pow(2, prox * 0.022);   // just consonances with the drone; a ghost that nears slides out of tune and beats against it
         else if (m === 2) f = F1 * (6 + Math.round(hi * 12) + i);   // stochastic voices, held on the harmonic series
         else f = F1 * [7, 11, 13, 14][i] * (hi > 0.55 ? 2 : 1);   // the finale's four blue partials
         var fr = !title && !!g.frightened;
@@ -4175,7 +4285,7 @@
         if (v.o) v.o.frequency.setTargetAtTime(s2.f, t, 0.12);
         if (v.bp) v.bp.frequency.setTargetAtTime(s2.f, t, 0.12);
         v.lp.frequency.setTargetAtTime(300 + s2.bright * 5200, t, 0.1);
-        v.g.gain.setTargetAtTime(s2.gain * typeMul(v.ty), t, 0.08);
+        v.g.gain.setTargetAtTime(s2.gain * typeMul(v.ty) * (m === 3 ? 0.5 : 1), t, 0.08);
         if (v.pn) v.pn.pan.setTargetAtTime(s2.pan, t, 0.1);
       }
       var P = null;
@@ -4196,7 +4306,7 @@
       }
     }
     // ---------- the title card, and tilt ----------
-    var titleTimer = null, movTitleAt = 0, trail = [], rings = [], deathAnim = null, clearAnim = null;
+    var titleTimer = null, movTitleAt = 0, trail = [], rings = [], deathAnim = null, clearAnim = null, startTimer = 0;
     var tilt = { on: false, g0: null, b0: null, btn: null };
     var iosTilt = window.DeviceOrientationEvent && typeof window.DeviceOrientationEvent.requestPermission === 'function';
     try { tilt.on = !iosTilt && localStorage.getItem('signalChaseTilt') === '1'; } catch (x) {}
@@ -4217,7 +4327,9 @@
       if (gameAudioCtx && gameAudioCtx.state !== 'running') gameAudioCtx.resume();
       gameState = 'playing';
       perfStart(); playStartSound();
-      setTimeout(startMusic, 500);
+      var run = perf;   // the music starts half a second later, if this same run is still being played
+      clearTimeout(startTimer);
+      startTimer = setTimeout(function () { startTimer = 0; if (gameState === 'playing' && perf === run && !run.done) startMusic(); }, 500);
     }
     function tiltHandler(e) {
       if (!tilt.on || gameState !== 'playing' || e.gamma == null || e.beta == null) return;
@@ -4421,19 +4533,23 @@
     }
     // ---------- performing a run again from its score: the same code plays it live and renders it offline ----------
     function eventPlayer(c, dest, run, lim, off) {   // returns sched(tEnd), which creates every event of the run that starts before tEnd
-      var evs = run.ev.filter(function (e) { return e[0] <= lim; }).sort(function (a, b) { return a[0] - b[0]; }), ei = 0, pads = [];
+      var evs = run.ev.filter(function (e) { return e[0] <= lim; }).sort(function (a, b) { return a[0] - b[0]; }), ei = 0, pads = [], sg = null;
       function sched(tEnd) {
         while (ei < evs.length && evs[ei][0] + off < tEnd) {
           var e = evs[ei++], t = e[0] + off;
           if (e[1] === 'pad') {   // the harmonic-series pad: a partial joins the chord and keeps ringing
             var n = e[2], pd = pads[n];
             if (!pd) { var o = c.createOscillator(), g = c.createGain(); o.frequency.value = F1 * n * (n < 3 ? 2 : 1); g.gain.value = 0; o.connect(g); letGo(o, [g, panTo(c, g, dest, ((n % 5) - 2) * 0.25)]); o.start(t); pd = pads[n] = { o: o, g: g }; }
-            pd.g.gain.setTargetAtTime(e[3] * 0.012, t, 0.6);
-          } else if (e[1] === 'padoff') sched.end(t);
+            pd.g.gain.setTargetAtTime(e[3] * PAD_GAIN, t, 0.6);
+          } else if (e[1] === 'padoff') endPads(t);
+          else if (e[1] === 'sgon') { if (sg) sg.end(t); sg = makeSinger(c, dest, t); }
+          else if (e[1] === 'sng') { if (sg) sg.note(t, e[2], e[3]); }
+          else if (e[1] === 'sgoff') { if (sg) { sg.end(t); sg = null; } }
           else { try { SND[e[1]](c, dest, t, e[2], e[3], e[4], e[5], e[6]); } catch (x) {} }
         }
       }
-      sched.end = function (t) { pads.forEach(function (p2) { if (p2) { try { p2.g.gain.setTargetAtTime(0, t, 0.8); p2.o.stop(t + 4); } catch (x) {} } }); pads = []; };
+      function endPads(t) { pads.forEach(function (p2) { if (p2) { try { p2.g.gain.setTargetAtTime(0, t, 0.8); p2.o.stop(t + 4); } catch (x) {} } }); pads = []; }
+      sched.end = function (t) { endPads(t); if (sg) { sg.end(t); sg = null; } };
       return sched;
     }
     function ghostPlayer(c, dest, run, lim, off) {   // the four ghosts, moving exactly as they moved: one set of voices per stretch of play
@@ -4458,7 +4574,7 @@
         if (!seg) seg = { m: m, last: s2[0], ch: [0, 1, 2, 3].map(function (i) { return chain(voiceType(m, i), t); }) };
         seg.last = s2[0];
         for (var i = 0; i < 4; i++) {
-          var ch = seg.ch[i], b = 2 + i * 4, f = s2[b], gn = s2[b + 1] * typeMul(ch.ty), pan = s2[b + 2], cut = 300 + s2[b + 3] * 5200;
+          var ch = seg.ch[i], b = 2 + i * 4, f = s2[b], gn = s2[b + 1] * typeMul(ch.ty) * (m === 3 ? 0.5 : 1), pan = s2[b + 2], cut = 300 + s2[b + 3] * 5200;
           if (ch.fresh) {
             ch.fresh = false;
             if (ch.o) ch.o.frequency.setValueAtTime(f, t); if (ch.bp) ch.bp.frequency.setValueAtTime(f, t);
@@ -4515,8 +4631,8 @@
           sched(S + 0.6);
           for (var k = 1; k * S < len - 0.25; k++) (function (tk) {
             oc.suspend(tk).then(function () {
-              if (run.abandoned) return;   // its card was dismissed: stop rendering
-              sched(tk + S + 0.6); if (progress) progress(tk / len);
+              if (run.abandoned) { try { out.disconnect(); } catch (x) {} }   // its card was dismissed: finish quickly in silence, then let it go
+              else { sched(tk + S + 0.6); if (progress) progress(tk / len); }
               setTimeout(function () { oc.resume(); }, 0);
             });
           })(k * S);
@@ -4534,6 +4650,8 @@
       x.fillStyle = '#7B5F34'; x.strokeStyle = '#7B5F34'; x.lineWidth = r * 0.3;
       if (kind === 'mal') { x.beginPath(); x.moveTo(px, py - r * 1.2); x.lineTo(px + r, py); x.lineTo(px, py + r * 1.2); x.lineTo(px - r, py); x.closePath(); x.fill(); return; }
       if (kind === 'sin') { x.fillRect(px - r * 0.8, py - r * 0.8, r * 1.6, r * 1.6); return; }
+      if (kind === 'hrn') { x.beginPath(); x.arc(px, py, r * 0.95, 0, 6.2832); x.lineWidth = r * 0.5; x.stroke(); return; }   // the natural horn: an open notehead
+      if (kind === 'sng') { x.beginPath(); x.arc(px, py, r * 0.55, 0, 6.2832); x.fill(); return; }   // the voice: small points along its line
       x.beginPath(); x.ellipse(px, py, r * 1.15, r * 0.85, -0.35, 0, 6.2832); x.fill();
       if (kind === 'ep') { x.beginPath(); x.moveTo(px + r * 1.05, py); x.lineTo(px + r * 1.05, py - r * 4.2); x.stroke(); }
     }
@@ -4554,7 +4672,8 @@
       x.textAlign = 'left';
       mv.forEach(function (k, j) {
         var a = X(k[0]), b = j + 1 < mv.length ? X(mv[j + 1][0]) : X(T), M2 = MOVS[k[2]];
-        x.fillStyle = M2.dark ? M2.acc : '#0A0A0A'; x.fillRect(a, H * 0.09, Math.max(2, b - a - 4), H * 0.012);
+        if (k[2] === 3) { var gb2 = x.createLinearGradient(a, 0, b, 0); for (var q2 = 0; q2 <= 12; q2++) gb2.addColorStop(q2 / 12, 'hsl(' + hueOf(1 + q2 * 2).toFixed(0) + ',62%,48%)'); x.fillStyle = gb2; } else x.fillStyle = M2.dark ? M2.acc : '#0A0A0A';
+        x.fillRect(a, H * 0.09, Math.max(2, b - a - 4), H * 0.012);
         x.fillStyle = '#0A0A0A'; x.font = '600 ' + Math.round(H * 0.03) + 'px "CC Accidentals", Archivo, sans-serif';
         if (b - a > H * 0.2) x.fillText(M2.n + '. ' + M2.name, a, H * 0.07);
       });
@@ -4575,6 +4694,14 @@
         for (var v = 0; v < 4; v++) { var gg = r2[3 + v * 5]; if (gg < 0.004) continue; var cx = X(r2[0]), cy = Y(r2[1 + v * 5]), amp = H * 0.012 * (0.3 + r2[2 + v * 5] * 2);
           x.beginPath(); x.moveTo(cx, cy); for (var q = 1; q <= 4; q++) x.lineTo(cx + q * (R - L) / T * 0.05, cy + (Math.random() * 2 - 1) * amp); x.stroke(); }
       });
+      run.ev.forEach(function (e) {   // the rhythmicon: every pulse, a point on its partial's line, in its color
+        if (e[1] !== 'rp') return;
+        x.fillStyle = 'hsla(' + hueOf(Math.max(1, Math.round(e[2] / F1))).toFixed(0) + ',60%,36%,' + Math.min(0.9, 0.2 + e[3] * 14).toFixed(2) + ')';
+        x.fillRect(X(e[0]) - 1.8, Y(e[2]) - 1.8, 3.6, 3.6);
+      });
+      var sl = run.solo.filter(function (s2) { return s2[2] === 'sng'; });   // the drone's voice: one gliding line
+      x.strokeStyle = '#7B5F34'; x.lineWidth = 2.2; x.lineJoin = 'round';
+      for (i = 1; i < sl.length; i++) { if (sl[i][0] - sl[i - 1][0] > 1.6) continue; x.beginPath(); x.moveTo(X(sl[i - 1][0]), Y(sl[i - 1][1])); x.lineTo(X(sl[i][0]), Y(sl[i][1])); x.stroke(); }
       run.solo.forEach(function (s2) { glyph(x, s2[2], X(s2[0]), Y(s2[1]), H * 0.0105); });   // your solo
       run.marks.forEach(function (k) {   // what happened: power, eaten ghosts, lost lives, cleared movements
         var px = X(k[0]), yy = top - H * 0.035;
@@ -4590,6 +4717,7 @@
       if (playT >= 0) { var ph = X(playT); x.strokeStyle = '#A88A5A'; x.lineWidth = 3; x.beginPath(); x.moveTo(ph, top - H * 0.06); x.lineTo(ph, bot + H * 0.02); x.stroke(); }
     }
     function stopMusic() {
+      clearTimeout(startTimer); startTimer = 0;
       if (musicInterval) { clearInterval(musicInterval); musicInterval = null; }
       bedStop(); ghostVoicesKill();
       if (gameState === 'gameover' && perf && !perf.done) finishRun();
@@ -4694,6 +4822,20 @@
         } else ctx.lineTo(p2[0], p2[1]);
         ei++;
       }
+      if (mi === 3) {   // the finale: every row is a partial, colored by its pitch class (B-flat in gold); lit rows glow, and flash as they pulse
+        var nowA = gameAudioCtx ? gameAudioCtx.currentTime : 0, fl = [];
+        rhyPulses = rhyPulses.filter(function (p2) { return p2[0] > nowA - 1; });
+        rhyPulses.forEach(function (p2) { if (p2[0] <= nowA) fl[p2[1]] = Math.max(fl[p2[1]] || 0, Math.exp(-(nowA - p2[0]) / 0.12)); });
+        ctx.globalCompositeOperation = 'lighter';
+        for (r = 0; r < ROWS; r++) {
+          var pn2 = rowPartial(r), lv2 = padLv[pn2] || 0, ga = lv2 * 0.16 + (fl[pn2] || 0) * (0.1 + lv2 * 0.35) + (pl >= 0 ? Math.exp(-pl * 1.2) * 0.4 : 0);
+          if (ga < 0.01) continue;
+          var yb = offsetY + r * cellSize + cellSize / 2, hb = hueOf(pn2), gr = ctx.createLinearGradient(0, yb - cellSize * 0.65, 0, yb + cellSize * 0.65);
+          gr.addColorStop(0, hsla(hb, 85, 60, 0)); gr.addColorStop(0.5, hsla(hb, 85, 62, Math.min(0.85, ga))); gr.addColorStop(1, hsla(hb, 85, 60, 0));
+          ctx.fillStyle = gr; ctx.fillRect(offsetX, yb - cellSize * 0.65, COLS * cellSize, cellSize * 1.3);
+        }
+        ctx.globalCompositeOperation = 'source-over';
+      }
       ctx.strokeStyle = M.line; ctx.lineWidth = hair; ctx.beginPath();
       for (r = 0; r < ROWS; r++) for (c = 0; c < COLS; c++) {
         if (maze[r][c] !== 1) continue;
@@ -4703,17 +4845,13 @@
         if (c < COLS-1 && maze[r][c+1] !== 1) edge(c + 1, r, c + 1, r + 1);
       }
       ctx.stroke();
-      if (mi === 3 && padLv.length) for (r = 0; r < ROWS; r++) {   // the finale: the partials you have played glow as staff lines
-        var lv = padLv[rowPartial(r)] || 0;
-        if (lv > 0.02) { ctx.strokeStyle = hexA(M.acc, Math.min(0.5, lv * 0.45)); ctx.lineWidth = hair * 1.3; y = offsetY + r * cellSize + cellSize / 2; ctx.beginPath(); ctx.moveTo(offsetX, y); ctx.lineTo(offsetX + COLS * cellSize, y); ctx.stroke(); }
-      }
       for (r = 0; r < ROWS; r++) for (c = 0; c < COLS; c++) {
         x = offsetX + c * cellSize; y = offsetY + r * cellSize; cx = x + cellSize / 2; cy = y + cellSize / 2;
         if (maze[r][c] === 4) {   // the ghost gate: a dashed line
           ctx.strokeStyle = hexA(M.acc, 0.7); ctx.lineWidth = hair * 1.4; ctx.setLineDash([hair * 3, hair * 2.5]);
           ctx.beginPath(); ctx.moveTo(x + 2, cy); ctx.lineTo(x + cellSize - 2, cy); ctx.stroke(); ctx.setLineDash([]);
         } else if (maze[r][c] === 0) {   // a dot: a note waiting to be played
-          ctx.fillStyle = M.dot; ctx.beginPath(); ctx.arc(cx, cy, cellSize * 0.07, 0, 6.2832); ctx.fill();
+          ctx.fillStyle = mi === 3 ? hsla(hueOf(rowPartial(r)), 70, 76, 0.75) : M.dot; ctx.beginPath(); ctx.arc(cx, cy, cellSize * 0.07, 0, 6.2832); ctx.fill();
         } else if (maze[r][c] === 2) {   // a power pellet: the page's event ring, breathing
           var pr0 = cellSize * (0.24 + 0.05 * Math.sin(now * 0.005));
           ctx.strokeStyle = M.acc; ctx.lineWidth = hair * 1.6; ctx.beginPath(); ctx.arc(cx, cy, pr0, 0, 6.2832); ctx.stroke();
