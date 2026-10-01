@@ -3571,6 +3571,11 @@
     logoTapTimer = setTimeout(function () { logoTapCount = 0; }, 800);
   });
 
+  function scTap(e) {   // Signal Chase's buttons call through this page-level relay, so a button the browser keeps after the game closes holds nothing of the game
+    var fn = this.__scFn; if (!fn) return;
+    if (e.type === 'touchend') e.preventDefault();
+    e.stopPropagation(); fn();
+  }
   function launchSignalChase() {
     // Prevent double-launch
     if (document.getElementById('signalChaseOverlay')) return;
@@ -3804,7 +3809,7 @@
     // =====================================================================================
     var F1 = 58.27;
     var MOVS = [
-      { n: 'I', name: 'Trio', sub: 'for signal, walking bass, ride cymbal, and electric piano', bg: '#0A0A0A', line: 'rgba(201,204,209,0.42)', dot: 'rgba(201,204,209,0.62)', acc: '#C4A882', ink: '#F5F4F0', dim: 'rgba(201,204,209,0.6)', ghosts: ['#F5F4F0', '#C9CCD1', '#E6DCC8', '#A9AEB6'], dark: true },
+      { n: 'I', name: 'Hard Bop', sub: 'for signal, tenor saxophone, piano, bass, and drums', bg: '#0A0A0A', line: 'rgba(201,204,209,0.42)', dot: 'rgba(201,204,209,0.62)', acc: '#C4A882', ink: '#F5F4F0', dim: 'rgba(201,204,209,0.6)', ghosts: ['#F5F4F0', '#C9CCD1', '#E6DCC8', '#A9AEB6'], dark: true },
       { n: 'II', name: 'Drone', sub: 'for signal, tanpura, shruti box, and voice', bg: '#06080C', line: 'rgba(165,188,214,0.42)', dot: 'rgba(186,204,224,0.62)', acc: '#D8C39A', ink: '#EEF3F8', dim: 'rgba(170,192,216,0.62)', ghosts: ['#EEF3F8', '#B9CBE0', '#DCE6F0', '#98AFC8'], dark: true },
       { n: 'III', name: 'Stochastic', sub: 'for signal and four stochastic voices, after Xenakis', bg: '#0B0908', line: 'rgba(226,122,82,0.42)', dot: 'rgba(238,200,182,0.62)', acc: '#E27A52', ink: '#F7EFEA', dim: 'rgba(230,160,130,0.62)', ghosts: ['#F7EFEA', '#EBC7B6', '#F0DCCF', '#D9A48C'], dark: true },
       { n: 'IV', name: 'Harmonic Series', sub: 'for signal, natural horn, and rhythmicon, after Cowell', bg: '#07070C', line: 'rgba(236,232,224,0.26)', dot: 'rgba(236,232,224,0.55)', acc: '#D9B36A', ink: '#F4F1EA', dim: 'rgba(236,232,224,0.6)', ghosts: [7, 11, 13, 14].map(function (n) { return 'hsl(' + hueOf(n).toFixed(0) + ',72%,80%)'; }), dark: true }
@@ -3813,6 +3818,16 @@
     function mov() { return MOVS[movIdx()]; }
     var gBus = null, KEYS = [0, -4, 4], KEY_NAMES = ['B\u266D', 'G\u266D', 'D'], keyIdx = 0, soloDeg = 7, cellQ = [];
     var PENT = [0, 2, 4, 7, 9], LYD = [0, 2, 4, 6, 7, 9, 11], GTYPES = ['sine', 'square', 'sawtooth', 'noise'];
+    // I. Hard Bop: a 12-bar bebop blues in B-flat (root above the key's B-flat, quality), one or two chords to the bar;
+    // power pellets switch to Coltrane changes, key centers a major third apart, each approached by its dominant.
+    var CQ = { '7': [0, 4, 7, 10], 'm7': [0, 3, 7, 10], 'maj7': [0, 4, 7, 11], 'o7': [0, 3, 6, 9] };
+    var BLUES = [[[0, '7']], [[5, '7']], [[0, '7']], [[7, 'm7'], [0, '7']], [[5, '7']], [[6, 'o7']], [[0, '7']], [[4, 'm7'], [9, '7']], [[2, 'm7']], [[7, '7']], [[0, '7'], [9, '7']], [[2, 'm7'], [7, '7']]];
+    var COLT = [[0, 'maj7'], [3, '7'], [8, 'maj7'], [11, '7'], [4, 'maj7'], [7, '7']];
+    var VOI = { '7': [[4, 9, 10, 14], [10, 14, 16, 21]], 'm7': [[3, 7, 10, 14], [10, 14, 15, 19]], 'maj7': [[4, 7, 11, 14], [11, 14, 16, 19]], 'o7': [[0, 3, 6, 9], [3, 6, 9, 12]] };   // rootless voicings, two shapes each
+    var COMPS = [[0.75, 0, 0, 0.6, 0, 0, 0, 0], [0.7, 0, 0, 0, 0, 0, 0, 0.55], [0, 0, 0.6, 0, 0, 0, 0.6, 0], [0.7, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0.6, 0, 0, 0.5, 0]];   // Charleston, anticipation, two and four, the downbeat, off-beat pushes
+    var PCN = ['B\u266D', 'B', 'C', 'D\u266D', 'D', 'E\u266D', 'E', 'F', 'G\u266D', 'G', 'A\u266D', 'A'];
+    var sax = null, formPos = 0, coltBeat = 0, curChord = [0, '7'], bassPrev = null, prevVoi = null, compPat = null, lineQ = [], linePrev = null;
+    function chordName(ch) { var pc = ((ch[0] + KEYS[keyIdx]) % 12 + 12) % 12; return PCN[pc] + (ch[1] === 'o7' ? '\u00B07' : ch[1]); }
     var YAMAN = [1, 9 / 8, 5 / 4, 45 / 32, 3 / 2, 5 / 3, 15 / 8], PAD_GAIN = 0.006;   // Raga Yaman's notes (the same as Lydian), in just intonation over the drone
     function hueOf(n) { return (38 + ((1200 * Math.log(n) / Math.LN2) % 1200) * 0.3) % 360; }   // a partial's color: its pitch class on the color wheel, B-flat in the page's gold
     function hsla(h, s2, l, a) { return 'hsla(' + h.toFixed(1) + ',' + s2 + '%,' + l + '%,' + a.toFixed(3) + ')'; }
@@ -3886,7 +3901,68 @@
         letGo(o, [lp, g, pn]); letGo(o2, [g2]);
       },
       rp: function (c, out, t, f, v, p, dur) { SND.sin(c, out, t, f, v, p, dur); },   // a rhythmicon pulse
-      reed: function (c, out, t, f, v, p, dur) { reedVoice(c, out, t, f, v, p).stop(t + Math.max(0.2, dur - 1.2)); }
+      reed: function (c, out, t, f, v, p, dur) { reedVoice(c, out, t, f, v, p).stop(t + Math.max(0.2, dur - 1.2)); },
+      ub: function (c, out, t, f, v, p, dur) {   // an upright bass: a round fundamental, a woody bloom of upper partials, and the finger's thump
+        var o = c.createOscillator(), o2 = c.createOscillator(), g = c.createGain(), g2 = c.createGain(), lp = c.createBiquadFilter(), body = c.createBiquadFilter(), d = dur || 0.6, pk = 0.048 + v * 0.04;
+        o.type = 'sine'; o2.type = 'triangle';
+        o.frequency.setValueAtTime(f * 1.012, t); o.frequency.exponentialRampToValueAtTime(f, t + 0.04);   // the string settles into pitch
+        o2.frequency.setValueAtTime(f * 1.012, t); o2.frequency.exponentialRampToValueAtTime(f, t + 0.04);
+        g2.gain.value = 0.45;
+        lp.type = 'lowpass'; lp.frequency.setValueAtTime(f * 9, t); lp.frequency.exponentialRampToValueAtTime(f * 2.5, t + 0.25);
+        body.type = 'peaking'; body.frequency.value = 110; body.Q.value = 1.2; body.gain.value = 5;
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(pk, t + 0.012); g.gain.exponentialRampToValueAtTime(pk * 0.5, t + 0.18); g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.25);
+        o.connect(g); o2.connect(g2); g2.connect(lp); lp.connect(g); g.connect(body);
+        var pn = panTo(c, body, out, p);
+        o.start(t); o2.start(t); o.stop(t + d + 0.3); o2.stop(t + d + 0.3);
+        var n = c.createBufferSource(), nf = c.createBiquadFilter(), ng = c.createGain();
+        n.buffer = noiseBufOf(c); nf.type = 'lowpass'; nf.frequency.value = 900; ng.gain.setValueAtTime(0.05 * v, t); ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.03);
+        n.connect(nf); nf.connect(ng); ng.connect(body); n.start(t, Math.random() * 1.5, 0.04);
+        letGo(o, [g, g2, lp, body, pn]); letGo(n, [nf, ng]);
+      },
+      rd: function (c, out, t, v, p) {   // a ride cymbal: the stick's bright ping over a long, shimmering wash
+        var n = c.createBufferSource(), hp = c.createBiquadFilter(), pkf = c.createBiquadFilter(), g = c.createGain(), o = c.createOscillator(), og = c.createGain(), pk = 0.011 + v * 0.019;
+        n.buffer = noiseBufOf(c); hp.type = 'highpass'; hp.frequency.value = 5200; pkf.type = 'peaking'; pkf.frequency.value = 8200; pkf.Q.value = 1.4; pkf.gain.value = 6;
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(pk, t + 0.002); g.gain.exponentialRampToValueAtTime(pk * 0.35, t + 0.09); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.1);
+        o.frequency.value = 3950 + v * 300; og.gain.setValueAtTime(0.0001, t); og.gain.exponentialRampToValueAtTime(0.005 + v * 0.008, t + 0.002); og.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+        n.connect(hp); hp.connect(pkf); pkf.connect(g); o.connect(og); og.connect(g);
+        var pn = panTo(c, g, out, p);
+        n.start(t, Math.random() * 1.5, 1.15); o.start(t); o.stop(t + 0.4);
+        letGo(n, [hp, pkf, g, pn]); letGo(o, [og]);
+      },
+      hh: function (c, out, t, v, p) {   // the hi-hat closed by the foot: a short chick
+        var n = c.createBufferSource(), bp = c.createBiquadFilter(), g = c.createGain(), pk = 0.014 + v * 0.018;
+        n.buffer = noiseBufOf(c); bp.type = 'bandpass'; bp.frequency.value = 6500; bp.Q.value = 0.8;
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(pk, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.07);
+        n.connect(bp); bp.connect(g); var pn = panTo(c, g, out, p);
+        n.start(t, Math.random() * 1.5, 0.09); letGo(n, [bp, g, pn]);
+      },
+      sn: function (c, out, t, v, p) {   // the snare: a crack of noise over a short drum tone
+        var n = c.createBufferSource(), bp = c.createBiquadFilter(), g = c.createGain(), o = c.createOscillator(), og = c.createGain(), pk = 0.016 + v * 0.056;
+        n.buffer = noiseBufOf(c); bp.type = 'bandpass'; bp.frequency.value = 2400; bp.Q.value = 0.7;
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(pk, t + 0.002); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.14 + v * 0.1);
+        o.type = 'triangle'; o.frequency.setValueAtTime(220, t); o.frequency.exponentialRampToValueAtTime(160, t + 0.08);
+        og.gain.setValueAtTime(0.0001, t); og.gain.exponentialRampToValueAtTime(pk * 0.6, t + 0.002); og.gain.exponentialRampToValueAtTime(0.0001, t + 0.1);
+        n.connect(bp); bp.connect(g); o.connect(og); og.connect(g); var pn = panTo(c, g, out, p);
+        n.start(t, Math.random() * 1.5, 0.3); o.start(t); o.stop(t + 0.12);
+        letGo(n, [bp, g, pn]); letGo(o, [og]);
+      },
+      bd: function (c, out, t, v, p) {   // the bass drum: a felt beater on a big skin, more felt than heard
+        var o = c.createOscillator(), g = c.createGain(), pk = 0.021 + v * 0.11;
+        o.frequency.setValueAtTime(95, t); o.frequency.exponentialRampToValueAtTime(52, t + 0.09);
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(pk, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+        o.connect(g); var pn = panTo(c, g, out, p); o.start(t); o.stop(t + 0.25); letGo(o, [g, pn]);
+      },
+      pn: function (c, out, t, f, v, p, dur) {   // a piano note: a hammered string, bright at the strike and mellowing as it rings, damped when the chord ends
+        var w = c.__pnw || (c.__pnw = c.createPeriodicWave(new Float32Array([0, 1, 0.55, 0.32, 0.22, 0.14, 0.1, 0.07, 0.05, 0.035, 0.025, 0.018, 0.012]), new Float32Array(13)));
+        var o = c.createOscillator(), o2 = c.createOscillator(), lp = c.createBiquadFilter(), g = c.createGain(), d = dur || 0.5, pk = 0.0095 + v * 0.0135;
+        o.setPeriodicWave(w); o2.setPeriodicWave(w); o.frequency.value = f; o2.frequency.value = f * 1.0011;   // two strings of the unison, a hair apart
+        lp.type = 'lowpass'; lp.Q.value = 0.3; lp.frequency.setValueAtTime(Math.min(12000, f * (6 + v * 10)), t); lp.frequency.setTargetAtTime(f * 2.2, t + 0.01, 0.35);
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(pk, t + 0.003); g.gain.setTargetAtTime(pk * 0.35, t + 0.01, 0.6); g.gain.setTargetAtTime(0.0001, t + d, 0.05);
+        o.connect(lp); o2.connect(lp); lp.connect(g); var pn = panTo(c, g, out, p);
+        o.start(t); o2.start(t); o.stop(t + d + 0.35); o2.stop(t + d + 0.35);
+        letGo(o, [lp, g, pn]);
+      },
+      sxn: function (c, out, t, f, v, p, dur) { var s2 = makeSax(c, out, t); s2.note(t, f, v, 0, dur); s2.end(t + dur + 0.25); }   // a single held saxophone note
     };
     function reedVoice(c, out, t, f, v, p) {   // a shruti box reed: buzzy, softly filtered, breathing with the bellows
       var o = c.createOscillator(), o2 = c.createOscillator(), m2 = c.createGain(), lp = c.createBiquadFilter(), gb = c.createGain(), g = c.createGain(), br = c.createOscillator(), bg = c.createGain();
@@ -3932,6 +4008,46 @@
         }
       };
     }
+    function makeSax(c, out, t0) {   // a tenor saxophone: breath pressure drives a reed-like curve, so a harder breath is a brighter, buzzier tone; the bore's formants, breath noise, scoops, falls, and vibrato
+      var osc = c.createOscillator(), press = c.createGain(), shaper = c.createWaveShaper(), hp = c.createBiquadFilter(),
+        f1 = c.createBiquadFilter(), f2 = c.createBiquadFilter(), lp = c.createBiquadFilter(), g = c.createGain(),
+        nz = c.createBufferSource(), nbp = c.createBiquadFilter(), ng = c.createGain(), vib = c.createOscillator(), vg = c.createGain(), curve = new Float32Array(2048);
+      for (var i = 0; i < 2048; i++) { var x = i / 1023.5 - 1; curve[i] = Math.tanh(x * 3) + 0.08 * x * x; }   // soft at a gentle breath, buzzing at a hard one; a touch of asymmetry for the even harmonics
+      shaper.curve = curve; shaper.oversample = '2x';
+      osc.type = 'triangle'; press.gain.value = 0;
+      hp.type = 'highpass'; hp.frequency.value = 40;
+      f1.type = 'peaking'; f1.frequency.value = 500; f1.Q.value = 1.3; f1.gain.value = 6;   // the formants of the bore
+      f2.type = 'peaking'; f2.frequency.value = 1500; f2.Q.value = 1.6; f2.gain.value = 5;
+      lp.type = 'lowpass'; lp.frequency.value = 3800; lp.Q.value = 0.4;
+      g.gain.value = 0.056;
+      nz.buffer = noiseBufOf(c); nz.loop = true; nbp.type = 'bandpass'; nbp.frequency.value = 2400; nbp.Q.value = 0.8; ng.gain.value = 0;   // breath
+      vib.frequency.value = 5.4; vg.gain.value = 0; vib.connect(vg); vg.connect(osc.frequency);
+      osc.connect(press); press.connect(shaper); shaper.connect(hp); hp.connect(f1); f1.connect(f2); f2.connect(lp); lp.connect(g);
+      nz.connect(nbp); nbp.connect(ng); ng.connect(g);
+      var pn = panTo(c, g, out, -0.12);
+      osc.frequency.setValueAtTime(233.08, t0); osc.start(t0); nz.start(t0); vib.start(t0);
+      return {
+        note: function (t, f, v, legato, hold) {
+          var pr = 0.3 + v * 0.62, ht = hold || 0.75;
+          osc.frequency.cancelScheduledValues(t);
+          if (!legato && Math.random() < 0.35) { osc.frequency.setTargetAtTime(f * 0.966, t, 0.003); osc.frequency.setTargetAtTime(f, t + 0.018, 0.022); }   // a scoop up into the note
+          else osc.frequency.setTargetAtTime(f, t, legato ? 0.007 : 0.01);
+          press.gain.cancelScheduledValues(t);
+          press.gain.setTargetAtTime(pr * (legato ? 0.75 : 0.45), t, 0.005);   // the tongue touches the reed
+          press.gain.setTargetAtTime(pr, t + 0.014, 0.018);
+          press.gain.setTargetAtTime(pr * 0.78, t + 0.16, 0.3);
+          press.gain.setTargetAtTime(0, t + ht, 0.1);   // the phrase breathes out if nothing follows
+          ng.gain.cancelScheduledValues(t); ng.gain.setTargetAtTime(0.006 + v * 0.016, t, 0.008); ng.gain.setTargetAtTime(0.003 + v * 0.004, t + 0.06, 0.05); ng.gain.setTargetAtTime(0, t + ht, 0.1);
+          vg.gain.cancelScheduledValues(t); vg.gain.setTargetAtTime(0, t, 0.01); vg.gain.setTargetAtTime(f * 0.011, t + 0.32, 0.18);   // vibrato only on a held note
+        },
+        fall: function (t) { osc.frequency.cancelScheduledValues(t); osc.frequency.setTargetAtTime(90, t + 0.04, 0.22); press.gain.cancelScheduledValues(t); press.gain.setTargetAtTime(0, t + 0.12, 0.18); ng.gain.cancelScheduledValues(t); ng.gain.setTargetAtTime(0, t + 0.12, 0.15); },
+        end: function (t) {
+          press.gain.cancelScheduledValues(t); press.gain.setTargetAtTime(0, t, 0.06); ng.gain.cancelScheduledValues(t); ng.gain.setTargetAtTime(0, t, 0.05);
+          var st = t + 0.8; osc.stop(st); nz.stop(st); vib.stop(st);
+          letGo(osc, [press, shaper, hp, f1, f2, lp, g, pn]); letGo(nz, [nbp, ng]); letGo(vib, [vg]);
+        }
+      };
+    }
     // ---------- the performance, written down as it happens ----------
     var perf = null;
     function perfStart() {
@@ -3963,7 +4079,13 @@
     function playDotSound() {
       var c = gameAudioCtx; if (!c) return;
       var m = movIdx(), t = c.currentTime + 0.005, pan = Math.max(-0.6, Math.min(0.6, (playerX / (COLS - 1) - 0.5) * 1.2)), f, d;
-      if (m === 0) { f = degHz(nextSoloDeg(16)); play('ep', t, f, 0.42 + Math.random() * 0.12, pan); soloNote(f, 'ep', 'ep'); }
+      if (m === 0) {   // your solo, on tenor saxophone: bebop lines built on the chord of the moment
+        var first = !lineQ.length; if (first) lineQ = bopPhrase();
+        var s0 = lineQ.shift(); linePrev = s0; f = 233.08 * Math.pow(2, (KEYS[keyIdx] + s0) / 12);
+        var vv = 0.45 + danger * 0.35 + Math.random() * 0.1;
+        if (sax) sax.note(t, f, vv, first ? 0 : 1); logEvAt(t, 'sx', f, vv, first ? 0 : 1);
+        soloNote(f, 'ep', 'sx');
+      }
       else if (m === 1) { d = nextSoloDeg(14); var o = Math.floor(d / 7), v2 = 0.4 + danger * 0.6; f = 233.08 * YAMAN[d - o * 7] * Math.pow(2, o); if (singer) singer.note(t, f, v2); logEvAt(t, 'sng', f, v2); soloNote(f, 'string', 'sng'); }   // the voice glides (meend) to each new note
       else if (m === 2) { f = F1 * (8 + nextSoloDeg(16)); play('plk', t, f, 0.5, pan, 0.08 + Math.random() * 0.4); soloNote(f, 'string', 'plk'); }
       else { f = F1 * (6 + nextSoloDeg(14)); play('horn', t, f, 0.45 + danger * 0.45, pan); padAdd(rowPartial(playerY), 0.22); soloNote(f, 'mode', 'hrn'); }   // the horn plays partials 6 to 20; the row you are on lights its partial in the rhythmicon
@@ -3973,11 +4095,12 @@
       var c = gameAudioCtx; if (!c) return;
       var m = movIdx(), t = c.currentTime + 0.01, i;
       burst(playerX, playerY, false); logMark('power');
-      if (m === 0) {   // sheets of sound, and the key center takes a giant step (B-flat, G-flat, D)
-        keyIdx = (keyIdx + 1) % KEYS.length;
-        var d = Math.max(2, soloDeg - 3);
-        for (i = 0; i < 12; i++) play('ep', t + i * 0.038, degHz(d + i), 0.3 + i * 0.02, (i / 11 - 0.5) * 0.8);
-        play('chm', t + 12 * 0.038, keyRoot() * 4); soloDeg = Math.min(16, d + 11); cellQ = [];
+      if (m === 0) {   // sheets of sound, and the harmony takes giant steps: key centers a major third apart (B-flat, G-flat, D), as in Coltrane's changes
+        keyIdx = (keyIdx + 1) % KEYS.length; coltBeat = 0; curChord = COLT[0];
+        var p0 = linePrev == null ? 0 : linePrev - 6;
+        for (i = 0; i < 14; i++) { p0 = Math.min(17, stepScale(p0, COLT[0], 1)); var fr = 233.08 * Math.pow(2, (KEYS[keyIdx] + p0) / 12); if (sax) sax.note(t + i * 0.036, fr, 0.8, i ? 1 : 0); logEvAt(t + i * 0.036, 'sx', fr, 0.8, i ? 1 : 0); }
+        linePrev = p0; lineQ = [];
+        play('chm', t + 14 * 0.036, keyRoot() * 4);
       } else if (m === 1) {   // a taan: the voice races up the scale
         var d0 = soloDeg;
         for (i = 0; i < 8; i++) { var dd = Math.min(14, d0 + i), oo = Math.floor(dd / 7), ff = 233.08 * YAMAN[dd - oo * 7] * Math.pow(2, oo); if (singer) singer.note(t + i * 0.075, ff, 0.9); logEvAt(t + i * 0.075, 'sng', ff, 0.9); }
@@ -4004,6 +4127,7 @@
       var c = gameAudioCtx; if (!c) return;
       var r = movIdx() === 0 ? keyRoot() : 233.08, t = c.currentTime + 0.01;
       deathFx(playerX, playerY); logMark('death');
+      if (movIdx() === 0 && sax) { sax.fall(t); logEvAt(t, 'sxfall'); }   // the saxophone falls off the note
       [1, 1.25, 1.5, 2].forEach(function (mm, i) { play('gls', t + i * 0.05, r * mm, 0.06, (i - 1.5) * 0.3, 0.25, 1.6); });
     }
     function playStartSound() {   // tuning: the harmonic series of B-flat
@@ -4027,11 +4151,17 @@
         return;
       }
       if (m === 2) { [8, 10, 12, 15, 16].forEach(function (k, i) { play('sin', t + i * 0.03, F1 * k, 0.06, (i - 2) * 0.3, 4); }); return; }   // chaos resolves into a chord
+      if (m === 0) {   // the band's last hit: a B-flat 13 chord, the bass's low B-flat, a crash of cymbal and drums, and the saxophone holding the ninth
+        var kk = KEYS[keyIdx];
+        [4, 9, 10, 14].forEach(function (s2, i) { play('pn', t + i * 0.006, 233.08 * Math.pow(2, (kk + s2) / 12), 0.9, 0.15, 2.4); });
+        play('ub', t, 58.27 * Math.pow(2, kk / 12), 0.9, -0.12, 2.2); play('rd', t, 1, 0.3); play('bd', t, 0.9, 0); play('sn', t, 0.6, -0.1);
+        play('sxn', t + 0.05, 233.08 * Math.pow(2, (kk + 14) / 12), 0.8, -0.12, 2.6);
+        return;
+      }
       for (n = 4; n <= 12; n++) play('chm', t + (n - 4) * 0.09, 116.54 * n);
-      if (m === 0) { var R = keyRoot(); [0, 4, 7, 11, 14].forEach(function (k) { play('ep', t, R * Math.pow(2, k / 12), 0.3, 0.1); }); }
     }
     // ---------- the beds: a trio, a drone, a stochastic chorus, a harmonic-series pad ----------
-    var musicInterval = null, musicStep = 0, BPM = 132, stepDur = 60 / 132 / 2, walkDeg = 0, danger = 0, bedHolds = [], padOsc = null, padLv = [], tanIdx = 0, singer = null;
+    var musicInterval = null, musicStep = 0, BPM = 132, stepDur = 60 / 132 / 2, walkDeg = 0, danger = 0, bedHolds = [], padOsc = null, padLv = [], tanIdx = 0, singer = null, nextStepAt = 0;
     function startMusic() {
       clearTimeout(startTimer); startTimer = 0;
       if (musicInterval) return;
@@ -4040,35 +4170,90 @@
       if (perf.lastLevel !== level) { perf.lastLevel = level; logMark('mov', movIdx()); movTitleAt = performance.now(); }
       var m = movIdx(), cyc = Math.floor(((level || 1) - 1) / 4);
       musicStep = 0; walkDeg = 0; danger = 0; tanIdx = 0; tilt.g0 = null;
-      BPM = [132, 76, 100, 84][m] + cyc * 8;
+      formPos = 0; coltBeat = 0; curChord = [0, '7']; lineQ = []; linePrev = null; bassPrev = null; prevVoi = null; compPat = null;
+      BPM = [168, 76, 100, 84][m] + cyc * 8;
       stepDur = 60 / BPM / 2;
       bedStart(m); ghostVoicesBuild(m, false);
-      musicInterval = setInterval(musicTick, stepDur * 1000);
+      nextStepAt = (gameAudioCtx ? gameAudioCtx.currentTime : 0) + 0.06;
+      musicInterval = setInterval(musicPump, 25);
     }
-    function musicTick() {
-      var c = gameAudioCtx, out = gameOut();
-      if (!c || !out || gameState !== 'playing') return;
+    function musicPump() {   // a look-ahead clock: every step lands on an exact grid, scheduled a little ahead of time
+      var c = gameAudioCtx; if (!c || !gameOut() || gameState !== 'playing') return;
+      if (nextStepAt < c.currentTime - 0.2) nextStepAt = c.currentTime + 0.05;
+      while (nextStepAt < c.currentTime + 0.12) { musicTick(nextStepAt); nextStepAt += stepDur; }
+    }
+    function musicTick(t0) {
       var m = movIdx(), step = musicStep++ % 8, beat = step >> 1, off = step & 1, pw = frightenedTimer > 0;
-      var t = c.currentTime + 0.03 + (off && m === 0 ? stepDur * 0.34 : 0);   // the trio swings its eighths
-      if (m === 0) trioTick(t, beat, off, pw); else if (m === 1) droneTick(t, beat, off, pw); else if (m === 2) stochTick(t, off, pw); else seriesTick(t, beat, off, pw);
+      var t = t0 + (off && m === 0 ? stepDur * 0.34 : 0);   // the band swings its eighths
+      if (m === 0) bopTick(t, step, beat, off, pw); else if (m === 1) droneTick(t, beat, off, pw); else if (m === 2) stochTick(t, off, pw); else seriesTick(t, beat, off, pw);
     }
-    function trioTick(t, beat, off, pw) {
-      var dg = danger, R = keyRoot();
-      if (pw) {   // powered up: half time, the ride opens out, bells on the downbeats
-        if (!off && (beat === 1 || beat === 3)) play('ride', t, 0.03);
-        if (!off && beat === 0) { play('plk', t, R / 2, 0.55, -0.15, 0.2); play('chm', t, R * 2); }
-        if (!off && beat === 2) play('chm', t, R * 3);
-        return;
+    function formChord(fp) { var ch = BLUES[Math.floor(fp / 8) % 12]; return ch.length === 2 && (fp % 8) >= 4 ? ch[1] : ch[0]; }   // the chord at a point in the form, counted in eighth notes
+    function nearestOct(target, prev, lo, hi) {   // the octave of a note closest to the previous one, inside a range
+      var best = target, bd = 1e9, ref = prev == null ? (lo + hi) / 2 : prev;
+      for (var k = -3; k <= 3; k++) { var n = target + 12 * k; if (n < lo || n > hi) continue; if (Math.abs(n - ref) < bd) { bd = Math.abs(n - ref); best = n; } }
+      return best;
+    }
+    function scaleOf(ch) { return ch[1] === '7' ? [0, 2, 4, 5, 7, 9, 10, 11] : ch[1] === 'm7' ? [0, 2, 3, 5, 7, 9, 10] : ch[1] === 'maj7' ? [0, 2, 4, 5, 7, 8, 9, 11] : [0, 2, 3, 5, 6, 8, 9, 11]; }   // bebop dominant, dorian, bebop major, diminished
+    function stepScale(p, ch, dir) { var sc = scaleOf(ch); for (var k = 1; k <= 12; k++) { var q = p + dir * k; if (sc.indexOf(((q - ch[0]) % 12 + 12) % 12) >= 0) return q; } return p + dir; }
+    function bopPhrase() {   // one phrase of a bebop line on the chord of the moment; your height in the maze sets the register, your direction its contour
+      var ch = curChord, q = CQ[ch[1]], up = playerDir === 0 || playerDir === 1, out = [], i, p;
+      var home = -3 + Math.round((1 - playerY / (ROWS - 1)) * 16), anchor = linePrev == null ? home : Math.round((linePrev * 2 + home) / 3);
+      var base = ch[0] + 12 * Math.round((anchor - ch[0] - 5) / 12), k = Math.random();
+      if (k < 0.3) {   // up the arpeggio from the third, then down the scale
+        [q[1], q[2], q[3], 14].forEach(function (s2) { out.push(base + s2); });
+        p = base + 14; for (i = 0; i < 4; i++) { p = stepScale(p, ch, -1); out.push(p); }
+      } else if (k < 0.55) {   // an enclosure: from above and below onto a chord tone, then away
+        var tg = base + q[1 + Math.floor(Math.random() * 3)];
+        out.push(stepScale(tg, ch, 1), tg - 1, tg); p = tg; for (i = 0; i < 3; i++) { p = stepScale(p, ch, up ? 1 : -1); out.push(p); }
+      } else if (k < 0.75) {   // a digital pattern, 1-2-3-5, the kind Coltrane drilled
+        [0, 2, q[1], 7, 12, 7, q[1], 2].forEach(function (s2, j) { if (j < 4 || up) out.push(base + s2); });
+      } else {   // a scale run with chromatic passing tones
+        p = base + (up ? q[1] : q[3]);
+        for (i = 0; i < 6; i++) { var nx = stepScale(p, ch, up ? 1 : -1); if (Math.abs(nx - p) === 2 && Math.random() < 0.4) out.push(p + (up ? 1 : -1)); out.push(nx); p = nx; }
       }
-      if (!off) play('ride', t, (beat % 2 ? 0.05 : 0.035) * (1 + dg * 0.6));   // the ride gets busier as the ghosts close in
-      else if (beat === 1 || beat === 3 || dg > 0.55) play('ride', t, 0.025 * (1 + dg));
-      if (!off && (dg > 0.25 || beat % 2 === 0)) {   // the bass: a two-feel when calm, walking when hunted
-        if (beat === 0) walkDeg = 0; else walkDeg += Math.random() < 0.7 ? 1 : -1;
-        walkDeg = Math.max(-2, Math.min(5, walkDeg));
-        var o = Math.floor(walkDeg / 5);
-        play('plk', t, R / 2 * Math.pow(2, (PENT[walkDeg - o * 5] + 12 * o) / 12), 0.55, -0.15, 0.18);
+      return out.map(function (n) { return Math.max(-10, Math.min(17, n)); });
+    }
+    function voicing(ch) {   // rootless voicings, voice-led: the shape and octave closest to the last chord
+      var best = null, bd = 1e9;
+      VOI[ch[1]].forEach(function (shape) {
+        for (var o = -2; o <= 1; o++) {
+          var notes = shape.map(function (s2) { return ch[0] + s2 + 12 * o; });
+          if (notes[0] < -7 || notes[0] > 5) continue;   // the lowest note between E-flat 3 and E-flat 4
+          var d = prevVoi ? notes.reduce(function (a, n, i) { return a + Math.abs(n - prevVoi[i]); }, 0) : Math.abs(notes[0] + 2);
+          if (d < bd) { bd = d; best = notes; }
+        }
+      });
+      prevVoi = best; return best;
+    }
+    function pianoStab(t, ch, v, dur) { var kk = KEYS[keyIdx]; voicing(ch).forEach(function (s2, i) { play('pn', t + i * 0.004, 233.08 * Math.pow(2, (kk + s2) / 12), v, 0.18 + i * 0.04, dur); }); }   // a hair of roll, like a hand
+    function bopTick(t, step, beat, off, pw) {   // the quartet, one eighth note at a time
+      var dg = danger, hum = function () { return (Math.random() - 0.5) * 0.008; };
+      var ch = pw ? COLT[Math.floor(coltBeat / 2) % 6] : formChord(formPos);
+      if (!off) curChord = ch;
+      // drums: the ride's spang-a-lang leaning on 2 and 4 (straight eighths when the ghosts are on you), hi-hat foot on 2 and 4,
+      // a feathered bass drum, snare comping that gets busier as danger rises, and a bomb at the end of a phrase
+      var dbl = dg > 0.75 || pw;
+      if (!off) play('rd', t + hum(), (beat % 2 ? 0.8 : 0.6) * (0.85 + Math.random() * 0.3), 0.32);
+      else if (beat % 2 === 1 || dbl) play('rd', t + hum(), 0.42 + Math.random() * 0.15, 0.32);
+      if (!off && beat % 2 === 1) play('hh', t + hum(), 0.7, 0.22);
+      if (!off) play('bd', t + hum(), 0.16, 0);
+      if (off && Math.random() < 0.07 + dg * 0.35 + (pw ? 0.25 : 0)) play('sn', t + hum(), 0.18 + Math.random() * 0.32, -0.08);
+      if (dg > 0.6 && step === 7 && Math.floor(formPos / 8) % 4 === 3) { play('bd', t, 0.85, 0); play('sn', t + 0.002, 0.7, -0.08); }
+      // the bass: a two-feel when you are safe, walking when hunted and through the Coltrane changes; it lands on each chord's root and approaches the next by half step
+      if (!off && (dg > 0.25 || pw || beat % 2 === 0)) {
+        var walk = dg > 0.25 || pw, chStart, nextR, last = false;
+        if (pw) { chStart = coltBeat % 2 === 0; nextR = COLT[(Math.floor(coltBeat / 2) + 1) % 6][0]; last = !chStart; }
+        else { var bar2 = BLUES[Math.floor(formPos / 8) % 12], span = bar2.length === 2 ? 4 : 8, pos = formPos % span; chStart = pos === 0; nextR = formChord(formPos - pos + span)[0]; last = pos >= span - (walk ? 2 : 4); }
+        var tgt = chStart ? ch[0] : last ? nextR + (Math.random() < 0.55 ? -1 : 1) : ch[0] + CQ[ch[1]][1 + Math.floor(Math.random() * 3)];
+        bassPrev = nearestOct(tgt, bassPrev, 0, 21);
+        play('ub', t + hum(), 58.27 * Math.pow(2, (KEYS[keyIdx] + bassPrev) / 12), 0.55 + Math.random() * 0.25, -0.12, stepDur * (walk ? 2 : 4) * 0.92);
       }
-      if (off && (beat === 1 || Math.random() < 0.12 + dg * 0.45)) [0, 4, 10, 14].forEach(function (k) { play('ep', t, R * Math.pow(2, k / 12), 0.16 + dg * 0.08, 0.2); });
+      // the piano: a comping figure chosen each bar (busier when hunted), anticipating the next chord on the and of 4; a new chord with each of the Coltrane changes
+      if (step === 0) compPat = COMPS[Math.floor(Math.random() * COMPS.length)];
+      if (pw) { if (!off && coltBeat % 2 === 0) pianoStab(t + hum(), ch, 0.7, stepDur * 1.6); }
+      else if (compPat && compPat[step]) pianoStab(t + hum(), step === 7 ? formChord(formPos + 1) : ch, compPat[step] * (0.85 + dg * 0.3), stepDur * (step === 7 ? 1.8 : 1.1));
+      else if (off && Math.random() < dg * 0.25) pianoStab(t + hum(), ch, 0.5, stepDur * 0.9);
+      if (pw) { if (!off) coltBeat++; } else formPos++;   // the clock of the form
     }
     function droneTick(t, beat, off, pw) {   // the tanpura: Pa, Sa, Sa, low Sa, one string at a time; a little faster when hunted
       var dg = danger;
@@ -4091,6 +4276,7 @@
         [[116.54, 0.026, -0.35], [174.61, 0.02, 0.35], [233.08, 0.014, 0.05]].forEach(function (h) { bedHolds.push({ r: reedVoice(c, out, t, h[0], h[1], h[2]), f: h[0], v: h[1], p: h[2], t0: t }); });
         singer = makeSinger(c, out, t); logEvAt(t, 'sgon');
       }
+      if (m === 0) { sax = makeSax(c, out, t); logEvAt(t, 'sxon'); }   // the saxophone, ready for your solo
       if (m === 2) dssStart();
       if (m === 3) { padStart(); rhyStart(); }
     }
@@ -4103,6 +4289,7 @@
       });
       bedHolds = [];
       if (singer) { try { singer.end(t); } catch (x) {} singer = null; logEvAt(t, 'sgoff'); }
+      if (sax) { try { sax.end(t); } catch (x) {} sax = null; logEvAt(t, 'sxoff'); }
       dssStop(); padStop(); rhyStop();
     }
     function padStart() {
@@ -4255,7 +4442,7 @@
       for (var i = 0; i < 4; i++) {
         var g = ghosts[i], dx = g.x - playerX, dy = g.y - playerY, prox = Math.max(0, 1 - Math.sqrt(dx * dx + dy * dy) / 12);
         var hi = Math.max(0, Math.min(1, 1 - g.y / (ROWS - 1))), f;
-        if (m === 0) f = keyRoot() / 2 * Math.pow(2, ([0, 4, 7, 10][i] + 12 * Math.round(hi * 2)) / 12);   // the ghosts are the chord
+        if (m === 0) f = keyRoot() / 2 * Math.pow(2, (curChord[0] + CQ[curChord[1]][i] + 12 * Math.round(hi * 2)) / 12);   // the ghosts sing the chord of the moment
         else if (m === 1) f = 116.54 * [1, 1.5, 1.25, 1.125][i] * (hi > 0.5 ? 2 : 1) * Math.pow(2, prox * 0.022);   // just consonances with the drone; a ghost that nears slides out of tune and beats against it
         else if (m === 2) f = F1 * (6 + Math.round(hi * 12) + i);   // stochastic voices, held on the harmonic series
         else f = F1 * [7, 11, 13, 14][i] * (hi > 0.55 ? 2 : 1);   // the finale's four blue partials
@@ -4347,10 +4534,8 @@
       if (iosTilt) DOE.requestPermission().then(function (st) { if (st === 'granted') enableTilt(); }, function () {});
       else if (DOE) enableTilt();
     }
-    function bindTap(el, fn) {
-      el.addEventListener('click', function (e) { e.stopPropagation(); fn(); });
-      el.addEventListener('touchend', function (e) { e.preventDefault(); e.stopPropagation(); fn(); }, { passive: false });
-    }
+    var uiEls = [];
+    function bindTap(el, fn) { el.__scFn = fn; el.addEventListener('click', scTap); el.addEventListener('touchend', scTap, { passive: false }); uiEls.push(el); }
     var SC_CSS = '.sc-ui{touch-action:manipulation}' +
       '.sc-card{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(92vw,860px);max-height:92vh;overflow:auto;background:#F2F2EF;color:#0A0A0A;padding:clamp(16px,3vw,30px);box-shadow:0 30px 90px rgba(0,0,0,.55);z-index:10002;font-family:var(--f-display)}' +
       '.sc-no{font-weight:600;font-size:clamp(17px,2vw,21px);letter-spacing:.01em}' +
@@ -4373,8 +4558,14 @@
       if (show && !tilt.btn) { ensureStyle(); tilt.btn = document.createElement('button'); tilt.btn.className = 'sc-ui sc-tilt'; setTiltLabel(); bindTap(tilt.btn, toggleTilt); overlay.appendChild(tilt.btn); }
       if (!show && tilt.btn) { tilt.btn.remove(); tilt.btn = null; }
     }
-    function suiteClose() {
-      clearInterval(titleTimer); hideCard();
+    function suiteClose() {   // closing: stop everything, and let go of the big things (rendered audio, the recording) so nothing lingers
+      clearInterval(titleTimer);
+      var r = card && card.run;
+      hideCard();
+      if (r) { r.buf = null; r.wav = null; r.waiters = []; }
+      if (perf) { perf.ev = []; perf.gh = []; perf.bed = []; perf.solo = []; perf.path = []; }
+      perf = null; live = null;
+      uiEls.forEach(function (el) { el.__scFn = null; }); uiEls = [];
       window.removeEventListener('deviceorientation', tiltHandler);
     }
     // ---------- visual events ----------
@@ -4463,7 +4654,15 @@
       overlay.appendChild(card);
       drawRunScore(cv, run, -1);
     }
-    function hideCard() { stopRun(); if (card) { card.run.abandoned = true; card.remove(); card = null; } }
+    function hideCard() {
+      stopRun();
+      if (!card) return;
+      card.run.abandoned = true;
+      Array.prototype.forEach.call(card.querySelectorAll('button'), function (b) { b.__scFn = null; });
+      card.cv.width = 0; card.cv.height = 0; card.run = null; card.cv = null; card.play = null; card.save = null;   // nothing heavy stays on the card
+      card.remove(); card = null;
+      uiEls = uiEls.filter(function (el) { return el.isConnected; });
+    }
     function withRun(run, cb) {   // each run is rendered once (for saving), into its own cache; a second request waits for the first
       if (run.buf) { cb(run.buf); return; }
       (run.waiters = run.waiters || []).push(cb);
@@ -4533,7 +4732,7 @@
     }
     // ---------- performing a run again from its score: the same code plays it live and renders it offline ----------
     function eventPlayer(c, dest, run, lim, off) {   // returns sched(tEnd), which creates every event of the run that starts before tEnd
-      var evs = run.ev.filter(function (e) { return e[0] <= lim; }).sort(function (a, b) { return a[0] - b[0]; }), ei = 0, pads = [], sg = null;
+      var evs = run.ev.filter(function (e) { return e[0] <= lim; }).sort(function (a, b) { return a[0] - b[0]; }), ei = 0, pads = [], sg = null, sx = null;
       function sched(tEnd) {
         while (ei < evs.length && evs[ei][0] + off < tEnd) {
           var e = evs[ei++], t = e[0] + off;
@@ -4545,11 +4744,15 @@
           else if (e[1] === 'sgon') { if (sg) sg.end(t); sg = makeSinger(c, dest, t); }
           else if (e[1] === 'sng') { if (sg) sg.note(t, e[2], e[3]); }
           else if (e[1] === 'sgoff') { if (sg) { sg.end(t); sg = null; } }
+          else if (e[1] === 'sxon') { if (sx) sx.end(t); sx = makeSax(c, dest, t); }
+          else if (e[1] === 'sx') { if (sx) sx.note(t, e[2], e[3], e[4]); }
+          else if (e[1] === 'sxfall') { if (sx) sx.fall(t); }
+          else if (e[1] === 'sxoff') { if (sx) { sx.end(t); sx = null; } }
           else { try { SND[e[1]](c, dest, t, e[2], e[3], e[4], e[5], e[6]); } catch (x) {} }
         }
       }
       function endPads(t) { pads.forEach(function (p2) { if (p2) { try { p2.g.gain.setTargetAtTime(0, t, 0.8); p2.o.stop(t + 4); } catch (x) {} } }); pads = []; }
-      sched.end = function (t) { endPads(t); if (sg) { sg.end(t); sg = null; } };
+      sched.end = function (t) { endPads(t); if (sg) { sg.end(t); sg = null; } if (sx) { sx.end(t); sx = null; } };
       return sched;
     }
     function ghostPlayer(c, dest, run, lim, off) {   // the four ghosts, moving exactly as they moved: one set of voices per stretch of play
@@ -4653,7 +4856,7 @@
       if (kind === 'hrn') { x.beginPath(); x.arc(px, py, r * 0.95, 0, 6.2832); x.lineWidth = r * 0.5; x.stroke(); return; }   // the natural horn: an open notehead
       if (kind === 'sng') { x.beginPath(); x.arc(px, py, r * 0.55, 0, 6.2832); x.fill(); return; }   // the voice: small points along its line
       x.beginPath(); x.ellipse(px, py, r * 1.15, r * 0.85, -0.35, 0, 6.2832); x.fill();
-      if (kind === 'ep') { x.beginPath(); x.moveTo(px + r * 1.05, py); x.lineTo(px + r * 1.05, py - r * 4.2); x.stroke(); }
+      if (kind === 'ep' || kind === 'sx') { x.beginPath(); x.moveTo(px + r * 1.05, py); x.lineTo(px + r * 1.05, py - r * 4.2); x.stroke(); }
     }
     function drawRunScore(cv, run, playT) {
       if (!run) return;
@@ -4786,8 +4989,8 @@
         ctx.font = hudFont(600, Math.round(u * 0.34)); spaced(u * 0.08); ctx.fillStyle = 'rgba(201,204,209,0.7)'; ctx.fillText(names[i], gx, gy + u * 1.35); spaced(0);
       }
       ctx.font = serifFont(Math.round(u * 0.7)); ctx.fillStyle = 'rgba(245,244,240,0.92)';
-      var line = 'I. Trio     II. Drone     III. Stochastic     IV. Harmonic Series', ly = gy + u * 3;
-      if (ctx.measureText(line).width > w * 0.9) { ctx.fillText('I. Trio     II. Drone', cx, ly); ly += u * 0.95; ctx.fillText('III. Stochastic     IV. Harmonic Series', cx, ly); }
+      var line = 'I. Hard Bop     II. Drone     III. Stochastic     IV. Harmonic Series', ly = gy + u * 3;
+      if (ctx.measureText(line).width > w * 0.9) { ctx.fillText('I. Hard Bop     II. Drone', cx, ly); ly += u * 0.95; ctx.fillText('III. Stochastic     IV. Harmonic Series', cx, ly); }
       else ctx.fillText(line, cx, ly);
       var best = 0; try { best = +(localStorage.getItem('signalChaseBest') || 0); } catch (x) {}
       if (best) { ctx.font = hudFont(500, Math.round(u * 0.5)); ctx.fillStyle = '#C4A882'; ctx.fillText('Best ' + best + ' Hz', cx, ly + u * 1.5); }
@@ -4908,7 +5111,7 @@
       ctx.fillStyle = sFill;
       for (var li = 0; li < lives; li++) { ctx.beginPath(); ctx.arc(offsetX + COLS * cellSize - cellSize * (0.3 + li * 0.62), offsetY - cellSize * 0.62, cellSize * 0.17, 0, 6.2832); ctx.fill(); }
       ctx.textAlign = 'center'; ctx.font = hudFont(600, Math.round(cellSize * 0.4)); ctx.fillStyle = M.dim; spaced(cellSize * 0.1);
-      ctx.fillText('SIGNAL CHASE  \u00b7  ' + M.n + '. ' + M.name.toUpperCase() + (mi === 0 ? '  \u00b7  ' + KEY_NAMES[keyIdx] : '') + '  \u00b7  LEVEL ' + level, w / 2, offsetY - cellSize * 1.15);
+      ctx.fillText('SIGNAL CHASE  \u00b7  ' + M.n + '. ' + M.name.toUpperCase() + (mi === 0 ? '  \u00b7  ' + chordName(curChord) : '') + '  \u00b7  LEVEL ' + level, w / 2, offsetY - cellSize * 1.15);
       spaced(0);
       if (movTitleAt && gameState === 'playing') {   // each movement announces itself
         var mt = (pnow - movTitleAt) / 3400;
@@ -5116,8 +5319,7 @@
     var closeBtn = document.createElement('button');
     closeBtn.textContent = '\u00d7';
     closeBtn.style.cssText = 'position:fixed;top:1.5rem;right:1.5rem;z-index:10001;background:none;border:1px solid rgba(196,168,130,0.3);color:#c4a882;width:44px;height:44px;font-size:1.5rem;cursor:pointer;display:flex;align-items:center;justify-content:center;';
-    closeBtn.onclick = closeGame;
-    closeBtn.addEventListener('touchend', function(e) { e.stopPropagation(); closeGame(); }, {passive: false});
+    bindTap(closeBtn, closeGame);
     overlay.appendChild(closeBtn);
 
     document.body.appendChild(overlay);
@@ -5147,6 +5349,7 @@
       if (gameIosAudio) { gameIosAudio.pause(); gameIosAudio.srcObject = null; gameIosAudio = null; }
       if (gameAudioCtx) { gameAudioCtx.close().catch(function(){}); gameAudioCtx = null; }
       document.body.removeChild(overlay);
+      gameCanvas.width = 0; gameCanvas.height = 0;   // and of the canvas's pixels
       document.body.style.overflow = '';
       inerted.forEach(function (el) { el.inert = false; }); inerted = [];
       if (prevFocus && prevFocus !== document.body && prevFocus.isConnected && prevFocus.focus) { try { prevFocus.focus({ preventScroll: true }); } catch (x) {} }
