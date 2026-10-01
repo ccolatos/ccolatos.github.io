@@ -4097,8 +4097,9 @@
       burst(playerX, playerY, false); logMark('power');
       if (m === 0) {   // sheets of sound, and the harmony takes giant steps: key centers a major third apart (B-flat, G-flat, D), as in Coltrane's changes
         keyIdx = (keyIdx + 1) % KEYS.length; coltBeat = 0; curChord = COLT[0];
-        var p0 = linePrev == null ? 0 : linePrev - 6;
-        for (i = 0; i < 14; i++) { p0 = Math.min(17, stepScale(p0, COLT[0], 1)); var fr = 233.08 * Math.pow(2, (KEYS[keyIdx] + p0) / 12); if (sax) sax.note(t + i * 0.036, fr, 0.8, i ? 1 : 0); logEvAt(t + i * 0.036, 'sx', fr, 0.8, i ? 1 : 0); }
+        var p0 = linePrev == null ? 0 : linePrev - 6, dir = 1;
+        if (p0 > 4) p0 -= 12;   // start low enough for the sheet to climb
+        for (i = 0; i < 14; i++) { var nx = stepScale(p0, COLT[0], dir); if (nx > 17) { dir = -1; nx = stepScale(p0, COLT[0], -1); } p0 = nx; var fr = 233.08 * Math.pow(2, (KEYS[keyIdx] + p0) / 12); if (sax) sax.note(t + i * 0.036, fr, 0.8, i ? 1 : 0); logEvAt(t + i * 0.036, 'sx', fr, 0.8, i ? 1 : 0); }
         linePrev = p0; lineQ = [];
         play('chm', t + 14 * 0.036, keyRoot() * 4);
       } else if (m === 1) {   // a taan: the voice races up the scale
@@ -4211,7 +4212,12 @@
         p = base + (up ? q[1] : q[3]);
         for (i = 0; i < 6; i++) { var nx = stepScale(p, ch, up ? 1 : -1); if (Math.abs(nx - p) === 2 && Math.random() < 0.4) out.push(p + (up ? 1 : -1)); out.push(nx); p = nx; }
       }
-      return out.map(function (n) { return Math.max(-10, Math.min(17, n)); });
+      // fit the whole phrase into the saxophone's range by moving it in octaves, never by flattening notes onto the edge
+      var lo = Math.min.apply(null, out), hi = Math.max.apply(null, out);
+      while (hi > 17) { out = out.map(function (n) { return n - 12; }); lo -= 12; hi -= 12; }
+      while (lo < -10) { out = out.map(function (n) { return n + 12; }); lo += 12; hi += 12; }
+      if (out.length > 1 && out[0] === linePrev) out.shift();   // and never begin on the note just played
+      return out;
     }
     function voicing(ch) {   // rootless voicings, voice-led: the shape and octave closest to the last chord
       var best = null, bd = 1e9;
