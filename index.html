@@ -4221,7 +4221,31 @@
       for (L = minL + 1; L < maxL; L++) if (r[L] >= best * 0.9 && r[L] >= r[L - 1] && r[L] >= r[L + 1]) return sr / L;   // the first strong peak, so octaves are not dropped
       return 0;
     }
-    function analyzeTape(raw, sr) {   // trim, normalize, and listen to what the sound is: its pitch, its attacks, its loudest stretch
+    function levelObjects(raw, sr) {   // even out the sound objects: each separate sound brought most of the way to a common loudness, so no one sound (often the last, if a microphone's level rose partway through) dwarfs the rest
+      var fr = Math.round(sr * 0.01), nF = Math.floor(raw.length / fr), rms = new Float32Array(nF), i, j, k, x, rmax = 0;
+      if (nF < 20) return raw;
+      for (i = 0; i < nF; i++) { var s2 = 0; for (j = 0; j < fr; j++) { x = raw[i * fr + j]; s2 += x * x; } rms[i] = Math.sqrt(s2 / fr); if (rms[i] > rmax) rmax = rms[i]; }
+      var srt = Array.prototype.slice.call(rms).sort(function (p, q) { return p - q; }), th = Math.max(rmax * 0.012, srt[Math.floor(nF * 0.1)] * 3.5);
+      var objs = [], st = -1, last = -100;   // a sound object: frames above the noise, with gaps under 120 ms bridged
+      for (i = 0; i < nF; i++) if (rms[i] >= th) { if (st < 0 || i - last > 12) { if (st >= 0) objs.push([st, last]); st = i; } last = i; }
+      if (st >= 0) objs.push([st, last]);
+      objs = objs.filter(function (o) { return o[1] - o[0] >= 2; });
+      if (objs.length < 2) return raw;
+      var L = objs.map(function (o) { var m = 0, e = 0, c = 0, q; for (q = o[0]; q <= o[1]; q++) m = Math.max(m, rms[q]); for (q = o[0]; q <= o[1]; q++) if (rms[q] >= m * 0.25) { e += rms[q] * rms[q]; c++; } return Math.sqrt(e / Math.max(1, c)); });
+      var lg = 0; L.forEach(function (v) { lg += Math.log(v); });
+      var tgt = Math.exp(lg / L.length), G = L.map(function (v) { return Math.max(1 / 8, Math.min(6, Math.pow(tgt / v, 0.85))); });   // most of the way, not all: a little of each sound's own loudness survives
+      var gF = new Float32Array(nF);
+      for (i = 0, k = 0; i < nF; i++) {   // one gain per sound; between sounds, the gain moves only in the silence
+        while (k < objs.length - 1 && i >= objs[k + 1][0]) k++;
+        if (i <= objs[k][1] || k === objs.length - 1) gF[i] = G[k];
+        else { var f2 = Math.max(0, Math.min(1, ((i - objs[k][1]) / (objs[k + 1][0] - objs[k][1]) - 0.35) / 0.65)); f2 = f2 * f2 * (3 - 2 * f2); gF[i] = Math.exp(Math.log(G[k]) * (1 - f2) + Math.log(G[k + 1]) * f2); }
+      }
+      var out = new Float32Array(raw.length);
+      for (i = 0; i < raw.length; i++) { var fi = Math.min(nF - 1, Math.floor(i / fr)), g0 = gF[fi], g1 = gF[Math.min(nF - 1, fi + 1)]; out[i] = raw[i] * (g0 + (g1 - g0) * ((i - fi * fr) / fr)); }
+      return out;
+    }
+    function analyzeTape(raw, sr) { return analyzeTape0(levelObjects(raw, sr), sr); }   // a recording: its sound objects evened out, then analyzed
+    function analyzeTape0(raw, sr) {   // trim, normalize, and listen to what the sound is: its pitch, its attacks, its loudest stretch
       var fr = Math.round(sr * 0.01), nF = Math.floor(raw.length / fr), rms = new Float32Array(nF), pk = 0, i, j, x;
       for (i = 0; i < raw.length; i++) { x = Math.abs(raw[i]); if (x > pk) pk = x; }
       if (pk < 0.004 || nF < 20) return null;
@@ -4255,7 +4279,7 @@
       for (i = 0; i < n; i++) { var t = i / sr, v = 0; for (k = 0; k < P.length; k++) v += P[k][1] * Math.sin(6.2832 * f * P[k][0] * t) * Math.exp(-t / P[k][2]); d[i] = v * 0.5; }
       for (i = 0; i < n; i++) { seed = (seed * 16807) % 2147483647; lp += ((seed / 2147483647) * 2 - 1 - lp) * 0.08; var t2 = i / sr; d[i] += lp * 0.5 * (t2 > 0.9 && t2 < 2.7 ? Math.sin(Math.PI * (t2 - 0.9) / 1.8) : 0); }
       [1.6, 2.2].forEach(function (at) { var s0 = Math.round(at * sr); for (var j = 0; j < sr * 0.25 && s0 + j < n; j++) d[s0 + j] += 0.35 * Math.sin(6.2832 * f * 2 * j / sr) * Math.exp(-j / (sr * 0.06)); });
-      var T = analyzeTape(d, sr); if (T) { T.f0 = f; T.pmap = null; }   // made at B-flat 3; its overtones are a glass's, not harmonic, so its pitch is set rather than detected
+      var T = analyzeTape0(d, sr); if (T) { T.f0 = f; T.pmap = null; }   // made at B-flat 3; its overtones are a glass's, not harmonic, so its pitch is set rather than detected
       return T;
     }
     var recSes = null;   // the recording in progress: leaving the studio cancels it, and a cancelled recording can never deliver its sound
