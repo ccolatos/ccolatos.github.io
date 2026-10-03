@@ -4291,6 +4291,8 @@
       function end() { if (recSes === ses) recSes = null; ses.live = false; }
       navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } }).then(function (stream) {
         if (!ses.live) { stream.getTracks().forEach(function (tr) { tr.stop(); }); return; }   // cancelled while the browser was asking: close the microphone at once
+        var trk = stream.getAudioTracks()[0];   // Safari ties its automatic gain to echo cancellation; if it reports echo cancellation still on, turn it off on the live track (WebKit's own workaround), which takes the automatic gain with it
+        try { if (trk && trk.getSettings && trk.getSettings().echoCancellation === true) trk.applyConstraints({ echoCancellation: false }).catch(function () {}); } catch (x) {}
         var src = c.createMediaStreamSource(stream), sp = c.createScriptProcessor(4096, 1, 1), mute = c.createGain(), chunks = [], got = 0, total = Math.round(secs * c.sampleRate), over = false, timer = 0;
         mute.gain.value = 0;
         function shut() {   // release the microphone and the recorder
