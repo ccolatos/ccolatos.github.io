@@ -3812,7 +3812,7 @@
       { n: 'I', name: 'Hard Bop', sub: 'for signal, tenor saxophone, piano, bass, and drums', bg: '#0A0A0A', line: 'rgba(201,204,209,0.42)', dot: 'rgba(201,204,209,0.62)', acc: '#C4A882', ink: '#F5F4F0', dim: 'rgba(201,204,209,0.6)', ghosts: ['#F5F4F0', '#C9CCD1', '#E6DCC8', '#A9AEB6'], dark: true },
       { n: 'II', name: 'Drone', sub: 'for signal, tanpura, shruti box, and voice', bg: '#06080C', line: 'rgba(165,188,214,0.42)', dot: 'rgba(186,204,224,0.62)', acc: '#D8C39A', ink: '#EEF3F8', dim: 'rgba(170,192,216,0.62)', ghosts: ['#EEF3F8', '#B9CBE0', '#DCE6F0', '#98AFC8'], dark: true },
       { n: 'III', name: 'Stochastic', sub: 'for signal and four stochastic voices, after Xenakis', bg: '#0B0908', line: 'rgba(226,122,82,0.42)', dot: 'rgba(238,200,182,0.62)', acc: '#E27A52', ink: '#F7EFEA', dim: 'rgba(230,160,130,0.62)', ghosts: ['#F7EFEA', '#EBC7B6', '#F0DCCF', '#D9A48C'], dark: true },
-      { n: 'IV', name: 'Harmonic Series', sub: 'for signal, natural horn, and a breathing spectrum, after Gérard Grisey', bg: '#07070C', line: 'rgba(236,232,224,0.26)', dot: 'rgba(236,232,224,0.55)', acc: '#D9B36A', ink: '#F4F1EA', dim: 'rgba(236,232,224,0.6)', ghosts: [7, 11, 13, 14].map(function (n) { return 'hsl(' + hueOf(n).toFixed(0) + ',72%,80%)'; }), dark: true },
+      { n: 'IV', name: 'Harmonic Series', sub: 'for signal, harmonic arpeggio, and bells, after Jean-Claude Risset', bg: '#07070C', line: 'rgba(236,232,224,0.26)', dot: 'rgba(236,232,224,0.55)', acc: '#D9B36A', ink: '#F4F1EA', dim: 'rgba(236,232,224,0.6)', ghosts: [7, 11, 13, 14].map(function (n) { return 'hsl(' + hueOf(n).toFixed(0) + ',72%,80%)'; }), dark: true },
       { n: 'V', name: 'Musique Concr\u00E8te', sub: 'for signal and the sound you made, after Pierre Schaeffer and Steve Reich', bg: '#0C0A08', line: 'rgba(222,176,112,0.40)', dot: 'rgba(236,214,180,0.62)', acc: '#E0A85A', ink: '#F6EEE2', dim: 'rgba(226,196,150,0.62)', ghosts: ['#F6EEE2', '#E8CFAA', '#F0DEC4', '#D6B48A'], dark: true }
     ];
     function movIdx() { return ((level || 1) - 1) % 5; }
@@ -3833,12 +3833,18 @@
     function hueOf(n) { return (38 + ((1200 * Math.log(n) / Math.LN2) % 1200) * 0.3) % 360; }   // a partial's color: its pitch class on the color wheel, B-flat in the page's gold
     function hsla(h, s2, l, a) { return 'hsla(' + h.toFixed(1) + ',' + s2 + '%,' + l + '%,' + a.toFixed(3) + ')'; }
     var CELLS_UP = [[1, 2, 3, 4], [1, 2, 4, 5], [2, 1, 2, 4], [1, 3, 2, 4]], CELLS_DN = [[-1, -2, -3, -4], [-1, -2, -4, -5], [-2, -1, -2, -4], [-1, -3, -2, -4]];
-    function busFor(c) {   // a small room and a gentle compressor, the same live and when a run is rendered
-      var comp = c.createDynamicsCompressor(), verb = c.createConvolver(), wet = c.createGain(), bus = c.createGain();
-      comp.threshold.value = -18; comp.ratio.value = 3; comp.connect(c.destination);
-      bus.gain.value = 0.9; bus.connect(comp);
+    var MOV_TRIM = [-1.5, 3.2, 15.8, 6.5, 2.5], MASTER_GAIN = 2;   // each movement's trim in dB, measured so the five sit at one loudness; then the makeup that brings the whole game up to a phone's speaker
+    function busFor(c) {   // a small room and a gentle compressor; then makeup gain, a limiter, and a soft clip, so the game plays loud on a phone without distorting; the same live and when a run is rendered
+      var trim = c.createGain(), comp = c.createDynamicsCompressor(), verb = c.createConvolver(), wet = c.createGain(), bus = c.createGain(), mk = c.createGain(), lim = c.createDynamicsCompressor(), clip = c.createWaveShaper(), cv = new Float32Array(2049), i;
+      comp.threshold.value = -18; comp.ratio.value = 3;
+      lim.threshold.value = -6; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.002; lim.release.value = 0.12;
+      for (i = 0; i < 2049; i++) { var x = i / 1024 - 1, ax = Math.abs(x); cv[i] = ax <= 0.8 ? x : (x < 0 ? -1 : 1) * (0.8 + 0.19 * Math.tanh((ax - 0.8) / 0.19)); }
+      clip.curve = cv; clip.oversample = '2x';
+      trim.connect(bus); bus.gain.value = 0.9; bus.connect(comp); comp.connect(mk); mk.gain.value = MASTER_GAIN; mk.connect(lim); lim.connect(clip); clip.connect(c.destination);
       verb.buffer = makeReverbIR(c, 2.4, 3); wet.gain.value = 0.22; bus.connect(verb); verb.connect(wet); wet.connect(comp);
-      return bus;
+      trim.movAt = function (m, t) { trim.gain.setValueAtTime(Math.pow(10, MOV_TRIM[m] / 20), Math.max(0, t)); };   // each movement at its trim, from the moment it begins
+      trim.marks = function (run, off) { run.marks.forEach(function (k) { if (k[1] === 'mov') trim.movAt(k[2], k[0] + off); }); };   // the same, for a run played back or saved
+      return trim;
     }
     function gameOut() { if (!gBus && gameAudioCtx) gBus = busFor(gameAudioCtx); return gBus; }
     function keyRoot() { return 233.08 * Math.pow(2, KEYS[keyIdx] / 12); }
@@ -3902,6 +3908,65 @@
         letGo(o, [lp, g, pn]); letGo(o2, [g2]);
       },
       rp: function (c, out, t, f, v, p, dur) { SND.sin(c, out, t, f, v, p, dur); },   // a pure pulse
+      hp: function (c, out, t, f, v, p) {   // a harmonic struck: bright and glassy, ringing away
+        var g = c.createGain(), pk = 0.05 + v * 0.07, nodes = [], first = null;
+        [[1, 1, 1.1], [2, 0.32, 0.55], [3, 0.12, 0.3], [4, 0.05, 0.14]].forEach(function (h) {
+          var o = c.createOscillator(), a = c.createGain(); o.frequency.value = f * h[0];
+          a.gain.setValueAtTime(0.0001, t); a.gain.exponentialRampToValueAtTime(pk * h[1], t + 0.004); a.gain.exponentialRampToValueAtTime(0.0001, t + h[2]);
+          o.connect(a); a.connect(g); o.start(t); o.stop(t + h[2] + 0.02); if (!first) first = o; else nodes.push(o); nodes.push(a);
+        });
+        nodes.push(g, panTo(c, g, out, p)); letGo(first, nodes);
+      },
+      bell: function (c, out, t, f, v, p, harm, dur) {   // a bell built like a chord, after Risset: eleven partials, each with its own length; in harmony, its partials are harmonics
+        var D = dur || 2.6, pk = 0.008 + v * 0.022, R = harm ? [0.5, 0.5, 1, 1, 1.5, 2, 2, 3, 3, 4, 4] : [0.56, 0.56, 0.92, 0.92, 1.19, 1.7, 2, 2.74, 3, 3.76, 4.07],
+            dF = [0, 1, 0, 1.7, 0, 0, 0, 0, 0, 0, 0], A = [1, 0.67, 1, 1.8, 2.67, 1.67, 1.46, 1.33, 1.33, 1, 1.33], L = [1, 0.9, 0.65, 0.55, 0.325, 0.35, 0.25, 0.2, 0.15, 0.1, 0.075];
+        var g = c.createGain(), nodes = [g, panTo(c, g, out, p)], first = null;
+        for (var i = 0; i < 11; i++) {
+          var o = c.createOscillator(), a = c.createGain(), d = D * L[i];
+          o.frequency.value = f * R[i] + (harm ? 0 : dF[i]);
+          a.gain.setValueAtTime(0.0001, t); a.gain.exponentialRampToValueAtTime(pk * A[i] / 2.67, t + 0.003); a.gain.exponentialRampToValueAtTime(0.0001, t + d);
+          o.connect(a); a.connect(g); o.start(t); o.stop(t + d + 0.02); if (!first) first = o; else nodes.push(o); nodes.push(a);
+        }
+        letGo(first, nodes);
+      },
+      bellm: function (c, out, t, f, h, v, p) {   // an eaten ghost's bell melting into the chord: each partial glides to the nearest harmonic of the root h
+        var R = [0.56, 0.92, 1.19, 1.7, 2, 2.74, 3, 3.76, 4.07], A = [1, 1, 2.67, 1.67, 1.46, 1.33, 1.33, 1, 1.33], pk = 0.02 + v * 0.035, g = c.createGain(), nodes = [g, panTo(c, g, out, p)], first = null;
+        for (var i = 0; i < R.length; i++) {
+          var f0 = f * R[i], n = Math.max(1, Math.round(f0 / h)), o = c.createOscillator(), a = c.createGain(), d = 2.6 - i * 0.12;
+          o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(h * n, t + 0.7);
+          a.gain.setValueAtTime(0.0001, t); a.gain.exponentialRampToValueAtTime(pk * A[i] / 2.67, t + 0.004); a.gain.exponentialRampToValueAtTime(pk * A[i] / 5, t + 0.75); a.gain.exponentialRampToValueAtTime(0.0001, t + d);
+          o.connect(a); a.connect(g); o.start(t); o.stop(t + d + 0.02); if (!first) first = o; else nodes.push(o); nodes.push(a);
+        }
+        letGo(first, nodes);
+      },
+      shep: function (c, out, t, dur, dir, v, rate) {   // Risset's endless glissando: eight tones an octave apart, gliding up (or down) forever under a fixed bell-shaped loudness
+        var NO = 8, Tm = rate || 2.5, F0 = 29.14, pk = 0.009 + v * 0.019, g = c.createGain(), nodes = [g], first = null, end = t + dur;
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(1, t + 0.25); g.gain.setValueAtTime(1, t + Math.max(0.3, dur - 1.2)); g.gain.exponentialRampToValueAtTime(0.0001, end); g.connect(out);
+        function amp(x) { return 0.5 - 0.5 * Math.cos(6.2832 * x / NO); }
+        for (var i = 0; i < NO; i++) {
+          var o = c.createOscillator(), a = c.createGain(), x = i + 0.5, tt = t;
+          o.frequency.setValueAtTime(F0 * Math.pow(2, x), t); a.gain.setValueAtTime(amp(x) * pk, t);
+          for (var guard = 0; tt < end - 0.001 && guard < 6; guard++) {
+            var toEdge = (dir > 0 ? NO - x : x) * Tm, seg = Math.min(toEdge, end - tt), x2 = x + dir * seg / Tm, nS = Math.max(1, Math.ceil(seg / 0.1));
+            o.frequency.exponentialRampToValueAtTime(F0 * Math.pow(2, x2), tt + seg);
+            for (var j = 1; j <= nS; j++) a.gain.linearRampToValueAtTime(amp(x + dir * (seg * j / nS) / Tm) * pk, tt + seg * j / nS);
+            if (seg < toEdge - 1e-6) break;
+            x = dir > 0 ? 0 : NO; tt += seg; o.frequency.setValueAtTime(F0 * Math.pow(2, x), tt); a.gain.setValueAtTime(0, tt);   // wrap around at silence
+          }
+          o.connect(a); a.connect(g); o.start(t); o.stop(end + 0.05); if (!first) first = o; else nodes.push(o); nodes.push(a);
+        }
+        letGo(first, nodes);
+      },
+      rfin: function (c, out, t, f, v) {   // the whole series at once, swelling; then it comes apart from the top, the highest harmonics fading first
+        var g = c.createGain(), nodes = [g], first = null; g.gain.value = 1; g.connect(out);
+        for (var k = 1; k <= RS_K; k++) {
+          var o = c.createOscillator(), a = c.createGain(), pk = (0.03 + v * 0.02) / Math.pow(k, 0.45), off = 1.4 + (RS_K - k) * 0.14, en = off + 1.6 + 2.5 / Math.sqrt(k);
+          o.frequency.value = f * k;
+          a.gain.setValueAtTime(0.0001, t); a.gain.exponentialRampToValueAtTime(pk, t + 0.5); a.gain.setValueAtTime(pk, t + off); a.gain.exponentialRampToValueAtTime(0.0001, t + en);
+          o.connect(a); nodes.push(a, panTo(c, a, g, ((k % 5) - 2) * 0.22)); o.start(t); o.stop(t + en + 0.05); if (!first) first = o; else nodes.push(o);
+        }
+        letGo(first, nodes);
+      },
       fh: function (c, out, t, f, v, hold) {   // a fundamental: a low bowed-brass attack, the root the whole spectrum grows from, held underneath for the breath
         var o = c.createOscillator(), o2 = c.createOscillator(), lp = c.createBiquadFilter(), g = c.createGain(), sub = c.createGain(), pk = 0.08 + v * 0.1;
         o.type = 'sawtooth'; o.frequency.value = f; o2.frequency.value = f; sub.gain.value = 0.8;
@@ -4204,6 +4269,22 @@
       var len = Math.max(0.3, Math.min(0.9, T.dur - 0.05));
       return [Math.max(0, Math.min(T.body, T.dur - len - 0.02)), len];
     }
+    function phaseCells(T) {   // stretches to loop from all through the recording, one per region: attack to attack where the sound has a rhythm, otherwise the region's loudest stretch; silent regions skipped
+      var on = T.onsets.map(function (x) { return x / T.sr; }), R = Math.max(3, Math.min(6, Math.round(T.dur / 0.75))), cells = [], r, i, j;
+      function envMean(s0, len) { var n = T.env.length, a = Math.floor(s0 / T.dur * n), b = Math.max(a + 1, Math.floor((s0 + len) / T.dur * n)), m = 0; for (var q = a; q < Math.min(n, b); q++) m += T.env[q]; return m / Math.max(1, Math.min(n, b) - a); }
+      for (r = 0; r < R; r++) {
+        var a = r * T.dur / R, b = (r + 1) * T.dur / R, got = null;
+        for (i = 0; i < on.length && !got; i++) if (on[i] >= a && on[i] < b) for (j = i + 1; j < on.length; j++) { var L = on[j] - on[i]; if (L >= 0.45 && L <= 1.3) { got = [on[i], L]; break; } }
+        if (!got) {
+          var len = Math.max(0.3, Math.min(0.9, T.dur / R)), bestE = -1, bestS = a;
+          for (var s0 = a; s0 + len <= T.dur && s0 < b; s0 += 0.05) { var e = envMean(s0, len); if (e > bestE) { bestE = e; bestS = s0; } }
+          if (bestE < 0.08) continue;
+          got = [Math.max(0, Math.min(bestS, T.dur - len - 0.02)), len];
+        }
+        if (!cells.some(function (c2) { return Math.abs(c2[0] - got[0]) < 0.1; })) cells.push(got);
+      }
+      return cells.length ? cells : [phaseCell(T)];
+    }
     function phaseRate(T, cell) {   // the loop, nudged onto the nearest note of B-flat major pentatonic, if it has a pitch
       var ref = (T.pmap && T.pmap[Math.max(0, Math.min(T.pmap.length - 1, Math.round((cell[0] + cell[1] / 2) / 0.05)))]) || T.f0; if (!ref) return 1;
       var best = 1, bd = 1e9;
@@ -4433,15 +4514,19 @@
         if (sax) sax.note(t, f, vv, first ? 0 : 1); logEvAt(t, 'sx', f, vv, first ? 0 : 1);
         soloNote(f, 'ep', 'sx');
       }
-      else if (m === 1) { d = nextSoloDeg(14); var o = Math.floor(d / 7), v2 = 0.4 + danger * 0.6; f = 233.08 * YAMAN[d - o * 7] * Math.pow(2, o); if (singer) singer.note(t, f, v2); logEvAt(t, 'sng', f, v2); play('plk', t, f, 0.78, pan, 0.12); soloNote(f, 'string', 'sng'); }   // and a light stroke on a plucked zither, the way a singer accompanies herself on a swarmandal   // the voice glides (meend) to each new note
+      else if (m === 1) { d = nextSoloDeg(14); var o = Math.floor(d / 7), v2 = 0.4 + danger * 0.6; f = 233.08 * YAMAN[d - o * 7] * Math.pow(2, o); if (singer) singer.note(t, f, v2); logEvAt(t, 'sng', f, v2); play('plk', t, f, 0.95, pan, 0.12); soloNote(f, 'string', 'sng'); }   // and a light stroke on a plucked zither, the way a singer accompanies herself on a swarmandal   // the voice glides (meend) to each new note
       else if (m === 2) { f = F1 * (8 + nextSoloDeg(16)); play('plk', t, f, 0.5, pan, 0.08 + Math.random() * 0.4); soloNote(f, 'string', 'plk'); }
-      else if (m === 3) { f = foldHz(curRoot() * HORN[nextSoloDeg(10)], 190, 1300); play('horn', t, f, 1.6 + danger * 0.4, pan); var rp4 = rowPartial(playerY); padAdd(rp4, 0.22); play('sin', t + 0.02, foldHz(curRoot() * rp4, 500, 1700), 0.075, -pan, 0.5); soloNote(f, 'mode', 'hrn'); }   // and a glint of the overtone your row adds   // the horn plays the consonant overtones of the breath's root; the row you are on joins every breath
+      else if (m === 3 && rsv) {   // your dot strikes whichever harmonic the arpeggio is singing right now; the row you are on adds its own harmonic to the sound
+        var kk = rsPick(t); f = curRoot() * kk; while (f < 260) f *= 2;
+        play('hp', t, f, 0.6 + danger * 0.4, pan); soloNote(f, 'mode', 'hrn');
+        var kr = rowH(playerY), nl = Math.min(1, (rsv.lits[kr] || 0) + 0.14); rsv.lit(t, kr, nl); logEvAt(t, 'rslit', kr, nl); rsT.dots.push(performance.now());
+      }
       else {   // movement V: your solo is your own sound, transposed by tape speed into B-flat major pentatonic
         var newPhrase = !cellQ.length;
         d = nextSoloDeg(10); var o5 = Math.floor(d / 5); f = 233.08 * Math.pow(2, (VPENT[d - o5 * 5] + 12 * o5) / 12);
-        if (tape) {   // a short, bright chop of your recording; each phrase keeps one slice (a sound you can learn), and the next phrase moves on through it, like a tape head
-          if (newPhrase) tape.head = (tape.head || 0) + 0.35 > tape.dur - 0.25 ? 0 : (tape.head || 0) + 0.35;
-          var hd = tape.head || 0;
+        if (tape) {   // a short, bright chop of your recording; each phrase walks through one slice of it, dot by dot, like a hand scratching through a word; the next phrase moves the tape head on
+          if (newPhrase) { tape.head = (tape.head || 0) + 0.35 > tape.dur - 0.25 ? 0 : (tape.head || 0) + 0.35; tape.pi = 0; }
+          var hd = Math.min(tape.dur - 0.1, (tape.head || 0) + ((tape.pi || 0) % 5) * 0.07); tape.pi = (tape.pi || 0) + 1;
           play('vchomp', t, tape.id, tapeRate(f, tape, hd + 0.05), hd, 0.8 + danger * 0.2, pan);
         }
         soloNote(f, 'string', 'vx');
@@ -4449,7 +4534,10 @@
     }
     var CONS = [2, 3, 4, 5, 6, 8, 9, 10, 12, 15, 16], ROOTS = [58.27, 49.0, 77.78, 87.31], ROOTN = ['B\u266D', 'G', 'E\u266D', 'F'], HORN = [4, 5, 6, 8, 9, 10, 12, 15, 16, 18, 20];   // the consonant overtones; the roots B-flat, G, E-flat, F; the horn's ladder
     function rowPartial(r) { return CONS[Math.round((1 - r / (ROWS - 1)) * (CONS.length - 1))]; }   // in movement IV, each row of the maze is a consonant overtone, high rows high
-    function curRoot() { return ROOTS[br.k % 4]; }
+    var RS_K = 16, RS_LV = 0.07;   // the harmonics of the arpeggio, and its level
+    function rowH(r) { return 1 + Math.round((1 - r / (ROWS - 1)) * (RS_K - 1)); }   // in movement IV, each row of the maze is a harmonic: the bottom row the fundamental, the top the 16th
+    function curRoot() { return rsv && gameAudioCtx ? rsv.rootFor(gameAudioCtx.currentTime) : ROOTS[0]; }
+    function rsRootIdx() { return rsv && gameAudioCtx ? rsv.idxFor(gameAudioCtx.currentTime) : 0; }
     function foldHz(f, lo, hi) { while (f > hi) f /= 2; while (f < lo) f *= 2; return f; }
     function hueOfF(f) { return (38 + (((1200 * Math.log(f / 58.27) / Math.LN2) % 1200) + 1200) % 1200 * 0.3) % 360; }   // a pitch's color: its pitch class on the color wheel, B-flat in gold
     function playPowerSound() {
@@ -4467,20 +4555,22 @@
         var d0 = soloDeg;
         for (i = 0; i < 8; i++) { var dd = Math.min(14, d0 + i), oo = Math.floor(dd / 7), ff = 233.08 * YAMAN[dd - oo * 7] * Math.pow(2, oo); if (singer) singer.note(t + i * 0.075, ff, 0.9); logEvAt(t + i * 0.075, 'sng', ff, 0.9); }
         soloDeg = Math.min(14, d0 + 7); cellQ = [];
+        strum(t, true, 0.85, 12);   // and the zither swept upward under it
         play('chm', t + 0.62, 932.33);
       } else if (m === 2) {   // a stochastic cloud
         for (i = 0; i < 18; i++) play('plk', t + Math.random() * 0.7, F1 * (12 + Math.floor(Math.random() * 20)), 0.25 + Math.random() * 0.2, Math.random() * 1.6 - 0.8, 0.05 + Math.random() * 0.5);
-      } else if (m === 3) {   // the whole spectrum blooms at once and the horn climbs it (the breathing quickens while you are powered up)
-        var rt = curRoot();
-        CONS.forEach(function (n) { var e = t + 0.9 * (1 - 1 / n); play('pt', e, rt * n, 0.045 / Math.pow(n, 0.5), ((n % 5) - 2) * 0.3, 1.5 + 4 / Math.sqrt(n)); rhyPulses.push([e, n]); });
-        [8, 9, 10, 12, 15, 16].forEach(function (n, k) { play('horn', t + k * 0.08, foldHz(rt * n, 190, 1300), 0.6, ((k % 3) - 1) * 0.4); });
-        for (var n = 1; n <= 24; n++) if (padLv[n] > 0) padAdd(n, padLv[n] * 0.3);
+      } else if (m === 3) {   // Risset's endless glissando, rising for as long as the power lasts (the arpeggio steps back to let it climb); four harmonics struck as it begins
+        play('shep', t, Math.max(2, frightenedTimer / 60), 1, 0.9, 2.4);
+        [8, 10, 12, 16].forEach(function (k, i) { var fk = curRoot() * k; while (fk < 260) fk *= 2; play('hp', t + i * 0.07, fk, 0.8, ((i % 3) - 1) * 0.4); });
       } else if (tape) {   // movement V: your sound swept steeply upward (powering up); then the whole tape slows and goes under while the power lasts
         play('vwhoop', t, tape.id, tape.head || tape.body, 1);
         if (phaser && phz) { phaser.start(t, tape.id, phz.ls, phz.len, phz.r0); logEvAt(t, 'phzon', tape.id, phz.ls, phz.len, phz.r0); phz.eps = 0; phz.a = phz.b = 0; }   // the loops snap back into unison
       }
     }
     function ghostAtPlayer() { for (var i = 0; i < ghosts.length; i++) if (ghosts[i].x === playerX && ghosts[i].y === playerY) return i; return 0; }
+    function strum(t, up, v, n) {   // movement II: a sweep across the swarmandal, the zither a Hindustani singer strums beside the voice, tuned to Yaman
+      for (var i = 0; i < n; i++) { var dd = up ? i : n - 1 - i, oo = Math.floor(dd / 7), ff = 233.08 * YAMAN[dd - oo * 7] * Math.pow(2, oo); play('plk', t + i * 0.028, ff, v, (dd / (n - 1) - 0.5) * 1.2, 0.25); }
+    }
     function playGhostEatSound() {
       var c = gameAudioCtx; if (!c) return;
       var m = movIdx(), t = c.currentTime + 0.01;
@@ -4491,11 +4581,14 @@
         play('vchomp', t + 0.3, tape.id, tapeRate(932.33, tape, st5), st5, 1, -0.2); play('vchomp', t + 0.4, tape.id, tapeRate(1396.91, tape, st5), st5, 1, 0.2);   // and a two-note ding
         return;
       }
-      if (m === 3) {   // the eaten ghost's out-of-tune overtone slides into the chord
-        var gi4 = ghostAtPlayer(), rt4 = curRoot(), bn = [7, 11, 13, 14][gi4], cn = [8, 12, 12, 16][gi4];
-        play('gls', t, foldHz(rt4 * bn, 300, 1400), 0.22, 0, cn / bn, 0.7); play('sin', t + 0.55, foldHz(rt4 * cn, 300, 1400) * 2, 0.09, 0, 1.2); play('chm', t + 0.55, foldHz(rt4 * cn, 300, 1400) * 2); padAdd(cn, 0.8); return;
+      if (m === 3) {   // the eaten ghost's bell melts into the chord, and its harmonic joins the arpeggio
+        var gi4 = ghostAtPlayer(), rt4 = curRoot(), kj = [5, 7, 9, 11][gi4];
+        play('bellm', t, rt4 * [2.5, 3.3, 4.2, 5.1][gi4], rt4, 1, 0);
+        if (rsv) { var nl4 = Math.min(1, (rsv.lits[kj] || 0) + 0.5); rsv.lit(t, kj, nl4); logEvAt(t, 'rslit', kj, nl4); }
+        return;
       }
       var r = (m === 0 ? keyRoot() : 233.08) / 2;
+      if (m === 1) strum(t, false, 1, 11);   // movement II: a quick cascade down the zither
       [4, 5, 6, 8].forEach(function (k, i) { play('chm', t + i * 0.07, r * k); });
       if (m === 2) play('gls', t, r * 4, 0.05, 0, 2, 0.8);
     }
@@ -4510,7 +4603,8 @@
         play('sxf', t + 0.02, 233.08 * Math.pow(2, (KEYS[keyIdx] + (linePrev == null ? 7 : linePrev)) / 12), 1, -0.12);
       }
       if (movIdx() === 4 && tape) play('vwilt', t, tape.id, tape.head || tape.body, 1);   // caught: your sound sinking in steps
-      if (movIdx() === 3) { var rt5 = curRoot(); activePartials().slice().reverse().forEach(function (n, k) { play('pt', t + k * 0.07, rt5 * n, 0.05 / Math.pow(n, 0.5), ((n % 5) - 2) * 0.3, 0.35); }); }   // the spectrum falls apart from the top down
+      if (movIdx() === 3) play('shep', t, 1.4, -1, 1, 0.45);   // caught: the endless glissando, falling
+      if (movIdx() === 1) strum(t, false, 0.8, 14);   // caught: a long fall down the zither
       if (movIdx() === 4 && phaser && phz) {   // and the whole tape grinds to a halt, then starts back up when the music returns
         phaser.halt(t); logEvAt(t, 'phzhalt');
         phaser.start(breakUntil, tape.id, phz.ls, phz.len, phz.r0, 1); logEvAt(breakUntil, 'phzon', tape.id, phz.ls, phz.len, phz.r0, 1);
@@ -4534,10 +4628,9 @@
         [1, 1.25, 1.5, 2].forEach(function (k, i) { play('vg', t + 0.55 + tape.dur * 0.6 + i * 0.05, tape.id, tapeRate(116.54 * k), tape.body, 2.2, 0.5, (i - 1.5) * 0.4); });
         return;
       }
-      if (m === 3) {   // the last breath: the whole series on B-flat, every overtone entering sooner and sooner and ringing out; then the horn's call
-        play('fh', t, 58.27, 1);
-        for (n = 2; n <= 24; n++) { var e2 = t + 2.6 * (1 - 1 / n); play('pt', e2, 58.27 * n, 0.05 / Math.pow(n, 0.5), ((n % 5) - 2) * 0.3, 2.5 + 6 / Math.sqrt(n)); rhyPulses.push([e2, n]); }
-        [8, 10, 12, 16].forEach(function (k, i) { play('horn', t + 2.9 + i * 0.32, 58.27 * k, 0.8, 0); });
+      if (m === 3) {   // home to B-flat: the whole series at once, swelling, then coming apart from the top; the four bells, in harmony now, ring it out
+        play('rfin', t, 116.54, 1);
+        [2, 3, 4, 5].forEach(function (k, i) { play('bell', t + 1.2 + i * 0.35, 116.54 * k, 0.8, (i - 1.5) * 0.4, 1, 3.2); });
         return;
       }
       if (m === 1) {   // all four strings of the tanpura together, and bells
@@ -4565,7 +4658,7 @@
       if (!perf || perf.done) perfStart();
       if (perf.lastLevel !== level) { perf.lastLevel = level; logMark('mov', movIdx()); movTitleAt = performance.now(); }
       var m = movIdx(), cyc = Math.floor(((level || 1) - 1) / 5);
-      musicStep = 0; walkDeg = 0; danger = 0; tanIdx = 0; tilt.g0 = null; breakUntil = 0; ghostPos = [];
+      musicStep = 0; walkDeg = 0; danger = 0; tanIdx = 0; tilt.g0 = null; breakUntil = 0; ghostPos = []; bellPos = [];
       formPos = 0; coltBeat = 0; curChord = [0, '7']; lineQ = []; linePrev = null; bassPrev = null; prevVoi = null; compPat = null;
       BPM = [168, 76, 100, 84, 92][m] + cyc * 8;
       stepDur = 60 / BPM / 2;
@@ -4668,6 +4761,12 @@
         vFlecks.push([tg, og]);
       }
       if (phaser && phz) {
+        var sec5 = Math.floor(musicStep / 32);   // with each change of harmony, the pair moves on to a new stretch of your recording: in unison again, then drifting apart (Reich's process, begun anew on fresh material)
+        if (phz.cells && sec5 !== phz.sec && t >= breakUntil) {
+          phz.sec = sec5; var cc = phz.cells[sec5 % phz.cells.length], r1 = phaseRate(tape, cc);
+          phz.ls = cc[0]; phz.len = cc[1]; phz.r0 = r1; phz.eps = 0; phz.a = phz.b = 0;
+          phaser.start(t, tape.id, cc[0], cc[1], r1, 1); logEvAt(t, 'phzon', tape.id, cc[0], cc[1], r1, 1);
+        }
         // powered up, the whole tape runs at half speed and muffled; as the power runs out it wavers; then it comes back up to speed
         if (pw !== phz.pw) { phz.pw = pw; phaser.speed(t, pw ? 0.5 : 1); phaser.tone(t, pw ? 520 : 16000); logEvAt(t, 'phzst', pw ? 0.5 : 1, pw ? 520 : 16000); }
         var fl = (pw && frightenedTimer < 70 ? 0.05 : 0) + danger * 0.006;   // wow and flutter: a little with danger, a lot as the power runs out
@@ -4684,7 +4783,7 @@
       var dg = danger;
       if (!off || dg > 0.55) {
         var s2 = [174.61, 233.08, 233.08, 116.54][tanIdx++ % 4];
-        play('tan', t, s2, 0.5 + dg * 0.35, s2 < 120 ? -0.3 : s2 > 200 ? 0.25 : -0.1);
+        play('tan', t, s2, (0.5 + dg * 0.35) * 0.71, s2 < 120 ? -0.3 : s2 > 200 ? 0.25 : -0.1);
       }
       if (pw && !off && beat % 2 === 0) play('chm', t, 116.54 * [4, 5, 6, 8][Math.floor(Math.random() * 4)]);
     }
@@ -4692,22 +4791,23 @@
       if (Math.random() < 0.12 + danger * 0.5) play('plk', t + Math.random() * stepDur * 0.9, F1 * (8 + Math.floor(Math.random() * 17)), 0.2 + Math.random() * 0.2, Math.random() * 1.6 - 0.8, 0.05 + Math.random() * 0.5);
       if (pw && Math.random() < 0.5) play('sin', t, F1 * (16 + Math.floor(Math.random() * 16)), 0.05, Math.random() * 1.6 - 0.8, 1.2);
     }
-    function seriesTick() {}   // the finale keeps its own time: see the rhythmicon below
+    function seriesTick() {}   // movement IV keeps its own time: see the harmonic arpeggio below
     function bedStart(m) {
       bedStop();
       var c = gameAudioCtx, out = gameOut(); if (!c || !out) return;
       var t = c.currentTime + 0.05;
+      if (out.movAt) out.movAt(m, c.currentTime);
       if (m === 1) {   // the drone: a shruti box's reeds on Sa, Pa, and the upper Sa, breathing under the tanpura; and the voice
-        [[116.54, 0.02, -0.35], [174.61, 0.015, 0.35], [233.08, 0.011, 0.05]].forEach(function (h) { bedHolds.push({ r: reedVoice(c, out, t, h[0], h[1], h[2]), f: h[0], v: h[1], p: h[2], t0: t }); });
+        [[116.54, 0.0142, -0.35], [174.61, 0.0106, 0.35], [233.08, 0.0078, 0.05]].forEach(function (h) { bedHolds.push({ r: reedVoice(c, out, t, h[0], h[1], h[2]), f: h[0], v: h[1], p: h[2], t0: t }); });
         singer = makeSinger(c, out, t); logEvAt(t, 'sgon');
       }
       if (m === 0) { sax = makeSax(c, out, t); logEvAt(t, 'sxon'); }   // the saxophone, ready for your solo
       if (m === 2) dssStart();
-      if (m === 3) { padStart(); rhyStart(); }
+      if (m === 3) rhyStart();
       if (m === 4 && tape) {   // the phasing pair: two loops of a stretch of your sound, in unison at first
         var cell = phaseCell(tape), r0 = phaseRate(tape, cell);
         phaser = makePhaser(c, out); phaser.start(t, tape.id, cell[0], cell[1], r0, 1); logEvAt(t, 'phzon', tape.id, cell[0], cell[1], r0, 1);
-        phz = { ls: cell[0], len: cell[1], r0: r0, a: 0, b: 0, eps: 0, pw: false, fl: 0, at: performance.now() };
+        phz = { ls: cell[0], len: cell[1], r0: r0, a: 0, b: 0, eps: 0, pw: false, fl: 0, at: performance.now(), cells: phaseCells(tape), sec: 0 };
       }
     }
     function bedStop() {
@@ -4745,29 +4845,88 @@
       if (perf && !perf.done) perf.ev.push([pt(t), 'padoff']);
       padOsc = null;
     }
-    // ---------- movement IV: a breathing spectrum (after Gerard Grisey's Partiels) ----------
-    // Each breath begins with a low fundamental, a bowed-brass attack; then its overtones enter one after another, sooner and
-    // sooner (partial n enters at 1 - 1/n of the breath), ringing over each other until the next fundamental. The roots move
-    // B-flat, G, E-flat, F (I, vi, IV, V); the overtones you light by eating dots join every breath; danger quickens the breathing.
-    var br = { on: false, k: 0, start: 0, T: 6, timer: 0, at: 0, hit: false }, rhyPulses = [];
-    function breathLen() { return frightenedTimer > 0 ? 3.2 : 6.2 - 2.2 * danger; }
-    function activePartials() { var a = [2, 3, 4]; CONS.forEach(function (n) { if (padLv[n] > 0.02 && a.indexOf(n) < 0) a.push(n); }); return a.sort(function (x, y) { return x - y; }); }
-    function rhyStart() { var c = gameAudioCtx; if (!c) return; br.on = true; br.k = 0; br.start = c.currentTime + 0.2; br.T = breathLen(); br.at = c.currentTime; br.hit = false; rhyPulses = []; clearInterval(br.timer); br.timer = setInterval(rhyTick, 90); }
-    function rhyStop() { br.on = false; clearInterval(br.timer); br.timer = 0; }
+    // ---------- movement IV: the harmonic series, after Jean-Claude Risset ----------
+    // Risset's harmonic arpeggio: nine copies of one tone, tuned a hair apart, beat so that its harmonics sing out one at a time,
+    // cascading down the series (his "spectral scans"). Built here exactly but cheaply: harmonic k is one oscillator at k times the
+    // root, its loudness traced by the sum of those nine beating copies (a cosine series running at k times the scan rate). Every
+    // row of the maze is one harmonic; the dots you eat add them; the faster you eat and the nearer the ghosts, the faster the scan
+    // (as in Risset's own duet for one pianist, where the faster the pianist plays, the faster the arpeggio). The roots move B-flat,
+    // G, E-flat, F (I, vi, IV, V), each change landing on a unison, the moment every harmonic sounds at once.
+    function makeRisset(c, dest) {
+      var out = c.createGain(), dcb = c.createBuffer(1, 128, c.sampleRate), dc = c.createBufferSource(), H = [], live = true, pans = [];
+      var w = c.__rsw || (c.__rsw = (function () { var re = new Float32Array(5), im = new Float32Array(5); for (var m = 1; m <= 4; m++) re[m] = 1; return c.createPeriodicWave(re, im); })());
+      var st = { ta: 0, pa: 0, da: 0.15, tb: 0, db: 0.15 };
+      dcb.getChannelData(0).fill(0.125); dc.buffer = dcb; dc.loop = true; out.gain.value = 0; out.connect(dest);
+      var api = {
+        rootHz: 116.54, rPrev: 116.54, rT: 0, rootIdx: 0, iPrev: 0, lits: [],
+        start: function (t, f, d) {
+          st = { ta: t, pa: 0, da: d, tb: t, db: d }; api.rootHz = api.rPrev = f;
+          for (var q = 0; q < 5; q++) { var pg = c.createGain(); pg.gain.value = 1; pans.push({ g: pg, p: panTo(c, pg, out, (q - 2) * 0.22) }); }
+          for (var k = 1; k <= RS_K; k++) {
+            var o = c.createOscillator(), l = c.createOscillator(), a = c.createGain(), g = c.createGain();
+            o.frequency.value = f * k; l.setPeriodicWave(w); l.frequency.value = k * d;
+            a.gain.value = 0; dc.connect(a.gain); l.connect(a.gain); o.connect(a); a.connect(g); g.gain.value = 0;
+            g.connect(pans[k % 5].g); H[k] = { o: o, l: l, a: a, g: g }; api.lits[k] = 0;
+            o.start(t); l.start(t);
+          }
+          dc.start(t); out.gain.setValueAtTime(0, t); out.gain.linearRampToValueAtTime(1, t + 0.8);
+        },
+        rate: function (t, d) {   // a new scan rate, reached in 0.8 s; every harmonic's beating keeps its exact proportion to the others
+          var p = api.phaseAt(t), d0 = api.rateAt(t); st = { ta: t, pa: p, da: d0, tb: t + 0.8, db: d };
+          for (var k = 1; k <= RS_K; k++) { H[k].l.frequency.setValueAtTime(k * d0, t); H[k].l.frequency.linearRampToValueAtTime(k * d, t + 0.8); }
+        },
+        root: function (t, f, idx) {
+          for (var k = 1; k <= RS_K; k++) { H[k].o.frequency.setValueAtTime(k * api.rootHz, t); H[k].o.frequency.exponentialRampToValueAtTime(k * f, t + 0.06); }
+          api.rPrev = api.rootHz; api.iPrev = api.rootIdx; api.rT = t; api.rootHz = f; api.rootIdx = idx || 0;
+        },
+        rootFor: function (t) { return t >= api.rT ? api.rootHz : api.rPrev; },
+        idxFor: function (t) { return t >= api.rT ? api.rootIdx : api.iPrev; },
+        lit: function (t, k, v) { if (!H[k]) return; api.lits[k] = v; H[k].g.gain.setTargetAtTime(v * RS_LV / Math.pow(k, 0.35), t, 0.25); },
+        gain: function (t, v, tau) { out.gain.setTargetAtTime(v, t, tau || 0.3); },
+        stop: function (t) {
+          if (!live) return; live = false; out.gain.setTargetAtTime(0, t, 0.35);
+          var e = t + 2.5; H.forEach(function (h) { if (h) { try { h.o.stop(e); h.l.stop(e); } catch (x) {} } }); try { dc.stop(e); } catch (x) {}
+          dc.onended = function () { H.forEach(function (h) { if (h) { try { h.o.disconnect(); h.l.disconnect(); h.a.disconnect(); h.g.disconnect(); } catch (x) {} } }); pans.forEach(function (q) { try { q.g.disconnect(); q.p.disconnect(); } catch (x) {} }); try { dc.disconnect(); out.disconnect(); } catch (x) {} H = []; pans = []; };
+        },
+        phaseAt: function (t) { var dt = t - st.ta, T = st.tb - st.ta; if (dt <= 0) return st.pa + st.da * dt; if (dt <= T) return st.pa + st.da * dt + (st.db - st.da) * dt * dt / (2 * T); return st.pa + (st.da + st.db) * T / 2 + st.db * (dt - T); },
+        rateAt: function (t) { var dt = t - st.ta, T = st.tb - st.ta; if (dt <= 0) return st.da; if (dt >= T || T <= 0) return st.db; return st.da + (st.db - st.da) * dt / T; },
+        rampEnd: function () { return st.tb; },
+        env: function (k, t) { var ph = api.phaseAt(t), s2 = 1; for (var m = 1; m <= 4; m++) s2 += 2 * Math.cos(6.2832 * m * k * ph); return Math.max(0, s2 / 9); },   // how loudly harmonic k is singing at time t, 0 to 1
+        timeOfPhase: function (target) { var lo = st.ta, hi = lo + 1, i; while (api.phaseAt(hi) < target && hi - lo < 900) hi = lo + (hi - lo) * 2; for (i = 0; i < 40; i++) { var md = (lo + hi) / 2; if (api.phaseAt(md) < target) lo = md; else hi = md; } return hi; }
+      };
+      return api;
+    }
+    var rsv = null, rsT = { timer: 0, idx: 0, g: 1, prevK: 0, dots: [] }, bellPos = [];
+    function dotRate() { var n = performance.now(); rsT.dots = rsT.dots.filter(function (x) { return n - x < 2000; }); return rsT.dots.length / 2; }
+    function scanRate() { return 1 / Math.max(2.4, 6.5 - 3 * danger - 1.6 * Math.min(1, dotRate() / 6)); }   // seconds per scan: 6.5 at rest, quicker as you eat and as the ghosts close in
+    function rsPick(t) {   // the harmonic singing loudest right now, among the ones you have lit (never the same twice running)
+      var best = 0, bk = 0, k;
+      for (k = 2; k <= RS_K; k++) { var L = rsv.lits[k] || 0; if (L < 0.02 || k === rsT.prevK) continue; var sc = rsv.env(k, t) * (0.4 + L); if (sc > best) { best = sc; bk = k; } }
+      if (!bk) bk = rsT.prevK === 2 ? 3 : 2;
+      rsT.prevK = bk; return bk;
+    }
+    function rhyStart() {
+      var c = gameAudioCtx, out = gameOut(); if (!c || !out) return;
+      rhyStop();
+      var t = c.currentTime + 0.1, d = scanRate();
+      rsv = makeRisset(c, out); rsv.start(t, ROOTS[0], d); logEvAt(t, 'rson', ROOTS[0], d);
+      [[1, 1], [2, 0.7], [3, 0.6], [4, 0.5], [5, 0.4]].forEach(function (p2) { rsv.lit(t, p2[0], p2[1]); logEvAt(t, 'rslit', p2[0], p2[1]); });   // five harmonics to begin with, so the arpeggio sings at once
+      rsT.idx = 0; rsT.g = 1; rsT.prevK = 0; rsT.dots = []; bellPos = [];
+      rsT.timer = setInterval(rhyTick, 100);
+    }
+    function rhyStop() {
+      clearInterval(rsT.timer); rsT.timer = 0;
+      var c = gameAudioCtx; if (rsv && c) { var t = c.currentTime; rsv.stop(t); logEvAt(t, 'rsoff'); } rsv = null;
+    }
     function rhyTick() {
-      var c = gameAudioCtx; if (!c || !br.on || gameState !== 'playing') return;
-      var tA = br.at, tB = c.currentTime + 0.25; if (tB <= tA) return;
-      for (var guard = 0; guard < 4; guard++) {
-        var bs = br.start, T = br.T, root = ROOTS[br.k % 4], act = activePartials();
-        if (!br.hit && bs < tB) { br.hit = true; if (bs >= tA - 0.05 && bs >= breakUntil) { play('fh', Math.max(bs, c.currentTime + 0.01), root, 0.6 + danger * 0.4, T + 0.6); rhyPulses.push([bs, 0]); } }   // the fundamental, held through the breath
-        act.forEach(function (n) {   // its overtones, entering faster and faster
-          var e = bs + T * 0.8 * (1 - 1 / n);
-          if (e >= tA && e < tB && e >= breakUntil) { var L = padLv[n] || 0; play('pt', e, root * n, 0.065 / Math.pow(n, 0.5) * (0.65 + 0.35 * L), ((n % 5) - 2) * 0.3, 2 + 5 / Math.sqrt(n)); rhyPulses.push([e, n]); }
-        });
-        if (bs + T < tB) { br.k++; br.start = bs + T; br.T = breathLen(); br.hit = false; continue; }   // the next breath begins inside this window
-        break;
-      }
-      br.at = tB;
+      var c = gameAudioCtx; if (!c || !rsv || gameState !== 'playing') return;
+      var now = c.currentTime, t = now + 0.12;
+      if (t >= rsv.rampEnd() + 0.01) { var d = scanRate(), d0 = rsv.rateAt(t); if (Math.abs(d - d0) / d0 > 0.06) { rsv.rate(t, d); logEvAt(t, 'rsrate', d); } }   // the scan follows you
+      var tu = rsv.timeOfPhase(2 * (rsT.idx + 1));   // the root moves on a unison, every second scan
+      if (tu <= now) rsT.idx = Math.floor(rsv.phaseAt(now) / 2);
+      else if (tu < now + 0.35) { rsT.idx++; var ri = rsT.idx % 4; rsv.root(tu, ROOTS[ri], ri); logEvAt(tu, 'rsroot', ROOTS[ri], ri); }
+      var want = now < breakUntil ? 0.05 : frightenedTimer > 0 ? 0.45 : 1;   // it steps back while the glissando climbs, and falls silent when you are caught
+      if (Math.abs(want - rsT.g) > 0.01) { rsT.g = want; var tau = want < 0.5 ? 0.06 : 0.4; rsv.gain(t, want, tau); logEvAt(t, 'rsgain', want, tau); }
     }
     // ---------- the bright stochastic engine (movement III) ----------
     // After Xenakis's dynamic stochastic synthesis, voiced differently from the page's hero: each voice's pitch is held
@@ -4891,6 +5050,18 @@
         lastPX = playerX; lastPY = playerY;
         if (gameState === 'playing') { trail.push({ x: playerX, y: playerY, t: now }); if (trail.length > 40) trail.shift(); }
       }
+      if (gameState === 'playing' && movIdx() === 3 && gameAudioCtx && ghosts) {   // movement IV: each ghost tolls its bell as it walks, louder as it nears; frightened, the bells ring in harmony
+        for (i = 0; i < 4; i++) {
+          var gq = ghosts[i], lq = bellPos[i];
+          if (lq && lq[0] === gq.x && lq[1] === gq.y) continue;
+          bellPos[i] = [gq.x, gq.y, (lq ? lq[2] : 0) + 1];
+          if (!lq || gq.eaten || gq.homeTimer > 0 || bellPos[i][2] % 4) continue;   // a toll every fourth step
+          var dxq = gq.x - playerX, dyq = gq.y - playerY, prq = Math.max(0, 1 - Math.sqrt(dxq * dxq + dyq * dyq) / 10);
+          if (prq < 0.1) continue;
+          var rtq = curRoot(), frq = !!gq.frightened;
+          play('bell', gameAudioCtx.currentTime + 0.01, rtq * (frq ? [2, 3, 4, 5][i] : [2.5, 3.3, 4.2, 5.1][i]), prq * prq, Math.max(-0.9, Math.min(0.9, gq.x / (COLS - 1) * 2 - 1)), frq ? 1 : 0, frq ? 1.6 : 2.6);
+        }
+      }
       if (gameState === 'playing' && movIdx() === 4 && tape && gameAudioCtx && ghosts) {   // movement V: the ghosts' footsteps, each a tick of that ghost's part of your sound
         for (i = 0; i < 4; i++) {
           var gg = ghosts[i], lp2 = ghostPos[i];
@@ -4918,7 +5089,7 @@
         if (v.bp) v.bp.frequency.setTargetAtTime(s2.f, t, 0.12);
         if (v.T) v.nz.playbackRate.setTargetAtTime(tapeRate(s2.f, v.T, v.nz.loopStart + 0.05), t, 0.12);
         v.lp.frequency.setTargetAtTime(300 + s2.bright * 5200, t, 0.1);
-        v.g.gain.setTargetAtTime(s2.gain * typeMul(v.ty) * (m === 3 ? 0.9 : 1), t, 0.08);
+        v.g.gain.setTargetAtTime(s2.gain * typeMul(v.ty) * (m === 3 ? 0 : 1), t, 0.08);
         if (v.pn) v.pn.pan.setTargetAtTime(s2.pan, t, 0.1);
       }
       var P = null;
@@ -5131,6 +5302,7 @@
       var L = live = { pg: pg, t0: 0, timer: 0, run: run, sched: null };
       card.play.textContent = 'Stop';
       var T0 = L.t0 = c.currentTime + 0.12;
+      if (bus.marks) bus.marks(run, T0);
       ghostPlayer(c, pg, run, lim, T0);
       L.sched = eventPlayer(c, pg, run, lim, T0);
       L.sched(T0 + 1.5);
@@ -5180,7 +5352,7 @@
     }
     // ---------- performing a run again from its score: the same code plays it live and renders it offline ----------
     function eventPlayer(c, dest, run, lim, off) {   // returns sched(tEnd), which creates every event of the run that starts before tEnd
-      var evs = run.ev.filter(function (e) { return e[0] <= lim; }).sort(function (a, b) { return a[0] - b[0]; }), ei = 0, pads = [], sg = null, sx = null, ph = null;
+      var evs = run.ev.filter(function (e) { return e[0] <= lim; }).sort(function (a, b) { return a[0] - b[0]; }), ei = 0, pads = [], sg = null, sx = null, ph = null, rs = null;
       function sched(tEnd) {
         while (ei < evs.length && evs[ei][0] + off < tEnd) {
           var e = evs[ei++], t = e[0] + off;
@@ -5202,11 +5374,17 @@
           else if (e[1] === 'phzhalt') { if (ph) ph.halt(t); }
           else if (e[1] === 'phzr') { if (ph) ph.rate(t, e[2]); }
           else if (e[1] === 'phzoff') { if (ph) { ph.stop(t); ph = null; } }
+          else if (e[1] === 'rson') { if (rs) rs.stop(t); rs = makeRisset(c, dest); rs.start(t, e[2], e[3]); }
+          else if (e[1] === 'rsrate') { if (rs) rs.rate(t, e[2]); }
+          else if (e[1] === 'rsroot') { if (rs) rs.root(t, e[2], e[3]); }
+          else if (e[1] === 'rslit') { if (rs) rs.lit(t, e[2], e[3]); }
+          else if (e[1] === 'rsgain') { if (rs) rs.gain(t, e[2], e[3]); }
+          else if (e[1] === 'rsoff') { if (rs) { rs.stop(t); rs = null; } }
           else { try { SND[e[1]](c, dest, t, e[2], e[3], e[4], e[5], e[6], e[7]); } catch (x) {} }
         }
       }
       function endPads(t) { pads.forEach(function (p2) { if (p2) { try { p2.g.gain.setTargetAtTime(0, t, 0.8); p2.o.stop(t + 4); } catch (x) {} } }); pads = []; }
-      sched.end = function (t) { endPads(t); if (sg) { sg.end(t); sg = null; } if (sx) { sx.end(t); sx = null; } if (ph) { ph.stop(t); ph = null; } };
+      sched.end = function (t) { endPads(t); if (sg) { sg.end(t); sg = null; } if (sx) { sx.end(t); sx = null; } if (ph) { ph.stop(t); ph = null; } if (rs) { rs.stop(t); rs = null; } };
       return sched;
     }
     function ghostPlayer(c, dest, run, lim, off) {   // the four ghosts, moving exactly as they moved: one set of voices per stretch of play
@@ -5232,7 +5410,7 @@
         if (!seg) seg = { m: m, last: s2[0], ch: [0, 1, 2, 3].map(function (i) { return chain(voiceType(m, i), t, i, s2[19]); }) };
         seg.last = s2[0];
         for (var i = 0; i < 4; i++) {
-          var ch = seg.ch[i], b = 2 + i * 4, f = s2[b], gn = s2[b + 1] * typeMul(ch.ty) * (m === 3 ? 0.9 : 1), pan = s2[b + 2], cut = 300 + s2[b + 3] * 5200;
+          var ch = seg.ch[i], b = 2 + i * 4, f = s2[b], gn = s2[b + 1] * typeMul(ch.ty) * (m === 3 ? 0 : 1), pan = s2[b + 2], cut = 300 + s2[b + 3] * 5200;
           if (ch.fresh) {
             ch.fresh = false;
             if (ch.o) ch.o.frequency.setValueAtTime(f, t); if (ch.bp) ch.bp.frequency.setValueAtTime(f, t); if (ch.T) ch.nz.playbackRate.setValueAtTime(tapeRate(f, ch.T, ch.nz.loopStart + 0.05), t);
@@ -5282,7 +5460,7 @@
       dssSpans(run, sr, lim, function () { return !!run.abandoned; }, function (spans) {
         if (!spans) { cb(null); return; }
         var oc; try { oc = new OAC(2, Math.ceil(len * sr), sr); } catch (x) { cb(null); return; }
-        var out = busFor(oc);
+        var out = busFor(oc); out.marks(run, D);
         spans.forEach(function (sp) { var b = oc.createBuffer(2, sp.L.length, sr); b.getChannelData(0).set(sp.L); b.getChannelData(1).set(sp.R); var s0 = oc.createBufferSource(); s0.buffer = b; s0.connect(out); s0.start(sp.a + D); });
         ghostPlayer(oc, out, run, lim, D);
         var sched = eventPlayer(oc, out, run, lim, D), S = 2;
@@ -5314,7 +5492,7 @@
       x.fillStyle = '#7B5F34'; x.strokeStyle = '#7B5F34'; x.lineWidth = r * 0.3;
       if (kind === 'mal') { x.beginPath(); x.moveTo(px, py - r * 1.2); x.lineTo(px + r, py); x.lineTo(px, py + r * 1.2); x.lineTo(px - r, py); x.closePath(); x.fill(); return; }
       if (kind === 'sin') { x.fillRect(px - r * 0.8, py - r * 0.8, r * 1.6, r * 1.6); return; }
-      if (kind === 'hrn') { x.beginPath(); x.arc(px, py, r * 0.95, 0, 6.2832); x.lineWidth = r * 0.5; x.stroke(); return; }   // the natural horn: an open notehead
+      if (kind === 'hrn') { x.beginPath(); x.arc(px, py, r * 0.95, 0, 6.2832); x.lineWidth = r * 0.5; x.stroke(); return; }   // movement IV's struck harmonics: an open notehead
       if (kind === 'sng') { x.beginPath(); x.arc(px, py, r * 0.55, 0, 6.2832); x.fill(); return; }   // the voice: small points along its line
       x.beginPath(); x.ellipse(px, py, r * 1.15, r * 0.85, -0.35, 0, 6.2832); x.fill();
       if (kind === 'ep' || kind === 'sx') { x.beginPath(); x.moveTo(px + r * 1.05, py); x.lineTo(px + r * 1.05, py - r * 4.2); x.stroke(); }
@@ -5358,8 +5536,8 @@
         for (var v = 0; v < 4; v++) { var gg = r2[3 + v * 5]; if (gg < 0.004) continue; var cx = X(r2[0]), cy = Y(r2[1 + v * 5]), amp = H * 0.012 * (0.3 + r2[2 + v * 5] * 2);
           x.beginPath(); x.moveTo(cx, cy); for (var q = 1; q <= 4; q++) x.lineTo(cx + q * (R - L) / T * 0.05, cy + (Math.random() * 2 - 1) * amp); x.stroke(); }
       });
-      run.ev.forEach(function (e) {   // the rhythmicon: every pulse, a point on its partial's line, in its color
-        if (e[1] !== 'rp' && e[1] !== 'pt') return;
+      run.ev.forEach(function (e) {   // movement IV: every struck harmonic, a point on its harmonic's line, in its color
+        if (e[1] !== 'rp' && e[1] !== 'pt' && e[1] !== 'hp') return;
         x.fillStyle = 'hsla(' + hueOfF(e[2]).toFixed(0) + ',60%,36%,' + Math.min(0.9, 0.2 + e[3] * 14).toFixed(2) + ')';
         x.fillRect(X(e[0]) - 1.8, Y(e[2]) - 1.8, 3.6, 3.6);
       });
@@ -5496,17 +5674,24 @@
         } else ctx.lineTo(p2[0], p2[1]);
         ei++;
       }
-      if (mi === 3) {   // the finale: every row is a partial, colored by its pitch class (B-flat in gold); lit rows glow, and flash as they pulse
-        var nowA = gameAudioCtx ? gameAudioCtx.currentTime : 0, fl = [], fl0 = 0, rt6 = curRoot();
-        rhyPulses = rhyPulses.filter(function (p2) { return p2[0] > nowA - 1.5; });
-        rhyPulses.forEach(function (p2) { if (p2[0] <= nowA) { var e3 = Math.exp(-(nowA - p2[0]) / (p2[1] ? 0.3 : 0.45)); if (p2[1]) fl[p2[1]] = Math.max(fl[p2[1]] || 0, e3); else fl0 = Math.max(fl0, e3); } });
-        ctx.globalCompositeOperation = 'lighter';
+      if (mi === 3) {   // movement IV: every row is a string vibrating in its harmonic's mode (the bottom row one loop, the top sixteen), lit the instant the arpeggio sings it, in its pitch's color
+        var nowA = gameAudioCtx ? gameAudioCtx.currentTime : 0, rt6 = curRoot(), W6 = COLS * cellSize, tv = performance.now() / 1000, sh6 = frightenedTimer > 0 ? (tv * 0.4) % 1 : -1;
+        ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
         for (r = 0; r < ROWS; r++) {
-          var pn2 = rowPartial(r), lv2 = padLv[pn2] || 0, ga = lv2 * 0.16 + (fl[pn2] || 0) * (0.18 + lv2 * 0.3) + fl0 * 0.12 + (pl >= 0 ? Math.exp(-pl * 1.2) * 0.4 : 0);
-          if (ga < 0.01) continue;
-          var yb = offsetY + r * cellSize + cellSize / 2, hb = hueOfF(rt6 * pn2), gr = ctx.createLinearGradient(0, yb - cellSize * 0.65, 0, yb + cellSize * 0.65);
-          gr.addColorStop(0, hsla(hb, 85, 60, 0)); gr.addColorStop(0.5, hsla(hb, 85, 62, Math.min(0.85, ga))); gr.addColorStop(1, hsla(hb, 85, 60, 0));
-          ctx.fillStyle = gr; ctx.fillRect(offsetX, yb - cellSize * 0.65, COLS * cellSize, cellSize * 1.3);
+          var kq = rowH(r), lq2 = rsv ? (rsv.lits[kq] || 0) : 0, eq = rsv ? rsv.env(kq, nowA) : 0, yb = offsetY + r * cellSize + cellSize / 2, band = 0;
+          if (sh6 >= 0) { var yr = 1 - r / (ROWS - 1), dd = Math.abs((((yr - sh6) % 1) + 1.5) % 1 - 0.5); band = Math.max(0, 1 - dd * 6); }   // the endless glissando: a band of light climbing the strings, forever
+          var A6 = Math.min(1, lq2 * (0.12 + 0.88 * eq) + band * 0.8 + (pl >= 0 ? Math.exp(-pl * 1.2) * 0.6 : 0));
+          if (A6 < 0.02) continue;
+          var vib = Math.cos(tv * (2.2 + kq * 0.35) * 6.2832), ap = cellSize * (0.3 + 0.35 * A6) * A6, NS = 96, hq = hueOfF(rt6 * kq), sing = lq2 * eq;
+          if (sing > 0.45) {   // the instant its harmonic sings: the whole row flashes
+            var gf = ctx.createLinearGradient(0, yb - cellSize * 0.7, 0, yb + cellSize * 0.7), fa = Math.min(0.55, (sing - 0.45) * 1.1);
+            gf.addColorStop(0, hsla(hq, 90, 60, 0)); gf.addColorStop(0.5, hsla(hq, 90, 64, fa)); gf.addColorStop(1, hsla(hq, 90, 60, 0));
+            ctx.fillStyle = gf; ctx.fillRect(offsetX, yb - cellSize * 0.7, W6, cellSize * 1.4);
+          }
+          ctx.beginPath();
+          for (var sx = 0; sx <= NS; sx++) { var xx = offsetX + W6 * sx / NS, yy = yb + ap * vib * Math.sin(kq * Math.PI * sx / NS); if (sx) ctx.lineTo(xx, yy); else ctx.moveTo(xx, yy); }
+          ctx.strokeStyle = hsla(hq, 90, 60, Math.min(0.35, 0.06 + A6 * 0.3)); ctx.lineWidth = Math.max(3, hair * (4 + A6 * 6)); ctx.stroke();   // the glow
+          ctx.strokeStyle = hsla(hq, 85, 70, Math.min(0.95, 0.25 + A6 * 0.7)); ctx.lineWidth = Math.max(1, hair * (1 + A6 * 1.8)); ctx.stroke();   // the string
         }
         ctx.globalCompositeOperation = 'source-over';
       }
@@ -5525,7 +5710,7 @@
           ctx.strokeStyle = hexA(M.acc, 0.7); ctx.lineWidth = hair * 1.4; ctx.setLineDash([hair * 3, hair * 2.5]);
           ctx.beginPath(); ctx.moveTo(x + 2, cy); ctx.lineTo(x + cellSize - 2, cy); ctx.stroke(); ctx.setLineDash([]);
         } else if (maze[r][c] === 0) {   // a dot: a note waiting to be played
-          ctx.fillStyle = mi === 3 ? hsla(hueOfF(curRoot() * rowPartial(r)), 70, 76, 0.75) : M.dot; ctx.beginPath(); ctx.arc(cx, cy, cellSize * 0.07, 0, 6.2832); ctx.fill();
+          ctx.fillStyle = mi === 3 ? hsla(hueOfF(curRoot() * rowH(r)), 70, 76, 0.75) : M.dot; ctx.beginPath(); ctx.arc(cx, cy, cellSize * 0.07, 0, 6.2832); ctx.fill();
         } else if (maze[r][c] === 2) {   // a power pellet: the page's event ring, breathing
           var pr0 = cellSize * (0.24 + 0.05 * Math.sin(now * 0.005));
           ctx.strokeStyle = M.acc; ctx.lineWidth = hair * 1.6; ctx.beginPath(); ctx.arc(cx, cy, pr0, 0, 6.2832); ctx.stroke();
@@ -5582,7 +5767,7 @@
       ctx.fillStyle = sFill;
       for (var li = 0; li < lives; li++) { ctx.beginPath(); ctx.arc(offsetX + COLS * cellSize - cellSize * (0.3 + li * 0.62), offsetY - cellSize * 0.62, cellSize * 0.17, 0, 6.2832); ctx.fill(); }
       ctx.textAlign = 'center'; ctx.font = hudFont(600, Math.round(cellSize * 0.4)); ctx.fillStyle = M.dim; spaced(cellSize * 0.1);
-      ctx.fillText('SIGNAL CHASE  \u00b7  ' + M.n + '. ' + M.name.toUpperCase() + (mi === 0 ? '  \u00b7  ' + chordName(curChord) : mi === 3 ? '  \u00b7  ON ' + ROOTN[br.k % 4] : '') + '  \u00b7  LEVEL ' + level, w / 2, offsetY - cellSize * 1.15);
+      ctx.fillText('SIGNAL CHASE  \u00b7  ' + M.n + '. ' + M.name.toUpperCase() + (mi === 0 ? '  \u00b7  ' + chordName(curChord) : mi === 3 ? '  \u00b7  ON ' + ROOTN[rsRootIdx()] : '') + '  \u00b7  LEVEL ' + level, w / 2, offsetY - cellSize * 1.15);
       spaced(0);
       if (mi === 4 && tape && (gameState === 'playing' || gameState === 'studio')) {   // the tape strip: your recording, with your solo's tape head, the ghosts' loops, the phasing pair, and the cloud's grains
         var sx6 = offsetX, sw6 = COLS * cellSize, sy6 = offsetY + ROWS * cellSize + cellSize * 0.35, sh6 = Math.min(30, cellSize * 0.85), E6 = tape.env, nA6 = gameAudioCtx ? gameAudioCtx.currentTime : 0;
