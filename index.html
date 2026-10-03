@@ -3813,7 +3813,7 @@
       { n: 'II', name: 'Drone', sub: 'for signal, tanpura, shruti box, and voice', bg: '#06080C', line: 'rgba(165,188,214,0.42)', dot: 'rgba(186,204,224,0.62)', acc: '#D8C39A', ink: '#EEF3F8', dim: 'rgba(170,192,216,0.62)', ghosts: ['#EEF3F8', '#B9CBE0', '#DCE6F0', '#98AFC8'], dark: true },
       { n: 'III', name: 'Stochastic', sub: 'for signal and four stochastic voices, after Xenakis', bg: '#0B0908', line: 'rgba(226,122,82,0.42)', dot: 'rgba(238,200,182,0.62)', acc: '#E27A52', ink: '#F7EFEA', dim: 'rgba(230,160,130,0.62)', ghosts: ['#F7EFEA', '#EBC7B6', '#F0DCCF', '#D9A48C'], dark: true },
       { n: 'IV', name: 'Harmonic Series', sub: 'for signal, natural horn, and rhythmicon, after Cowell', bg: '#07070C', line: 'rgba(236,232,224,0.26)', dot: 'rgba(236,232,224,0.55)', acc: '#D9B36A', ink: '#F4F1EA', dim: 'rgba(236,232,224,0.6)', ghosts: [7, 11, 13, 14].map(function (n) { return 'hsl(' + hueOf(n).toFixed(0) + ',72%,80%)'; }), dark: true },
-      { n: 'V', name: 'Musique Concr\u00E8te', sub: 'for signal and the sound you made, after Pierre Schaeffer', bg: '#0C0A08', line: 'rgba(222,176,112,0.40)', dot: 'rgba(236,214,180,0.62)', acc: '#E0A85A', ink: '#F6EEE2', dim: 'rgba(226,196,150,0.62)', ghosts: ['#F6EEE2', '#E8CFAA', '#F0DEC4', '#D6B48A'], dark: true }
+      { n: 'V', name: 'Musique Concr\u00E8te', sub: 'for signal and the sound you made, after Pierre Schaeffer and Steve Reich', bg: '#0C0A08', line: 'rgba(222,176,112,0.40)', dot: 'rgba(236,214,180,0.62)', acc: '#E0A85A', ink: '#F6EEE2', dim: 'rgba(226,196,150,0.62)', ghosts: ['#F6EEE2', '#E8CFAA', '#F0DEC4', '#D6B48A'], dark: true }
     ];
     function movIdx() { return ((level || 1) - 1) % 5; }
     function mov() { return MOVS[movIdx()]; }
@@ -4075,6 +4075,9 @@
     // grains, locked grooves (the ghosts), reversal (power), a tape stop (a lost life), and the source revealed at the end.
     // The recording stays in the page, in memory only, and is gone when the game closes.
     var tapes = {}, tape = null, tapeLevel = 0, tapeSeq = 0, studio = null, TAPE_CHORD = [1, 1.25, 1.5, 1.875, 2.25];
+    // the harmony moves every four bars (semitones above B-flat 2): B-flat major 9, G minor 9, E-flat major 9, F 9 sus; the solo uses B-flat major pentatonic, which fits them all
+    var VCH = [[0, 4, 7, 11, 14], [-3, 0, 4, 7, 11], [5, 9, 12, 16, 19], [7, 12, 14, 17, 21]], VPENT = [0, 2, 4, 7, 9], phaser = null, phz = null, vFlecks = [];
+    function vChord() { return VCH[Math.floor(musicStep / 32) % 4]; }
     function tapeBuf(c, id) { var ca = c.__tp || (c.__tp = {}), T = tapes[id]; if (ca[id] || !T) return ca[id] || null; var b = c.createBuffer(1, T.data.length, T.sr); b.getChannelData(0).set(T.data); return (ca[id] = b); }
     function tapeRevBuf(c, id) { var ca = c.__tpr || (c.__tpr = {}), T = tapes[id]; if (ca[id] || !T) return ca[id] || null; var b = c.createBuffer(1, T.data.length, T.sr), d = b.getChannelData(0), n = T.data.length; for (var i = 0; i < n; i++) d[i] = T.data[n - 1 - i]; return (ca[id] = b); }
     function tapeRate(f, T, at) {   // transposition by tape speed, within an octave either way; a slice is retuned by its own pitch when it has one
@@ -4087,6 +4090,31 @@
       var s0 = c.createBufferSource(), st = Math.max(0, Math.min(T.dur - 0.35, (0.08 + i * 0.25) * (T.dur - 0.35)));   // the four ghosts loop four different parts of it
       s0.buffer = tapeBuf(c, T.id); s0.loop = true; s0.loopStart = st; s0.loopEnd = st + 0.11 + i * 0.045;
       return s0;
+    }
+    function makePhaser(c, dest) {   // two loops of the same stretch of your sound, one running a hair fast, drifting out of phase (after Steve Reich's tape pieces)
+      var A = null, B = null, gA = null, gB = null, r0 = 1;
+      function stopAll(t) { [[A, gA], [B, gB]].forEach(function (p2) { if (p2[0]) { try { p2[1].gain.setTargetAtTime(0, t, 0.02); p2[0].stop(t + 0.2); } catch (x) {} } }); A = B = null; }
+      return {
+        start: function (t, id, ls, len, rate) {
+          stopAll(t); var b = tapeBuf(c, id); if (!b) return; r0 = rate;
+          function one(pan) { var s0 = c.createBufferSource(), g = c.createGain(); s0.buffer = b; s0.loop = true; s0.loopStart = ls; s0.loopEnd = ls + len; s0.playbackRate.value = rate; g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.07, t + 0.04); s0.connect(g); var pn = panTo(c, g, dest, pan); s0.start(t, ls); letGo(s0, [g, pn]); return [s0, g]; }
+          var a = one(-0.55), bb = one(0.55); A = a[0]; gA = a[1]; B = bb[0]; gB = bb[1];
+        },
+        rate: function (t, r) { if (B) B.playbackRate.setTargetAtTime(r0 * r, t, 0.4); },
+        stop: function (t) { stopAll(t); }
+      };
+    }
+    function phaseCell(T) {   // the stretch to loop: from one attack to a later one if the sound has a rhythm, otherwise its loudest stretch
+      var on = T.onsets.map(function (x) { return x / T.sr; });
+      for (var i = 0; i < on.length; i++) for (var j = i + 1; j < on.length; j++) { var L = on[j] - on[i]; if (L >= 0.45 && L <= 1.3) return [on[i], L]; }
+      var len = Math.max(0.3, Math.min(0.9, T.dur - 0.05));
+      return [Math.max(0, Math.min(T.body, T.dur - len - 0.02)), len];
+    }
+    function phaseRate(T, cell) {   // the loop, nudged onto the nearest note of B-flat major pentatonic, if it has a pitch
+      var ref = (T.pmap && T.pmap[Math.max(0, Math.min(T.pmap.length - 1, Math.round((cell[0] + cell[1] / 2) / 0.05)))]) || T.f0; if (!ref) return 1;
+      var best = 1, bd = 1e9;
+      for (var o = -3; o <= 3; o++) VPENT.forEach(function (s2) { var f = 233.08 * Math.pow(2, o + s2 / 12), d = Math.abs(Math.log(f / ref)); if (d < bd) { bd = d; best = f / ref; } });
+      return best;
     }
     function noteName(f) { var m = Math.round(69 + 12 * Math.log(f / 440) / Math.LN2), nm = ['C', 'D\u266D', 'D', 'E\u266D', 'E', 'F', 'G\u266D', 'G', 'A\u266D', 'A', 'B\u266D', 'B']; return nm[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1); }
     function pitchOf(d, sr, at, N0) {   // the fundamental of a stretch of the sound, by autocorrelation; 0 if it has no clear pitch
@@ -4171,7 +4199,7 @@
       var el = document.createElement('div'); el.className = 'sc-ui sc-card'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Record a sound for movement V');
       function add(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; el.appendChild(e); return e; }
       add('div', 'sc-no', 'Movement V: Musique Concr\u00E8te');
-      add('div', 'sc-sub', 'after Pierre Schaeffer');
+      add('div', 'sc-sub', 'after Pierre Schaeffer and Steve Reich');
       var msg = add('div', 'sc-meta', 'Make any sound for four seconds: sing, hum, speak, whistle, or clap. The whole movement is made from it. Your recording stays on this page and is never uploaded.');
       var cv = add('canvas', 'sc-cv'); cv.width = 1720; cv.height = 360;
       var bt = add('div', 'sc-btns');
@@ -4265,8 +4293,8 @@
       else if (m === 1) { d = nextSoloDeg(14); var o = Math.floor(d / 7), v2 = 0.4 + danger * 0.6; f = 233.08 * YAMAN[d - o * 7] * Math.pow(2, o); if (singer) singer.note(t, f, v2); logEvAt(t, 'sng', f, v2); soloNote(f, 'string', 'sng'); }   // the voice glides (meend) to each new note
       else if (m === 2) { f = F1 * (8 + nextSoloDeg(16)); play('plk', t, f, 0.5, pan, 0.08 + Math.random() * 0.4); soloNote(f, 'string', 'plk'); }
       else if (m === 3) { f = F1 * (6 + nextSoloDeg(14)); play('horn', t, f, 0.45 + danger * 0.45, pan); padAdd(rowPartial(playerY), 0.22); soloNote(f, 'mode', 'hrn'); }   // the horn plays partials 6 to 20; the row you are on lights its partial in the rhythmicon
-      else {   // movement V: your solo is your own sound, transposed by tape speed into B-flat minor pentatonic
-        d = nextSoloDeg(10); var o5 = Math.floor(d / 5); f = 233.08 * Math.pow(2, ([0, 3, 5, 7, 10][d - o5 * 5] + 12 * o5) / 12);
+      else {   // movement V: your solo is your own sound, transposed by tape speed into B-flat major pentatonic
+        d = nextSoloDeg(10); var o5 = Math.floor(d / 5); f = 233.08 * Math.pow(2, (VPENT[d - o5 * 5] + 12 * o5) / 12);
         if (tape) {   // each dot plays the next slice of your recording, like a tape head moving through it, retuned to the melody
           var hd = tape.head || 0;
           play('vg', t, tape.id, tapeRate(f, tape, hd + 0.15), hd, 0.32, 0.65 + danger * 0.3, pan);
@@ -4301,6 +4329,7 @@
         var h5 = tape.head || 0, seg = Math.min(1.1, tape.dur - 0.05), st6 = Math.max(0, Math.min(tape.dur - seg, h5 - 0.3));
         play('vg', t, tape.id, tapeRate(466.16, tape, h5 + 0.1), h5, 0.2, 1, -0.3); play('vg', t + 0.01, tape.id, tapeRate(698.46, tape, h5 + 0.1), h5, 0.2, 1, 0.3);   // the accent, a fifth wide
         play('vrev', t + 0.05, tape.id, 1.4, st6, seg);
+        if (phaser && phz) { phaser.start(t, tape.id, phz.ls, phz.len, phz.r0); logEvAt(t, 'phzon', tape.id, phz.ls, phz.len, phz.r0); phz.eps = 0; phz.a = phz.b = 0; }   // the loops snap back into unison
         for (i = 0; i < 8; i++) play('vg', t + 0.1 + Math.random() * 0.6, tape.id, tapeRate(116.54 * TAPE_CHORD[i % 5] * 2), Math.random() * Math.max(0.05, tape.dur - 0.2), 0.12, 0.6, Math.random() * 1.6 - 0.8);
       }
     }
@@ -4467,9 +4496,16 @@
     function concreteTick(t, beat, off, pw) {   // movement V: a cloud of grains of your sound tuned to B-flat, denser as danger rises; now and then a whole sound object
       if (!tape) return;
       var n = 1 + Math.round(danger * 3) + (pw ? 2 : 0), i;
+      var ch5 = vChord();
       for (i = 0; i < n; i++) {
         if (Math.random() > 0.55 + danger * 0.3) continue;
-        play('vg', t + Math.random() * stepDur, tape.id, tapeRate(116.54 * TAPE_CHORD[Math.floor(Math.random() * 5)] * (Math.random() < 0.5 ? 1 : 2)), Math.random() * Math.max(0.05, tape.dur - 0.2), 0.07 + Math.random() * 0.12, 0.16 + Math.random() * 0.12, Math.random() * 1.6 - 0.8);
+        var tg = t + Math.random() * stepDur, og = Math.random() * Math.max(0.05, tape.dur - 0.2);
+        play('vg', tg, tape.id, tapeRate(116.54 * Math.pow(2, ch5[Math.floor(Math.random() * 5)] / 12) * [0.5, 1, 1, 2][Math.floor(Math.random() * 4)], tape, og + 0.05), og, 0.07 + Math.random() * 0.12, 0.16 + Math.random() * 0.12, Math.random() * 1.6 - 0.8);
+        vFlecks.push([tg, og]);
+      }
+      if (!off && phaser && phz) {   // the phasing pair drifts apart faster as the ghosts close in; a power pellet holds them together
+        var eps = pw ? 0 : 0.003 + danger * 0.025;
+        if (Math.abs(eps - phz.eps) > 0.0015) { phz.eps = eps; phaser.rate(t, 1 + eps); logEvAt(t, 'phzr', 1 + eps); }
       }
       if (!off && beat === 0 && Math.random() < 0.35 + danger * 0.4) {
         var on = tape.onsets.length >= 4 ? tape.onsets[Math.floor(Math.random() * tape.onsets.length)] : Math.floor(Math.random() * 8) / 8 * Math.max(0, tape.dur - 0.4) * tape.sr;
@@ -4500,6 +4536,11 @@
       if (m === 0) { sax = makeSax(c, out, t); logEvAt(t, 'sxon'); }   // the saxophone, ready for your solo
       if (m === 2) dssStart();
       if (m === 3) { padStart(); rhyStart(); }
+      if (m === 4 && tape) {   // the phasing pair: two loops of a stretch of your sound, in unison at first
+        var cell = phaseCell(tape), r0 = phaseRate(tape, cell);
+        phaser = makePhaser(c, out); phaser.start(t, tape.id, cell[0], cell[1], r0); logEvAt(t, 'phzon', tape.id, cell[0], cell[1], r0);
+        phz = { ls: cell[0], len: cell[1], r0: r0, a: 0, b: 0, eps: 0, at: performance.now() };
+      }
     }
     function bedStop() {
       var c = gameAudioCtx; if (!c) return;
@@ -4511,6 +4552,7 @@
       bedHolds = [];
       if (singer) { try { singer.end(t); } catch (x) {} singer = null; logEvAt(t, 'sgoff'); }
       if (sax) { try { sax.end(t); } catch (x) {} sax = null; logEvAt(t, 'sxoff'); }
+      if (phaser) { try { phaser.stop(t); } catch (x) {} phaser = null; phz = null; logEvAt(t, 'phzoff'); }
       dssStop(); padStop(); rhyStop();
     }
     function padStart() {
@@ -4668,7 +4710,7 @@
         else if (m === 1) f = 116.54 * [1, 1.5, 1.25, 1.125][i] * (hi > 0.5 ? 2 : 1) * Math.pow(2, prox * 0.022);   // just consonances with the drone; a ghost that nears slides out of tune and beats against it
         else if (m === 2) f = F1 * (6 + Math.round(hi * 12) + i);   // stochastic voices, held on the harmonic series
         else if (m === 3) f = F1 * [7, 11, 13, 14][i] * (hi > 0.55 ? 2 : 1);   // the finale's four blue partials
-        else f = 116.54 * [1, 1.25, 1.5, 1.875][i] * (hi > 0.5 ? 2 : 1);   // movement V: four locked grooves of your sound, on a B-flat major seventh
+        else f = 116.54 * Math.pow(2, vChord()[i] / 12) * (hi > 0.5 ? 2 : 1);   // movement V: four locked grooves of your sound, on the chord of the moment
         var fr = !title && !!g.frightened;
         if (fr) { if (m === 3) f = 440 * Math.pow(2, Math.round(12 * Math.log(f / 440) / Math.LN2) / 12); else f /= 2; }   // frightened: an octave down; in the finale, they fall into equal temperament
         var active = title || (g.homeTimer <= 0 && !g.eaten);
@@ -4680,6 +4722,7 @@
     var lastTick = 0, lastLog = 0, lastPX = -1, lastPY = -1;
     function suiteTick() {   // every frame: the trail; twenty times a second: the ghosts' voices and the danger they bring
       var now = performance.now(), i;
+      if (phz) { var dtp = (now - phz.at) / 1000; phz.at = now; if (gameState === 'playing') { phz.a = (phz.a + dtp * phz.r0 / phz.len) % 1; phz.b = (phz.b + dtp * phz.r0 * (1 + phz.eps) / phz.len) % 1; } }
       if (playerX !== lastPX || playerY !== lastPY) {
         lastPX = playerX; lastPY = playerY;
         if (gameState === 'playing') { trail.push({ x: playerX, y: playerY, t: now }); if (trail.length > 40) trail.shift(); }
@@ -4958,7 +5001,7 @@
     }
     // ---------- performing a run again from its score: the same code plays it live and renders it offline ----------
     function eventPlayer(c, dest, run, lim, off) {   // returns sched(tEnd), which creates every event of the run that starts before tEnd
-      var evs = run.ev.filter(function (e) { return e[0] <= lim; }).sort(function (a, b) { return a[0] - b[0]; }), ei = 0, pads = [], sg = null, sx = null;
+      var evs = run.ev.filter(function (e) { return e[0] <= lim; }).sort(function (a, b) { return a[0] - b[0]; }), ei = 0, pads = [], sg = null, sx = null, ph = null;
       function sched(tEnd) {
         while (ei < evs.length && evs[ei][0] + off < tEnd) {
           var e = evs[ei++], t = e[0] + off;
@@ -4974,11 +5017,14 @@
           else if (e[1] === 'sx') { if (sx) sx.note(t, e[2], e[3], e[4]); }
           else if (e[1] === 'sxfall') { if (sx) sx.fall(t); }
           else if (e[1] === 'sxoff') { if (sx) { sx.end(t); sx = null; } }
+          else if (e[1] === 'phzon') { if (!ph) ph = makePhaser(c, dest); ph.start(t, e[2], e[3], e[4], e[5]); }
+          else if (e[1] === 'phzr') { if (ph) ph.rate(t, e[2]); }
+          else if (e[1] === 'phzoff') { if (ph) { ph.stop(t); ph = null; } }
           else { try { SND[e[1]](c, dest, t, e[2], e[3], e[4], e[5], e[6], e[7]); } catch (x) {} }
         }
       }
       function endPads(t) { pads.forEach(function (p2) { if (p2) { try { p2.g.gain.setTargetAtTime(0, t, 0.8); p2.o.stop(t + 4); } catch (x) {} } }); pads = []; }
-      sched.end = function (t) { endPads(t); if (sg) { sg.end(t); sg = null; } if (sx) { sx.end(t); sx = null; } };
+      sched.end = function (t) { endPads(t); if (sg) { sg.end(t); sg = null; } if (sx) { sx.end(t); sx = null; } if (ph) { ph.stop(t); ph = null; } };
       return sched;
     }
     function ghostPlayer(c, dest, run, lim, off) {   // the four ghosts, moving exactly as they moved: one set of voices per stretch of play
@@ -5351,6 +5397,20 @@
       ctx.textAlign = 'center'; ctx.font = hudFont(600, Math.round(cellSize * 0.4)); ctx.fillStyle = M.dim; spaced(cellSize * 0.1);
       ctx.fillText('SIGNAL CHASE  \u00b7  ' + M.n + '. ' + M.name.toUpperCase() + (mi === 0 ? '  \u00b7  ' + chordName(curChord) : '') + '  \u00b7  LEVEL ' + level, w / 2, offsetY - cellSize * 1.15);
       spaced(0);
+      if (mi === 4 && tape && (gameState === 'playing' || gameState === 'studio')) {   // the tape strip: your recording, with your solo's tape head, the ghosts' loops, the phasing pair, and the cloud's grains
+        var sx6 = offsetX, sw6 = COLS * cellSize, sy6 = offsetY + ROWS * cellSize + cellSize * 0.35, sh6 = Math.min(30, cellSize * 0.85), E6 = tape.env, nA6 = gameAudioCtx ? gameAudioCtx.currentTime : 0;
+        ctx.fillStyle = hexA(M.acc, 0.3);
+        for (q = 0; q < E6.length; q++) { var hh6 = Math.max(1, E6[q] * sh6 * 0.5); ctx.fillRect(sx6 + q / E6.length * sw6, sy6 + sh6 / 2 - hh6, Math.max(1, sw6 / E6.length - 0.4), hh6 * 2); }
+        if (GV) GV.forEach(function (v, gi2) { if (!v.T) return; var xa6 = sx6 + v.nz.loopStart / tape.dur * sw6, xb6 = sx6 + v.nz.loopEnd / tape.dur * sw6; ctx.fillStyle = hexA(M.ghosts[gi2], Math.min(0.75, 0.18 + v.g.gain.value * 9)); ctx.fillRect(xa6, sy6, Math.max(2, xb6 - xa6), sh6); });
+        if (phz) {   // the phasing pair: one bracket, two playheads drifting apart
+          var px6 = sx6 + phz.ls / tape.dur * sw6, pw6 = Math.max(4, phz.len / tape.dur * sw6);
+          ctx.strokeStyle = hexA(M.acc, 0.7); ctx.lineWidth = hair; ctx.strokeRect(px6, sy6 - 2, pw6, sh6 + 4);
+          ctx.fillStyle = M.acc; ctx.fillRect(px6 + phz.a * pw6 - 1, sy6 - 2, 2, sh6 + 4); ctx.fillStyle = hexA(M.ink, 0.85); ctx.fillRect(px6 + phz.b * pw6 - 1, sy6 - 2, 2, sh6 + 4);
+        }
+        vFlecks = vFlecks.filter(function (fk) { return fk[0] > nA6 - 0.6; });
+        vFlecks.forEach(function (fk) { if (fk[0] > nA6) return; ctx.fillStyle = hexA(M.ink, Math.max(0, 0.7 - (nA6 - fk[0]))); ctx.fillRect(sx6 + fk[1] / tape.dur * sw6 - 1, sy6 + sh6 * 0.15, 2, sh6 * 0.7); });
+        var xh6 = sx6 + (tape.head || 0) / tape.dur * sw6; ctx.fillStyle = M.ink; ctx.fillRect(xh6 - 1.5, sy6 - 4, 3, sh6 + 8);   // your tape head
+      }
       if (movTitleAt && gameState === 'playing') {   // each movement announces itself
         var mt = (pnow - movTitleAt) / 3400;
         if (mt < 1) {
