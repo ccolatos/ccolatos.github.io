@@ -5221,10 +5221,10 @@
         }
       }
       if (!gameAudioCtx || now - lastTick < 50) return;
-      lastTick = now;
+      var dk = Math.min(250, now - lastTick) / 50; lastTick = now;   // how much time has passed since the last update, in fiftieths of a second
       var T = ghostTargets(now), dmax = 0, m = movIdx();
       for (i = 0; i < 4; i++) { var g = ghosts[i]; if (!g.frightened && !g.eaten && g.homeTimer <= 0) dmax = Math.max(dmax, T[i].prox); }
-      danger += (dmax - danger) * (1 - Math.pow(0.88, frameK));   // eased in real time, not per frame
+      danger += (dmax - danger) * (1 - Math.pow(0.88, dk));   // eased in real time: 12% for every 50 ms that has passed, whatever the frame rate
       var t = gameAudioCtx.currentTime;
       if (GV) for (i = 0; i < 4 && i < GV.length; i++) {
         var v = GV[i], s2 = T[i];
