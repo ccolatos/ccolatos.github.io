@@ -3828,6 +3828,25 @@
     var COMPS = [[0.75, 0, 0, 0.6, 0, 0, 0, 0], [0.7, 0, 0, 0, 0, 0, 0, 0.55], [0, 0, 0.6, 0, 0, 0, 0.6, 0], [0.7, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0.6, 0, 0, 0.5, 0]];   // Charleston, anticipation, two and four, the downbeat, off-beat pushes
     var PCN = ['B\u266D', 'B', 'C', 'D\u266D', 'D', 'E\u266D', 'E', 'F', 'G\u266D', 'G', 'A\u266D', 'A'];
     var sax = null, formPos = 0, coltBeat = 0, curChord = [0, '7'], bassPrev = null, prevVoi = null, compPat = null, lineQ = [], linePrev = null;
+    // movement I, the look: a living 1950s jazz record sleeve; a color field for each key center (B-flat, G-flat, D), the chord of the
+    // moment in giant type, and the record half out of its sleeve, spinning at 33 1/3 (45 when you are powered up)
+    var SLEEVE = [{ bg: [17, 58, 118], ty: [36, 88, 158], acc: '#F28A1E' }, { bg: [116, 30, 28], ty: [148, 52, 44], acc: '#F2B705' }, { bg: [18, 80, 71], ty: [36, 112, 99], acc: '#F2783C' }];
+    var slv = { bg: null, a: 0, w: 0, at: 0, txt: '', txtAt: 0, trail: [], hh: [], crash: -9, pat: null };
+    function sleeveM() {   // movement I's colors while it is played: cream ink on the color field of the key you are in
+      var K = SLEEVE[keyIdx % SLEEVE.length], m0 = MOVS[0], i;
+      if (!slv.bg) slv.bg = K.bg.slice();
+      for (i = 0; i < 3; i++) slv.bg[i] += (K.bg[i] - slv.bg[i]) * 0.12;
+      var hx = '#' + slv.bg.map(function (v) { var s2 = Math.round(v).toString(16); return s2.length < 2 ? '0' + s2 : s2; }).join('');
+      return { n: m0.n, name: m0.name, sub: m0.sub, bg: hx, line: 'rgba(243,235,216,0.78)', dot: 'rgba(243,235,216,0.9)', acc: K.acc, ink: '#F3EBD8', dim: 'rgba(243,235,216,0.62)', ghosts: ['#F3EBD8', '#8FD3F2', '#F49AC1', '#A8E6CF'], dark: true };
+    }
+    // movement I, the horns: a hard bop front line (trumpet, alto, trombone) that answers your phrases, shouts when you eat a ghost, and falls off the chord when you are caught
+    var bopCR = { n: 0, last: 0, next: 0 }, bopShout = 0;
+    var RIFFS = [[[0, 1, 0.8, 2], [1, 3, 1, 0]], [[0, 1, 0.9, 0], [2, 1, 0.7, 0], [3, 3, 1, 0]], [[0, 1, 0.75, -1], [1, 3, 1, 0]], [[0, 2, 0.9, 0], [3, 1, 0.75, 0], [4, 3, 1, 0]]];   // the answers, in eighth notes: [start, length, accent, a step above or below]: bah-DAH; dat, dat-DAH; a half-step scoop; a longer call
+    function hornNotes(ch, lift, tones) {   // voiced on the color tones, the third, seventh, and ninth: trombone, alto, and trumpet on top
+      var q = tones || (ch[1] === 'm7' ? [3, 10, 14] : ch[1] === 'maj7' ? [4, 11, 14] : ch[1] === 'o7' ? [3, 9, 12] : [4, 10, 14]), kk = KEYS[keyIdx] + (lift || 0), lo = [-9, 2, 10], hi = [2, 13, 21];
+      return q.map(function (s2, i) { var n = ch[0] + s2; while (n < lo[i]) n += 12; while (n > hi[i]) n -= 12; return 233.08 * Math.pow(2, (kk + n) / 12); });
+    }
+    function hornHit(t, ch, v, dur, lift, fall, tones) { hornNotes(ch, lift, tones).forEach(function (f, i) { play('brs', t + i * 0.005, f, v, [-0.32, 0.05, 0.3][i], dur, fall ? 1 : 0); }); }
     function chordName(ch) { var pc = ((ch[0] + KEYS[keyIdx]) % 12 + 12) % 12; return PCN[pc] + (ch[1] === 'o7' ? '\u00B07' : ch[1]); }
     var YAMAN = [1, 9 / 8, 5 / 4, 45 / 32, 3 / 2, 5 / 3, 15 / 8], PAD_GAIN = 0.003;   // Raga Yaman's notes (the same as Lydian), in just intonation over the drone
     function hueOf(n) { return (38 + ((1200 * Math.log(n) / Math.LN2) % 1200) * 0.3) % 360; }   // a partial's color: its pitch class on the color wheel, B-flat in the page's gold
@@ -3843,7 +3862,8 @@
       trim.connect(bus); bus.gain.value = 0.9; bus.connect(comp); comp.connect(mk); mk.gain.value = MASTER_GAIN; mk.connect(lim); lim.connect(clip); clip.connect(c.destination);
       verb.buffer = makeReverbIR(c, 2.4, 3); wet.gain.value = 0.22; bus.connect(verb); verb.connect(wet); wet.connect(comp);
       trim.movAt = function (m, t) { trim.gain.setValueAtTime(Math.pow(10, MOV_TRIM[m] / 20), Math.max(0, t)); };   // each movement at its trim, from the moment it begins
-      trim.marks = function (run, off) { run.marks.forEach(function (k) { if (k[1] === 'mov') trim.movAt(k[2], k[0] + off); }); };   // the same, for a run played back or saved
+      trim.marks = function (run, off) { run.marks.forEach(function (k) { if (k[1] === 'mov') trim.movAt(k[2], k[0] + off); }); };   // the same, for a run being saved
+      trim.post = bus;   // a run played back joins here, after the live trim, with trims of its own
       return trim;
     }
     function gameOut() { if (!gBus && gameAudioCtx) gBus = busFor(gameAudioCtx); return gBus; }
@@ -3908,6 +3928,17 @@
         letGo(o, [lp, g, pn]); letGo(o2, [g2]);
       },
       rp: function (c, out, t, f, v, p, dur) { SND.sin(c, out, t, f, v, p, dur); },   // a pure pulse
+      brs: function (c, out, t, f, v, p, dur, fall) {   // a horn of the section: two brassy reeds a few cents apart, scooped up into the note, the buzz of the attack settling back; long notes take vibrato; with fall, it drops off the note
+        var D = dur || 0.2, e = t + D, pk = 0.035 + v * 0.05, g = c.createGain(), lp = c.createBiquadFilter(), o1 = c.createOscillator(), o2 = c.createOscillator(), nodes = [o2, lp, g];
+        o1.type = o2.type = 'sawtooth'; o2.detune.value = 9;
+        [o1, o2].forEach(function (o) { o.frequency.setValueAtTime(f * 0.97, t); o.frequency.exponentialRampToValueAtTime(f, t + 0.04); if (fall) { o.frequency.setValueAtTime(f, t + D * 0.35); o.frequency.exponentialRampToValueAtTime(f * 0.55, e); } });
+        if (D > 0.3 && !fall) { var vb = c.createOscillator(), vg = c.createGain(); vb.frequency.value = 5.6; vg.gain.setValueAtTime(0, t); vg.gain.linearRampToValueAtTime(f * 0.007, t + D * 0.8); vb.connect(vg); vg.connect(o1.frequency); vg.connect(o2.frequency); vb.start(t); vb.stop(e + 0.15); nodes.push(vb, vg); }
+        lp.type = 'lowpass'; lp.Q.value = 1.1; lp.frequency.setValueAtTime(500, t); lp.frequency.exponentialRampToValueAtTime(1400 + 2600 * v, t + 0.035); lp.frequency.exponentialRampToValueAtTime(900 + 1500 * v, t + 0.16);
+        var rA = t + Math.min(0.12, D * 0.6);
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(pk, t + 0.018); g.gain.linearRampToValueAtTime(pk * 0.78, rA); g.gain.setValueAtTime(pk * 0.78, Math.max(rA, e - 0.06)); g.gain.exponentialRampToValueAtTime(0.0001, e + (fall ? 0.02 : 0.07));
+        o1.connect(lp); o2.connect(lp); lp.connect(g); nodes.push(panTo(c, g, out, p));
+        o1.start(t); o2.start(t); o1.stop(e + 0.15); o2.stop(e + 0.15); letGo(o1, nodes);
+      },
       hp: function (c, out, t, f, v, p) {   // a harmonic struck: bright and glassy, ringing away
         var g = c.createGain(), pk = 0.05 + v * 0.07, nodes = [], first = null;
         [[1, 1, 1.1], [2, 0.32, 0.55], [3, 0.12, 0.3], [4, 0.05, 0.14]].forEach(function (h) {
@@ -4513,6 +4544,7 @@
         var vv = 0.45 + danger * 0.35 + Math.random() * 0.1;
         if (sax) sax.note(t, f, vv, first ? 0 : 1); logEvAt(t, 'sx', f, vv, first ? 0 : 1);
         soloNote(f, 'ep', 'sx');
+        bopCR.n++; bopCR.last = performance.now();   // the horns are listening for the end of your phrase
       }
       else if (m === 1) { d = nextSoloDeg(14); var o = Math.floor(d / 7), v2 = 0.4 + danger * 0.6; f = 233.08 * YAMAN[d - o * 7] * Math.pow(2, o); if (singer) singer.note(t, f, v2); logEvAt(t, 'sng', f, v2); play('plk', t, f, 0.95, pan, 0.12); soloNote(f, 'string', 'sng'); }   // and a light stroke on a plucked zither, the way a singer accompanies herself on a swarmandal   // the voice glides (meend) to each new note
       else if (m === 2) { f = F1 * (8 + nextSoloDeg(16)); play('plk', t, f, 0.5, pan, 0.08 + Math.random() * 0.4); soloNote(f, 'string', 'plk'); }
@@ -4551,6 +4583,7 @@
         for (i = 0; i < 14; i++) { var nx = stepScale(p0, COLT[0], dir); if (nx > 17) { dir = -1; nx = stepScale(p0, COLT[0], -1); } p0 = nx; var fr = 233.08 * Math.pow(2, (KEYS[keyIdx] + p0) / 12); if (sax) sax.note(t + i * 0.036, fr, 0.8, i ? 1 : 0); logEvAt(t + i * 0.036, 'sx', fr, 0.8, i ? 1 : 0); }
         linePrev = p0; lineQ = [];
         play('chm', t + 14 * 0.036, keyRoot() * 4);
+        bopShout = 0; hornHit(t, COLT[0], 0.9, 0.5); play('rd', t, 1, 0.3); play('bd', t, 0.9, 0);   // and the band hits the new key with you
       } else if (m === 1) {   // a taan: the voice races up the scale
         var d0 = soloDeg;
         for (i = 0; i < 8; i++) { var dd = Math.min(14, d0 + i), oo = Math.floor(dd / 7), ff = 233.08 * YAMAN[dd - oo * 7] * Math.pow(2, oo); if (singer) singer.note(t + i * 0.075, ff, 0.9); logEvAt(t + i * 0.075, 'sng', ff, 0.9); }
@@ -4587,6 +4620,10 @@
         if (rsv) { var nl4 = Math.min(1, (rsv.lits[kj] || 0) + 0.5); rsv.lit(t, kj, nl4); logEvAt(t, 'rslit', kj, nl4); }
         return;
       }
+      if (m === 0) {   // the horns shout: a stab on the chord of the moment, a step higher for each ghost in a row, and the drummer drops a bomb under it
+        hornHit(t, curChord, 1, 0.42, [0, 2, 4, 5][Math.min(3, bopShout++)]); play('bd', t, 0.95, 0); play('rd', t, 0.85, 0.3);
+        return;
+      }
       var r = (m === 0 ? keyRoot() : 233.08) / 2;
       if (m === 1) strum(t, false, 1, 11);   // movement II: a quick cascade down the zither
       [4, 5, 6, 8].forEach(function (k, i) { play('chm', t + i * 0.07, r * k); });
@@ -4601,6 +4638,7 @@
       if (movIdx() === 0) {   // and the band's last hit before the break: crash, kick, snare, a piano stab, and a saxophone falling away
         play('rd', t, 1, 0.3); play('bd', t, 1, 0); play('sn', t, 0.9, -0.1); pianoStab(t, curChord, 1, 0.9);
         play('sxf', t + 0.02, 233.08 * Math.pow(2, (KEYS[keyIdx] + (linePrev == null ? 7 : linePrev)) / 12), 1, -0.12);
+        hornHit(t + 0.01, curChord, 0.9, 0.6, 0, true);   // and the horns fall off the chord
       }
       if (movIdx() === 4 && tape) play('vwilt', t, tape.id, tape.head || tape.body, 1);   // caught: your sound sinking in steps
       if (movIdx() === 3) play('shep', t, 1.4, -1, 1, 0.45);   // caught: the endless glissando, falling
@@ -4644,6 +4682,7 @@
         [4, 9, 10, 14].forEach(function (s2, i) { play('pn', t + i * 0.006, 233.08 * Math.pow(2, (kk + s2) / 12), 0.9, 0.15, 2.4); });
         play('ub', t, 58.27 * Math.pow(2, kk / 12), 0.9, -0.12, 2.2); play('rd', t, 1, 0.3); play('bd', t, 0.9, 0); play('sn', t, 0.6, -0.1);
         play('sxn', t + 0.05, 233.08 * Math.pow(2, (kk + 14) / 12), 0.8, -0.12, 2.6);
+        hornHit(t + 0.02, [0, '7'], 1, 2.4, 0, false, [4, 9, 14]);   // the horns on the thirteenth chord, held, with vibrato
         return;
       }
       for (n = 4; n <= 12; n++) play('chm', t + (n - 4) * 0.09, 116.54 * n);
@@ -4659,7 +4698,7 @@
       if (perf.lastLevel !== level) { perf.lastLevel = level; logMark('mov', movIdx()); movTitleAt = performance.now(); }
       var m = movIdx(), cyc = Math.floor(((level || 1) - 1) / 5);
       musicStep = 0; walkDeg = 0; danger = 0; tanIdx = 0; tilt.g0 = null; breakUntil = 0; ghostPos = []; bellPos = [];
-      formPos = 0; coltBeat = 0; curChord = [0, '7']; lineQ = []; linePrev = null; bassPrev = null; prevVoi = null; compPat = null;
+      formPos = 0; coltBeat = 0; curChord = [0, '7']; lineQ = []; linePrev = null; bassPrev = null; prevVoi = null; compPat = null; bopCR.n = 0; bopCR.next = 0; bopShout = 0; slv.trail = []; slv.hh = [];
       BPM = [168, 76, 100, 84, 92][m] + cyc * 8;
       stepDur = 60 / BPM / 2;
       bedStart(m); ghostVoicesBuild(m, false);
@@ -4725,12 +4764,19 @@
       var dg = danger, hum = function () { return (Math.random() - 0.5) * 0.008; };
       var ch = pw ? COLT[Math.floor(coltBeat / 2) % 6] : formChord(formPos);
       if (!off) curChord = ch;
+      var fbar = Math.floor(formPos / 8) % 12, fstep = formPos % 8;
+      if (!pw && fbar === 11 && fstep >= 4) for (var pr = 0; pr < 4; pr++) play('sn', t + pr * stepDur / 4, 0.1 + ((fstep - 4) * 4 + pr) / 16 * 0.55, -0.08);   // the drummer's press roll, swelling into the top of the next chorus
+      if (!pw && fbar === 0 && fstep === 0) { play('rd', t, 1, 0.3); play('bd', t, 0.9, 0); slv.crash = t; }   // and the crash that lands on it
+      if (!pw && !off && bopCR.n >= 4 && performance.now() - bopCR.last > 380 && t > bopCR.next) {   // the horns answer your phrase, the way a hard bop front line answers a soloist
+        RIFFS[Math.floor(Math.random() * RIFFS.length)].forEach(function (nt) { hornHit(t + nt[0] * stepDur, formChord(formPos + nt[0]), nt[2], nt[1] * stepDur * 0.9, nt[3]); });
+        bopCR.n = 0; bopCR.next = t + stepDur * 16;
+      }
       // drums: the ride's spang-a-lang leaning on 2 and 4 (straight eighths when the ghosts are on you), hi-hat foot on 2 and 4,
       // a feathered bass drum, snare comping that gets busier as danger rises, and a bomb at the end of a phrase
       var dbl = dg > 0.75 || pw;
       if (!off) play('rd', t + hum(), (beat % 2 ? 0.8 : 0.6) * (0.85 + Math.random() * 0.3), 0.32);
       else if (beat % 2 === 1 || dbl) play('rd', t + hum(), 0.42 + Math.random() * 0.15, 0.32);
-      if (!off && beat % 2 === 1) play('hh', t + hum(), 0.7, 0.22);
+      if (!off && beat % 2 === 1) { play('hh', t + hum(), 0.7, 0.22); slv.hh.push(t); if (slv.hh.length > 6) slv.hh.shift(); }
       if (!off) play('bd', t + hum(), 0.16, 0);
       if (off && Math.random() < 0.07 + dg * 0.35 + (pw ? 0.25 : 0)) play('sn', t + hum(), 0.18 + Math.random() * 0.32, -0.08);
       if (dg > 0.6 && step === 7 && Math.floor(formPos / 8) % 4 === 3) { play('bd', t, 0.85, 0); play('sn', t + 0.002, 0.7, -0.08); }
@@ -5298,11 +5344,11 @@
       var c = gameAudioCtx, bus = gameOut(); if (!c || !bus || !mine(run)) return;
       if (c.state !== 'running') c.resume();
       stopRun();
-      var lim = Math.min(run.end, 240), pg = c.createGain(); pg.connect(bus);
-      var L = live = { pg: pg, t0: 0, timer: 0, run: run, sched: null };
+      var lim = Math.min(run.end, 240), pg = c.createGain(), ptr = c.createGain(); pg.connect(ptr); ptr.connect(bus.post || bus);   // playback has its own trim stage, so its movement changes never touch the live game's
+      var L = live = { pg: pg, ptr: ptr, t0: 0, timer: 0, run: run, sched: null };
       card.play.textContent = 'Stop';
       var T0 = L.t0 = c.currentTime + 0.12;
-      if (bus.marks) bus.marks(run, T0);
+      run.marks.forEach(function (k) { if (k[1] === 'mov') ptr.gain.setValueAtTime(Math.pow(10, MOV_TRIM[k[2]] / 20), Math.max(0, k[0] + T0)); });
       ghostPlayer(c, pg, run, lim, T0);
       L.sched = eventPlayer(c, pg, run, lim, T0);
       L.sched(T0 + 1.5);
@@ -5321,7 +5367,7 @@
       if (live) {
         var L = live, c = gameAudioCtx; live = null; clearInterval(L.timer);
         try { L.pg.gain.setTargetAtTime(0, c.currentTime, 0.03); if (L.sched) L.sched.end(c.currentTime + 0.3); } catch (x) {}
-        setTimeout(function () { try { L.pg.disconnect(); } catch (x) {} }, 300);
+        setTimeout(function () { try { L.pg.disconnect(); L.ptr.disconnect(); } catch (x) {} }, 300);   // and its trim stage goes with it, along with anything still scheduled on it
       }
       cancelAnimationFrame(runRaf);
       if (card) { card.play.textContent = 'Play'; drawRunScore(card.cv, card.run, -1); }
@@ -5647,6 +5693,7 @@
       suiteTick(); godSync(false);
       var w = gameCanvas.width, h = gameCanvas.height, ctx = gameCtx, now = Date.now(), pnow = performance.now(), M = mov(), mi = movIdx(), r, c, x, y, cx, cy, q;
       if (gameState === 'title') { ctx.fillStyle = '#0a0a0a'; ctx.fillRect(0, 0, w, h); drawTitle(ctx, w, h, pnow); return; }
+      if (mi === 0) M = sleeveM();   // movement I wears its record sleeve while it is played
       ctx.fillStyle = M.bg; ctx.fillRect(0, 0, w, h);
       var maxW = w * 0.92, maxH = h * 0.82;
       cellSize = Math.floor(Math.min(maxW / COLS, maxH / ROWS));
@@ -5673,6 +5720,43 @@
           ctx.quadraticCurveTo((p1[0] + p2[0]) / 2 + (horiz ? 0 : amp), (p1[1] + p2[1]) / 2 + (horiz ? amp : 0), p2[0], p2[1]);
         } else ctx.lineTo(p2[0], p2[1]);
         ei++;
+      }
+      if (mi === 0) {   // movement I: the record sleeve comes alive: the chord of the moment in giant type, a fine halftone screen, the record spinning half out of its sleeve, and your solo's line traced behind you
+        var K0 = SLEEVE[keyIdx % SLEEVE.length], tA0 = gameAudioCtx ? gameAudioCtx.currentTime : 0, portrait = h > w * 1.1, cr0 = Math.max(0, 1 - (tA0 - slv.crash) / 0.9), lh0 = 0;
+        slv.hh.forEach(function (x) { if (x <= tA0 && x > lh0) lh0 = x; }); var sw0 = 1 + 0.55 * Math.exp(-(tA0 - lh0) / 0.09);   // the dots lean on two and four with the hi-hat
+        var tx0 = gameState === 'won' ? 'FINE' : chordName(curChord);
+        if (tx0 !== slv.txt) { slv.txt = tx0; slv.txtAt = pnow; }
+        var ein = Math.min(1, (pnow - slv.txtAt) / 160), fs0 = Math.round(portrait ? w * 0.42 : h * 0.44), tyc = K0.ty;
+        ctx.save(); if ('fontStretch' in ctx) ctx.fontStretch = 'condensed';
+        ctx.font = hudFont(900, fs0); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+        ctx.fillStyle = 'rgba(' + tyc[0] + ',' + tyc[1] + ',' + tyc[2] + ',' + (0.5 + 0.4 * ein + 0.1 * cr0).toFixed(3) + ')';
+        ctx.fillText(tx0, (portrait ? w * 0.03 : -w * 0.008) - (1 - ein) * fs0 * 0.12, portrait ? offsetY - cellSize * 1.6 : h * 0.97);
+        if ('fontStretch' in ctx) ctx.fontStretch = 'normal'; ctx.restore();
+        if (!slv.pat) { var pc0 = document.createElement('canvas'); pc0.width = pc0.height = 6; var pq0 = pc0.getContext('2d'); pq0.fillStyle = '#F3EBD8'; pq0.beginPath(); pq0.arc(3, 3, 1.1, 0, 6.2832); pq0.fill(); slv.pat = ctx.createPattern(pc0, 'repeat'); }
+        ctx.globalAlpha = 0.07; ctx.fillStyle = slv.pat; ctx.fillRect(0, 0, w, h); ctx.globalAlpha = 1;   // the printed sleeve's halftone screen
+        var R0 = portrait ? w * 0.62 : h * 0.47, rx0 = portrait ? w * 0.5 : Math.min(w - R0 * 0.3, offsetX + COLS * cellSize + R0 * 0.62), ry0 = portrait ? h - R0 * 0.32 : h * 0.54;
+        var dt0 = slv.at ? Math.min(0.1, (pnow - slv.at) / 1000) : 0, wT = (deathAnim && pnow - deathAnim.t < 1600) ? 0 : (frightenedTimer > 0 ? 45 : 33.333) / 60 * 6.2832;   // 33 1/3, or 45 powered up; caught, the turntable winds down
+        slv.at = pnow; slv.w += (wT - slv.w) * Math.min(1, dt0 * (wT === 0 ? 4 : 3)); slv.a += slv.w * dt0;
+        ctx.save(); ctx.beginPath(); ctx.arc(rx0, ry0, R0, 0, 6.2832); ctx.fillStyle = '#0C0D10'; ctx.fill();
+        ctx.lineWidth = 1; for (var gr0 = 0; gr0 < 26; gr0++) { ctx.strokeStyle = 'rgba(255,255,255,' + (gr0 % 4 === 0 ? 0.06 : 0.025) + ')'; ctx.beginPath(); ctx.arc(rx0, ry0, R0 * (0.38 + 0.6 * gr0 / 25), 0, 6.2832); ctx.stroke(); }   // the grooves
+        if (ctx.createConicGradient) {   // the light lying across the grooves stays put while the record turns under it
+          var cg0 = ctx.createConicGradient(-0.6, rx0, ry0); [[0, 0], [0.07, 0.13], [0.14, 0], [0.5, 0], [0.57, 0.1], [0.64, 0], [1, 0]].forEach(function (q0) { cg0.addColorStop(q0[0], 'rgba(255,255,255,' + q0[1] + ')'); });
+          ctx.fillStyle = cg0; ctx.beginPath(); ctx.arc(rx0, ry0, R0 * 0.985, 0, 6.2832); ctx.arc(rx0, ry0, R0 * 0.36, 0, 6.2832, true); ctx.fill();
+        }
+        ctx.translate(rx0, ry0); ctx.rotate(slv.a);   // the label, turning
+        ctx.fillStyle = K0.acc; ctx.beginPath(); ctx.arc(0, 0, R0 * 0.33, 0, 6.2832); ctx.fill();
+        ctx.strokeStyle = 'rgba(12,13,16,0.35)'; ctx.lineWidth = Math.max(1, R0 * 0.006); ctx.beginPath(); ctx.arc(0, 0, R0 * 0.27, 0, 6.2832); ctx.stroke();
+        ctx.fillStyle = '#0C0D10'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = hudFont(800, Math.round(R0 * 0.055)); ctx.fillText('SIGNAL CHASE', 0, -R0 * 0.14);
+        ctx.font = hudFont(500, Math.round(R0 * 0.036)); ctx.fillText('HARD BOP  \u00b7  ' + (frightenedTimer > 0 ? '45' : '33\u2153'), 0, R0 * 0.16);
+        ctx.fillStyle = M.bg; ctx.beginPath(); ctx.arc(0, 0, R0 * 0.025, 0, 6.2832); ctx.fill();
+        ctx.restore();
+        slv.trail = slv.trail.filter(function (p0) { return pnow - p0[2] < 1400; });   // your solo's line, brushed in behind you and fading
+        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        for (var ti0 = 1; ti0 < slv.trail.length; ti0++) {
+          var pa0 = slv.trail[ti0 - 1], pb0 = slv.trail[ti0], ag0 = (pnow - pb0[2]) / 1400;
+          if (Math.abs(pa0[0] - pb0[0]) + Math.abs(pa0[1] - pb0[1]) > cellSize * 2) continue;
+          ctx.strokeStyle = hexA(K0.acc, 0.5 * (1 - ag0)); ctx.lineWidth = cellSize * (0.12 + 0.32 * (1 - ag0)); ctx.beginPath(); ctx.moveTo(pa0[0], pa0[1]); ctx.lineTo(pb0[0], pb0[1]); ctx.stroke();
+        }
       }
       if (mi === 3) {   // movement IV: every row is a string vibrating in its harmonic's mode (the bottom row one loop, the top sixteen), lit the instant the arpeggio sings it, in its pitch's color
         var nowA = gameAudioCtx ? gameAudioCtx.currentTime : 0, rt6 = curRoot(), W6 = COLS * cellSize, tv = performance.now() / 1000, sh6 = frightenedTimer > 0 ? (tv * 0.4) % 1 : -1;
@@ -5710,7 +5794,7 @@
           ctx.strokeStyle = hexA(M.acc, 0.7); ctx.lineWidth = hair * 1.4; ctx.setLineDash([hair * 3, hair * 2.5]);
           ctx.beginPath(); ctx.moveTo(x + 2, cy); ctx.lineTo(x + cellSize - 2, cy); ctx.stroke(); ctx.setLineDash([]);
         } else if (maze[r][c] === 0) {   // a dot: a note waiting to be played
-          ctx.fillStyle = mi === 3 ? hsla(hueOfF(curRoot() * rowH(r)), 70, 76, 0.75) : M.dot; ctx.beginPath(); ctx.arc(cx, cy, cellSize * 0.07, 0, 6.2832); ctx.fill();
+          ctx.fillStyle = mi === 3 ? hsla(hueOfF(curRoot() * rowH(r)), 70, 76, 0.75) : M.dot; ctx.beginPath(); ctx.arc(cx, cy, cellSize * 0.07 * (mi === 0 ? sw0 : 1), 0, 6.2832); ctx.fill();
         } else if (maze[r][c] === 2) {   // a power pellet: the page's event ring, breathing
           var pr0 = cellSize * (0.24 + 0.05 * Math.sin(now * 0.005));
           ctx.strokeStyle = M.acc; ctx.lineWidth = hair * 1.6; ctx.beginPath(); ctx.arc(cx, cy, pr0, 0, 6.2832); ctx.stroke();
@@ -5747,6 +5831,7 @@
       mouthAngle += 0.15;
       var px = offsetX + playerX * cellSize + cellSize / 2, py = offsetY + playerY * cellSize + cellSize / 2, prr = cellSize * 0.42;
       var ang = playerDir === 0 ? -Math.PI / 2 : playerDir === 1 ? 0 : playerDir === 2 ? Math.PI / 2 : Math.PI;
+      if (mi === 0 && gameState === 'playing') { var lt0 = slv.trail[slv.trail.length - 1]; if (!lt0 || Math.abs(lt0[0] - px) + Math.abs(lt0[1] - py) > 0.5) slv.trail.push([px, py, pnow]); }
       var sFill = M.dark ? M.acc : '#0A0A0A', sTri = M.dark ? M.bg : '#F2F2EF';
       if (!(deathAnim && pnow - deathAnim.t < 450)) drawSignal(ctx, px, py, prr, ang, sFill, sTri, Math.sin(mouthAngle), hair, hexA(M.acc, 0.25));
       if (deathAnim) {   // a lost life: the play triangle becomes a stop square
@@ -5790,7 +5875,7 @@
           ctx.globalAlpha = al * 0.85; ctx.fillStyle = M.bg; ctx.fillRect(offsetX, ty0 - cellSize * 3.1, COLS * cellSize, cellSize * 4.5); ctx.globalAlpha = al;
           ctx.font = hudFont(600, Math.round(cellSize * 0.46)); spaced(cellSize * 0.14); ctx.fillStyle = M.dark ? M.acc : '#7B5F34'; ctx.fillText('MOVEMENT ' + M.n, w / 2, ty0 - cellSize * 1.9); spaced(0);
           if ('fontStretch' in ctx) ctx.fontStretch = 'condensed';
-          ctx.font = hudFont(200, Math.round(cellSize * (M.name.length > 10 ? 1.5 : 2))); ctx.fillStyle = M.ink; ctx.fillText(M.name.toUpperCase(), w / 2, ty0);
+          ctx.font = hudFont(mi === 0 ? 900 : 200, Math.round(cellSize * (M.name.length > 10 ? 1.5 : 2))); ctx.fillStyle = M.ink; ctx.fillText(M.name.toUpperCase(), w / 2, ty0);
           if ('fontStretch' in ctx) ctx.fontStretch = 'normal';
           ctx.font = serifFont(Math.round(cellSize * 0.56)); ctx.fillStyle = M.dim; ctx.fillText(M.sub, w / 2, ty0 + cellSize * 0.95);
           ctx.globalAlpha = 1;
