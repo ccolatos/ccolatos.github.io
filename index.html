@@ -3967,10 +3967,10 @@
         letGo(o, [lp, g, pn]); letGo(o2, [g2]);
       },
       rp: function (c, out, t, f, v, p, dur) { SND.sin(c, out, t, f, v, p, dur); },   // a pure pulse
-      pno: function (c, out, t, f, v, p, dur) {   // a note of the Steinway: the nearest recorded key, retuned; a soft touch darker as well as quieter; the damper falls when the note ends
+      pno: function (c, out, t, f, v, p, dur, lift) {   // a note of the Steinway: the nearest recorded key, retuned; a soft touch darker as well as quieter; the damper falls when the note ends (lift: a level change that leaves the tone alone)
         var k = 69 + 12 * Math.log(f / 440) / Math.LN2, key = nearestKey(BANK.pk, k), s0 = key != null ? BANK.p[key] : null;
         if (!s0) { SND.pn(c, out, t, f, v, p, dur); return; }
-        var src = c.createBufferSource(), lp = c.createBiquadFilter(), g = c.createGain(), D = dur || 0.5, end = t + D, rt = Math.pow(2, (k - key) / 12), lv = PNO_GAIN * (0.12 + 0.88 * v * v);
+        var src = c.createBufferSource(), lp = c.createBiquadFilter(), g = c.createGain(), D = dur || 0.5, end = t + D, rt = Math.pow(2, (k - key) / 12), lv = PNO_GAIN * (0.12 + 0.88 * v * v) * (lift || 1);
         src.buffer = s0.b; src.playbackRate.value = rt; lp.type = 'lowpass'; lp.frequency.value = 1800 + 9000 * v * v;
         g.gain.setValueAtTime(lv, t); g.gain.setValueAtTime(lv, end); g.gain.setTargetAtTime(0, end, 0.06);
         src.connect(lp); lp.connect(g); var pn = panTo(c, g, out, p); src.start(t, s0.o); src.stop(Math.min(end + 0.5, t + (s0.b.duration - s0.o) / rt)); letGo(src, [lp, g, pn]);
@@ -4616,9 +4616,9 @@
         var s0 = lineQ.shift(); linePrev = s0; f = 233.08 * Math.pow(2, (KEYS[keyIdx] + s0) / 12);
         f *= 2;   // the piano's right hand, an octave above where the saxophone sat
         var vv = 0.42 + danger * 0.22 + Math.random() * 0.06, endP = !lineQ.length, tn = t;   // a lead that sings over the trio, not over everything
-        if (first && Math.random() < 0.35) { play('pno', t, f * Math.pow(2, -1 / 12), vv * 0.75, 0.18, 0.04); tn = t + 0.016; }   // Monk's crushed note: a half step below, struck a hair early and let go
-        play('pno', tn, f, vv, 0.18, endP ? 0.7 : 0.3);
-        if (endP) play('pno', tn + 0.004, f / 2, vv * 0.85, 0.12, 0.7);   // the phrase's last note doubled at the octave, Bud Powell's punctuation
+        if (first && Math.random() < 0.35) { play('pno', t, f * Math.pow(2, -1 / 12), vv * 0.75, 0.18, 0.04, 1.122); tn = t + 0.016; }   // Monk's crushed note: a half step below, struck a hair early and let go
+        play('pno', tn, f, vv, 0.18, endP ? 0.7 : 0.3, 1.122);   // the lead, 1 dB up
+        if (endP) play('pno', tn + 0.004, f / 2, vv * 0.85, 0.12, 0.7, 1.122);   // the phrase's last note doubled at the octave, Bud Powell's punctuation
         soloNote(f, 'ep', 'sx');
         bopCR.n++; bopCR.last = performance.now();   // the horns are listening for the end of your phrase
       }
