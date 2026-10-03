@@ -3857,12 +3857,13 @@
     var BANK = { ready: false, busy: false, p: {}, b: {}, d: {}, pk: [], bk: [], waits: [], rr: {} };
     var PNO_GAIN = 0.5, UB_GAIN = 0.78, DRM_GAIN = { ride: 0.4, bell: 0.12, crash: 0.1, hat: 0.038, snare: 0.26, rim: 0.23, xs: 0.095, tomh: 0.035, tomf: 0.04, kick: 0.39, roll: 0.08 };   // each set by measurement against the kit it replaced; the bass 3 dB up
     function nearestKey(keys, k) { var best = null, bd = 99; keys.forEach(function (q) { var d = Math.abs(q - k); if (d < bd) { bd = d; best = q; } }); return best; }
+    function bankFail() { BANK.failed = true; BANK.busy = false; var w = BANK.waits; BANK.waits = []; w.forEach(function (f) { try { f(); } catch (x) {} }); }   // no recordings to be had: the stand-ins play, and nothing waits for them again
     function bankBuild() {
-      if (BANK.ready || BANK.busy || !gameAudioCtx) return;
+      if (BANK.ready || BANK.busy || BANK.failed || !gameAudioCtx) return;
       var el = document.getElementById('sc-smp'), data = null;
       try { data = el && JSON.parse(el.textContent); } catch (x) {}
-      if (!data) return;
-      BANK.busy = true;
+      if (!data || !Object.keys(data).length) { bankFail(); return; }   // the recordings are missing or unreadable
+      BANK.busy = true; setTimeout(function () { if (!BANK.ready) bankFail(); }, 10000);   // and if decoding ever stalls, Play and Save stop waiting
       var c = gameAudioCtx, names = Object.keys(data), left = names.length;
       function put(nm, buf) {
         var d = buf.getChannelData(0), pk = 0, i, n = Math.min(d.length, Math.round(buf.sampleRate * 0.08));
@@ -3880,7 +3881,7 @@
         try { var pr = c.decodeAudioData(u.buffer, ok, bad); if (pr && pr.then) pr.then(ok, bad); } catch (x) { bad(); }
       });
     }
-    function bankWhen(cb) { if (BANK.ready) { cb(); return; } BANK.waits.push(cb); bankBuild(); if (!BANK.busy && !BANK.ready) { BANK.waits = []; cb(); } }
+    function bankWhen(cb) { if (BANK.ready || BANK.failed) { cb(); return; } BANK.waits.push(cb); bankBuild(); if (!BANK.busy && !BANK.ready && !BANK.failed) bankFail(); }   // cb runs once, when the recordings are ready or known to be unavailable
     function needsBank(run) { return run.ev.some(function (e) { return e[1] === 'pno' || e[1] === 'drm' || e[1] === 'ub'; }); }
     // the drummer's vocabulary for the snare, one bar at a time: [eighth note, strength, how]: an accent (a), a ghost note (g), triplet chatter (t), a rimshot (r), a cross-stick (x)
     var SNPATS = [[[3, 0.5, 'a']], [[7, 0.45, 'a']], [[4, 0.2, 't']], [[2, 0.16, 'g'], [3, 0.48, 'a']], [[6, 0.7, 'r']], [], [[1, 0.17, 'g'], [5, 0.17, 'g'], [7, 0.42, 'a']], [[0, 0.3, 'x'], [4, 0.3, 'x']]];
@@ -5438,7 +5439,7 @@
     }
     function playRun(run) {   // Play performs the run again live from its score, so it starts at once
       var c = gameAudioCtx, bus = gameOut(); if (!c || !bus || !mine(run)) return;
-      if (!BANK.ready && needsBank(run)) { bankWhen(function () { playRun(run); }); return; }
+      if (!BANK.ready && !BANK.failed && needsBank(run)) { bankWhen(function () { playRun(run); }); return; }
       if (c.state !== 'running') c.resume();
       stopRun();
       var lim = Math.min(run.end, 240), pg = c.createGain(), ptr = c.createGain(); pg.connect(ptr); ptr.connect(bus.post || bus);   // playback has its own trim stage, so its movement changes never touch the live game's
@@ -5599,7 +5600,7 @@
     function renderRun(run, cb, progress) {   // the whole run rendered offline, for saving: every note, every glissando, every stochastic voice
       var OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
       if (!OAC || !run) { cb(null); return; }
-      if (!BANK.ready && needsBank(run)) { bankWhen(function () { renderRun(run, cb, progress); }); return; }   // the piano and drums first, if they are not made yet
+      if (!BANK.ready && !BANK.failed && needsBank(run)) { bankWhen(function () { renderRun(run, cb, progress); }); return; }   // the piano and drums first, if they are not made yet
       var sr = 44100, lim = Math.min(run.end, 240), len = lim + 3.5, D = 0.05;
       dssSpans(run, sr, lim, function () { return !!run.abandoned; }, function (spans) {
         if (!spans) { cb(null); return; }
