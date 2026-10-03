@@ -4166,18 +4166,18 @@
     }
     function makePhaser(c, dest) {   // two loops of the same stretch of your sound, one a hair fast, drifting out of phase (after Steve Reich's tape pieces); the tape can slow, muffle, flutter, stop, and start up
       var A = null, B = null, gA = null, gB = null, r0 = 1, sp = 1, dr = 1, lfo = c.createOscillator(), lg = c.createGain(), lp = c.createBiquadFilter();
-      lfo.frequency.value = 5.5; lg.gain.value = 0; lfo.connect(lg); lfo.start();
+      lfo.frequency.value = 5.5; lg.gain.value = 0; lfo.connect(lg); lfo.start(); lfo.addEventListener('ended', function () { lfo.__over = true; });
       lp.type = 'lowpass'; lp.frequency.value = 16000; lp.Q.value = 0.7; lp.connect(dest);
       function stopAll(t) { [[A, gA], [B, gB]].forEach(function (p2) { if (p2[0]) { try { p2[1].gain.setTargetAtTime(0, t, 0.02); p2[0].stop(t + 0.2); } catch (x) {} } }); A = B = null; }
       function setRates(t, tau) { if (A) A.playbackRate.setTargetAtTime(r0 * sp, t, tau); if (B) B.playbackRate.setTargetAtTime(r0 * sp * dr, t, tau); }
-      return {
+      var api = {
         start: function (t, id, ls, len, rate, ramp) {
           stopAll(t); var b = tapeBuf(c, id); if (!b) return; r0 = rate; sp = 1; dr = 1;
           function one(pan) {
             var s0 = c.createBufferSource(), g = c.createGain(); s0.buffer = b; s0.loop = true; s0.loopStart = ls; s0.loopEnd = ls + len;
             if (ramp) { s0.playbackRate.setValueAtTime(rate * 0.3, t); s0.playbackRate.setTargetAtTime(rate, t, 0.12); } else s0.playbackRate.value = rate;   // a tape starting up
             lg.connect(s0.playbackRate);
-            g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.05, t + 0.04); s0.connect(g); var pn = panTo(c, g, lp, pan); s0.start(t, ls); letGo(s0, [g, pn]); return [s0, g];
+            g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.05, t + 0.04); s0.connect(g); var pn = panTo(c, g, lp, pan); s0.start(t, ls); letGo(s0, [g, pn]); s0.addEventListener('ended', function () { s0.__over = true; }); return [s0, g];
           }
           var a = one(-0.55), bb = one(0.55); A = a[0]; gA = a[1]; B = bb[0]; gB = bb[1];
         },
@@ -4189,8 +4189,14 @@
           [A, B].forEach(function (s0) { if (s0) { s0.playbackRate.cancelScheduledValues(t); s0.playbackRate.setTargetAtTime(0.05, t, 0.25); } });
           [gA, gB].forEach(function (g) { if (g) g.gain.setTargetAtTime(0.0001, t + 0.35, 0.12); });
         },
-        stop: function (t) { stopAll(t); try { lfo.stop(t + 0.3); } catch (x) {} setTimeout(function () { try { lp.disconnect(); } catch (x) {} }, 900); }
+        stop: function (t) {   // fade out at audio time t; unplug only once every scheduled source has actually ended, in this context's own time (live, or while saving)
+          var srcs = [A, B, lfo].filter(Boolean), left = srcs.length;
+          stopAll(t); try { lfo.stop(t + 0.3); } catch (x) {}
+          function one() { if (--left > 0) return; try { lp.disconnect(); lg.disconnect(); } catch (x) {} api.finished = true; }
+          srcs.forEach(function (s0) { if (s0.__over) one(); else s0.addEventListener('ended', one); });
+        }
       };
+      return api;
     }
     function phaseCell(T) {   // the stretch to loop: from one attack to a later one if the sound has a rhythm, otherwise its loudest stretch
       var on = T.onsets.map(function (x) { return x / T.sr; });
@@ -4252,27 +4258,40 @@
       var T = analyzeTape(d, sr); if (T) { T.f0 = f; T.pmap = null; }   // made at B-flat 3; its overtones are a glass's, not harmonic, so its pitch is set rather than detected
       return T;
     }
-    function recordTape(secs, onLevel, done) {   // four seconds from the microphone, kept in memory
+    var recSes = null;   // the recording in progress: leaving the studio cancels it, and a cancelled recording can never deliver its sound
+    function cancelRecording() { var s2 = recSes; recSes = null; if (s2) { s2.live = false; if (s2.kill) s2.kill(); } }
+    function recordTape(secs, onLevel, done) {   // four seconds from the microphone, kept in memory, bound to its own session
       var c = gameAudioCtx; if (!c) { done({ name: 'NoAudio' }); return; }
+      cancelRecording();
+      var ses = { live: true, kill: null }; recSes = ses;
+      function end() { if (recSes === ses) recSes = null; ses.live = false; }
       navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } }).then(function (stream) {
-        var src = c.createMediaStreamSource(stream), sp = c.createScriptProcessor(4096, 1, 1), mute = c.createGain(), chunks = [], got = 0, total = Math.round(secs * c.sampleRate), over = false;
+        if (!ses.live) { stream.getTracks().forEach(function (tr) { tr.stop(); }); return; }   // cancelled while the browser was asking: close the microphone at once
+        var src = c.createMediaStreamSource(stream), sp = c.createScriptProcessor(4096, 1, 1), mute = c.createGain(), chunks = [], got = 0, total = Math.round(secs * c.sampleRate), over = false, timer = 0;
         mute.gain.value = 0;
-        function finish() {
-          if (over) return; over = true; sp.onaudioprocess = null;
+        function shut() {   // release the microphone and the recorder
+          over = true; sp.onaudioprocess = null; clearTimeout(timer);
           try { src.disconnect(); sp.disconnect(); mute.disconnect(); } catch (x) {}
           stream.getTracks().forEach(function (tr) { tr.stop(); });
-          var all = new Float32Array(got), o = 0; chunks.forEach(function (ch) { all.set(ch, o); o += ch.length; });
+        }
+        ses.kill = function () { if (!over) shut(); chunks = []; };
+        function finish() {
+          if (over) return; shut();
+          if (!ses.live) return;   // stale: its studio is gone
+          end();
+          var all = new Float32Array(got), o = 0; chunks.forEach(function (ch) { all.set(ch, o); o += ch.length; }); chunks = [];
           done(null, all, c.sampleRate);
         }
         sp.onaudioprocess = function (e) {
+          if (over || !ses.live) return;
           var dd = e.inputBuffer.getChannelData(0), pk = 0; chunks.push(new Float32Array(dd)); got += dd.length;
           for (var i = 0; i < dd.length; i += 4) { var v = Math.abs(dd[i]); if (v > pk) pk = v; }
           onLevel(pk, Math.min(1, got / total));
           if (got >= total) finish();
         };
         src.connect(sp); sp.connect(mute); mute.connect(c.destination);
-        setTimeout(finish, secs * 1000 + 800);
-      }, function (err) { done(err || { name: 'Error' }); });
+        timer = setTimeout(finish, secs * 1000 + 800);
+      }, function (err) { if (!ses.live) return; end(); done(err || { name: 'Error' }); });
     }
     function drawTapeWave(cv, env, frac) {   // the sound, drawn on the card as a waveform
       var x = cv.getContext('2d'), W = cv.width, H = cv.height, mid = H / 2;
@@ -4310,6 +4329,7 @@
       if (!studio.busy) { studio.rec.textContent = studio.ready ? 'Record again' : 'Record'; studio.rec.className = studio.ready ? 'alt' : ''; }
     }
     function closeStudio() {
+      cancelRecording();   // leaving the studio stops any recording at once and releases the microphone
       if (!studio) return;
       Array.prototype.forEach.call(studio.el.querySelectorAll('button'), function (b) { b.__scFn = null; });
       studio.cv.width = 0; studio.el.remove(); studio = null;
@@ -4326,13 +4346,13 @@
       var c = gameAudioCtx; if (c && c.state !== 'running') c.resume();
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { studioUse(builtinTape(), 'No microphone is available here, so here is a sound made for you instead.'); return; }
       studio.busy = true; studio.rec.textContent = 'Recording 4'; studio.rec.className = ''; studioSync();
-      var peaks = [];
+      var peaks = [], st = studio;   // this recording answers only to the studio that started it
       recordTape(4, function (pk, frac) {
-        if (!studio) return;
+        if (studio !== st) return;
         peaks.push(Math.min(1, pk * 1.6)); studio.rec.textContent = 'Recording ' + Math.max(1, Math.ceil(4 * (1 - frac)));
         drawTapeWave(studio.cv, peaks, frac);
       }, function (err, raw, sr) {
-        if (!studio) return;
+        if (studio !== st) return;
         studio.busy = false;
         if (err) { studioUse(builtinTape(), 'The microphone is not available (' + (err.name === 'NotAllowedError' ? 'permission was declined' : 'it could not be opened') + '), so here is a sound made for you instead.'); return; }
         var T = analyzeTape(raw, sr);
