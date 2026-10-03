@@ -3769,6 +3769,7 @@
     function initGameAudio() {
       gameAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
       gameAudioCtx.resume();
+      setTimeout(bankBuild, 400);   // movement I's piano and drums, made while the title is showing
       // iOS: route through HTML audio element to activate audio session
       if (isMobile && gameAudioCtx.createMediaStreamDestination) {
         var gameMsDest = gameAudioCtx.createMediaStreamDestination();
@@ -3809,7 +3810,7 @@
     // =====================================================================================
     var F1 = 58.27;
     var MOVS = [
-      { n: 'I', name: 'Hard Bop', sub: 'for signal, tenor saxophone, piano, bass, and drums', bg: '#0A0A0A', line: 'rgba(201,204,209,0.42)', dot: 'rgba(201,204,209,0.62)', acc: '#C4A882', ink: '#F5F4F0', dim: 'rgba(201,204,209,0.6)', ghosts: ['#F5F4F0', '#C9CCD1', '#E6DCC8', '#A9AEB6'], dark: true },
+      { n: 'I', name: 'Hard Bop', sub: 'for signal, piano, bass, drums, and horns', bg: '#0A0A0A', line: 'rgba(201,204,209,0.42)', dot: 'rgba(201,204,209,0.62)', acc: '#C4A882', ink: '#F5F4F0', dim: 'rgba(201,204,209,0.6)', ghosts: ['#F5F4F0', '#C9CCD1', '#E6DCC8', '#A9AEB6'], dark: true },
       { n: 'II', name: 'Drone', sub: 'for signal, tanpura, shruti box, and voice', bg: '#06080C', line: 'rgba(165,188,214,0.42)', dot: 'rgba(186,204,224,0.62)', acc: '#D8C39A', ink: '#EEF3F8', dim: 'rgba(170,192,216,0.62)', ghosts: ['#EEF3F8', '#B9CBE0', '#DCE6F0', '#98AFC8'], dark: true },
       { n: 'III', name: 'Stochastic', sub: 'for signal and four stochastic voices, after Xenakis', bg: '#0B0908', line: 'rgba(226,122,82,0.42)', dot: 'rgba(238,200,182,0.62)', acc: '#E27A52', ink: '#F7EFEA', dim: 'rgba(230,160,130,0.62)', ghosts: ['#F7EFEA', '#EBC7B6', '#F0DCCF', '#D9A48C'], dark: true },
       { n: 'IV', name: 'Harmonic Series', sub: 'for signal, harmonic arpeggio, and bells, after Jean-Claude Risset', bg: '#07070C', line: 'rgba(236,232,224,0.26)', dot: 'rgba(236,232,224,0.55)', acc: '#D9B36A', ink: '#F4F1EA', dim: 'rgba(236,232,224,0.6)', ghosts: [7, 11, 13, 14].map(function (n) { return 'hsl(' + hueOf(n).toFixed(0) + ',72%,80%)'; }), dark: true },
@@ -3847,12 +3848,121 @@
       return q.map(function (s2, i) { var n = ch[0] + s2; while (n < lo[i]) n += 12; while (n > hi[i]) n -= 12; return 233.08 * Math.pow(2, (kk + n) / 12); });
     }
     function hornHit(t, ch, v, dur, lift, fall, tones) { hornNotes(ch, lift, tones).forEach(function (f, i) { play('brs', t + i * 0.005, f, v, [-0.32, 0.05, 0.3][i], dur, fall ? 1 : 0); }); }
+    // ---------- movement I's instruments: a piano and a jazz drum kit, made once from their physics, then played like recordings ----------
+    // A piano note is a sum of string partials, each a little sharp of a whole multiple (real strings are stiff), shaped by where the
+    // hammer strikes and how hard; below the ninth partial two strings a hair apart beat against each other, one dying fast and one
+    // ringing long (the piano's two-stage decay); and the hammer knocks. The drums are made the same way: a ride cymbal from ninety
+    // inharmonic partials under the stick's ping, drums from the modes of their skins and the rattle of the snares. It is all built in
+    // small slices while the title is showing, so the game never stalls.
+    var PNK = [], PN_SR = 24000, DR_SR = 44100, PNO_GAIN = 0.22;
+    for (var pkk = 36; pkk <= 96; pkk += 3) PNK.push(pkk);   // the sampled keys, C2 to C7, every third semitone, each struck softly and hard
+    var DRM_GAIN = { ride: 0.041, crash: 0.05, snare: 0.038, rim: 0.045, xs: 0.03, kick: 0.06, hat: 0.018, tomh: 0.05, tomf: 0.055 };   // each set by measurement against the kit it replaced
+    var BANK = { ready: false, busy: false, p: {}, d: {}, waits: [] };
+    function rngOf(seed) { return function () { seed = seed + 0x6D2B79F5 | 0; var q = Math.imul(seed ^ seed >>> 15, 1 | seed); q = q + Math.imul(q ^ q >>> 7, 61 | q) ^ q; return ((q ^ q >>> 14) >>> 0) / 4294967296; }; }   // the same every time
+    function sineBank(out, sr, P, R) {   // a job that adds one partial per call; each is [frequency, amplitude, decay time, attack in samples]
+      var i = 0;
+      return function () {
+        if (i >= P.length) return true;
+        var q = P[i++], w = 2 * Math.PI * q[0] / sr, cw = Math.cos(w), sw = Math.sin(w), ph = R() * 6.2832, cr = Math.cos(ph), si = Math.sin(ph), e = q[1], dk = Math.exp(-1 / (q[2] * sr)), at = q[3] || 1, n = out.length;
+        for (var j = 0; j < n && e > 1e-6; j++) { var c2 = cr * cw - si * sw; si = si * cw + cr * sw; cr = c2; out[j] += si * e * (j < at ? j / at : 1); e *= dk; }
+        return i >= P.length;
+      };
+    }
+    function pianoJob(k, v, done) {   // one piano note: key k (MIDI), strength v
+      var sr = PN_SR, f0 = 440 * Math.pow(2, (k - 69) / 12), len = Math.max(1.2, Math.min(4, 4 - (k - 36) * 0.045)), out = new Float32Array(Math.round(len * sr)), R = rngOf(k * 7 + (v > 0.6 ? 3 : 0));
+      var B = Math.pow(10, -3.4 + (k - 60) * 0.029), fc = 600 + 4500 * Math.pow(v, 1.5), pw = 1.1 - 0.5 * v, ts = 9 * Math.pow(2, -(k - 40) / 16), tf = ts / 12, at = Math.round(sr * (0.004 - 0.0025 * v)), P = [];
+      for (var j = 1; j <= 15; j++) {
+        var fj = j * f0 * Math.sqrt(1 + B * j * j); if (fj > 0.45 * sr) break;
+        var A = Math.abs(Math.sin(Math.PI * j / 7.5)) * Math.pow(j, -pw) / (1 + Math.pow(fj / fc, 3));
+        if (A < 2e-4) continue;
+        var tsj = ts / (1 + 0.12 * Math.pow(j - 1, 1.3)), tfj = tf / (1 + 0.15 * (j - 1));
+        if (j < 9) { var dc = (0.4 + R() * 0.8) / 2400; P.push([fj * (1 - dc), A * 0.72, tfj, at], [fj * (1 + dc), A * 0.28, tsj, at]); }   // two strings of the unison: one dies fast, one rings
+        else P.push([fj, A, (tfj + tsj) / 4, at]);
+      }
+      var job = sineBank(out, sr, P, R), fin = false;
+      return function () {
+        if (!job()) return false;
+        if (fin) return true; fin = true;
+        var i, n = out.length, lp = 0, kn = 0.05 * v, ka = Math.exp(-1 / (sr * (0.01 + 0.012 * (1 - v)))), ac = 1 - Math.exp(-2 * Math.PI * (1500 + 3000 * v) / sr);
+        for (i = 0; i < Math.min(n, sr * 0.08); i++) { lp += ac * ((R() * 2 - 1) - lp); out[i] += lp * kn; kn *= ka; }   // the hammer's knock
+        var fd = Math.round(sr * 0.06); for (i = 0; i < fd; i++) out[n - 1 - i] *= i / fd;
+        var rm = 0, m2 = Math.min(n, Math.round(sr * 0.3)); for (i = 0; i < m2; i++) rm += out[i] * out[i]; rm = Math.sqrt(rm / m2) || 1;
+        var g = (v > 0.6 ? 0.25 : 0.1) / rm; for (i = 0; i < n; i++) out[i] *= g;   // every key at the same loudness; the soft touch 8 dB under the hard
+        done(out); return true;
+      };
+    }
+    function drumJob(name, done) {   // one drum of the kit
+      var sr = DR_SR, R = rngOf(name.charCodeAt(0) * 977 + name.length * 31), len = { ride: 3.2, crash: 2.6, snare: 0.55, rim: 0.5, xs: 0.25, kick: 0.8, hat: 0.18, tomh: 0.9, tomf: 1.2 }[name], out = new Float32Array(Math.round(len * sr)), P = [], DROP = [], NZ = [], i;
+      if (name === 'ride' || name === 'crash') {   // ninety (or, for the crash, a hundred and thirty) inharmonic partials, the high ones dying first
+        var cr2 = name === 'crash', np = cr2 ? 90 : 64, flo = cr2 ? 500 : 420, fhi = cr2 ? 14000 : 11000;
+        for (i = 0; i < np; i++) { var f = flo * Math.pow(fhi / flo, R()); P.push([f, (0.5 + R()) * Math.pow(f / 1000, cr2 ? -0.15 : -0.3) * (cr2 ? 0.096 : 0.095), (cr2 ? 1.9 : 3.4) * Math.pow(f / flo, cr2 ? -0.3 : -0.4) * (0.6 + 0.8 * R()), 20]); }
+        if (!cr2) for (i = 0; i < 5; i++) P.push([3000 + R() * 1800, 0.22, 0.09 + R() * 0.07, 8]);   // the stick's ping
+        NZ.push(cr2 ? [0.35, 0.5, 3000, 12000] : [0.5, 0.005, 2000, 16000]);   // the stick's attack (the crash's wash)
+      } else if (name === 'snare' || name === 'rim') {   // a tight, high snare: three modes of the head, the snares rattling under them, the stick's click
+        DROP.push([185, 1.05, 0.03, 1, 0.08], [330, 1.04, 0.025, 0.6, 0.06], [445, 1.03, 0.02, 0.3, 0.05]); NZ.push([1.4, 0.12, 1800, 8000], [1.2, 0.003, 3000, 16000]);
+        if (name === 'rim') { NZ.push([2, 0.012, 2500, 14000]); P.push([920, 0.8, 0.04, 4]); }   // the rimshot's crack
+      } else if (name === 'xs') { P.push([1650, 1, 0.022, 3], [2450, 0.6, 0.018, 3], [620, 0.5, 0.03, 3]); NZ.push([0.6, 0.006, 1500, 9000]); }   // a cross-stick: wood on the rim
+      else if (name === 'kick') { DROP.push([62, 1.48, 0.03, 1, 0.3], [124, 1.2, 0.03, 0.25, 0.1], [190, 1.1, 0.02, 0.1, 0.05]); NZ.push([0.5, 0.007, 20, 1200]); }   // an 18-inch bass drum tuned high, as bebop drummers tuned them
+      else if (name === 'hat') { for (i = 0; i < 6; i++) P.push([4800 + R() * 4500, 0.4, 0.02 + R() * 0.012, 3]); NZ.push([1, 0.018, 5500, 12000]); }   // the hi-hat closed by the foot
+      else { var fb = name === 'tomh' ? 196 : 98, tb = name === 'tomh' ? 0.33 : 0.5; DROP.push([fb, 1.1, 0.06, 1, tb], [fb * 1.59, 1.06, 0.05, 0.35, tb * 0.36], [fb * 2.4, 1.04, 0.04, 0.12, tb * 0.18]); NZ.push([0.4, 0.007, name === 'tomh' ? 1500 : 60, name === 'tomh' ? 9000 : 2500]); }   // the toms
+      var job = sineBank(out, sr, P, R), di = 0, ni = 0, fin = false, n = out.length;
+      return function () {
+        if (!job()) return false;
+        if (di < DROP.length) {   // a skin's mode, its pitch falling as the strike's tension relaxes
+          var d = DROP[di++], ph = 0, e = d[3], dk = Math.exp(-1 / (d[4] * sr));
+          for (i = 0; i < n && e > 1e-6; i++) { ph += 2 * Math.PI * d[0] * (1 + (d[1] - 1) * Math.exp(-i / (d[2] * sr))) / sr; out[i] += Math.sin(ph) * e * Math.min(1, i / 24); e *= dk; }
+          return false;
+        }
+        if (ni < NZ.length) {   // noise, filtered: high-passed and low-passed, dying away
+          var z = NZ[ni++], a = z[0], dz = Math.exp(-1 / (z[1] * sr)), hb = 1 / (1 + 2 * Math.PI * z[2] / sr), lb = 1 - Math.exp(-2 * Math.PI * z[3] / sr), hx = 0, hy = 0, ly = 0;
+          for (i = 0; i < n && a > 1e-6; i++) { var x = R() * 2 - 1; hy = hb * (hy + x - hx); hx = x; ly += lb * (hy - ly); out[i] += ly * a; a *= dz; }
+          return false;
+        }
+        if (fin) return true; fin = true;
+        var pk = 0; for (i = 0; i < n; i++) pk = Math.max(pk, Math.abs(out[i])); var g = 0.9 / (pk || 1), fd = Math.round(sr * 0.03);
+        for (i = 0; i < n; i++) out[i] *= g; for (i = 0; i < fd; i++) out[n - 1 - i] *= i / fd;
+        done(out); return true;
+      };
+    }
+    function bankBuild() {   // everything above, made in a worker on another core so nothing on screen stutters (or, failing that, a few milliseconds at a time)
+      if (BANK.ready || BANK.busy || !gameAudioCtx) return;
+      BANK.busy = true;
+      var c = gameAudioCtx, list = [], wk = null, url = null;
+      ['kick', 'snare', 'ride', 'hat', 'rim', 'xs', 'tomh', 'tomf', 'crash'].forEach(function (nm) { list.push(['d', nm]); });
+      PNK.slice().sort(function (a, b) { return Math.abs(a - 70) - Math.abs(b - 70); }).forEach(function (k) { [0.95, 0.4].forEach(function (v) { list.push(['p', k, v]); }); });   // the sounds heard most, first
+      function has(it) { return it[0] === 'p' ? !!BANK.p[it[1] + (it[2] > 0.6 ? 'h' : 's')] : !!BANK.d[it[1]]; }
+      function put(it, a) { var b = c.createBuffer(1, a.length, it[0] === 'p' ? PN_SR : DR_SR); b.getChannelData(0).set(a); if (it[0] === 'p') BANK.p[it[1] + (it[2] > 0.6 ? 'h' : 's')] = b; else BANK.d[it[1]] = b; }
+      function finish() { BANK.ready = true; BANK.busy = false; var w = BANK.waits; BANK.waits = []; w.forEach(function (f) { try { f(); } catch (x) {} }); }
+      function sliced() {   // the fallback: on this thread, a few milliseconds at a time
+        if (wk) { try { wk.terminate(); } catch (x) {} wk = null; } if (url) { URL.revokeObjectURL(url); url = null; }
+        var Q = list.filter(function (it) { return !has(it); }), cur = null;
+        (function slice() {
+          var t0 = performance.now();
+          while (performance.now() - t0 < 6) { if (!cur) { if (!Q.length) break; var it = Q.shift(); cur = it[0] === 'p' ? pianoJob(it[1], it[2], function (a) { put(it, a); }) : drumJob(it[1], function (a) { put(it, a); }); } if (cur()) cur = null; }
+          if (cur || Q.length) setTimeout(slice, 8); else finish();
+        })();
+      }
+      try {
+        var src = 'var PN_SR = ' + PN_SR + ', DR_SR = ' + DR_SR + ';\n' + [rngOf, sineBank, pianoJob, drumJob].map(String).join('\n') +
+          '\nonmessage = function (e) { e.data.forEach(function (it, i) { var st = it[0] === "p" ? pianoJob(it[1], it[2], function (a) { postMessage({ i: i, a: a }, [a.buffer]); }) : drumJob(it[1], function (a) { postMessage({ i: i, a: a }, [a.buffer]); }); while (!st()) {} }); postMessage({ done: 1 }); };';
+        url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' })); wk = new Worker(url);
+        wk.onmessage = function (e) { if (e.data.done) { wk.terminate(); wk = null; URL.revokeObjectURL(url); url = null; finish(); } else put(list[e.data.i], e.data.a); };
+        wk.onerror = function (e) { if (e && e.preventDefault) e.preventDefault(); sliced(); };
+        wk.postMessage(list);
+      } catch (x) { sliced(); }
+    }
+    function bankWhen(cb) { if (BANK.ready) cb(); else { BANK.waits.push(cb); bankBuild(); } }
+    function needsBank(run) { return run.ev.some(function (e) { return e[1] === 'pno' || e[1] === 'drm'; }); }
+    // the drummer's vocabulary for the snare, one bar at a time: [eighth note, strength, how]: an accent (a), a ghost note (g), triplet chatter (t), a rimshot (r), a cross-stick (x)
+    var SNPATS = [[[3, 0.5, 'a']], [[7, 0.45, 'a']], [[4, 0.2, 't']], [[2, 0.16, 'g'], [3, 0.48, 'a']], [[6, 0.7, 'r']], [], [[1, 0.17, 'g'], [5, 0.17, 'g'], [7, 0.42, 'a']], [[0, 0.3, 'x'], [4, 0.3, 'x']]];
+    var snPat = null, bombAt = -1, fillBar = false, afterFill = false;
+    function pickSn(dg, pw) { var L = (dg > 0.35 || pw) ? [2, 3, 6, 4, 1, 2] : [0, 1, 5, 7, 4, 5]; return SNPATS[L[Math.floor(Math.random() * L.length)]]; }
     function chordName(ch) { var pc = ((ch[0] + KEYS[keyIdx]) % 12 + 12) % 12; return PCN[pc] + (ch[1] === 'o7' ? '\u00B07' : ch[1]); }
     var YAMAN = [1, 9 / 8, 5 / 4, 45 / 32, 3 / 2, 5 / 3, 15 / 8], PAD_GAIN = 0.003;   // Raga Yaman's notes (the same as Lydian), in just intonation over the drone
     function hueOf(n) { return (38 + ((1200 * Math.log(n) / Math.LN2) % 1200) * 0.3) % 360; }   // a partial's color: its pitch class on the color wheel, B-flat in the page's gold
     function hsla(h, s2, l, a) { return 'hsla(' + h.toFixed(1) + ',' + s2 + '%,' + l + '%,' + a.toFixed(3) + ')'; }
     var CELLS_UP = [[1, 2, 3, 4], [1, 2, 4, 5], [2, 1, 2, 4], [1, 3, 2, 4]], CELLS_DN = [[-1, -2, -3, -4], [-1, -2, -4, -5], [-2, -1, -2, -4], [-1, -3, -2, -4]];
-    var MOV_TRIM = [-1.5, 3.2, 15.8, 6.5, 2.5], MASTER_GAIN = 2;   // each movement's trim in dB, measured so the five sit at one loudness; then the makeup that brings the whole game up to a phone's speaker
+    var MOV_TRIM = [-1, 3.2, 15.8, 6.5, 2.5], MASTER_GAIN = 2;   // each movement's trim in dB, measured so the five sit at one loudness; then the makeup that brings the whole game up to a phone's speaker
     function busFor(c) {   // a small room and a gentle compressor; then makeup gain, a limiter, and a soft clip, so the game plays loud on a phone without distorting; the same live and when a run is rendered
       var trim = c.createGain(), comp = c.createDynamicsCompressor(), verb = c.createConvolver(), wet = c.createGain(), bus = c.createGain(), mk = c.createGain(), lim = c.createDynamicsCompressor(), clip = c.createWaveShaper(), cv = new Float32Array(2049), i;
       comp.threshold.value = -18; comp.ratio.value = 3;
@@ -3928,12 +4038,27 @@
         letGo(o, [lp, g, pn]); letGo(o2, [g2]);
       },
       rp: function (c, out, t, f, v, p, dur) { SND.sin(c, out, t, f, v, p, dur); },   // a pure pulse
+      pno: function (c, out, t, f, v, p, dur) {   // a piano note: the nearest sampled key, retuned; a soft touch darker as well as quieter; the damper falls when the note ends
+        var k = 69 + 12 * Math.log(f / 440) / Math.LN2, key = Math.max(PNK[0], Math.min(PNK[PNK.length - 1], PNK[0] + 3 * Math.round((k - PNK[0]) / 3))), hard = v > 0.62, b = BANK.p[key + (hard ? 'h' : 's')] || BANK.p[key + (hard ? 's' : 'h')];
+        if (!b) { SND.pn(c, out, t, f, v, p, dur); return; }   // not made yet: the old piano stands in
+        var s0 = c.createBufferSource(), g = c.createGain(), D = dur || 0.5, end = t + D, rt = Math.pow(2, (k - key) / 12), lv = (hard ? 0.55 + 0.45 * (v - 0.62) / 0.38 : 0.45 + 0.55 * v / 0.62) * PNO_GAIN;
+        s0.buffer = b; s0.playbackRate.value = rt;
+        g.gain.setValueAtTime(lv, t); g.gain.setValueAtTime(lv, end); g.gain.setTargetAtTime(0, end, 0.07);
+        s0.connect(g); var pn = panTo(c, g, out, p); s0.start(t); s0.stop(Math.min(end + 0.6, t + b.duration / rt)); letGo(s0, [g, pn]);
+      },
+      drm: function (c, out, t, name, v, p) {   // a drum of the kit; a soft stroke darker as well as quieter
+        var b = BANK.d[name];
+        if (!b) { var fb = { ride: 'rd', crash: 'rd', snare: 'sn', rim: 'sn', xs: 'sn', kick: 'bd', hat: 'hh', tomh: 'bd', tomf: 'bd' }[name] || 'sn'; SND[fb](c, out, t, name === 'crash' ? 1 : v, p); return; }   // not made yet: the old kit stands in
+        var s0 = c.createBufferSource(), g = c.createGain(), lp = c.createBiquadFilter(); s0.buffer = b;
+        lp.type = 'lowpass'; lp.frequency.value = 2500 + 15000 * v * v; g.gain.value = (DRM_GAIN[name] || 0.06) * (0.25 + 0.75 * v);
+        s0.connect(lp); lp.connect(g); var pn = panTo(c, g, out, p); s0.start(t); letGo(s0, [lp, g, pn]);
+      },
       brs: function (c, out, t, f, v, p, dur, fall) {   // a horn of the section: two brassy reeds a few cents apart, scooped up into the note, the buzz of the attack settling back; long notes take vibrato; with fall, it drops off the note
-        var D = dur || 0.2, e = t + D, pk = 0.035 + v * 0.05, g = c.createGain(), lp = c.createBiquadFilter(), o1 = c.createOscillator(), o2 = c.createOscillator(), nodes = [o2, lp, g];
+        var D = dur || 0.2, e = t + D, pk = 0.0055 + v * 0.0085, g = c.createGain(), lp = c.createBiquadFilter(), o1 = c.createOscillator(), o2 = c.createOscillator(), nodes = [o2, lp, g];
         o1.type = o2.type = 'sawtooth'; o2.detune.value = 9;
         [o1, o2].forEach(function (o) { o.frequency.setValueAtTime(f * 0.97, t); o.frequency.exponentialRampToValueAtTime(f, t + 0.04); if (fall) { o.frequency.setValueAtTime(f, t + D * 0.35); o.frequency.exponentialRampToValueAtTime(f * 0.55, e); } });
         if (D > 0.3 && !fall) { var vb = c.createOscillator(), vg = c.createGain(); vb.frequency.value = 5.6; vg.gain.setValueAtTime(0, t); vg.gain.linearRampToValueAtTime(f * 0.007, t + D * 0.8); vb.connect(vg); vg.connect(o1.frequency); vg.connect(o2.frequency); vb.start(t); vb.stop(e + 0.15); nodes.push(vb, vg); }
-        lp.type = 'lowpass'; lp.Q.value = 1.1; lp.frequency.setValueAtTime(500, t); lp.frequency.exponentialRampToValueAtTime(1400 + 2600 * v, t + 0.035); lp.frequency.exponentialRampToValueAtTime(900 + 1500 * v, t + 0.16);
+        lp.type = 'lowpass'; lp.Q.value = 1.1; lp.frequency.setValueAtTime(500, t); lp.frequency.exponentialRampToValueAtTime(1000 + 1300 * v, t + 0.035); lp.frequency.exponentialRampToValueAtTime(750 + 800 * v, t + 0.16);
         var rA = t + Math.min(0.12, D * 0.6);
         g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(pk, t + 0.018); g.gain.linearRampToValueAtTime(pk * 0.78, rA); g.gain.setValueAtTime(pk * 0.78, Math.max(rA, e - 0.06)); g.gain.exponentialRampToValueAtTime(0.0001, e + (fall ? 0.02 : 0.07));
         o1.connect(lp); o2.connect(lp); lp.connect(g); nodes.push(panTo(c, g, out, p));
@@ -4541,8 +4666,11 @@
       if (m === 0) {   // your solo, on tenor saxophone: bebop lines built on the chord of the moment
         var first = !lineQ.length; if (first) lineQ = bopPhrase();
         var s0 = lineQ.shift(); linePrev = s0; f = 233.08 * Math.pow(2, (KEYS[keyIdx] + s0) / 12);
-        var vv = 0.45 + danger * 0.35 + Math.random() * 0.1;
-        if (sax) sax.note(t, f, vv, first ? 0 : 1); logEvAt(t, 'sx', f, vv, first ? 0 : 1);
+        f *= 2;   // the piano's right hand, an octave above where the saxophone sat
+        var vv = 0.62 + danger * 0.3 + Math.random() * 0.08, endP = !lineQ.length, tn = t;
+        if (first && Math.random() < 0.35) { play('pno', t, f * Math.pow(2, -1 / 12), vv * 0.75, 0.18, 0.04); tn = t + 0.016; }   // Monk's crushed note: a half step below, struck a hair early and let go
+        play('pno', tn, f, vv, 0.18, endP ? 0.7 : 0.3);
+        if (endP) play('pno', tn + 0.004, f / 2, vv * 0.85, 0.12, 0.7);   // the phrase's last note doubled at the octave, Bud Powell's punctuation
         soloNote(f, 'ep', 'sx');
         bopCR.n++; bopCR.last = performance.now();   // the horns are listening for the end of your phrase
       }
@@ -4580,10 +4708,10 @@
         keyIdx = (keyIdx + 1) % KEYS.length; coltBeat = 0; curChord = COLT[0];
         var p0 = linePrev == null ? 0 : linePrev - 6, dir = 1;
         if (p0 > 4) p0 -= 12;   // start low enough for the sheet to climb
-        for (i = 0; i < 14; i++) { var nx = stepScale(p0, COLT[0], dir); if (nx > 17) { dir = -1; nx = stepScale(p0, COLT[0], -1); } p0 = nx; var fr = 233.08 * Math.pow(2, (KEYS[keyIdx] + p0) / 12); if (sax) sax.note(t + i * 0.036, fr, 0.8, i ? 1 : 0); logEvAt(t + i * 0.036, 'sx', fr, 0.8, i ? 1 : 0); }
-        linePrev = p0; lineQ = [];
+        for (i = 0; i < 16; i++) play('pno', t + i * 0.032, 233.08 * Math.pow(2, (KEYS[keyIdx] + COLT[0][0] + 24 - 2 * i) / 12), 0.9 - i * 0.02, 0.25 - i * 0.025, 0.2);   // Monk's whole-tone cascade, two octaves down the keys
+        linePrev = COLT[0][0] - 6; lineQ = [];
         play('chm', t + 14 * 0.036, keyRoot() * 4);
-        bopShout = 0; hornHit(t, COLT[0], 0.9, 0.5); play('rd', t, 1, 0.3); play('bd', t, 0.9, 0);   // and the band hits the new key with you
+        bopShout = 0; hornHit(t, COLT[0], 0.9, 0.5); play('drm', t, 'crash', 1, 0.3); play('drm', t, 'kick', 0.9, 0);   // and the band hits the new key with you
       } else if (m === 1) {   // a taan: the voice races up the scale
         var d0 = soloDeg;
         for (i = 0; i < 8; i++) { var dd = Math.min(14, d0 + i), oo = Math.floor(dd / 7), ff = 233.08 * YAMAN[dd - oo * 7] * Math.pow(2, oo); if (singer) singer.note(t + i * 0.075, ff, 0.9); logEvAt(t + i * 0.075, 'sng', ff, 0.9); }
@@ -4621,7 +4749,9 @@
         return;
       }
       if (m === 0) {   // the horns shout: a stab on the chord of the moment, a step higher for each ghost in a row, and the drummer drops a bomb under it
-        hornHit(t, curChord, 1, 0.42, [0, 2, 4, 5][Math.min(3, bopShout++)]); play('bd', t, 0.95, 0); play('rd', t, 0.85, 0.3);
+        var lf0 = [0, 2, 4, 5][Math.min(3, bopShout++)];
+        hornHit(t, curChord, 1, 0.42, lf0); play('drm', t, 'kick', 0.95, 0); play('drm', t, 'crash', 0.85, 0.3);
+        [12, 13, 18, 0, 1, 6].forEach(function (s2, i) { play('pno', t + (i % 3) * 0.004, 233.08 * Math.pow(2, (KEYS[keyIdx] + lf0 + curChord[0] + s2) / 12), 1, i < 3 ? 0.2 : -0.15, 0.45); });   // and Monk's crushed cluster in both hands: the root, the flat nine, the sharp eleven
         return;
       }
       var r = (m === 0 ? keyRoot() : 233.08) / 2;
@@ -4636,8 +4766,9 @@
       breakUntil = t + 1.1;
       if (movIdx() === 0 && sax) { sax.fall(t); logEvAt(t, 'sxfall'); }   // the saxophone falls off the note
       if (movIdx() === 0) {   // and the band's last hit before the break: crash, kick, snare, a piano stab, and a saxophone falling away
-        play('rd', t, 1, 0.3); play('bd', t, 1, 0); play('sn', t, 0.9, -0.1); pianoStab(t, curChord, 1, 0.9);
-        play('sxf', t + 0.02, 233.08 * Math.pow(2, (KEYS[keyIdx] + (linePrev == null ? 7 : linePrev)) / 12), 1, -0.12);
+        play('drm', t, 'crash', 1, 0.3); play('drm', t, 'kick', 1, 0); play('drm', t, 'snare', 0.9, -0.08); pianoStab(t, curChord, 1, 0.9);
+        [-12, -11, -10].forEach(function (s2) { play('pno', t, 233.08 * Math.pow(2, (KEYS[keyIdx] + curChord[0] + s2) / 12), 1, -0.2, 0.5); });   // Monk's low cluster, a forearm's worth
+        var dp = (linePrev == null ? 7 : linePrev) + 12; for (var dq = 0; dq < 10; dq++) play('pno', t + 0.03 + dq * 0.024, 233.08 * Math.pow(2, (KEYS[keyIdx] + dp - dq) / 12), 0.98 - dq * 0.035, 0.2, 0.12);   // the right hand tumbling down the keys
         hornHit(t + 0.01, curChord, 0.9, 0.6, 0, true);   // and the horns fall off the chord
       }
       if (movIdx() === 4 && tape) play('vwilt', t, tape.id, tape.head || tape.body, 1);   // caught: your sound sinking in steps
@@ -4679,10 +4810,12 @@
       if (m === 2) { [8, 10, 12, 15, 16].forEach(function (k, i) { play('sin', t + i * 0.03, F1 * k, 0.06, (i - 2) * 0.3, 4); }); return; }   // chaos resolves into a chord
       if (m === 0) {   // the band's last hit: a B-flat 13 chord, the bass's low B-flat, a crash of cymbal and drums, and the saxophone holding the ninth
         var kk = KEYS[keyIdx];
-        [4, 9, 10, 14].forEach(function (s2, i) { play('pn', t + i * 0.006, 233.08 * Math.pow(2, (kk + s2) / 12), 0.9, 0.15, 2.4); });
-        play('ub', t, 58.27 * Math.pow(2, kk / 12), 0.9, -0.12, 2.2); play('rd', t, 1, 0.3); play('bd', t, 0.9, 0); play('sn', t, 0.6, -0.1);
-        play('sxn', t + 0.05, 233.08 * Math.pow(2, (kk + 14) / 12), 0.8, -0.12, 2.6);
-        hornHit(t + 0.02, [0, '7'], 1, 2.4, 0, false, [4, 9, 14]);   // the horns on the thirteenth chord, held, with vibrato
+        for (var wq = 0; wq < 9; wq++) play('pno', t + wq * 0.035, 233.08 * Math.pow(2, (kk + 4 + 2 * wq) / 12), 0.6 + wq * 0.04, 0.2, 0.2);   // up the whole-tone scale, Monk's way
+        var tz = t + 0.34;
+        [-24, -14].forEach(function (s2) { play('pno', tz, 233.08 * Math.pow(2, (kk + s2) / 12), 0.9, -0.2, 2.6); });   // the left hand: B-flat and its seventh, low
+        [4, 9, 14, 18].forEach(function (s2, i) { play('pno', tz + i * 0.006, 233.08 * Math.pow(2, (kk + s2) / 12), 0.9, 0.2, 2.6); });   // the right hand: the third, thirteenth, ninth, and the sharp eleven on top
+        play('ub', tz, 58.27 * Math.pow(2, kk / 12), 0.9, -0.12, 2.2); play('drm', tz, 'crash', 1, 0.3); play('drm', tz, 'kick', 0.9, 0); play('drm', tz, 'snare', 0.6, -0.08);
+        hornHit(tz + 0.02, [0, '7'], 1, 2.4, 0, false, [4, 9, 14]);   // the horns on the thirteenth chord, held, with vibrato
         return;
       }
       for (n = 4; n <= 12; n++) play('chm', t + (n - 4) * 0.09, 116.54 * n);
@@ -4698,7 +4831,7 @@
       if (perf.lastLevel !== level) { perf.lastLevel = level; logMark('mov', movIdx()); movTitleAt = performance.now(); }
       var m = movIdx(), cyc = Math.floor(((level || 1) - 1) / 5);
       musicStep = 0; walkDeg = 0; danger = 0; tanIdx = 0; tilt.g0 = null; breakUntil = 0; ghostPos = []; bellPos = [];
-      formPos = 0; coltBeat = 0; curChord = [0, '7']; lineQ = []; linePrev = null; bassPrev = null; prevVoi = null; compPat = null; bopCR.n = 0; bopCR.next = 0; bopShout = 0; slv.trail = []; slv.hh = [];
+      formPos = 0; coltBeat = 0; curChord = [0, '7']; lineQ = []; linePrev = null; bassPrev = null; prevVoi = null; compPat = null; bopCR.n = 0; bopCR.next = 0; bopShout = 0; slv.trail = []; slv.hh = []; snPat = null; bombAt = -1; fillBar = false; afterFill = false;
       BPM = [168, 76, 100, 84, 92][m] + cyc * 8;
       stepDur = 60 / BPM / 2;
       bedStart(m); ghostVoicesBuild(m, false);
@@ -4759,27 +4892,40 @@
       });
       prevVoi = best; return best;
     }
-    function pianoStab(t, ch, v, dur) { var kk = KEYS[keyIdx]; voicing(ch).forEach(function (s2, i) { play('pn', t + i * 0.004, 233.08 * Math.pow(2, (kk + s2) / 12), v, 0.18 + i * 0.04, dur); }); }   // a hair of roll, like a hand
+    function pianoStab(t, ch, v, dur) {   // the pianist's left hand: shells, the way Bud Powell comped: root and seventh, or third and seventh, low and dry
+      var kk = KEYS[keyIdx], q = CQ[ch[1]], n = ch[0]; while (n > -2) n -= 12; while (n < -13) n += 12;
+      var sh = (Math.random() < 0.5 || dur > 0.5) ? [n, n + q[3]] : [n + q[1], n + q[3]];
+      sh.forEach(function (s2, i) { play('pno', t + i * 0.005, 233.08 * Math.pow(2, (kk + s2) / 12), Math.min(0.3, 0.1 + v * 0.15), -0.2, dur); });   // a soft touch, under the right hand
+    }
     function bopTick(t, step, beat, off, pw) {   // the quartet, one eighth note at a time
       var dg = danger, hum = function () { return (Math.random() - 0.5) * 0.008; };
       var ch = pw ? COLT[Math.floor(coltBeat / 2) % 6] : formChord(formPos);
       if (!off) curChord = ch;
       var fbar = Math.floor(formPos / 8) % 12, fstep = formPos % 8;
-      if (!pw && fbar === 11 && fstep >= 4) for (var pr = 0; pr < 4; pr++) play('sn', t + pr * stepDur / 4, 0.1 + ((fstep - 4) * 4 + pr) / 16 * 0.55, -0.08);   // the drummer's press roll, swelling into the top of the next chorus
-      if (!pw && fbar === 0 && fstep === 0) { play('rd', t, 1, 0.3); play('bd', t, 0.9, 0); slv.crash = t; }   // and the crash that lands on it
+      if (!pw && fbar === 11 && fstep >= 4) for (var pr = 0; pr < 4; pr++) play('drm', t + pr * stepDur / 4, 'snare', 0.1 + ((fstep - 4) * 4 + pr) / 16 * 0.55, -0.08);   // the drummer's press roll, swelling into the top of the next chorus
+      if (!pw && fbar === 0 && fstep === 0) { play('drm', t, 'crash', 1, 0.3); play('drm', t, 'kick', 0.9, 0); slv.crash = t; afterFill = false; }   // and the crash that lands on it
       if (!pw && !off && bopCR.n >= 4 && performance.now() - bopCR.last > 380 && t > bopCR.next) {   // the horns answer your phrase, the way a hard bop front line answers a soloist
         RIFFS[Math.floor(Math.random() * RIFFS.length)].forEach(function (nt) { hornHit(t + nt[0] * stepDur, formChord(formPos + nt[0]), nt[2], nt[1] * stepDur * 0.9, nt[3]); });
         bopCR.n = 0; bopCR.next = t + stepDur * 16;
       }
-      // drums: the ride's spang-a-lang leaning on 2 and 4 (straight eighths when the ghosts are on you), hi-hat foot on 2 and 4,
-      // a feathered bass drum, snare comping that gets busier as danger rises, and a bomb at the end of a phrase
-      var dbl = dg > 0.75 || pw;
-      if (!off) play('rd', t + hum(), (beat % 2 ? 0.8 : 0.6) * (0.85 + Math.random() * 0.3), 0.32);
-      else if (beat % 2 === 1 || dbl) play('rd', t + hum(), 0.42 + Math.random() * 0.15, 0.32);
-      if (!off && beat % 2 === 1) { play('hh', t + hum(), 0.7, 0.22); slv.hh.push(t); if (slv.hh.length > 6) slv.hh.shift(); }
-      if (!off) play('bd', t + hum(), 0.16, 0);
-      if (off && Math.random() < 0.07 + dg * 0.35 + (pw ? 0.25 : 0)) play('sn', t + hum(), 0.18 + Math.random() * 0.32, -0.08);
-      if (dg > 0.6 && step === 7 && Math.floor(formPos / 8) % 4 === 3) { play('bd', t, 0.85, 0); play('sn', t + 0.002, 0.7, -0.08); }
+      // drums, the way Max Roach, Philly Joe Jones, and Art Blakey played them: the ride's spang-a-lang with the stick's ping (straight
+      // eighths when the ghosts are on you), the hi-hat foot on 2 and 4, the bass drum feathered under every beat and dropping bombs, the
+      // snare comping in conversation (ghost notes, triplet chatter, a rimshot on 4), and a fill around the toms at the end of every four bars
+      var dbl = dg > 0.75 || pw, B2 = stepDur * 2;
+      if (step === 0) { snPat = pickSn(dg, pw); bombAt = Math.random() < 0.16 + dg * 0.4 + (pw ? 0.3 : 0) ? [3, 6, 7][Math.floor(Math.random() * 3)] : -1; }
+      if (!pw && fstep === 0) { if (afterFill) { play('drm', t, 'crash', 0.85, 0.35); play('drm', t, 'kick', 0.7, 0); afterFill = false; } fillBar = fbar % 4 === 3 && fbar !== 11 && Math.random() < 0.6 + dg * 0.35; }
+      if (!off) play('drm', t + hum(), 'ride', (beat % 2 ? 0.78 : 0.6) * (0.88 + Math.random() * 0.24), 0.32);
+      else if (beat % 2 === 1 || dbl || Math.random() < 0.06) play('drm', t + hum(), 'ride', 0.42 + Math.random() * 0.14, 0.32);
+      if (!off && beat % 2 === 1) { play('drm', t + hum(), 'hat', 0.65, 0.18); slv.hh.push(t); if (slv.hh.length > 6) slv.hh.shift(); }
+      if (!off) play('drm', t + hum(), 'kick', 0.14, 0);
+      if (step === bombAt) { play('drm', t, 'kick', 0.85, 0); if (Math.random() < 0.5) play('drm', t + 0.003, 'snare', 0.6, -0.08); }   // a bomb
+      var inFill = !pw && fillBar && fstep >= 4;
+      if (inFill && fstep === 4) { for (var fq = 0; fq < 6; fq++) play('drm', t + fq * B2 / 3, ['snare', 'snare', 'tomh', 'tomh', 'tomf', 'tomf'][fq], 0.42 + fq * 0.07, [-0.08, -0.08, 0.15, 0.15, 0.35, 0.35][fq]); afterFill = true; }   // triplets around the toms, into the next phrase
+      if (!inFill && snPat && !(fbar === 11 && fstep >= 4 && !pw)) snPat.forEach(function (hq) {
+        if (hq[0] !== step) return;
+        if (hq[2] === 't') { for (var tq = 0; tq < 3; tq++) play('drm', t + tq * B2 / 3, 'snare', hq[1] * (tq === 2 ? 1.6 : 1), -0.08); }   // triplet chatter
+        else play('drm', t + hum(), hq[2] === 'r' ? 'rim' : hq[2] === 'x' ? 'xs' : 'snare', hq[1], -0.08);
+      });
       // the bass: a two-feel when you are safe, walking when hunted and through the Coltrane changes; it lands on each chord's root and approaches the next by half step
       if (!off && (dg > 0.25 || pw || beat % 2 === 0)) {
         var walk = dg > 0.25 || pw, chStart, nextR, last = false;
@@ -4847,7 +4993,7 @@
         [[116.54, 0.0142, -0.35], [174.61, 0.0106, 0.35], [233.08, 0.0078, 0.05]].forEach(function (h) { bedHolds.push({ r: reedVoice(c, out, t, h[0], h[1], h[2]), f: h[0], v: h[1], p: h[2], t0: t }); });
         singer = makeSinger(c, out, t); logEvAt(t, 'sgon');
       }
-      if (m === 0) { sax = makeSax(c, out, t); logEvAt(t, 'sxon'); }   // the saxophone, ready for your solo
+      if (m === 0) bankBuild();   // the piano and the drum kit, made ready (usually long since, on the title)
       if (m === 2) dssStart();
       if (m === 3) rhyStart();
       if (m === 4 && tape) {   // the phasing pair: two loops of a stretch of your sound, in unison at first
@@ -5342,6 +5488,7 @@
     }
     function playRun(run) {   // Play performs the run again live from its score, so it starts at once
       var c = gameAudioCtx, bus = gameOut(); if (!c || !bus || !mine(run)) return;
+      if (!BANK.ready && needsBank(run)) { bankWhen(function () { playRun(run); }); return; }
       if (c.state !== 'running') c.resume();
       stopRun();
       var lim = Math.min(run.end, 240), pg = c.createGain(), ptr = c.createGain(); pg.connect(ptr); ptr.connect(bus.post || bus);   // playback has its own trim stage, so its movement changes never touch the live game's
@@ -5502,6 +5649,7 @@
     function renderRun(run, cb, progress) {   // the whole run rendered offline, for saving: every note, every glissando, every stochastic voice
       var OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
       if (!OAC || !run) { cb(null); return; }
+      if (!BANK.ready && needsBank(run)) { bankWhen(function () { renderRun(run, cb, progress); }); return; }   // the piano and drums first, if they are not made yet
       var sr = 44100, lim = Math.min(run.end, 240), len = lim + 3.5, D = 0.05;
       dssSpans(run, sr, lim, function () { return !!run.abandoned; }, function (spans) {
         if (!spans) { cb(null); return; }
