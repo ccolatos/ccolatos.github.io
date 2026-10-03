@@ -3812,9 +3812,10 @@
       { n: 'I', name: 'Hard Bop', sub: 'for signal, tenor saxophone, piano, bass, and drums', bg: '#0A0A0A', line: 'rgba(201,204,209,0.42)', dot: 'rgba(201,204,209,0.62)', acc: '#C4A882', ink: '#F5F4F0', dim: 'rgba(201,204,209,0.6)', ghosts: ['#F5F4F0', '#C9CCD1', '#E6DCC8', '#A9AEB6'], dark: true },
       { n: 'II', name: 'Drone', sub: 'for signal, tanpura, shruti box, and voice', bg: '#06080C', line: 'rgba(165,188,214,0.42)', dot: 'rgba(186,204,224,0.62)', acc: '#D8C39A', ink: '#EEF3F8', dim: 'rgba(170,192,216,0.62)', ghosts: ['#EEF3F8', '#B9CBE0', '#DCE6F0', '#98AFC8'], dark: true },
       { n: 'III', name: 'Stochastic', sub: 'for signal and four stochastic voices, after Xenakis', bg: '#0B0908', line: 'rgba(226,122,82,0.42)', dot: 'rgba(238,200,182,0.62)', acc: '#E27A52', ink: '#F7EFEA', dim: 'rgba(230,160,130,0.62)', ghosts: ['#F7EFEA', '#EBC7B6', '#F0DCCF', '#D9A48C'], dark: true },
-      { n: 'IV', name: 'Harmonic Series', sub: 'for signal, natural horn, and rhythmicon, after Cowell', bg: '#07070C', line: 'rgba(236,232,224,0.26)', dot: 'rgba(236,232,224,0.55)', acc: '#D9B36A', ink: '#F4F1EA', dim: 'rgba(236,232,224,0.6)', ghosts: [7, 11, 13, 14].map(function (n) { return 'hsl(' + hueOf(n).toFixed(0) + ',72%,80%)'; }), dark: true }
+      { n: 'IV', name: 'Harmonic Series', sub: 'for signal, natural horn, and rhythmicon, after Cowell', bg: '#07070C', line: 'rgba(236,232,224,0.26)', dot: 'rgba(236,232,224,0.55)', acc: '#D9B36A', ink: '#F4F1EA', dim: 'rgba(236,232,224,0.6)', ghosts: [7, 11, 13, 14].map(function (n) { return 'hsl(' + hueOf(n).toFixed(0) + ',72%,80%)'; }), dark: true },
+      { n: 'V', name: 'Musique Concr\u00E8te', sub: 'for signal and the sound you made, after Pierre Schaeffer', bg: '#0C0A08', line: 'rgba(222,176,112,0.40)', dot: 'rgba(236,214,180,0.62)', acc: '#E0A85A', ink: '#F6EEE2', dim: 'rgba(226,196,150,0.62)', ghosts: ['#F6EEE2', '#E8CFAA', '#F0DEC4', '#D6B48A'], dark: true }
     ];
-    function movIdx() { return ((level || 1) - 1) % 4; }
+    function movIdx() { return ((level || 1) - 1) % 5; }
     function mov() { return MOVS[movIdx()]; }
     var gBus = null, KEYS = [0, -4, 4], KEY_NAMES = ['B\u266D', 'G\u266D', 'D'], keyIdx = 0, soloDeg = 7, cellQ = [];
     var PENT = [0, 2, 4, 7, 9], LYD = [0, 2, 4, 6, 7, 9, 11], GTYPES = ['sine', 'square', 'sawtooth', 'noise'];
@@ -3962,7 +3963,28 @@
         o.start(t); o2.start(t); o.stop(t + d + 0.35); o2.stop(t + d + 0.35);
         letGo(o, [lp, g, pn]);
       },
-      sxn: function (c, out, t, f, v, p, dur) { var s2 = makeSax(c, out, t); s2.note(t, f, v, 0, dur); s2.end(t + dur + 0.25); }   // a single held saxophone note
+      sxn: function (c, out, t, f, v, p, dur) { var s2 = makeSax(c, out, t); s2.note(t, f, v, 0, dur); s2.end(t + dur + 0.25); },   // a single held saxophone note
+      vg: function (c, out, t, id, rate, off, dur, v, p) {   // a window of your recording, transposed by tape speed: the cloud's grains, the solo's notes, the whole sound
+        var b = tapeBuf(c, id); if (!b) return;
+        var s0 = c.createBufferSource(), g = c.createGain(), a = Math.min(0.03, dur * 0.3), pk = 0.05 + v * 0.2;
+        s0.buffer = b; s0.playbackRate.value = rate;
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(pk, t + a); g.gain.setValueAtTime(pk, t + Math.max(a, dur - a)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        s0.connect(g); var pn = panTo(c, g, out, p);
+        s0.start(t, Math.max(0, Math.min(off, b.duration - 0.02)), dur * rate + 0.02); letGo(s0, [g, pn]);
+      },
+      vrev: function (c, out, t, id, v) {   // your sound run backward, swelling into the moment
+        var b = tapeRevBuf(c, id); if (!b) return;
+        var s0 = c.createBufferSource(), g = c.createGain(), d = b.duration;
+        s0.buffer = b; g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.06 + v * 0.2, t + d * 0.95); g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.05);
+        s0.connect(g); var pn = panTo(c, g, out, 0); s0.start(t); letGo(s0, [g, pn]);
+      },
+      vst: function (c, out, t, id, off, v) {   // a tape stop: the reel slowing to a halt
+        var b = tapeBuf(c, id); if (!b) return;
+        var s0 = c.createBufferSource(), g = c.createGain();
+        s0.buffer = b; s0.playbackRate.setValueAtTime(1, t); s0.playbackRate.exponentialRampToValueAtTime(0.05, t + 0.9);
+        g.gain.setValueAtTime(0.05 + v * 0.18, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 1);
+        s0.connect(g); var pn = panTo(c, g, out, 0); s0.start(t, Math.max(0, Math.min(off, b.duration - 0.2))); s0.stop(t + 1.05); letGo(s0, [g, pn]);
+      }
     };
     function reedVoice(c, out, t, f, v, p) {   // a shruti box reed: buzzy, softly filtered, breathing with the bellows
       var o = c.createOscillator(), o2 = c.createOscillator(), m2 = c.createGain(), lp = c.createBiquadFilter(), gb = c.createGain(), g = c.createGain(), br = c.createOscillator(), bg = c.createGain();
@@ -4048,6 +4070,153 @@
         }
       };
     }
+    // ---------- movement V: Musique Concrete, after Pierre Schaeffer ----------
+    // You record a sound; every sound in the movement is made from it with tape techniques: transposition by speed,
+    // grains, locked grooves (the ghosts), reversal (power), a tape stop (a lost life), and the source revealed at the end.
+    // The recording stays in the page, in memory only, and is gone when the game closes.
+    var tapes = {}, tape = null, tapeLevel = 0, tapeSeq = 0, studio = null, TAPE_CHORD = [1, 1.25, 1.5, 1.875, 2.25];
+    function tapeBuf(c, id) { var ca = c.__tp || (c.__tp = {}), T = tapes[id]; if (ca[id] || !T) return ca[id] || null; var b = c.createBuffer(1, T.data.length, T.sr); b.getChannelData(0).set(T.data); return (ca[id] = b); }
+    function tapeRevBuf(c, id) { var ca = c.__tpr || (c.__tpr = {}), T = tapes[id]; if (ca[id] || !T) return ca[id] || null; var b = c.createBuffer(1, T.data.length, T.sr), d = b.getChannelData(0), n = T.data.length; for (var i = 0; i < n; i++) d[i] = T.data[n - 1 - i]; return (ca[id] = b); }
+    function tapeRate(f, T) { T = T || tape; var r = f / (T && T.f0 ? T.f0 : 233.08); while (r > 2) r /= 2; while (r < 0.5) r *= 2; return r; }   // transposition by tape speed, within an octave either way
+    function tapeLoop(c, T, i) {   // a locked groove: a sliver of your recording, looping
+      var s0 = c.createBufferSource(), st = Math.max(0, Math.min(T.dur - 0.35, T.body + i * 0.07));
+      s0.buffer = tapeBuf(c, T.id); s0.loop = true; s0.loopStart = st; s0.loopEnd = st + 0.11 + i * 0.045;
+      return s0;
+    }
+    function noteName(f) { var m = Math.round(69 + 12 * Math.log(f / 440) / Math.LN2), nm = ['C', 'D\u266D', 'D', 'E\u266D', 'E', 'F', 'G\u266D', 'G', 'A\u266D', 'A', 'B\u266D', 'B']; return nm[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1); }
+    function pitchOf(d, sr, at) {   // the fundamental of a stretch of the sound, by autocorrelation; 0 if it has no clear pitch
+      var N = 2048, s0 = Math.max(0, Math.min(d.length - N - 1 - Math.floor(sr / 70), at)), minL = Math.floor(sr / 1000), maxL = Math.floor(sr / 70), e0 = 0, r = [], best = 0, i, L;
+      if (s0 < 0) return 0;
+      for (i = 0; i < N; i++) e0 += d[s0 + i] * d[s0 + i];
+      if (e0 < 1e-6) return 0;
+      for (L = minL; L <= maxL; L++) { var acc = 0; for (i = 0; i < N; i++) acc += d[s0 + i] * d[s0 + i + L]; r[L] = acc; if (acc > best) best = acc; }
+      if (best / e0 < 0.6) return 0;
+      for (L = minL + 1; L < maxL; L++) if (r[L] >= best * 0.9 && r[L] >= r[L - 1] && r[L] >= r[L + 1]) return sr / L;   // the first strong peak, so octaves are not dropped
+      return 0;
+    }
+    function analyzeTape(raw, sr) {   // trim, normalize, and listen to what the sound is: its pitch, its attacks, its loudest stretch
+      var fr = Math.round(sr * 0.01), nF = Math.floor(raw.length / fr), rms = new Float32Array(nF), pk = 0, i, j, x;
+      for (i = 0; i < raw.length; i++) { x = Math.abs(raw[i]); if (x > pk) pk = x; }
+      if (pk < 0.004 || nF < 20) return null;
+      var rmax = 0;
+      for (i = 0; i < nF; i++) { var s2 = 0; for (j = 0; j < fr; j++) { x = raw[i * fr + j]; s2 += x * x; } rms[i] = Math.sqrt(s2 / fr); if (rms[i] > rmax) rmax = rms[i]; }
+      var th = rmax * 0.06, a = 0, z = nF - 1;
+      while (a < nF - 1 && rms[a] < th) a++;
+      while (z > a && rms[z] < th) z--;
+      var a0 = Math.max(0, (a - 2) * fr), a1 = Math.min(raw.length, (z + 8) * fr), n = a1 - a0;
+      if (n < sr * 0.15) return null;
+      var data = new Float32Array(n), gn = 0.9 / pk, fd = Math.min(n >> 2, Math.round(sr * 0.008));
+      for (i = 0; i < n; i++) data[i] = raw[a0 + i] * gn;
+      for (i = 0; i < fd; i++) { data[i] *= i / fd; data[n - 1 - i] *= i / fd; }   // short fades, so the cuts never click
+      var ons = [0], W = 30, bestE = -1, bestF = a;
+      for (i = a + 1; i <= z; i++) {   // attacks: a frame much louder than the moment before it
+        var avg = 0, cnt = 0; for (j = Math.max(a, i - 10); j < i; j++) { avg += rms[j]; cnt++; }
+        var pos = i * fr - a0;
+        if (rms[i] > th * 2 && rms[i] > (avg / cnt) * 1.8 && pos - ons[ons.length - 1] > sr * 0.08) ons.push(pos);
+      }
+      for (i = Math.min(z, a + 5); i <= Math.max(a + 5, z - W); i++) { var e2 = 0; for (j = i; j < Math.min(nF, i + W); j++) e2 += rms[j]; if (e2 > bestE) { bestE = e2; bestF = i; } }
+      var body = Math.max(0, Math.min(n / sr - 0.36, (bestF * fr - a0) / sr)), env = [];
+      for (i = 0; i < 240; i++) env.push(rms[Math.min(nF - 1, a + Math.round(i / 239 * (z - a)))] / rmax);
+      return { data: data, sr: sr, dur: n / sr, f0: pitchOf(data, sr, Math.round(body * sr) + Math.round(sr * 0.05)), onsets: ons.slice(0, 16), body: body, env: env };
+    }
+    function builtinTape() {   // a sound made for you: a glass struck, then breathed across, then tapped twice
+      var sr = 44100, n = Math.round(sr * 3.2), d = new Float32Array(n), f = 233.08, P = [[1, 1, 2.2], [2.76, 0.5, 1.4], [5.4, 0.3, 0.8], [8.93, 0.18, 0.5]], i, k, lp = 0, seed = 7;
+      for (i = 0; i < n; i++) { var t = i / sr, v = 0; for (k = 0; k < P.length; k++) v += P[k][1] * Math.sin(6.2832 * f * P[k][0] * t) * Math.exp(-t / P[k][2]); d[i] = v * 0.5; }
+      for (i = 0; i < n; i++) { seed = (seed * 16807) % 2147483647; lp += ((seed / 2147483647) * 2 - 1 - lp) * 0.08; var t2 = i / sr; d[i] += lp * 0.5 * (t2 > 0.9 && t2 < 2.7 ? Math.sin(Math.PI * (t2 - 0.9) / 1.8) : 0); }
+      [1.6, 2.2].forEach(function (at) { var s0 = Math.round(at * sr); for (var j = 0; j < sr * 0.25 && s0 + j < n; j++) d[s0 + j] += 0.35 * Math.sin(6.2832 * f * 2 * j / sr) * Math.exp(-j / (sr * 0.06)); });
+      var T = analyzeTape(d, sr); if (T) T.f0 = f;   // made at B-flat 3; its overtones are a glass's, not harmonic, so its pitch is set rather than detected
+      return T;
+    }
+    function recordTape(secs, onLevel, done) {   // four seconds from the microphone, kept in memory
+      var c = gameAudioCtx; if (!c) { done({ name: 'NoAudio' }); return; }
+      navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } }).then(function (stream) {
+        var src = c.createMediaStreamSource(stream), sp = c.createScriptProcessor(4096, 1, 1), mute = c.createGain(), chunks = [], got = 0, total = Math.round(secs * c.sampleRate), over = false;
+        mute.gain.value = 0;
+        function finish() {
+          if (over) return; over = true; sp.onaudioprocess = null;
+          try { src.disconnect(); sp.disconnect(); mute.disconnect(); } catch (x) {}
+          stream.getTracks().forEach(function (tr) { tr.stop(); });
+          var all = new Float32Array(got), o = 0; chunks.forEach(function (ch) { all.set(ch, o); o += ch.length; });
+          done(null, all, c.sampleRate);
+        }
+        sp.onaudioprocess = function (e) {
+          var dd = e.inputBuffer.getChannelData(0), pk = 0; chunks.push(new Float32Array(dd)); got += dd.length;
+          for (var i = 0; i < dd.length; i += 4) { var v = Math.abs(dd[i]); if (v > pk) pk = v; }
+          onLevel(pk, Math.min(1, got / total));
+          if (got >= total) finish();
+        };
+        src.connect(sp); sp.connect(mute); mute.connect(c.destination);
+        setTimeout(finish, secs * 1000 + 800);
+      }, function (err) { done(err || { name: 'Error' }); });
+    }
+    function drawTapeWave(cv, env, frac) {   // the sound, drawn on the card as a waveform
+      var x = cv.getContext('2d'), W = cv.width, H = cv.height, mid = H / 2;
+      x.fillStyle = '#F2F2EF'; x.fillRect(0, 0, W, H);
+      x.fillStyle = 'rgba(10,10,10,0.18)'; x.fillRect(0, mid - 1, W, 2);
+      if (!env || !env.length) return;
+      var n = frac >= 0 ? Math.max(env.length, env.length / Math.max(0.02, frac)) : env.length, bw = W / n;
+      x.fillStyle = '#7B5F34';
+      for (var i = 0; i < env.length; i++) { var h = Math.max(2, Math.min(1, env[i]) * H * 0.44); x.fillRect(i * bw, mid - h, Math.max(1, bw - 1), h * 2); }
+    }
+    function openStudio() {   // the studio card: record a sound, listen, and begin
+      closeStudio(); ensureStyle();
+      gameState = 'studio';
+      var el = document.createElement('div'); el.className = 'sc-ui sc-card'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Record a sound for movement V');
+      function add(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; el.appendChild(e); return e; }
+      add('div', 'sc-no', 'Movement V: Musique Concr\u00E8te');
+      add('div', 'sc-sub', 'after Pierre Schaeffer');
+      var msg = add('div', 'sc-meta', 'Make any sound for four seconds: sing, hum, speak, whistle, or clap. The whole movement is made from it. Your recording stays on this page and is never uploaded.');
+      var cv = add('canvas', 'sc-cv'); cv.width = 1720; cv.height = 360;
+      var bt = add('div', 'sc-btns');
+      function btn(label, alt, fn) { var b = document.createElement('button'); b.textContent = label; if (alt) b.className = 'alt'; bindTap(b, fn); bt.appendChild(b); return b; }
+      studio = { el: el, cv: cv, msg: msg, ready: false, busy: false };
+      studio.rec = btn('Record', false, studioRecord);
+      studio.begin = btn('Begin', false, studioBegin);
+      studio.listen = btn('Listen', true, studioListen);
+      studio.mine = btn('Use a sound made for you', true, function () { studioUse(builtinTape(), 'Here is a sound made for you: a glass, struck, breathed across, and tapped. Listen, or begin.'); });
+      overlay.appendChild(el);
+      if (tape) { studio.ready = true; msg.textContent = 'Use the sound you made before, or record a new one.'; }
+      studioSync(); drawTapeWave(cv, tape ? tape.env : null, -1);
+    }
+    function studioSync() {
+      if (!studio) return;
+      var r = studio.ready && !studio.busy;
+      studio.begin.style.display = r ? '' : 'none'; studio.listen.style.display = r ? '' : 'none'; studio.mine.style.display = studio.busy ? 'none' : '';
+      if (!studio.busy) { studio.rec.textContent = studio.ready ? 'Record again' : 'Record'; studio.rec.className = studio.ready ? 'alt' : ''; }
+    }
+    function closeStudio() {
+      if (!studio) return;
+      Array.prototype.forEach.call(studio.el.querySelectorAll('button'), function (b) { b.__scFn = null; });
+      studio.cv.width = 0; studio.el.remove(); studio = null;
+      uiEls = uiEls.filter(function (el) { return el.isConnected; });
+    }
+    function studioUse(T, text) {
+      if (!T) return;
+      T.id = ++tapeSeq; tapes[T.id] = T; tape = T;
+      if (!studio) return;
+      studio.ready = true; studio.busy = false; studio.msg.textContent = text; studioSync(); drawTapeWave(studio.cv, T.env, -1);
+    }
+    function studioRecord() {
+      if (!studio || studio.busy) return;
+      var c = gameAudioCtx; if (c && c.state !== 'running') c.resume();
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { studioUse(builtinTape(), 'No microphone is available here, so here is a sound made for you instead.'); return; }
+      studio.busy = true; studio.rec.textContent = 'Recording 4'; studio.rec.className = ''; studioSync();
+      var peaks = [];
+      recordTape(4, function (pk, frac) {
+        if (!studio) return;
+        peaks.push(Math.min(1, pk * 1.6)); studio.rec.textContent = 'Recording ' + Math.max(1, Math.ceil(4 * (1 - frac)));
+        drawTapeWave(studio.cv, peaks, frac);
+      }, function (err, raw, sr) {
+        if (!studio) return;
+        studio.busy = false;
+        if (err) { studioUse(builtinTape(), 'The microphone is not available (' + (err.name === 'NotAllowedError' ? 'permission was declined' : 'it could not be opened') + '), so here is a sound made for you instead.'); return; }
+        var T = analyzeTape(raw, sr);
+        if (!T) { studio.msg.textContent = 'That was very quiet. Try again a little closer, or use a sound made for you.'; studioSync(); drawTapeWave(studio.cv, null, -1); return; }
+        studioUse(T, T.f0 ? 'Got it: a pitched sound, near ' + noteName(T.f0) + '. It will sing your solo. Listen, record again, or begin.' : 'Got it: a sound without a clear pitch, so it will be played as sound objects. Listen, record again, or begin.');
+      });
+    }
+    function studioListen() { var c = gameAudioCtx; if (!c || !tape) return; if (c.state !== 'running') c.resume(); SND.vg(c, gameOut(), c.currentTime + 0.05, tape.id, 1, 0, tape.dur, 0.7, 0); }
+    function studioBegin() { if (!studio || !studio.ready || !tape) return; closeStudio(); tapeLevel = level; gameState = 'playing'; startMusic(); logMark('tape', tape.id); }
     // ---------- the performance, written down as it happens ----------
     var perf = null;
     function perfStart() {
@@ -4056,10 +4225,10 @@
     function pt(t) { return perf ? Math.max(0, t - perf.a0) : 0; }
     function logMark(kind, v) { if (perf && !perf.done && gameAudioCtx) perf.marks.push([pt(gameAudioCtx.currentTime), kind, v == null ? 0 : v]); }
     function logEvAt(t, kind) { if (perf && !perf.done) perf.ev.push([pt(t), kind].concat(Array.prototype.slice.call(arguments, 2))); }
-    function play(kind, t, a, b, c2, d, e) {   // play it now, and write it into the score
+    function play(kind, t, a, b, c2, d, e, f6) {   // play it now, and write it into the score
       var c = gameAudioCtx, out = gameOut(); if (!c || !out) return;
-      try { SND[kind](c, out, t, a, b, c2, d, e); } catch (x) {}
-      if (perf && !perf.done) perf.ev.push([pt(t), kind, a, b, c2, d, e]);
+      try { SND[kind](c, out, t, a, b, c2, d, e, f6); } catch (x) {}
+      if (perf && !perf.done) perf.ev.push([pt(t), kind, a, b, c2, d, e, f6]);
     }
     function soloNote(f, kind, glyph) {   // your solo: into this run's score, and into the score of your visit
       if (perf && !perf.done && gameAudioCtx) perf.solo.push([pt(gameAudioCtx.currentTime), f, glyph]);
@@ -4088,7 +4257,12 @@
       }
       else if (m === 1) { d = nextSoloDeg(14); var o = Math.floor(d / 7), v2 = 0.4 + danger * 0.6; f = 233.08 * YAMAN[d - o * 7] * Math.pow(2, o); if (singer) singer.note(t, f, v2); logEvAt(t, 'sng', f, v2); soloNote(f, 'string', 'sng'); }   // the voice glides (meend) to each new note
       else if (m === 2) { f = F1 * (8 + nextSoloDeg(16)); play('plk', t, f, 0.5, pan, 0.08 + Math.random() * 0.4); soloNote(f, 'string', 'plk'); }
-      else { f = F1 * (6 + nextSoloDeg(14)); play('horn', t, f, 0.45 + danger * 0.45, pan); padAdd(rowPartial(playerY), 0.22); soloNote(f, 'mode', 'hrn'); }   // the horn plays partials 6 to 20; the row you are on lights its partial in the rhythmicon
+      else if (m === 3) { f = F1 * (6 + nextSoloDeg(14)); play('horn', t, f, 0.45 + danger * 0.45, pan); padAdd(rowPartial(playerY), 0.22); soloNote(f, 'mode', 'hrn'); }   // the horn plays partials 6 to 20; the row you are on lights its partial in the rhythmicon
+      else {   // movement V: your solo is your own sound, transposed by tape speed into B-flat minor pentatonic
+        d = nextSoloDeg(10); var o5 = Math.floor(d / 5); f = 233.08 * Math.pow(2, ([0, 3, 5, 7, 10][d - o5 * 5] + 12 * o5) / 12);
+        if (tape) play('vg', t, tape.id, tapeRate(f), tape.body, 0.32, 0.65 + danger * 0.3, pan);
+        soloNote(f, 'string', 'vx');
+      }
     }
     function rowPartial(r) { return 24 - Math.round(r / (ROWS - 1) * 20); }   // in the finale, each row of the maze is a partial of B-flat
     function playPowerSound() {
@@ -4109,9 +4283,12 @@
         play('chm', t + 0.62, 932.33);
       } else if (m === 2) {   // a stochastic cloud
         for (i = 0; i < 18; i++) play('plk', t + Math.random() * 0.7, F1 * (12 + Math.floor(Math.random() * 20)), 0.25 + Math.random() * 0.2, Math.random() * 1.6 - 0.8, 0.05 + Math.random() * 0.5);
-      } else {   // the horn climbs the natural scale (and the rhythmicon spins twice as fast while you are powered up)
+      } else if (m === 3) {   // the horn climbs the natural scale (and the rhythmicon spins twice as fast while you are powered up)
         for (i = 8; i <= 16; i++) play('horn', t + (i - 8) * 0.07, F1 * i, 0.6, ((i % 4) - 1.5) * 0.4);
         for (var n = 1; n <= 24; n++) if (padLv[n] > 0) padAdd(n, padLv[n] * 0.3);
+      } else if (tape) {   // movement V: your sound run backward, swelling into the moment, while the cloud thickens
+        play('vrev', t, tape.id, 0.8);
+        for (i = 0; i < 10; i++) play('vg', t + Math.random() * tape.dur, tape.id, tapeRate(116.54 * TAPE_CHORD[i % 5] * 2), Math.random() * Math.max(0.05, tape.dur - 0.2), 0.12, 0.5, Math.random() * 1.6 - 0.8);
       }
     }
     function ghostAtPlayer() { for (var i = 0; i < ghosts.length; i++) if (ghosts[i].x === playerX && ghosts[i].y === playerY) return i; return 0; }
@@ -4119,6 +4296,7 @@
       var c = gameAudioCtx; if (!c) return;
       var m = movIdx(), t = c.currentTime + 0.01;
       burst(playerX, playerY, true); logMark('ghost');
+      if (m === 4 && tape) { for (var k5 = 0; k5 < 8; k5++) play('vg', t + k5 * (0.07 - k5 * 0.005), tape.id, tapeRate(466.16), tape.body, 0.05, 0.6, (k5 % 2) - 0.5); return; }   // a locked groove, stuttering faster
       if (m === 3) { var n = [7, 11, 13, 14][ghostAtPlayer()]; padAdd(n, 0.8); play('sin', t, F1 * n, 0.08, 0, 3); play('chm', t + 0.05, F1 * n * 2); return; }   // a blue partial resolves into the chord
       var r = (m === 0 ? keyRoot() : 233.08) / 2;
       [4, 5, 6, 8].forEach(function (k, i) { play('chm', t + i * 0.07, r * k); });
@@ -4129,6 +4307,7 @@
       var r = movIdx() === 0 ? keyRoot() : 233.08, t = c.currentTime + 0.01;
       deathFx(playerX, playerY); logMark('death');
       if (movIdx() === 0 && sax) { sax.fall(t); logEvAt(t, 'sxfall'); }   // the saxophone falls off the note
+      if (movIdx() === 4 && tape) play('vst', t, tape.id, tape.body, 0.8);   // a tape stop
       [1, 1.25, 1.5, 2].forEach(function (mm, i) { play('gls', t + i * 0.05, r * mm, 0.06, (i - 1.5) * 0.3, 0.25, 1.6); });
     }
     function playStartSound() {   // tuning: the harmonic series of B-flat
@@ -4141,6 +4320,11 @@
       var c = gameAudioCtx; if (!c) return;
       var m = movIdx(), t = c.currentTime + 0.02, n;
       pluckFx(); logMark('clear', m);
+      if (m === 4 && tape) {   // the source revealed: your sound as you made it, then a chord made of it
+        play('vg', t, tape.id, 1, 0, tape.dur, 0.75, 0);
+        [1, 1.25, 1.5, 2].forEach(function (k, i) { play('vg', t + tape.dur * 0.6 + i * 0.05, tape.id, tapeRate(116.54 * k), tape.body, 2.2, 0.5, (i - 1.5) * 0.4); });
+        return;
+      }
       if (m === 3) {   // the rhythmicon's last downbeat: every partial at once, each ringing for its own length; then the horn's call
         for (n = 1; n <= 24; n++) play('rp', t, F1 * n * (n < 3 ? 2 : 1), 0.05 / Math.pow(n, 0.3), ((n % 5) - 2) * 0.3, 1.5 + 6 / Math.sqrt(n));
         [8, 10, 12, 16].forEach(function (k, i) { play('horn', t + 0.9 + i * 0.32, F1 * k, 0.8, 0); });
@@ -4166,13 +4350,14 @@
     function startMusic() {
       clearTimeout(startTimer); startTimer = 0;
       if (musicInterval) return;
+      if (movIdx() === 4 && tapeLevel !== level) { openStudio(); return; }   // movement V begins in the studio: first, your sound
       hideCard();
       if (!perf || perf.done) perfStart();
       if (perf.lastLevel !== level) { perf.lastLevel = level; logMark('mov', movIdx()); movTitleAt = performance.now(); }
-      var m = movIdx(), cyc = Math.floor(((level || 1) - 1) / 4);
+      var m = movIdx(), cyc = Math.floor(((level || 1) - 1) / 5);
       musicStep = 0; walkDeg = 0; danger = 0; tanIdx = 0; tilt.g0 = null;
       formPos = 0; coltBeat = 0; curChord = [0, '7']; lineQ = []; linePrev = null; bassPrev = null; prevVoi = null; compPat = null;
-      BPM = [168, 76, 100, 84][m] + cyc * 8;
+      BPM = [168, 76, 100, 84, 92][m] + cyc * 8;
       stepDur = 60 / BPM / 2;
       bedStart(m); ghostVoicesBuild(m, false);
       nextStepAt = (gameAudioCtx ? gameAudioCtx.currentTime : 0) + 0.06;
@@ -4186,7 +4371,7 @@
     function musicTick(t0) {
       var m = movIdx(), step = musicStep++ % 8, beat = step >> 1, off = step & 1, pw = frightenedTimer > 0;
       var t = t0 + (off && m === 0 ? stepDur * 0.34 : 0);   // the band swings its eighths
-      if (m === 0) bopTick(t, step, beat, off, pw); else if (m === 1) droneTick(t, beat, off, pw); else if (m === 2) stochTick(t, off, pw); else seriesTick(t, beat, off, pw);
+      if (m === 0) bopTick(t, step, beat, off, pw); else if (m === 1) droneTick(t, beat, off, pw); else if (m === 2) stochTick(t, off, pw); else if (m === 3) seriesTick(t, beat, off, pw); else concreteTick(t, beat, off, pw);
     }
     function formChord(fp) { var ch = BLUES[Math.floor(fp / 8) % 12]; return ch.length === 2 && (fp % 8) >= 4 ? ch[1] : ch[0]; }   // the chord at a point in the form, counted in eighth notes
     function nearestOct(target, prev, lo, hi) {   // the octave of a note closest to the previous one, inside a range
@@ -4260,6 +4445,18 @@
       else if (compPat && compPat[step]) pianoStab(t + hum(), step === 7 ? formChord(formPos + 1) : ch, compPat[step] * (0.85 + dg * 0.3), stepDur * (step === 7 ? 1.8 : 1.1));
       else if (off && Math.random() < dg * 0.25) pianoStab(t + hum(), ch, 0.5, stepDur * 0.9);
       if (pw) { if (!off) coltBeat++; } else formPos++;   // the clock of the form
+    }
+    function concreteTick(t, beat, off, pw) {   // movement V: a cloud of grains of your sound tuned to B-flat, denser as danger rises; now and then a whole sound object
+      if (!tape) return;
+      var n = 1 + Math.round(danger * 3) + (pw ? 2 : 0), i;
+      for (i = 0; i < n; i++) {
+        if (Math.random() > 0.55 + danger * 0.3) continue;
+        play('vg', t + Math.random() * stepDur, tape.id, tapeRate(116.54 * TAPE_CHORD[Math.floor(Math.random() * 5)] * (Math.random() < 0.5 ? 1 : 2)), Math.random() * Math.max(0.05, tape.dur - 0.2), 0.07 + Math.random() * 0.12, 0.16 + Math.random() * 0.12, Math.random() * 1.6 - 0.8);
+      }
+      if (!off && beat === 0 && Math.random() < 0.35 + danger * 0.4 && tape.onsets.length) {
+        var on = tape.onsets[Math.floor(Math.random() * tape.onsets.length)];
+        play('vg', t, tape.id, tapeRate(116.54 * [1, 1.5, 2][Math.floor(Math.random() * 3)]), on / tape.sr, 0.35, 0.35, Math.random() - 0.5);
+      }
     }
     function droneTick(t, beat, off, pw) {   // the tanpura: Pa, Sa, Sa, low Sa, one string at a time; a little faster when hunted
       var dg = danger;
@@ -4417,23 +4614,24 @@
     // ---------- the ghosts you can hear ----------
     // Each ghost is its oscillator, panned to where it is and swelling as it nears; its height in the maze sets its pitch.
     var GV = null;
-    function voiceType(m, i) { return m === 0 ? GTYPES[i] : m === 2 ? 'sawtooth' : 'sine'; }
-    function typeMul(ty) { return ty === 'square' ? 0.45 : ty === 'sawtooth' ? 0.55 : ty === 'noise' ? 1.6 : 1; }
+    function voiceType(m, i) { return m === 0 ? GTYPES[i] : m === 2 ? 'sawtooth' : m === 4 ? 'tape' : 'sine'; }
+    function typeMul(ty) { return ty === 'square' ? 0.45 : ty === 'sawtooth' ? 0.55 : ty === 'noise' ? 1.6 : ty === 'tape' ? 1.3 : 1; }
     function ghostVoicesBuild(m, title) {
       ghostVoicesKill();
       var c = gameAudioCtx, out = gameOut(); if (!c || !out) return;
       if (m === 2 && dssNode && !title) return;   // in movement III the stochastic engine voices the ghosts
       GV = [];
       for (var i = 0; i < 4; i++) {
-        var ty = title ? GTYPES[i] : voiceType(m, i), o = null, nz = null, bp = null, src;
-        if (ty === 'noise') { nz = c.createBufferSource(); nz.buffer = noiseBufOf(c); nz.loop = true; bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 18; nz.connect(bp); src = bp; }
-        else { o = c.createOscillator(); o.type = ty; src = o; }
+        var ty = title ? GTYPES[i] : voiceType(m, i), o = null, nz = null, bp = null, src, TT = ty === 'tape' ? tape : null;
+        if (TT) { nz = tapeLoop(c, TT, i); src = nz; }
+        else if (ty === 'noise') { nz = c.createBufferSource(); nz.buffer = noiseBufOf(c); nz.loop = true; bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 18; nz.connect(bp); src = bp; }
+        else { o = c.createOscillator(); o.type = ty === 'tape' ? 'sine' : ty; src = o; }
         var lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 800; lp.Q.value = 0.5;
         var g = c.createGain(); g.gain.value = 0;
         var pn = c.createStereoPanner ? c.createStereoPanner() : null;
         src.connect(lp); lp.connect(g); if (pn) { g.connect(pn); pn.connect(out); } else g.connect(out);
-        if (o) o.start(); if (nz) nz.start();
-        GV.push({ o: o, nz: nz, bp: bp, lp: lp, g: g, pn: pn, ty: ty });
+        if (o) o.start(); if (nz) { if (TT) nz.start(0, nz.loopStart); else nz.start(); }
+        GV.push({ o: o, nz: nz, bp: bp, lp: lp, g: g, pn: pn, ty: ty, T: TT });
       }
     }
     function ghostVoicesKill() {
@@ -4441,7 +4639,7 @@
       var t = gameAudioCtx.currentTime;
       GV.forEach(function (v) { try { v.g.gain.cancelScheduledValues(t); v.g.gain.setTargetAtTime(0, t, 0.06); if (v.o) v.o.stop(t + 0.5); if (v.nz) v.nz.stop(t + 0.5); } catch (x) {} });
       GV = null;
-      if (perf && !perf.done) { var z = [pt(t), movIdx()]; for (var i = 0; i < 4; i++) z.push(220, 0, 0, 0); z.push(0); perf.gh.push(z); }
+      if (perf && !perf.done) { var z = [pt(t), movIdx()]; for (var i = 0; i < 4; i++) z.push(220, 0, 0, 0); z.push(0, 0); perf.gh.push(z); }
     }
     function ghostTargets(now) {
       var title = gameState === 'title', m = title ? 0 : movIdx(), res = [];
@@ -4451,7 +4649,8 @@
         if (m === 0) f = keyRoot() / 2 * Math.pow(2, (curChord[0] + CQ[curChord[1]][i] + 12 * Math.round(hi * 2)) / 12);   // the ghosts sing the chord of the moment
         else if (m === 1) f = 116.54 * [1, 1.5, 1.25, 1.125][i] * (hi > 0.5 ? 2 : 1) * Math.pow(2, prox * 0.022);   // just consonances with the drone; a ghost that nears slides out of tune and beats against it
         else if (m === 2) f = F1 * (6 + Math.round(hi * 12) + i);   // stochastic voices, held on the harmonic series
-        else f = F1 * [7, 11, 13, 14][i] * (hi > 0.55 ? 2 : 1);   // the finale's four blue partials
+        else if (m === 3) f = F1 * [7, 11, 13, 14][i] * (hi > 0.55 ? 2 : 1);   // the finale's four blue partials
+        else f = 116.54 * [1, 1.25, 1.5, 1.875][i] * (hi > 0.5 ? 2 : 1);   // movement V: four locked grooves of your sound, on a B-flat major seventh
         var fr = !title && !!g.frightened;
         if (fr) { if (m === 3) f = 440 * Math.pow(2, Math.round(12 * Math.log(f / 440) / Math.LN2) / 12); else f /= 2; }   // frightened: an octave down; in the finale, they fall into equal temperament
         var active = title || (g.homeTimer <= 0 && !g.eaten);
@@ -4477,6 +4676,7 @@
         var v = GV[i], s2 = T[i];
         if (v.o) v.o.frequency.setTargetAtTime(s2.f, t, 0.12);
         if (v.bp) v.bp.frequency.setTargetAtTime(s2.f, t, 0.12);
+        if (v.T) v.nz.playbackRate.setTargetAtTime(tapeRate(s2.f, v.T), t, 0.12);
         v.lp.frequency.setTargetAtTime(300 + s2.bright * 5200, t, 0.1);
         v.g.gain.setTargetAtTime(s2.gain * typeMul(v.ty) * (m === 3 ? 0.5 : 1), t, 0.08);
         if (v.pn) v.pn.pan.setTargetAtTime(s2.pan, t, 0.1);
@@ -4492,7 +4692,7 @@
         lastLog = now;
         var row = [pt(t), m];
         for (i = 0; i < 4; i++) row.push(T[i].f, T[i].gain, T[i].pan, T[i].bright);
-        row.push(GV ? 0 : 1);
+        row.push(GV ? 0 : 1, tape && m === 4 ? tape.id : 0);
         perf.gh.push(row);
         if (P) { var b = [pt(t)]; P.forEach(function (q) { b.push(q[0], q[1], q[2], q[3], q[4]); }); perf.bed.push(b); }
         perf.path.push([pt(t), playerX, playerY]);
@@ -4571,6 +4771,7 @@
       if (r) { r.buf = null; r.wav = null; r.waiters = []; }
       if (perf) { perf.ev = []; perf.gh = []; perf.bed = []; perf.solo = []; perf.path = []; }
       perf = null; live = null;
+      closeStudio(); tapes = {}; tape = null; tapeLevel = 0;
       uiEls.forEach(function (el) { el.__scFn = null; }); uiEls = [];
       window.removeEventListener('deviceorientation', tiltHandler);
     }
@@ -4603,6 +4804,7 @@
       god.invBtn.setAttribute('aria-pressed', god.inv ? 'true' : 'false');
     }
     function godJump(m) {   // straight to movement m on a fresh maze; the run's score records the jump
+      closeStudio();
       if (gameState === 'title') { clearInterval(titleTimer); titleUI(false); ghostVoicesKill(); }
       if (gameAudioCtx && gameAudioCtx.state !== 'running') gameAudioCtx.resume();
       hideCard(); stopMusic();
@@ -4616,7 +4818,7 @@
     function godKey(e, k) {   // keys: 1 to 4 jump to a movement, C clears it, E ends the run, I toggles invincibility
       if (e.metaKey || e.ctrlKey || e.altKey) return false;
       var lk = k.toLowerCase();
-      if (k.length === 1 && k >= '1' && k <= '4') godJump(+k - 1);
+      if (k.length === 1 && k >= '1' && k <= '5') godJump(+k - 1);
       else if (lk === 'c') godClear();
       else if (lk === 'e') godEnd();
       else if (lk === 'i') { god.inv = !god.inv; godSync(true); }
@@ -4754,7 +4956,7 @@
           else if (e[1] === 'sx') { if (sx) sx.note(t, e[2], e[3], e[4]); }
           else if (e[1] === 'sxfall') { if (sx) sx.fall(t); }
           else if (e[1] === 'sxoff') { if (sx) { sx.end(t); sx = null; } }
-          else { try { SND[e[1]](c, dest, t, e[2], e[3], e[4], e[5], e[6]); } catch (x) {} }
+          else { try { SND[e[1]](c, dest, t, e[2], e[3], e[4], e[5], e[6], e[7]); } catch (x) {} }
         }
       }
       function endPads(t) { pads.forEach(function (p2) { if (p2) { try { p2.g.gain.setTargetAtTime(0, t, 0.8); p2.o.stop(t + 4); } catch (x) {} } }); pads = []; }
@@ -4763,16 +4965,17 @@
     }
     function ghostPlayer(c, dest, run, lim, off) {   // the four ghosts, moving exactly as they moved: one set of voices per stretch of play
       var seg = null;
-      function chain(ty, t) {
-        var o = null, nz = null, bp = null, src;
-        if (ty === 'noise') { nz = c.createBufferSource(); nz.buffer = noiseBufOf(c); nz.loop = true; bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 18; nz.connect(bp); src = bp; }
-        else { o = c.createOscillator(); o.type = ty; src = o; }
+      function chain(ty, t, gi, id) {
+        var o = null, nz = null, bp = null, src, TT = ty === 'tape' ? tapes[id] : null;
+        if (TT) { nz = tapeLoop(c, TT, gi); src = nz; }
+        else if (ty === 'noise') { nz = c.createBufferSource(); nz.buffer = noiseBufOf(c); nz.loop = true; bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 18; nz.connect(bp); src = bp; }
+        else { o = c.createOscillator(); o.type = ty === 'tape' ? 'sine' : ty; src = o; }
         var lp = c.createBiquadFilter(); lp.type = 'lowpass'; var g = c.createGain(); g.gain.setValueAtTime(0, t);
         src.connect(lp); lp.connect(g);
         var pn = c.createStereoPanner ? c.createStereoPanner() : null;
         if (pn) { g.connect(pn); pn.connect(dest); } else g.connect(dest);
-        var s0 = o || nz; s0.start(t); letGo(s0, [bp, lp, g, pn]);
-        return { o: o, bp: bp, lp: lp, g: g, pn: pn, ty: ty, s0: s0, fresh: true };
+        var s0 = o || nz; if (TT) s0.start(t, nz.loopStart); else s0.start(t); letGo(s0, [bp, lp, g, pn]);
+        return { o: o, nz: nz, T: TT, bp: bp, lp: lp, g: g, pn: pn, ty: ty, s0: s0, fresh: true };
       }
       function endSeg(tEnd) { if (!seg) return; seg.ch.forEach(function (ch) { ch.g.gain.linearRampToValueAtTime(0, tEnd); ch.s0.stop(tEnd + 0.3); }); seg = null; }
       run.gh.forEach(function (s2) {
@@ -4780,19 +4983,20 @@
         var t = s2[0] + off, m = s2[1];
         if (s2[18]) { endSeg(t); return; }   // here the stochastic engine was voicing the ghosts
         if (seg && (seg.m !== m || s2[0] - seg.last > 0.5)) endSeg(seg.last + off + 0.1);
-        if (!seg) seg = { m: m, last: s2[0], ch: [0, 1, 2, 3].map(function (i) { return chain(voiceType(m, i), t); }) };
+        if (!seg) seg = { m: m, last: s2[0], ch: [0, 1, 2, 3].map(function (i) { return chain(voiceType(m, i), t, i, s2[19]); }) };
         seg.last = s2[0];
         for (var i = 0; i < 4; i++) {
           var ch = seg.ch[i], b = 2 + i * 4, f = s2[b], gn = s2[b + 1] * typeMul(ch.ty) * (m === 3 ? 0.5 : 1), pan = s2[b + 2], cut = 300 + s2[b + 3] * 5200;
           if (ch.fresh) {
             ch.fresh = false;
-            if (ch.o) ch.o.frequency.setValueAtTime(f, t); if (ch.bp) ch.bp.frequency.setValueAtTime(f, t);
+            if (ch.o) ch.o.frequency.setValueAtTime(f, t); if (ch.bp) ch.bp.frequency.setValueAtTime(f, t); if (ch.T) ch.nz.playbackRate.setValueAtTime(tapeRate(f, ch.T), t);
             ch.lp.frequency.setValueAtTime(cut, t); if (ch.pn) ch.pn.pan.setValueAtTime(pan, t);
             ch.g.gain.linearRampToValueAtTime(gn, t + 0.08);
             continue;
           }
           if (ch.o) ch.o.frequency.linearRampToValueAtTime(f, t);
           if (ch.bp) ch.bp.frequency.linearRampToValueAtTime(f, t);
+          if (ch.T) ch.nz.playbackRate.linearRampToValueAtTime(tapeRate(f, ch.T), t);
           ch.lp.frequency.linearRampToValueAtTime(cut, t);
           if (ch.pn) ch.pn.pan.linearRampToValueAtTime(pan, t);
           ch.g.gain.linearRampToValueAtTime(gn, t);
@@ -4908,6 +5112,10 @@
         x.fillStyle = 'hsla(' + hueOf(Math.max(1, Math.round(e[2] / F1))).toFixed(0) + ',60%,36%,' + Math.min(0.9, 0.2 + e[3] * 14).toFixed(2) + ')';
         x.fillRect(X(e[0]) - 1.8, Y(e[2]) - 1.8, 3.6, 3.6);
       });
+      run.ev.forEach(function (e) {   // movement V: the cloud of grains of your sound
+        if (e[1] !== 'vg') return;
+        x.fillStyle = 'rgba(150,96,36,' + Math.min(0.8, 0.15 + e[6] * 0.6).toFixed(2) + ')'; x.fillRect(X(e[0]) - 1.6, Y(233.08 * e[3]) - 1.6, 3.2, 3.2);
+      });
       var sl = run.solo.filter(function (s2) { return s2[2] === 'sng'; });   // the drone's voice: one gliding line
       x.strokeStyle = '#7B5F34'; x.lineWidth = 2.2; x.lineJoin = 'round';
       for (i = 1; i < sl.length; i++) { if (sl[i][0] - sl[i - 1][0] > 1.6) continue; x.beginPath(); x.moveTo(X(sl[i - 1][0]), Y(sl[i - 1][1])); x.lineTo(X(sl[i][0]), Y(sl[i][1])); x.stroke(); }
@@ -4979,7 +5187,7 @@
       var u = Math.min(w / 16, h / 22), cx = w / 2, y0 = h * 0.5 - u * 7, i;
       ctx.textAlign = 'center';
       ctx.font = hudFont(600, Math.round(u * 0.42)); spaced(u * 0.12); ctx.fillStyle = 'rgba(196,168,130,0.9)';
-      ctx.fillText('A SUITE IN FOUR MOVEMENTS', cx, y0); spaced(0);
+      ctx.fillText('A SUITE IN FIVE MOVEMENTS', cx, y0); spaced(0);
       if ('fontStretch' in ctx) ctx.fontStretch = 'condensed';
       var ts = Math.round(u * 2.5); ctx.font = hudFont(200, ts);
       var tw = ctx.measureText('SIGNAL CHASE').width; if (tw > w * 0.86) { ts = Math.floor(ts * w * 0.86 / tw); ctx.font = hudFont(200, ts); }   // always fits the screen
@@ -4995,9 +5203,10 @@
         ctx.font = hudFont(600, Math.round(u * 0.34)); spaced(u * 0.08); ctx.fillStyle = 'rgba(201,204,209,0.7)'; ctx.fillText(names[i], gx, gy + u * 1.35); spaced(0);
       }
       ctx.font = serifFont(Math.round(u * 0.7)); ctx.fillStyle = 'rgba(245,244,240,0.92)';
-      var line = 'I. Hard Bop     II. Drone     III. Stochastic     IV. Harmonic Series', ly = gy + u * 3;
-      if (ctx.measureText(line).width > w * 0.9) { ctx.fillText('I. Hard Bop     II. Drone', cx, ly); ly += u * 0.95; ctx.fillText('III. Stochastic     IV. Harmonic Series', cx, ly); }
-      else ctx.fillText(line, cx, ly);
+      var mvs = ['I. Hard Bop', 'II. Drone', 'III. Stochastic', 'IV. Harmonic Series', 'V. Musique Concr\u00E8te'], ly = gy + u * 3, rowsT = [mvs];
+      if (ctx.measureText(mvs.join('     ')).width > w * 0.9) rowsT = [mvs.slice(0, 3), mvs.slice(3)];
+      if (rowsT.length > 1 && ctx.measureText(rowsT[0].join('     ')).width > w * 0.9) rowsT = [mvs.slice(0, 2), mvs.slice(2, 4), mvs.slice(4)];
+      rowsT.forEach(function (rw, k) { if (k) ly += u * 0.95; ctx.fillText(rw.join('     '), cx, ly); });
       var best = 0; try { best = +(localStorage.getItem('signalChaseBest') || 0); } catch (x) {}
       if (best) { ctx.font = hudFont(500, Math.round(u * 0.5)); ctx.fillStyle = '#C4A882'; ctx.fillText('Best ' + best + ' Hz', cx, ly + u * 1.5); }
       ctx.font = hudFont(600, Math.round(u * 0.36)); spaced(u * 0.1);
@@ -5020,7 +5229,12 @@
         if (!wob) { wob = []; for (q = 0; q < (COLS + 1) * (ROWS + 1); q++) wob.push([0, 0]); }
         if (pnow - wobAt > 80) { wobAt = pnow; var stp = 0.35 + danger * 0.9; for (q = 0; q < wob.length; q++) { var wv = wob[q]; wv[0] = Math.max(-1, Math.min(1, wv[0] * 0.96 + (Math.random() - 0.5) * stp)); wv[1] = Math.max(-1, Math.min(1, wv[1] * 0.96 + (Math.random() - 0.5) * stp)); } }
       }
-      var J = mi === 2 && wob ? cellSize * 0.075 : 0, ei = 0;
+      if (mi === 4 && tape) {   // movement V: the maze trembles with your recording, its envelope scrolling past every corner like tape across a head
+        if (!wob) { wob = []; for (q = 0; q < (COLS + 1) * (ROWS + 1); q++) wob.push([0, 0]); }
+        var sc5 = Math.floor(pnow / 35), E5 = tape.env, am5 = 0.5 + danger * 0.8;
+        for (q = 0; q < wob.length; q++) { var ev5 = E5[(q * 7 + sc5) % E5.length] * am5; wob[q][0] = q % 2 ? ev5 : -ev5; wob[q][1] = ((q >> 1) % 2 ? ev5 : -ev5) * 0.6; }
+      }
+      var J = (mi === 2 || (mi === 4 && tape)) && wob ? cellSize * 0.075 : 0, ei = 0;
       function corner(cc, rr) { var o2 = J ? wob[rr * (COLS + 1) + cc] : null; return [offsetX + cc * cellSize + (o2 ? o2[0] * J : 0), offsetY + rr * cellSize + (o2 ? o2[1] * J : 0)]; }
       function edge(c1, r1, c2, r2) {
         var p1 = corner(c1, r1), p2 = corner(c2, r2);
@@ -5142,7 +5356,7 @@
         if ('fontStretch' in ctx) ctx.fontStretch = 'normal';
         ctx.font = hudFont(500, Math.round(cellSize * 0.7)); ctx.fillStyle = M.dark ? M.acc : '#7B5F34';
         ctx.fillText(score + ' Hz', w / 2, h / 2 + cellSize * 0.6);
-        if (gameState === 'won') { var NM = MOVS[level % 4]; ctx.font = serifFont(Math.round(cellSize * 0.62)); ctx.fillStyle = M.dim; ctx.fillText('Next: ' + NM.n + '. ' + NM.name, w / 2, h / 2 + cellSize * 1.5); }
+        if (gameState === 'won') { var NM = MOVS[level % 5]; ctx.font = serifFont(Math.round(cellSize * 0.62)); ctx.fillStyle = M.dim; ctx.fillText('Next: ' + NM.n + '. ' + NM.name, w / 2, h / 2 + cellSize * 1.5); }
         ctx.font = hudFont(600, Math.round(cellSize * 0.42)); ctx.fillStyle = M.dim; spaced(cellSize * 0.1);
         ctx.fillText(gameState === 'won' ? 'TAP OR PRESS ENTER FOR NEXT LEVEL' : 'TAP OR PRESS ENTER TO RESTART', w / 2, h / 2 + cellSize * (gameState === 'won' ? 2.5 : 1.9));
         spaced(0); ctx.globalAlpha = 1;
@@ -5263,6 +5477,7 @@
       if ((k === 'Enter' || k === ' ') && onControl(e)) return;
       if (k === 'Escape') { e.preventDefault(); closeGame(); return; }
       if (god.on && godKey(e, k)) return;
+      if (gameState === 'studio') { if (k === 'Enter' && studio && studio.ready) { e.preventDefault(); studioBegin(); } return; }
       if (gameState === 'title' && k.length === 1) { god.keys = (god.keys + k.toLowerCase()).slice(-3); if (god.keys === 'god') { enableGod(); return; } }
       if (gameState === 'title') {
         if (k === 'Enter' || k === ' ' || k.indexOf('Arrow') === 0) {
