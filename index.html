@@ -5224,7 +5224,7 @@
       lastTick = now;
       var T = ghostTargets(now), dmax = 0, m = movIdx();
       for (i = 0; i < 4; i++) { var g = ghosts[i]; if (!g.frightened && !g.eaten && g.homeTimer <= 0) dmax = Math.max(dmax, T[i].prox); }
-      danger += (dmax - danger) * 0.12;
+      danger += (dmax - danger) * (1 - Math.pow(0.88, frameK));   // eased in real time, not per frame
       var t = gameAudioCtx.currentTime;
       if (GV) for (i = 0; i < 4 && i < GV.length; i++) {
         var v = GV[i], s2 = T[i];
@@ -5927,7 +5927,7 @@
         var flash = g.frightened && frightenedTimer < 60 && frightenedTimer % 10 < 5;
         drawGhost(ctx, gx, gy, cellSize * 0.42, gi % 4, g.frightened ? (flash ? M.ink : M.dim) : M.ghosts[gi % 4], g.eaten ? 2 : g.frightened ? 1 : 0, now, hair, pdx, pdy, M.dark ? '#F5F4F0' : '#0A0A0A', M.dark ? '#0a0a0a' : '#F2F2EF');
       }
-      mouthAngle += 0.15;
+      mouthAngle += 0.15 * frameK;
       var px = offsetX + playerX * cellSize + cellSize / 2, py = offsetY + playerY * cellSize + cellSize / 2, prr = cellSize * 0.42;
       var ang = playerDir === 0 ? -Math.PI / 2 : playerDir === 1 ? 0 : playerDir === 2 ? Math.PI / 2 : Math.PI;
       if (mi === 0 && gameState === 'playing') { var lt0 = slv.trail[slv.trail.length - 1]; if (!lt0 || Math.abs(lt0[0] - px) + Math.abs(lt0[1] - py) > 0.5) slv.trail.push([px, py, pnow]); }
@@ -5998,8 +5998,7 @@
     }
     // === GAME LOOP ===
     var tickCount = 0;
-    function gameLoop() {
-      if (gameState !== 'playing') { drawGame(); animFrame = requestAnimationFrame(gameLoop); return; }
+    function gameStep() {   // one step of the game's logic, a sixtieth of a second: movement, the ghosts, the timers
       tickCount++;
 
       // Player movement (every 3rd frame for smooth speed)
@@ -6017,7 +6016,7 @@
             score += 10;
             dots--;
             playDotSound();
-            if (dots === 0) { gameState = 'won'; stopMusic(); playWinSound(); drawGame(); animFrame = requestAnimationFrame(gameLoop); return; }
+            if (dots === 0) { gameState = 'won'; stopMusic(); playWinSound(); return; }
           }
           else if (maze[playerY][playerX] === 2) {
             maze[playerY][playerX] = 3;
@@ -6028,7 +6027,7 @@
               if (!ghosts[fi].eaten) ghosts[fi].frightened = true;
             }
             playPowerSound();
-            if (dots === 0) { gameState = 'won'; stopMusic(); playWinSound(); drawGame(); animFrame = requestAnimationFrame(gameLoop); return; }
+            if (dots === 0) { gameState = 'won'; stopMusic(); playWinSound(); return; }
           }
         }
       }
@@ -6097,6 +6096,18 @@
         }
       }
 
+    }
+    // The game keeps real time: its logic steps exactly 60 times a second, whatever the screen's refresh rate (Safari holds pages to
+    // 60 frames a second; Chrome and Edge run as fast as the display, 120 or more; a busy browser may manage fewer than 60). A fast
+    // screen draws between steps; a slow one takes two steps in a frame; after a pause the game carries on rather than racing to catch up.
+    var STEP_MS = 1000 / 60, simAcc = 0, simLast = 0, frameK = 1;
+    function gameLoop(now) {
+      now = now || performance.now();
+      var dt = simLast ? now - simLast : STEP_MS; simLast = now;
+      if (!(dt > 0) || dt > 250) dt = STEP_MS;
+      frameK = dt / STEP_MS; simAcc += dt;
+      for (var n = 0; simAcc >= STEP_MS - 2 && n < 8; n++) { simAcc -= STEP_MS; if (gameState === 'playing') gameStep(); }
+      if (simAcc > STEP_MS) simAcc = 0;   // still behind after eight steps: let the backlog go
       drawGame();
       animFrame = requestAnimationFrame(gameLoop);
     }
@@ -6224,6 +6235,7 @@
     dssLoad();
     titleEnter();
     if (/[?&]god(=|&|$)/.test(location.search)) enableGod();   // or open the site with ?god
+    simLast = 0; simAcc = 0;
     animFrame = requestAnimationFrame(gameLoop);
   }
   // ===== END SIGNAL CHASE =====
