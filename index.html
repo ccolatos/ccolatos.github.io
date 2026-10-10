@@ -1,16 +1,16 @@
 <!DOCTYPE html>
-<html lang="en" data-lights="up">
+<html lang="en" data-lights="down">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Chris Colatos</title>
   <meta name="description" content="Chris Colatos: Academic Leadership | Creative Technology">
   <link rel="canonical" href="https://chriscolatos.com/">
-  <link rel="icon" href="assets/img/favicon.ico" type="image/x-icon">
+  <link rel="icon" href="assets/img/icons/favicon.ico" type="image/x-icon">
   <link rel="apple-touch-icon" sizes="180x180" href="assets/img/icons/apple-icon-180x180.png">
   <link rel="icon" type="image/png" sizes="32x32" href="assets/img/icons/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="assets/img/icons/favicon-16x16.png">
-  <meta name="theme-color" content="#F2F2EF" id="themeColor">
+  <meta name="theme-color" content="#0A0A0A" id="themeColor">
   <meta itemprop="name" content="Chris Colatos">
   <meta itemprop="description" content="Academic Leadership | Creative Technology">
   <meta property="og:type" content="website">
@@ -45,8 +45,8 @@
        Everything that sounds is a partial of one fundamental: B-flat 1, 58.27 Hz.
 
        Two lighting states share one set of names:
-         data-lights="up"    paper, black ink, graphite lines, gold (the score)
-         data-lights="down"  black, silver lines, gold, white (the performance)
+         data-lights="down"  black, silver lines, gold, white (at rest: the default)
+         data-lights="up"    paper, black ink, graphite lines, gold (while the Signal plays)
        Type: Archivo (wdth 62-125, wght 100-900) for display and interface;
              Piazzolla (opsz 8-30, wght 100-900, italic) for reading.
        ========================================================================== */
@@ -74,7 +74,8 @@
       --ease:cubic-bezier(.2,.7,.1,1);
       color-scheme:light;
     }
-    html[data-lights="down"]{
+    /* Screens only: print always uses the paper palette above. */
+    @media screen{html[data-lights="down"]{
       --paper:#0A0A0A; --paper-rgb:10,10,10;
       --ink:#F5F4F0; --ink-rgb:245,244,240;
       --ink-2:#A3A6AB;
@@ -89,7 +90,7 @@
       --tile:#161616;
       --quote:#D3BC98;
       color-scheme:dark;
-    }
+    }}
 
     /* ---------- base ---------- */
     *,*::before,*::after{box-sizing:border-box}
@@ -223,6 +224,7 @@
     .credits-intro{display:block;margin-bottom:clamp(14px,1.6vw,22px);font-family:var(--f-display);font-weight:500;font-size:15px;line-height:1.4;color:var(--ink-2)}
     .credits-names{display:block;font-family:var(--f-display);font-weight:300;font-stretch:78%;font-size:clamp(34px,5vw,80px);line-height:1.04;letter-spacing:-.015em;color:var(--ink-2);text-wrap:pretty}
     .credits-names .nm{color:var(--ink)}
+    @media (min-width:340px){.credits-names .nm{white-space:nowrap}}
     .quote{grid-column:4 / -1;margin:clamp(26px,2.8vw,44px) 0 clamp(72px,8vw,136px)}
     .quote blockquote{margin:0}
     .quote p{margin:0;font-style:italic;font-weight:300;font-size:clamp(26px,3vw,48px);line-height:1.22;letter-spacing:-.008em;text-indent:-.36em;text-wrap:balance;color:var(--quote)}
@@ -481,24 +483,21 @@
           <div class="string" data-partial="2" aria-hidden="true"><canvas></canvas><span class="tuning">116.5 Hz</span></div>
         </header>
         <div class="bio">
-          <p class="bio-lead">Creativity, technology, and education leader with extensive executive and program direction experience.</p>
+          <p class="bio-lead">Chris Colatos is an academic executive, interdisciplinary artist, and creative technologist.</p>
           <div class="bio-mid">
             <div class="bio-body">
-              <p>Currently, Vice President for Academic Affairs at San Francisco School of Creative Arts and Chief Creative at THE STUDI/O. Former creative arts college Director of Education, North America Director of Learning Design, Chief Learning Officer, and Chief Learning and Development Officer.</p>
-              <p>Leading academic and creative teams across institutions, reaching thousands of learners worldwide, in designing and delivering data-informed, active, learner-centered teaching and learning experiences, strategies, programs, curricula, assessments, analytics, accessibility, and digital transformation to optimize efficacy and engagement.</p>
-              <p>A passionate advocate for exploratory approaches to visual and sound art and developing innovative technologies to enable new forms of creativity and expression. Specializing in studio practice, traditional and experimental composition, production, performance, engineering, sound design, interactivity, installation, and intermedia art.</p>
-              <p>Graduate and post-graduate studies at The University of Edinburgh, Columbia University, Stanford University, and the University of California; currently pursuing a doctorate at the University of Illinois Urbana-Champaign, with research investigating Human+AI co-intelligence in creative and educational contexts.</p>
-              <p>Written and presented on numerous creative, technological, and educational subjects. Work in symbolic AI-based music composition began in 2006. Serving on the board of an AI company and contributing as an expert to machine learning platforms.</p>
-              <p>Dedicated professional practitioner and educator with an unrelenting commitment to learners' success, efficient and effective project actualization, collaboration, and fostering high morale. Committed to digital accessibility and inclusivity.</p>
-              <p>28x Apple Certified Master Trainer, 9x DHS Certified for 508, Trusted Tester Tools, and IT Program Management for Accessible Systems &amp; Technology, and Fellow of Advance HE (the UK Professional Standards Framework for teaching in higher education).</p>
+              <p>He serves as Vice President for Academic Affairs at San Francisco School of Creative Arts and Chief Creative at THE STUDI/O. Previous leadership roles include Chief Learning Officer, Chief Learning and Development Officer, Director of Education, and North America Director of Learning Design. He has led academic and creative teams, developed institutional strategies, and directed educational initiatives reaching thousands of learners worldwide.</p>
+              <p>A producer, engineer, composer, and performer, he has worked across music, games, interactive media, and immersive technologies. His artistic practice spans traditional and experimental composition, music production, adaptive and interactive sound design, creative coding, and intermedia art, with a particular interest in developing technologies that enable new forms of creative expression.</p>
+              <p>He is pursuing a doctorate at the University of Illinois Urbana-Champaign, where his research investigates Human+AI co-intelligence in creative and educational contexts. He holds an MSc in Digital Education from the University of Edinburgh, with additional studies at Teachers College, Columbia University; Stanford University's Center for Computer Research in Music and Acoustics (CCRMA); and the University of California, Santa Cruz. His engagement with artificial intelligence began in 2006 through symbolic AI-based music composition and has evolved to encompass generative AI, intelligent creative systems, and human-machine collaboration. He also serves on the advisory board of an AI company and contributes as an expert to machine learning platforms.</p>
+              <p>His academic leadership is grounded in evidence-informed teaching and a commitment to accessibility and inclusion. Professional distinctions include Fellow of Advance HE, 28 Apple Certified Master Trainer certifications, and nine U.S. Department of Homeland Security certifications in digital accessibility.</p>
             </div>
           </div>
-          <p class="bio-statement">For years, worked closely with one of Billboard Magazine's "Top Ten Producers of All Time": 57 #1 Hits, multi-GRAMMY, Emmy &amp; multi-Platinum Producer and Artist Narada Michael Walden at Tarpan Studios.</p>
+          <p class="bio-statement">He spent years at Tarpan Studios working closely with Narada Michael Walden, a multi-GRAMMY, Emmy, and multi-Platinum producer and artist with 57 #1 hits and one of Billboard Magazine's "Top Ten Producers of All Time."</p>
           <figure class="quote">
           <blockquote><p>"A man for all seasons...from Ahmad Jamal to the hippest in contemporary music, Chris knows how it's done...a whiz with the computer and the drums. Chris has the genius touch."</p></blockquote>
           <figcaption>Narada Michael Walden</figcaption>
         </figure>
-          <p class="bio-credits"><span class="credits-intro">As Producer, Engineer, Songwriter, Arranger, and Performer, worked with artists and companies, including</span> <span class="credits-names"><span class="nm">Apple</span>, <span class="nm">Google</span>, <span class="nm">Legends The Game</span>, <span class="nm">Robot Invader</span>, <span class="nm">Eagre Games</span>, <span class="nm">LeapFrog</span>, <span class="nm">PETA</span>, <span class="nm">Twisted Tools</span>, <span class="nm">Siedah Garrett</span>, <span class="nm">Greg Phillinganes</span>, <span class="nm">Scientist</span><span class="par"> (dub pioneer)</span>, <span class="nm">PSY</span>, <span class="nm">Playboy</span>, <span class="nm">GQ</span>, <span class="nm">Vogue</span>, <span class="nm">Salvatore Ferragamo</span>, <span class="nm">James Taylor</span>, <span class="nm">Carole King</span>, <span class="nm">Smokey Robinson</span>, <span class="nm">Sting</span>, <span class="nm">Billy Joel</span>, <span class="nm">Katy Perry</span>, and <span class="nm">Elton John</span>.</span></p>
+          <p class="bio-credits"><span class="credits-intro">Professional credits include work with</span> <span class="credits-names"><span class="nm">Elton John</span>, <span class="nm">Billy Joel</span>, <span class="nm">Katy Perry</span>, <span class="nm">Sting</span>, <span class="nm">James Taylor</span>, <span class="nm">Carole King</span>, <span class="nm">Smokey Robinson</span>, <span class="nm">PSY</span>, <span class="nm">Siedah Garrett</span>, <span class="nm">Greg Phillinganes</span>, and <span class="nm">Scientist</span><span class="par"> (dub pioneer)</span>. Other credits include <span class="nm">Apple</span>, <span class="nm">Google</span>, <span class="nm">Vogue</span>, <span class="nm">GQ</span>, <span class="nm">Salvatore Ferragamo</span>, <span class="nm">Playboy</span>, <span class="nm">LeapFrog</span>, <span class="nm">PETA</span>, and <span class="nm">Twisted Tools</span>, along with independent game projects and studios including <span class="nm">Robot Invader</span>, <span class="nm">Eagre Games</span>, and <span class="nm">Legends The Game</span>.</span></p>
         </div>
       </div>
     </section>
@@ -878,7 +877,7 @@
     up:   { paper: [242, 242, 239], ink: [10, 10, 10],    ink2: [91, 94, 99],    line: [38, 40, 44],    acc: [168, 138, 90] },
     down: { paper: [10, 10, 10],    ink: [245, 244, 240], ink2: [163, 166, 171], line: [201, 204, 209], acc: [196, 168, 130] }
   };
-  var lightsTarget = 0, lightsMix = 0;   // 0 = house lights up (the score), 1 = down (the performance)
+  var lightsTarget = 1, lightsMix = 1;   // 0 = house lights up (paper), 1 = down (black). The page rests with them down; playing lifts them.
   function mixc(a, b, t) { return [Math.round(lerp(a[0], b[0], t)), Math.round(lerp(a[1], b[1], t)), Math.round(lerp(a[2], b[2], t))]; }
   function rgba(c, a) { return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + (a < 0 ? 0 : a > 1 ? 1 : a).toFixed(3) + ')'; }
   function pal(k) { return mixc(PAL.up[k], PAL.down[k], lightsMix); }
@@ -2556,7 +2555,7 @@
   }
 
   /* ==========================================================================
-     8. House lights: playing floods the page with ink, stopping lifts it
+     8. House lights: the page rests in ink; playing lifts it to paper, stopping lowers it again
      ========================================================================== */
   var themeMeta = $('#themeColor'), lightsTimer = null;
   function applyLights(down) {
@@ -2567,7 +2566,7 @@
   }
   function setLights(down, origin) {
     lightsTarget = down ? 1 : 0;
-    if (reduceMotion) { lightsMix = lightsTarget; applyLights(down); return; }
+    if (reduceMotion) { lightsMix = lightsTarget; takeDirty = true; lastScore = 0; applyLights(down); return; }   // no easing frames follow: redraw the score now
     if (doc.startViewTransition && origin) {
       var r = origin.getBoundingClientRect ? origin.getBoundingClientRect() : origin;
       var cx = r.width ? r.left + r.width / 2 : window.innerWidth / 2, cy = r.height ? r.top + r.height / 2 : window.innerHeight / 2;
@@ -2641,10 +2640,10 @@
     var el = e && e.currentTarget, r = el && el.getBoundingClientRect ? el.getBoundingClientRect() : null;
     if (!audioActive) {
       try { startSound(); } catch (err) { starting = false; console.warn('Audio could not start:', err); return; }
-      setLights(true, r);
+      setLights(false, r);   // playing lifts the house lights
     } else {
       stopSound();
-      setLights(false, r);
+      setLights(true, r);    // stopping lowers them again
     }
   }
   if (hasAudio) {
@@ -3296,7 +3295,7 @@
       src.buffer = buf; src.connect(g); g.connect(comp); src.start(t);
       scoreSrc = src; scoreOut = g; scoreT0 = t; scorePlaying = true; takeDirty = true; bm.key = '';
       src.onended = function () { if (scoreSrc === src) { scoreSrc = null; finishPlayback(); } };
-      if (!audioActive && lightsTarget === 0) { scoreLights = true; setLights(true, r); }
+      if (!audioActive && lightsTarget === 1) { scoreLights = true; setLights(false, r); }
       setScoreUI();
       if (isMobile) setTimeout(function () { try { wavFor(tk); } catch (e) {} }, 500);   // ready ahead of a Save tap
     });
@@ -3311,7 +3310,7 @@
   }
   function finishPlayback() {
     scorePlaying = false; takeDirty = true;
-    if (scoreLights && !audioActive) setLights(false, scorePlayBtn);
+    if (scoreLights && !audioActive) setLights(true, scorePlayBtn);
     scoreLights = false;
     setScoreUI();
   }
