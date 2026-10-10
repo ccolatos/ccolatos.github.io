@@ -4616,9 +4616,9 @@
         var s0 = lineQ.shift(); linePrev = s0; f = 233.08 * Math.pow(2, (KEYS[keyIdx] + s0) / 12);
         f *= 2;   // the piano's right hand, an octave above where the saxophone sat
         var vv = 0.42 + danger * 0.22 + Math.random() * 0.06, endP = !lineQ.length, tn = t;   // a lead that sings over the trio, not over everything
-        if (first && Math.random() < 0.35) { play('pno', t, f * Math.pow(2, -1 / 12), vv * 0.75, 0.18, 0.04, 1.2589); tn = t + 0.016; }   // Monk's crushed note: a half step below, struck a hair early and let go
-        play('pno', tn, f, vv, 0.18, endP ? 0.7 : 0.3, 1.2589);   // the lead, 2 dB up
-        if (endP) play('pno', tn + 0.004, f / 2, vv * 0.85, 0.12, 0.7, 1.2589);   // the phrase's last note doubled at the octave, Bud Powell's punctuation
+        if (first && Math.random() < 0.35) { play('pno', t, f * Math.pow(2, -1 / 12), vv * 0.75, 0.18, 0.04, 2.8184); tn = t + 0.016; }   // Monk's crushed note: a half step below, struck a hair early and let go
+        play('pno', tn, f, vv, 0.18, endP ? 0.7 : 0.3, 2.8184);   // the lead, 9 dB up
+        if (endP) play('pno', tn + 0.004, f / 2, vv * 0.85, 0.12, 0.7, 2.8184);   // the phrase's last note doubled at the octave, Bud Powell's punctuation
         soloNote(f, 'ep', 'sx');
         bopCR.n++; bopCR.last = performance.now();   // the horns are listening for the end of your phrase
       }
