@@ -8,6 +8,7 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { width: 100%; height: 100%; overflow: hidden; background: #000; color: rgba(233,228,218,0.9); font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; letter-spacing: 0.02em; -webkit-font-smoothing: antialiased; }
     canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; background: #000; touch-action: manipulation; }
+    #visual.fading { opacity: 0; transition: opacity 4000ms linear; }   /* the picture fades out with the sound */
     .chooser { position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; transition: opacity 600ms ease; }
     .chooser.hidden { opacity: 0; pointer-events: none; }
     .chooser-btn { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; font-weight: 300; font-size: clamp(0.7rem, 1.8vw, 0.85rem); color: rgba(233,228,218,0.85); background: none; border: 1px solid rgba(233,228,218,0.18); padding: 20px 44px; cursor: pointer; letter-spacing: 0.18em; text-transform: uppercase; transition: border-color 400ms ease, color 300ms ease; width: min(380px, 80vw); text-align: center; }
@@ -168,6 +169,7 @@
       let tapResumedAt = 0;          // a tap that resumed a paused piece does not open the dialog
       let lastTickAt = -1;           // audio-clock time of the last score update
       let hintTimer = null, pausedHintOn = false;
+      let startToken = 0;            // each selection gets a number; an older start that is still loading stands down
 
       // --- leave dialog state ---
       let leaveOpen = false, leaveVisible = false, leaveArmAt = 0, leaveHideTimer = null, leaveLastSec = -1;
@@ -1040,7 +1042,7 @@ registerProcessor("dss-processor", DSSProcessor);
       // AUDIO GRAPH
       // ================================================================
 
-      async function ensureAudio(inst) {
+      async function ensureAudio(inst, token) {
         if (ac) return;
         ac = new (window.AudioContext || window.webkitAudioContext)();
         // Remember who paused the sound. A running context that becomes
@@ -1049,6 +1051,10 @@ registerProcessor("dss-processor", DSSProcessor);
         const ctx = ac;
         userPaused = false; lastCtxState = ctx.state;
         try { ctx.addEventListener("statechange", () => onCtxState(ctx)); } catch (_) {}
+        // Start the context inside the tap itself, before the setup work below.
+        // Browsers only let sound start close to a tap; waiting until setup is
+        // done can let that window lapse in stricter browsers.
+        try { const r = ctx.resume(); if (r && r.catch) r.catch(() => {}); } catch (_) {}
         master = ac.createGain(); master.gain.value = 0.0001;
         analyser = ac.createAnalyser();
         analyser.fftSize = 4096; analyser.smoothingTimeConstant = 0.65;
@@ -1091,17 +1097,22 @@ registerProcessor("dss-processor", DSSProcessor);
         buses.rvLP = rvLP; buses.comp = comp; buses.sat = sat;
         buses.tiltHigh = tiltHigh; buses.tiltLow = tiltLow;
 
+        // Loading the worklet is the one wait here. If another piece was chosen
+        // meanwhile (token changed), this start stands down and touches nothing.
         try {
           const blob = new Blob([WORKLET_CODE], { type: "text/javascript" });
           const url = URL.createObjectURL(blob);
-          await ac.audioWorklet.addModule(url);
+          await ctx.audioWorklet.addModule(url);
           URL.revokeObjectURL(url);
-          dssNode = new AudioWorkletNode(ac, "dss-processor", { outputChannelCount: [2] });
+          if (token !== startToken) return;
+          dssNode = new AudioWorkletNode(ctx, "dss-processor", { outputChannelCount: [2] });
         } catch (e) {
+          if (token !== startToken) return;
           try {
-            await ac.audioWorklet.addModule("data:text/javascript,"+encodeURIComponent(WORKLET_CODE));
-            dssNode = new AudioWorkletNode(ac, "dss-processor", { outputChannelCount: [2] });
-          } catch (e2) { console.error("AudioWorklet not supported:", e2); return; }
+            await ctx.audioWorklet.addModule("data:text/javascript,"+encodeURIComponent(WORKLET_CODE));
+            if (token !== startToken) return;
+            dssNode = new AudioWorkletNode(ctx, "dss-processor", { outputChannelCount: [2] });
+          } catch (e2) { if (token === startToken) console.error("AudioWorklet not supported:", e2); return; }
         }
         dssNode.port.onmessage = (e) => { if (e.data === "tick") updaterTick(); };
 
@@ -1143,15 +1154,29 @@ registerProcessor("dss-processor", DSSProcessor);
 
         msMerge.connect(analyser); analyser.connect(master); master.connect(ac.destination);
 
-        // Older phones only: a hidden media element carrying a copy of the mix.
-        // Skipped when a "playback" audio session was claimed (see play()): that
-        // session is what keeps iOS rendering in the background, while this copy
-        // stutters once iOS suspends the context feeding it.
+        // Older phones only (Android, iOS before 16.4): play the mix through a hidden
+        // media element. Skipped when a "playback" audio session was claimed (see
+        // play()): that session keeps iOS rendering in the background, while this
+        // element stutters once iOS suspends the context feeding it.
+        // The element takes its signal after the master volume, so fades and each
+        // piece's dynamics apply to it, and only one path is ever audible: the
+        // direct speaker connection is switched off while the element plays, and
+        // switched back on if the element cannot start or stops.
         if (isMobile && !playbackSession && ac.createMediaStreamDestination) {
           try {
-            const ms = ac.createMediaStreamDestination(); analyser.connect(ms);
-            iosAudioEl = document.createElement("audio"); iosAudioEl.setAttribute("playsinline","");
-            iosAudioEl.srcObject = ms.stream; iosAudioEl.play().catch(()=>{});
+            const ms = ac.createMediaStreamDestination(); master.connect(ms);
+            const el = document.createElement("audio"); el.setAttribute("playsinline","");
+            el.srcObject = ms.stream;
+            iosAudioEl = el;
+            const direct = (on) => {
+              if (el !== iosAudioEl || ctx !== ac || !master) return;
+              try { if (on) master.connect(ctx.destination); else master.disconnect(ctx.destination); } catch (_) {}
+            };
+            el.addEventListener("playing", () => direct(false));
+            el.addEventListener("pause", () => direct(true));
+            el.addEventListener("error", () => direct(true));
+            const p = el.play();
+            if (p && p.catch) p.catch(() => direct(true));
           } catch (_) {}
         }
         runtimeStops.push(() => { try { dssNode.disconnect(); dssHP.disconnect(); lowShelf.disconnect(); lp.disconnect(); sat.disconnect(); } catch(_){} });
@@ -1836,10 +1861,14 @@ registerProcessor("dss-processor", DSSProcessor);
         if (ac) { try { ac.close(); } catch(_){} }
         ac = null; master = null; analyser = null; dssNode = null; buses = {};
         playing = false; stopping = false; userPaused = false;
+        canvas.classList.remove("fading");
         hideLeaveNow();
       }
 
       function showChooser() {
+        // The picture faded out with the sound; clear it before making it visible again
+        cx.globalAlpha = 1; cx.fillStyle = "#000"; cx.fillRect(0, 0, canvas.width, canvas.height);
+        canvas.classList.remove("fading");
         chooserEl.classList.remove("hidden");
         overlayEl.classList.remove("visible");
         hideLeaveNow();
@@ -1852,6 +1881,9 @@ registerProcessor("dss-processor", DSSProcessor);
       }
 
       async function play(instKey) {
+        // The newest selection wins: a double click or a quick second choice
+        // closes the earlier start, and that start stands down after its waits.
+        const token = ++startToken;
         if (stopping || ac) forceClose();
         const inst = INSTRUMENTS[instKey];
         currentInst = instKey;
@@ -1861,9 +1893,11 @@ registerProcessor("dss-processor", DSSProcessor);
         playbackSession = claimPlaybackSession();
         if (playbackSession) setNowPlaying(instKey);
 
-        await ensureAudio(inst);
-        if (!dssNode) return;
-        await ac.resume();
+        await ensureAudio(inst, token);
+        if (token !== startToken || !dssNode) return;
+        const ctx = ac;
+        try { await ctx.resume(); } catch (err) { if (token === startToken) throw err; return; }
+        if (token !== startToken) return;
 
         // Reset visualizer voice mirror for every piece (sparse pieces also
         // reset it below; non-sparse pieces need it cleared so stale gains
@@ -1903,15 +1937,20 @@ registerProcessor("dss-processor", DSSProcessor);
         playing = false; stopping = true;
         closeLeave("end");   // the piece ended while the dialog was open
         statusEl.textContent = "stopping";
-        if (currentInst === "chi" || currentInst === "erg") { try { master.gain.setValueAtTime(0.0001, ac.currentTime); } catch (_) {} }
-        cleanup();
+        // Stop the score now, but keep the sound connected so the four-second
+        // fade is actually heard (the graph used to be disconnected first, which
+        // cut the sound at once). Every piece fades from its current level, and
+        // the picture fades with it. The graph is taken down after the fade.
+        if (updateInterval) { clearInterval(updateInterval); updateInterval = null; }
         try {
-          const now = ac.currentTime;
-          master.gain.cancelScheduledValues(now);
-          master.gain.setValueAtTime(master.gain.value, now);
-          master.gain.linearRampToValueAtTime(0.0001, now + 4);
+          const now = ac.currentTime, g = master.gain, from = g.value;
+          g.cancelScheduledValues(now);
+          g.setValueAtTime(from, now);
+          g.linearRampToValueAtTime(0.0001, now + 4);
         } catch (_) {}
+        canvas.classList.add("fading");
         stopTimeout = setTimeout(() => {
+          cleanup();
           if (dssNode) { try { dssNode.port.postMessage({ type: "clear" }); } catch(_){} }
           if (iosAudioEl) { try { iosAudioEl.pause(); iosAudioEl.srcObject = null; } catch(_){} iosAudioEl = null; }
           if (ac) { try { ac.close(); } catch(_){} }
