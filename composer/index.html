@@ -170,6 +170,7 @@
       let lastTickAt = -1;           // audio-clock time of the last score update
       let hintTimer = null, pausedHintOn = false;
       let startToken = 0;            // each selection gets a number; an older start that is still loading stands down
+      let elFailed = false, resumeMediaEl = null;   // hidden media element (older phones): failed flag, resume from a tap
 
       // --- leave dialog state ---
       let leaveOpen = false, leaveVisible = false, leaveArmAt = 0, leaveHideTimer = null, leaveLastSec = -1;
@@ -1160,23 +1161,44 @@ registerProcessor("dss-processor", DSSProcessor);
         // element stutters once iOS suspends the context feeding it.
         // The element takes its signal after the master volume, so fades and each
         // piece's dynamics apply to it, and only one path is ever audible: the
-        // direct speaker connection is switched off while the element plays, and
-        // switched back on if the element cannot start or stops.
+        // direct speaker connection is switched off while the element plays.
+        // A pause of the element (media controls, unplugged headphones, a call)
+        // pauses the whole piece, so nothing reaches the speaker. It resumes from
+        // the media controls or a tap. Only a genuine failure (the element cannot
+        // start, or errors) switches to the direct output instead.
         if (isMobile && !playbackSession && ac.createMediaStreamDestination) {
           try {
             const ms = ac.createMediaStreamDestination(); master.connect(ms);
             const el = document.createElement("audio"); el.setAttribute("playsinline","");
             el.srcObject = ms.stream;
-            iosAudioEl = el;
+            iosAudioEl = el; elFailed = false;
+            const mine = () => el === iosAudioEl && ctx === ac && !!master;
             const direct = (on) => {
-              if (el !== iosAudioEl || ctx !== ac || !master) return;
               try { if (on) master.connect(ctx.destination); else master.disconnect(ctx.destination); } catch (_) {}
             };
-            el.addEventListener("playing", () => direct(false));
-            el.addEventListener("pause", () => direct(true));
-            el.addEventListener("error", () => direct(true));
+            const fail = () => {
+              if (!mine() || elFailed) return;
+              elFailed = true;
+              direct(true);
+            };
+            el.addEventListener("playing", () => {
+              if (!mine() || elFailed) return;
+              direct(false);
+              if (playing && !stopping && ctx.state === "suspended") ctx.resume();   // resumed from the media controls
+            });
+            el.addEventListener("pause", () => {
+              if (!mine() || elFailed || !playing || stopping) return;
+              userPaused = true;
+              try { ctx.suspend(); } catch (_) {}
+            });
+            el.addEventListener("error", fail);
+            resumeMediaEl = () => {
+              if (!mine() || elFailed || !el.paused) return;
+              const r = el.play();
+              if (r && r.catch) r.catch(fail);
+            };
             const p = el.play();
-            if (p && p.catch) p.catch(() => direct(true));
+            if (p && p.catch) p.catch(fail);
           } catch (_) {}
         }
         runtimeStops.push(() => { try { dssNode.disconnect(); dssHP.disconnect(); lowShelf.disconnect(); lp.disconnect(); sat.disconnect(); } catch(_){} });
@@ -1858,6 +1880,7 @@ registerProcessor("dss-processor", DSSProcessor);
         cleanup();
         if (dssNode) { try { dssNode.port.postMessage({ type: "clear" }); } catch(_){} }
         if (iosAudioEl) { try { iosAudioEl.pause(); iosAudioEl.srcObject = null; } catch(_){} iosAudioEl = null; }
+        resumeMediaEl = null;
         if (ac) { try { ac.close(); } catch(_){} }
         ac = null; master = null; analyser = null; dssNode = null; buses = {};
         playing = false; stopping = false; userPaused = false;
@@ -1953,6 +1976,7 @@ registerProcessor("dss-processor", DSSProcessor);
           cleanup();
           if (dssNode) { try { dssNode.port.postMessage({ type: "clear" }); } catch(_){} }
           if (iosAudioEl) { try { iosAudioEl.pause(); iosAudioEl.srcObject = null; } catch(_){} iosAudioEl = null; }
+          resumeMediaEl = null;
           if (ac) { try { ac.close(); } catch(_){} }
           ac = null; master = null; analyser = null; dssNode = null; buses = {};
           stopping = false; stopTimeout = null;
@@ -2003,7 +2027,11 @@ registerProcessor("dss-processor", DSSProcessor);
       document.addEventListener("visibilitychange", () => { if (!document.hidden && ac && playing && !userPaused && ac.state === "suspended") ac.resume(); });
       // Touching the screen resumes a paused piece (and that tap does not open the dialog)
       document.addEventListener("touchstart", () => {
-        if (ac && playing && ac.state === "suspended") { tapResumedAt = performance.now(); ac.resume(); }
+        if (ac && playing && ac.state === "suspended") {
+          tapResumedAt = performance.now();
+          ac.resume();
+          if (resumeMediaEl) resumeMediaEl();   // older phones: restart the hidden player too
+        }
       }, { passive: true });
 
     })();
