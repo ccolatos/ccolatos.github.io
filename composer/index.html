@@ -7,7 +7,7 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { width: 100%; height: 100%; overflow: hidden; background: #000; color: rgba(233,228,218,0.9); font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; letter-spacing: 0.02em; -webkit-font-smoothing: antialiased; }
-    canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; background: #000; }
+    canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; background: #000; touch-action: manipulation; }
     .chooser { position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; transition: opacity 600ms ease; }
     .chooser.hidden { opacity: 0; pointer-events: none; }
     .chooser-btn { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; font-weight: 300; font-size: clamp(0.7rem, 1.8vw, 0.85rem); color: rgba(233,228,218,0.85); background: none; border: 1px solid rgba(233,228,218,0.18); padding: 20px 44px; cursor: pointer; letter-spacing: 0.18em; text-transform: uppercase; transition: border-color 400ms ease, color 300ms ease; width: min(380px, 80vw); text-align: center; }
@@ -16,8 +16,89 @@
     .overlay.visible { opacity: 1; }
     .topline, .bottomline { display: flex; justify-content: space-between; align-items: center; gap: 16px; font-size: 12px; color: rgba(233,228,218,0.45); text-transform: uppercase; letter-spacing: 0.14em; }
     .title { color: rgba(233,228,218,0.9); font-size: 12px; letter-spacing: 0.18em; text-transform: none; }
-    .hint { position: fixed; left: 50%; top: 50%; transform: translate(-50%,-50%); z-index: 15; pointer-events: none; text-align: center; color: rgba(233,228,218,0.5); font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0; transition: opacity 400ms ease; }
+    .hint { position: fixed; left: 50%; top: 50%; transform: translate(-50%,-50%); z-index: 15; pointer-events: none; text-align: center; white-space: nowrap; color: rgba(233,228,218,0.5); font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0; transition: opacity 400ms ease; }
     .hint.visible { opacity: 1; }
+
+    /* Leave dialog: a tap on a playing piece asks before ending it.
+       The frame traces itself like a pen, the question gathers out of
+       scattered points, and a live window shows the sound still playing. */
+    .leave { position: fixed; inset: 0; z-index: 40; display: flex; overflow-y: auto; padding: max(20px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+    .leave[hidden] { display: none; }
+    .lv-scrim { position: fixed; inset: 0; background: radial-gradient(ellipse 80% 70% at 50% 50%, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.74) 62%, rgba(0,0,0,0.86) 100%); opacity: 0; transition: opacity 520ms ease; }
+    .lv-panel { position: relative; z-index: 1; margin: auto; width: min(420px, 100%); padding: 24px 24px 22px; background: rgba(0,0,0,0.6); -webkit-backdrop-filter: blur(16px) saturate(115%); backdrop-filter: blur(16px) saturate(115%); color: rgba(233,228,218,0.92); opacity: 0; transform: translateY(12px) scale(0.985); transition: opacity 520ms cubic-bezier(.2,.7,.1,1), transform 900ms cubic-bezier(.16,1,.3,1); }
+    .leave.open .lv-scrim, .leave.open .lv-panel { opacity: 1; }
+    .leave.open .lv-panel { transform: none; }
+
+    .lv-edge { position: absolute; background: rgba(233,228,218,0.32); pointer-events: none; }
+    .lv-edge-t { left: 0; right: 0; top: 0; height: 1px; transform: scaleX(0); transform-origin: 0 50%; transition: transform 300ms cubic-bezier(.5,0,1,1) 60ms; }
+    .lv-edge-r { top: 0; bottom: 0; right: 0; width: 1px; transform: scaleY(0); transform-origin: 50% 0; transition: transform 240ms linear 360ms; }
+    .lv-edge-b { left: 0; right: 0; bottom: 0; height: 1px; transform: scaleX(0); transform-origin: 100% 50%; transition: transform 300ms linear 600ms; }
+    .lv-edge-l { top: 0; bottom: 0; left: 0; width: 1px; transform: scaleY(0); transform-origin: 50% 100%; transition: transform 300ms cubic-bezier(0,0,.2,1) 900ms; }
+    .leave.open .lv-edge { transform: none; }
+
+    .lv-fade { opacity: 0; transition: opacity 560ms ease; }
+    .leave.open .lv-fade { opacity: 1; }
+    .leave.open .lv-meta { transition-delay: 140ms; }
+    .leave.open .lv-scope { transition-delay: 200ms; }
+    .leave.open .lv-track { transition-delay: 260ms; }
+    .leave.open .lv-body { transition-delay: 420ms; }
+    .leave.open .lv-actions { transition-delay: 520ms; }
+
+    .lv-meta { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 16px; font-size: 11px; line-height: 1.4; letter-spacing: 0.16em; color: rgba(233,228,218,0.5); }
+    .lv-piece { color: rgba(233,228,218,0.84); }
+    .lv-clock { font-variant-numeric: tabular-nums; letter-spacing: 0.1em; }
+    .lv-scope { position: static; display: block; width: 100%; height: 64px; margin: 14px 0 12px; background: transparent; }
+    .lv-track { position: relative; height: 1px; background: rgba(233,228,218,0.13); }
+    .lv-fill { position: absolute; left: 0; top: 0; width: 100%; height: 1px; background: rgba(233,228,218,0.6); transform: scaleX(0); transform-origin: 0 50%; }
+    .lv-head { position: absolute; left: -2px; top: -2px; width: 5px; height: 5px; border-radius: 50%; background: rgb(233,228,218); box-shadow: 0 0 10px 1px rgba(233,228,218,0.55); }
+
+    .lv-title { margin: 24px 0 10px; font-weight: 300; font-size: clamp(1.5rem, 6.4vw, 1.9rem); line-height: 1.15; letter-spacing: 0.005em; color: rgba(233,228,218,0.96); }
+    .lv-sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
+    .lv-w { display: inline-block; white-space: nowrap; }
+    .lv-ch { display: inline-block; opacity: 0; filter: blur(6px); transform: translate(var(--dx, 0), var(--dy, 0)); transition: opacity 600ms cubic-bezier(.2,.7,.1,1) var(--d, 0ms), filter 760ms cubic-bezier(.2,.7,.1,1) var(--d, 0ms), transform 1000ms cubic-bezier(.16,1,.3,1) var(--d, 0ms); }
+    .leave.open .lv-ch { opacity: 1; filter: blur(0); transform: none; }
+    .lv-body { font-size: 13.5px; line-height: 1.6; color: rgba(233,228,218,0.58); max-width: 34ch; }
+
+    .lv-actions { display: flex; gap: 12px; margin-top: 24px; }
+    .lv-btn { position: relative; flex: 1 1 0; min-height: 50px; padding: 0 12px; -webkit-appearance: none; appearance: none; font: inherit; font-weight: 300; font-size: 11.5px; letter-spacing: 0.22em; text-transform: uppercase; color: rgba(233,228,218,0.86); background: transparent; border: 1px solid rgba(233,228,218,0.24); border-radius: 0; cursor: pointer; overflow: hidden; touch-action: manipulation; -webkit-tap-highlight-color: transparent; transition: border-color 300ms ease, color 300ms ease, transform 160ms ease; }
+    .lv-btn span { position: relative; z-index: 1; }
+    .lv-btn:hover { border-color: rgba(233,228,218,0.6); color: rgba(233,228,218,1); }
+    .lv-btn:active { transform: scale(0.985); }
+    .lv-btn:focus { outline: none; }
+    .lv-btn:focus-visible { outline: 1px solid rgba(233,228,218,0.8); outline-offset: 3px; }
+    .lv-go::before { content: ""; position: absolute; inset: 0; background: rgba(233,228,218,0.94); transform: scaleX(0); transform-origin: 0 50%; transition: transform 460ms cubic-bezier(.16,1,.3,1); }
+    .lv-go:hover, .lv-go:active { color: #000; border-color: rgba(233,228,218,0.94); }
+    .lv-go:hover::before, .lv-go:active::before { transform: none; }
+
+    /* Closing (Stay) is quick; leaving dissolves slowly while the music fades */
+    .leave.closing, .leave.leaving { pointer-events: none; }
+    .leave.closing .lv-scrim { transition-duration: 380ms; }
+    .leave.closing .lv-panel { transition: opacity 340ms ease, transform 420ms cubic-bezier(.4,0,.2,1); }
+    .leave.closing .lv-edge { transition: transform 300ms cubic-bezier(.4,0,.2,1); }
+    .leave.closing .lv-fade, .leave.leaving .lv-fade { transition: opacity 300ms ease; }
+    .leave.closing .lv-ch { transition: opacity 320ms ease var(--d, 0ms), filter 360ms ease var(--d, 0ms), transform 420ms cubic-bezier(.4,0,.6,1) var(--d, 0ms); }
+    .leave.leaving .lv-scrim { transition: opacity 1200ms ease 200ms; }
+    .leave.leaving .lv-panel { transform: translateY(-8px) scale(1.01); transition: opacity 900ms ease 260ms, transform 1300ms cubic-bezier(.4,0,.2,1); }
+    .leave.leaving .lv-edge { transition: transform 360ms cubic-bezier(.5,0,.75,0); }
+    .leave.leaving .lv-edge-l { transition-delay: 0ms; }
+    .leave.leaving .lv-edge-b { transition-delay: 90ms; }
+    .leave.leaving .lv-edge-r { transition-delay: 180ms; }
+    .leave.leaving .lv-edge-t { transition-delay: 270ms; }
+    .leave.leaving .lv-ch { transition: opacity 700ms ease var(--d, 0ms), filter 800ms ease var(--d, 0ms), transform 1100ms cubic-bezier(.3,0,.2,1) var(--d, 0ms); }
+
+    @media (max-height: 560px) {
+      .lv-panel { padding: 18px 20px 16px; }
+      .lv-scope { height: 40px; margin: 10px 0 8px; }
+      .lv-title { margin: 14px 0 6px; font-size: 1.4rem; }
+      .lv-actions { margin-top: 14px; }
+      .lv-btn { min-height: 44px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .lv-panel, .leave.leaving .lv-panel, .lv-ch, .lv-edge { transform: none !important; }
+      .lv-ch { filter: none !important; }
+      .leave *, .lv-go::before { transition-duration: 200ms !important; transition-delay: 0ms !important; }
+      .lv-edge { transition: none !important; }
+    }
   </style>
 </head>
 <body>
@@ -33,7 +114,25 @@
     <div class="topline"><div class="title" id="title"></div><div id="status"></div></div>
     <div class="bottomline"><div id="phase">idle</div><div id="time">00:00</div></div>
   </div>
-  <div class="hint" id="hint">tap anywhere to stop</div>
+  <div class="hint" id="hint">tap anywhere to leave</div>
+  <div class="leave" id="leave" hidden>
+    <div class="lv-scrim" id="leaveScrim"></div>
+    <div class="lv-panel" role="dialog" aria-modal="true" aria-labelledby="leaveTitle" aria-describedby="leaveBody">
+      <span class="lv-edge lv-edge-t" aria-hidden="true"></span>
+      <span class="lv-edge lv-edge-r" aria-hidden="true"></span>
+      <span class="lv-edge lv-edge-b" aria-hidden="true"></span>
+      <span class="lv-edge lv-edge-l" aria-hidden="true"></span>
+      <div class="lv-meta lv-fade"><span class="lv-piece" id="leavePiece"></span><span class="lv-clock" id="leaveClock"></span></div>
+      <canvas class="lv-scope lv-fade" id="leaveScope" aria-hidden="true"></canvas>
+      <div class="lv-track lv-fade" id="leaveTrack" aria-hidden="true"><span class="lv-fill" id="leaveFill"></span><span class="lv-head" id="leaveHead"></span></div>
+      <h2 class="lv-title" id="leaveTitle"><span class="lv-sr">Leave the piece?</span><span id="leaveLetters" aria-hidden="true"></span></h2>
+      <p class="lv-body lv-fade" id="leaveBody">This performance is being generated as you listen. It will never sound the same way again.</p>
+      <div class="lv-actions lv-fade">
+        <button type="button" class="lv-btn" id="leaveStay"><span>Stay</span></button>
+        <button type="button" class="lv-btn lv-go" id="leaveGo"><span>Leave</span></button>
+      </div>
+    </div>
+  </div>
 
   <script>
     (() => {
@@ -59,6 +158,19 @@
       let activeVoices = new Set();
       let voiceGainsCurrent = new Float32Array(NV);
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      // iPhone and iPad (iPadOS reports a Mac user agent, but a Mac has no touch points)
+      const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (/Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+
+      // --- background playback and remote-control state ---
+      let playbackSession = false;   // a "playback" audio session was claimed (iPhone/iPad)
+      let userPaused = false;        // paused from the lock screen or Control Center
+      let lastCtxState = "";
+      let tapResumedAt = 0;          // a tap that resumed a paused piece does not open the dialog
+      let lastTickAt = -1;           // audio-clock time of the last score update
+      let hintTimer = null, pausedHintOn = false;
+
+      // --- leave dialog state ---
+      let leaveOpen = false, leaveVisible = false, leaveArmAt = 0, leaveHideTimer = null, leaveLastSec = -1;
 
       // --- visualizer state (persistent across frames, no per-frame allocations) ---
       let _vFreq = null, _vTime = null, _vt = 0;
@@ -79,6 +191,8 @@ class DSSProcessor extends AudioWorkletProcessor {
   constructor() {
     super();
     this.voices = [];
+    this.tickEvery = Math.max(128, Math.round(sampleRate * 0.2));
+    this.tickFrames = 0;
     this.port.onmessage = (e) => {
       const d = e.data;
       if (d.type === "init") this.voices = d.voices.map(v => this.mkVoice(v));
@@ -176,6 +290,10 @@ class DSSProcessor extends AudioWorkletProcessor {
       }
       L[s] = sL; if (R) R[s] = sR;
     }
+    // Clock for the score: one tick per 200 ms of rendered audio. Page timers
+    // are throttled when the page is hidden; this clock keeps the score moving.
+    this.tickFrames += L.length;
+    if (this.tickFrames >= this.tickEvery) { this.tickFrames -= this.tickEvery; this.port.postMessage("tick"); }
     return true;
   }
 }
@@ -416,17 +534,17 @@ registerProcessor("dss-processor", DSSProcessor);
 
       // Each region: center (MIDI root), mode, lead class, stoch, dist, cauchyBurst
       const CHI_REGIONS = [
-        { start: 0,   end: 38,  root: 34, mode: "majorish",  lead: "bass", stoch: 0.04, dist: 0.0,  cauchy: false, label: "emergence (Bb)" },
-        { start: 38,  end: 82,  root: 34, mode: "majorish",  lead: "body", stoch: 0.07, dist: 0.0,  cauchy: false, label: "opening (Bb)" },
+        { start: 0,   end: 38,  root: 34, mode: "majorish",  lead: "bass", stoch: 0.04, dist: 0.0,  cauchy: false, label: "emergence (B♭)" },
+        { start: 38,  end: 82,  root: 34, mode: "majorish",  lead: "body", stoch: 0.07, dist: 0.0,  cauchy: false, label: "opening (B♭)" },
         { start: 82,  end: 128, root: 41, mode: "majorish",  lead: "air",  stoch: 0.10, dist: 0.1,  cauchy: true,  label: "ascent (F)" },
-        { start: 128, end: 176, root: 39, mode: "majorish",  lead: "body", stoch: 0.12, dist: 0.15, cauchy: false, label: "shadow (Eb)" },
+        { start: 128, end: 176, root: 39, mode: "majorish",  lead: "body", stoch: 0.12, dist: 0.15, cauchy: false, label: "shadow (E♭)" },
         { start: 176, end: 222, root: 43, mode: "minor",     lead: "lead", stoch: 0.14, dist: 0.25, cauchy: true,  label: "dusk (Gm)" },
         { start: 222, end: 272, root: 38, mode: "minor",     lead: "air",  stoch: 0.18, dist: 0.45, cauchy: true,  label: "descent (Dm)" },
-        { start: 272, end: 320, root: 34, mode: "altered",   lead: "all",  stoch: 0.22, dist: 0.65, cauchy: true,  label: "rupture (Bb*)" },
+        { start: 272, end: 320, root: 34, mode: "altered",   lead: "all",  stoch: 0.22, dist: 0.65, cauchy: true,  label: "rupture (B♭*)" },
         { start: 320, end: 362, root: 38, mode: "minor",     lead: "lead", stoch: 0.15, dist: 0.30, cauchy: false, label: "aftermath (Dm)" },
-        { start: 362, end: 400, root: 32, mode: "majorish",  lead: "body", stoch: 0.10, dist: 0.10, cauchy: true,  label: "turn (Ab)" },
-        { start: 400, end: 438, root: 34, mode: "majorish",  lead: "air",  stoch: 0.06, dist: 0.0,  cauchy: false, label: "return (Bb)" },
-        { start: 438, end: 468, root: 34, mode: "majorish",  lead: "bass", stoch: 0.03, dist: 0.0,  cauchy: false, label: "resolution (Bb)" },
+        { start: 362, end: 400, root: 32, mode: "majorish",  lead: "body", stoch: 0.10, dist: 0.10, cauchy: true,  label: "turn (A♭)" },
+        { start: 400, end: 438, root: 34, mode: "majorish",  lead: "air",  stoch: 0.06, dist: 0.0,  cauchy: false, label: "return (B♭)" },
+        { start: 438, end: 468, root: 34, mode: "majorish",  lead: "bass", stoch: 0.03, dist: 0.0,  cauchy: false, label: "resolution (B♭)" },
         { start: 468, end: 488, root: 34, mode: "majorish",  lead: "none", stoch: 0.02, dist: 0.0,  cauchy: false, label: "silence" }
       ];
 
@@ -925,6 +1043,12 @@ registerProcessor("dss-processor", DSSProcessor);
       async function ensureAudio(inst) {
         if (ac) return;
         ac = new (window.AudioContext || window.webkitAudioContext)();
+        // Remember who paused the sound. A running context that becomes
+        // "suspended" without being "interrupted" first was paused by the
+        // listener (lock screen, Control Center), so recovery leaves it paused.
+        const ctx = ac;
+        userPaused = false; lastCtxState = ctx.state;
+        try { ctx.addEventListener("statechange", () => onCtxState(ctx)); } catch (_) {}
         master = ac.createGain(); master.gain.value = 0.0001;
         analyser = ac.createAnalyser();
         analyser.fftSize = 4096; analyser.smoothingTimeConstant = 0.65;
@@ -979,6 +1103,7 @@ registerProcessor("dss-processor", DSSProcessor);
             dssNode = new AudioWorkletNode(ac, "dss-processor", { outputChannelCount: [2] });
           } catch (e2) { console.error("AudioWorklet not supported:", e2); return; }
         }
+        dssNode.port.onmessage = (e) => { if (e.data === "tick") updaterTick(); };
 
         dssNode.connect(dssHP); dssHP.connect(lowShelf); lowShelf.connect(lp);
         lp.connect(sat); sat.connect(comp);
@@ -990,7 +1115,7 @@ registerProcessor("dss-processor", DSSProcessor);
         comp.connect(makeup); makeup.connect(tiltLow); tiltLow.connect(tiltHigh);
 
         // Mid-side processing: mono-sum sub-bass in the sides.
-        // Bass voices are panned slightly off-centre; stereo reverb adds side energy below 100Hz
+        // Bass voices are panned slightly off-center; stereo reverb adds side energy below 100Hz
         // which causes phase incoherence on mono systems. HPF on the side channel removes it.
         const msSplit   = ac.createChannelSplitter(2);
         const msEncML   = ac.createGain(); msEncML.gain.value =  0.5;  // L  ->  mid
@@ -1018,7 +1143,11 @@ registerProcessor("dss-processor", DSSProcessor);
 
         msMerge.connect(analyser); analyser.connect(master); master.connect(ac.destination);
 
-        if (isMobile && ac.createMediaStreamDestination) {
+        // Older phones only: a hidden media element carrying a copy of the mix.
+        // Skipped when a "playback" audio session was claimed (see play()): that
+        // session is what keeps iOS rendering in the background, while this copy
+        // stutters once iOS suspends the context feeding it.
+        if (isMobile && !playbackSession && ac.createMediaStreamDestination) {
           try {
             const ms = ac.createMediaStreamDestination(); analyser.connect(ms);
             iosAudioEl = document.createElement("audio"); iosAudioEl.setAttribute("playsinline","");
@@ -1050,60 +1179,71 @@ registerProcessor("dss-processor", DSSProcessor);
       // ================================================================
 
       function startUpdater() {
-        updateInterval = setInterval(() => {
-          if (!playing || !ac || !dssNode || !currentInst) return;
-          const inst = INSTRUMENTS[currentInst];
-          const dur = currentInst === "chi" ? CHI_DUR : currentInst === "erg" ? ERG_DUR : DUR;
-          const elapsed = ac.currentTime - startedAt;
-          if (elapsed >= dur + 12) { stop(); return; }
-          if (elapsed >= dur) return;
+        lastTickAt = -1;
+        updateInterval = setInterval(updaterTick, 200);
+      }
 
-          const section = inst.lerpSection(elapsed);
+      // One score update per ~200 ms of audio. Two clocks call this: the
+      // worklet's tick, which keeps time while the page is hidden or the
+      // browser is in the background (when page timers are throttled), and
+      // the page timer above as a backup. Whichever arrives first runs the
+      // update and the other is skipped, so the rate stays the same.
+      function updaterTick() {
+        if (!playing || !ac || !dssNode || !currentInst) return;
+        const audioNow = ac.currentTime;
+        if (lastTickAt >= 0 && audioNow - lastTickAt < 0.15) return;
+        lastTickAt = audioNow;
+        const inst = INSTRUMENTS[currentInst];
+        const dur = currentInst === "chi" ? CHI_DUR : currentInst === "erg" ? ERG_DUR : DUR;
+        const elapsed = ac.currentTime - startedAt;
+        if (elapsed >= dur + 12) { stop(); return; }
+        if (elapsed >= dur) return;
 
-          // Sparse voice management (Gendy c2 only)
-          if (inst.sparse) {
-            const target = section.density;
-            const current = activeVoices.size;
-            if (current < Math.ceil(target) && Math.random() < 0.12) {
-              const inactive = [];
-              for (let i = 0; i < NV; i++) if (!activeVoices.has(i)) inactive.push(i);
-              if (inactive.length > 0) activeVoices.add(inactive[Math.floor(Math.random() * inactive.length)]);
-            }
-            if (current > target + 0.5 && Math.random() < 0.08) {
-              const active = Array.from(activeVoices);
-              if (active.length > 1) activeVoices.delete(active[Math.floor(Math.random() * active.length)]);
-            }
-            if (current >= 2 && Math.random() < 0.015) {
-              const active = Array.from(activeVoices);
-              const inactive = [];
-              for (let i = 0; i < NV; i++) if (!activeVoices.has(i)) inactive.push(i);
-              if (inactive.length > 0) {
-                activeVoices.delete(active[Math.floor(Math.random() * active.length)]);
-                activeVoices.add(inactive[Math.floor(Math.random() * inactive.length)]);
-              }
-            }
-            for (let i = 0; i < NV; i++) {
-              const vDefs = inst.voiceDefs || SHARED_VOICES;
-              const tg = activeVoices.has(i) ? baseGain(vDefs[i].n) : 0.0001;
-              voiceGainsCurrent[i] += (tg - voiceGainsCurrent[i]) * 0.12;
+        const section = inst.lerpSection(elapsed);
+
+        // Sparse voice management (Gendy c2 only)
+        if (inst.sparse) {
+          const target = section.density;
+          const current = activeVoices.size;
+          if (current < Math.ceil(target) && Math.random() < 0.12) {
+            const inactive = [];
+            for (let i = 0; i < NV; i++) if (!activeVoices.has(i)) inactive.push(i);
+            if (inactive.length > 0) activeVoices.add(inactive[Math.floor(Math.random() * inactive.length)]);
+          }
+          if (current > target + 0.5 && Math.random() < 0.08) {
+            const active = Array.from(activeVoices);
+            if (active.length > 1) activeVoices.delete(active[Math.floor(Math.random() * active.length)]);
+          }
+          if (current >= 2 && Math.random() < 0.015) {
+            const active = Array.from(activeVoices);
+            const inactive = [];
+            for (let i = 0; i < NV; i++) if (!activeVoices.has(i)) inactive.push(i);
+            if (inactive.length > 0) {
+              activeVoices.delete(active[Math.floor(Math.random() * active.length)]);
+              activeVoices.add(inactive[Math.floor(Math.random() * inactive.length)]);
             }
           }
-
-          const voices = inst.updateVoices(section, elapsed);
-          dssNode.port.postMessage({ type: "update", updates: voices });
-          inst.onUpdate(elapsed, section);
-
-          // Mirror voice gains into voiceGainsCurrent for the visualizer.
-          // Sparse instruments already maintain this above (with their own
-          // smoothing); non-sparse instruments need us to copy from the
-          // just-built voice params, smoothed for visual stability.
-          if (!inst.sparse) {
-            for (let i = 0; i < voices.length && i < NV; i++) {
-              const tg = voices[i].g || 0;
-              voiceGainsCurrent[i] += (tg - voiceGainsCurrent[i]) * 0.35;
-            }
+          for (let i = 0; i < NV; i++) {
+            const vDefs = inst.voiceDefs || SHARED_VOICES;
+            const tg = activeVoices.has(i) ? baseGain(vDefs[i].n) : 0.0001;
+            voiceGainsCurrent[i] += (tg - voiceGainsCurrent[i]) * 0.12;
           }
-        }, 200);
+        }
+
+        const voices = inst.updateVoices(section, elapsed);
+        dssNode.port.postMessage({ type: "update", updates: voices });
+        inst.onUpdate(elapsed, section);
+
+        // Mirror voice gains into voiceGainsCurrent for the visualizer.
+        // Sparse instruments already maintain this above (with their own
+        // smoothing); non-sparse instruments need us to copy from the
+        // just-built voice params, smoothed for visual stability.
+        if (!inst.sparse) {
+          for (let i = 0; i < voices.length && i < NV; i++) {
+            const tg = voices[i].g || 0;
+            voiceGainsCurrent[i] += (tg - voiceGainsCurrent[i]) * 0.35;
+          }
+        }
       }
 
       // ================================================================
@@ -1117,8 +1257,39 @@ registerProcessor("dss-processor", DSSProcessor);
           const dur = currentInst === "chi" ? CHI_DUR : currentInst === "erg" ? ERG_DUR : DUR;
           const el = clamp(ac.currentTime - startedAt, 0, dur + 12);
           timeEl.textContent = fmt(Math.min(el, dur));
-          if (el >= dur) { phaseEl.textContent = "silence"; statusEl.textContent = "fading"; }
-          else { phaseEl.textContent = inst.lerpSection(el).label; statusEl.textContent = "playing"; }
+          if (el >= dur) { setPhase("silence"); statusEl.textContent = "fading"; }
+          else { setPhase(inst.lerpSection(el).label); statusEl.textContent = ac.state === "running" ? "playing" : "paused"; }
+          if (leaveVisible) updateLeaveClock(el, dur);
+        }
+        syncPausedHint();
+      }
+
+      // Phase label. The overlay sets labels in capitals, but a key in parentheses
+      // keeps its own case, so "dusk (Gm)" never reads "GM" and B♭ stays B♭.
+      let phaseShown = null;
+      function setPhase(label) {
+        if (label === phaseShown) return;
+        phaseShown = label;
+        const i = label.indexOf(" (");
+        if (i < 0) { phaseEl.textContent = label; return; }
+        phaseEl.textContent = label.slice(0, i + 1);
+        const key = document.createElement("span");
+        key.style.textTransform = "none";
+        key.textContent = label.slice(i + 1);
+        phaseEl.appendChild(key);
+      }
+
+      // While a piece is paused from the lock screen or Control Center, say how to resume it
+      function syncPausedHint() {
+        const want = !!(ac && playing && !stopping && !leaveOpen && userPaused && ac.state === "suspended");
+        if (want === pausedHintOn) return;
+        pausedHintOn = want;
+        if (want) {
+          if (hintTimer) { clearTimeout(hintTimer); hintTimer = null; }
+          hintEl.textContent = "tap anywhere to resume";
+          hintEl.classList.add("visible");
+        } else {
+          hintEl.classList.remove("visible");
         }
       }
 
@@ -1134,7 +1305,7 @@ registerProcessor("dss-processor", DSSProcessor);
         const w = canvas.width, h = canvas.height;
         const cy = h * 0.5;
 
-        // Soft persistent trail. Slightly faster decay than v2 — at the new
+        // Soft persistent trail. Slightly faster decay than v2: at the new
         // higher amplitudes and densities, the slow trail accumulates into
         // mud. This lets the wave fan breathe.
         cx.fillStyle = "rgba(0,0,0,0.10)";
@@ -1187,7 +1358,7 @@ registerProcessor("dss-processor", DSSProcessor);
         _vWfPeak = pk;
         _vWfRms  = Math.sqrt(sq / Math.max(1, sc));
         _vPeakHold = pk > _vPeakHold ? pk : (_vPeakHold * 0.985 + pk * 0.015);
-        // Slow-following peak ceiling — fast attack, ~30s release. The per-piece
+        // Slow-following peak ceiling: fast attack, ~30s release. The per-piece
         // loudness reference for waveform normalization.
         _vPeakSlow = pk > _vPeakSlow ? pk : (_vPeakSlow * 0.998 + pk * 0.002);
 
@@ -1200,10 +1371,10 @@ registerProcessor("dss-processor", DSSProcessor);
 
         // Dynamic multiplier for amplitudes/spreads. Pure dynamic response
         // (smoothed energy + transient peak hold). Range ~0.55 → ~1.55.
-        // No AGC mixed in — that lives in wfNorm now.
+        // No AGC mixed in; that lives in wfNorm now.
         const dyn = 0.55 + Math.pow(_vEnergy, 0.55) * 0.55 + _vPeakHold * 0.45;
 
-        // Focal point of the wave-packet — drifts slowly. Pulled further
+        // Focal point of the wave-packet, drifting slowly. Pulled further
         // left than v2 so the cluster naturally fills the leftmost area
         // (no separate UI element needed). On portrait/narrow viewports
         // sits a bit further right so the rightward fan doesn't crowd.
@@ -1225,7 +1396,7 @@ registerProcessor("dss-processor", DSSProcessor);
         const vDefs = inst0 ? (inst0.voiceDefs || SHARED_VOICES) : SHARED_VOICES;
 
         // ============================================================
-        // LAYER A — Voice cluster (the leftmost burst)
+        // LAYER A: Voice cluster (the leftmost burst)
         //
         // Twenty vertical columns of dots, ONE PER VOICE, distributed
         // across the cluster width. Each column's dot density tracks that
@@ -1235,12 +1406,12 @@ registerProcessor("dss-processor", DSSProcessor);
         //     disappearing as voices come and go.
         //   - Non-sparse pieces show all 20 columns at varying density.
         // The vertical streaks visible in the reference image emerge
-        // naturally from this column structure — no separate "spike" layer
+        // naturally from this column structure; no separate "spike" layer
         // needed. Streaks ARE columns.
         // ============================================================
         cx.fillStyle = "#fff";
 
-        // Cluster width — wider than v2 because the focal point is more left
+        // Cluster width: wider than v2 because the focal point is more left
         // and we want the cluster to fill the leftmost area meaningfully.
         const clusterW = w * (isPortrait ? 0.34 : 0.26);
         // Bass energy contributes a baseline density boost so the cluster
@@ -1265,7 +1436,7 @@ registerProcessor("dss-processor", DSSProcessor);
 
           // Vertical spread per column: scales with voice's gain AND
           // with the voice's frequency range (wider-range voices spread
-          // more — the n=14 air voices have huge ranges and naturally
+          // more: the n=14 air voices have huge ranges and naturally
           // produce wider columns; the n=4 bass voices are narrow).
           const fRangeRatio = clamp(Math.log(def.fHi / def.fLo) / 4.0, 0.25, 1.0);
           const colSpread = h * 0.42 * gNorm * (0.45 + fRangeRatio * 0.55) * (0.7 + Math.min(1.5, dyn) * 0.5);
@@ -1276,7 +1447,7 @@ registerProcessor("dss-processor", DSSProcessor);
             ? (4  + (gNorm * 35 * bassBoost) | 0)
             : (8  + (gNorm * 75 * bassBoost) | 0);
 
-          // Per-dot alpha — lower than v2's 0.42 ceiling. Twenty columns
+          // Per-dot alpha: lower than v2's 0.42 ceiling. Twenty columns
           // overlapping at 0.30 max alpha read as a delicate cloud, not mud.
           const colAlpha = 0.05 + gNorm * 0.28;
 
@@ -1292,7 +1463,7 @@ registerProcessor("dss-processor", DSSProcessor);
 
 
         // ============================================================
-        // LAYER B — Per-voice wave fan (the lead element)
+        // LAYER B: Per-voice wave fan (the lead element)
         //
         // The number of curves drawn equals the number of currently-active
         // voices. Each active voice contributes one dotted curve at its own
@@ -1309,7 +1480,7 @@ registerProcessor("dss-processor", DSSProcessor);
         //     reach meaningful Y-axis use; loud pieces stay 1×.
         //   - Lower per-curve alpha so 20 stacked curves stay delicate.
         //   - sqrt slot positioning so outer voices don't fly off-canvas.
-        //   - ampScale doubled — at peak, single curves can reach 0.95h.
+        //   - ampScale doubled: at peak, single curves can reach 0.95h.
         // ============================================================
         const sampleStride = isMobile ? 6 : 3;
 
@@ -1335,7 +1506,7 @@ registerProcessor("dss-processor", DSSProcessor);
           // Normalize gain (~0.05 max for non-sparse, ~0.16 for sparse bass)
           const gNorm    = Math.min(1, g / 0.05);
 
-          // Per-voice phase shift — each curve renders the same time buffer
+          // Per-voice phase shift: each curve renders the same time buffer
           // at a different offset, so they read as distinct curves rather
           // than overlapping copies.
           const phaseShift = (i * 23 + Math.sin(_vt * 0.5 + i * 0.7) * 7) | 0;
@@ -1372,7 +1543,7 @@ registerProcessor("dss-processor", DSSProcessor);
         }
 
         // ============================================================
-        // LAYER C — Crisp primary trace
+        // LAYER C: Crisp primary trace
         // A single thin solid stroke of the actual time-domain waveform,
         // very low alpha. Provides a coherent "anchor" reading among the
         // diffuse stipple, like a fine pen line through a wash.
@@ -1397,7 +1568,7 @@ registerProcessor("dss-processor", DSSProcessor);
         cx.stroke();
 
         // ============================================================
-        // LAYER D — Shoulder waves
+        // LAYER D: Shoulder waves
         // Two extra-faint mirror traces above and below the main fan,
         // shifted further so the field has a soft "halo" to breathe in.
         // ============================================================
@@ -1426,10 +1597,10 @@ registerProcessor("dss-processor", DSSProcessor);
         }
 
         // ============================================================
-        // LAYER E — High-frequency mist
+        // LAYER E: High-frequency mist
         // Sparse single-pixel grains scattered across the field, driven
         // by the upper spectrum. Adds quiet "shimmer" without weight.
-        // Reduced from v2 — at the new cluster densities, too much mist
+        // Reduced from v2: at the new cluster densities, too much mist
         // competes with the cluster's stipple texture.
         // ============================================================
         const baseMist  = isMobile ? 14 : 38;
@@ -1449,10 +1620,10 @@ registerProcessor("dss-processor", DSSProcessor);
         }
 
         // ============================================================
-        // LAYER F — Whisper of a horizon
+        // LAYER F: Whisper of a horizon
         // A barely-there centerline that holds the composition together
         // when the audio is very quiet, so the screen never reads as empty.
-        // FADES OUT as energy rises — at peak the wave fan owns the screen,
+        // FADES OUT as energy rises; at peak the wave fan owns the screen,
         // not a static beam. (Without this, frame-over-frame accumulation
         // against the trail decay turned this into a bright bar at peak.)
         // ============================================================
@@ -1465,12 +1636,192 @@ registerProcessor("dss-processor", DSSProcessor);
 
         cx.globalAlpha = 1;
 
+        if (leaveVisible) drawLeaveScope(wfNorm, T);
+
         _vUpdateText();
+      }
+
+      // ================================================================
+      // LEAVE DIALOG
+      // ================================================================
+
+      const leaveEl = document.getElementById("leave");
+      const leaveScrim = document.getElementById("leaveScrim");
+      const leavePieceEl = document.getElementById("leavePiece");
+      const leaveClockEl = document.getElementById("leaveClock");
+      const leaveTrack = document.getElementById("leaveTrack");
+      const leaveFill = document.getElementById("leaveFill");
+      const leaveHead = document.getElementById("leaveHead");
+      const leaveLetters = document.getElementById("leaveLetters");
+      const leaveStay = document.getElementById("leaveStay");
+      const leaveGo = document.getElementById("leaveGo");
+      const scopeEl = document.getElementById("leaveScope");
+      const scx = scopeEl.getContext("2d");
+      const SCOPE_HIST = 6;
+      let scopeW = 0, scopeH = 0, scopePts = 0, scopeHist = [], scopeIdx = 0, scopeFilled = 0, trackW = 0;
+
+      // The question, one span per letter, so it can gather out of scattered points
+      const leaveChars = [];
+      "Leave the piece?".split(" ").forEach((word, wi, words) => {
+        const w = document.createElement("span"); w.className = "lv-w";
+        for (const ch of word) {
+          const s = document.createElement("span"); s.className = "lv-ch"; s.textContent = ch;
+          w.appendChild(s); leaveChars.push(s);
+        }
+        leaveLetters.appendChild(w);
+        if (wi < words.length - 1) leaveLetters.appendChild(document.createTextNode(" "));
+      });
+
+      function scatterLetters(spread, maxDelay) {
+        for (const s of leaveChars) {
+          const a = Math.random() * Math.PI * 2, r = spread * (0.35 + 0.65 * Math.random());
+          s.style.setProperty("--dx", (Math.cos(a) * r).toFixed(3) + "em");
+          s.style.setProperty("--dy", (Math.sin(a) * r * 0.7).toFixed(3) + "em");
+          s.style.setProperty("--d", Math.round(Math.random() * maxDelay) + "ms");
+        }
+      }
+
+      function sizeScope() {
+        const dpr = Math.min(2, window.devicePixelRatio || 1);
+        scopeW = Math.max(1, scopeEl.clientWidth); scopeH = Math.max(1, scopeEl.clientHeight);
+        scopeEl.width = Math.round(scopeW * dpr); scopeEl.height = Math.round(scopeH * dpr);
+        scx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        scopePts = clamp(Math.floor(scopeW / 2.6), 40, 200);
+        scopeHist = [];
+        for (let k = 0; k < SCOPE_HIST; k++) scopeHist.push(new Float32Array(scopePts));
+        scopeIdx = 0; scopeFilled = 0;
+        trackW = leaveTrack.clientWidth;
+      }
+
+      // A live window onto the sound, in the same stippled language as the field
+      // behind it: the newest trace bright, the five before it fading like phosphor.
+      function drawLeaveScope(wfNorm, T) {
+        if (!scopePts || !_vTime) return;
+        const W = scopeW, H = scopeH, mid = H * 0.5, amp = H * 0.44, n = scopePts, dx = W / n;
+        scopeIdx = (scopeIdx + 1) % SCOPE_HIST;
+        const cur = scopeHist[scopeIdx], step = T / n;
+        for (let p = 0; p < n; p++) {
+          const v = ((_vTime[(p * step) | 0] - 128) / 128) * wfNorm;
+          cur[p] = v > 1 ? 1 : v < -1 ? -1 : v;
+        }
+        if (scopeFilled < SCOPE_HIST) scopeFilled++;
+
+        scx.clearRect(0, 0, W, H);
+        scx.fillStyle = "rgb(233,228,218)";
+        scx.globalAlpha = 0.08;
+        scx.fillRect(0, mid, W, 0.5);
+        for (let k = scopeFilled - 1; k >= 0; k--) {
+          const arr = scopeHist[(scopeIdx - k + SCOPE_HIST) % SCOPE_HIST];
+          const base = k === 0 ? 0.9 : 0.34 * (1 - k / SCOPE_HIST);
+          for (let p = 0; p < n; p++) {
+            const win = Math.sin(Math.PI * (p + 0.5) / n);   // lens taper toward both ends
+            const a = base * (0.15 + 0.85 * win);
+            if (a < 0.012) continue;
+            scx.globalAlpha = a;
+            scx.fillRect(p * dx + dx * 0.5, mid - arr[p] * amp * Math.sqrt(win), 1.2, 1.2);
+          }
+        }
+        // a fine pen line through the newest trace
+        scx.beginPath();
+        for (let p = 0; p < n; p++) {
+          const x = p * dx + dx * 0.5, y = mid - cur[p] * amp * Math.sqrt(Math.sin(Math.PI * (p + 0.5) / n));
+          if (p) scx.lineTo(x, y); else scx.moveTo(x, y);
+        }
+        scx.globalAlpha = 0.22; scx.strokeStyle = "rgb(233,228,218)"; scx.lineWidth = 0.6; scx.stroke();
+        // loose grains around the line
+        for (let k = 0; k < 26; k++) {
+          const p = (Math.random() * n) | 0, win = Math.sin(Math.PI * (p + 0.5) / n);
+          const y = mid - cur[p] * amp * Math.sqrt(win) + (Math.random() - 0.5) * 10 * (0.3 + Math.abs(cur[p]));
+          scx.globalAlpha = 0.25 * win;
+          scx.fillRect(p * dx + Math.random() * dx, y, 1, 1);
+        }
+        scx.globalAlpha = 1;
+      }
+
+      function updateLeaveClock(el, dur) {
+        const s = Math.floor(Math.min(el, dur));
+        if (s !== leaveLastSec) { leaveLastSec = s; leaveClockEl.textContent = fmt(s) + " / " + fmt(dur); }
+        const f = clamp(el / dur, 0, 1);
+        leaveFill.style.transform = "scaleX(" + f.toFixed(4) + ")";
+        leaveHead.style.transform = "translateX(" + (f * trackW).toFixed(1) + "px)";
+      }
+
+      function openLeave(fromKey) {
+        if (!playing || stopping || leaveOpen || !currentInst) return;
+        if (leaveHideTimer) { clearTimeout(leaveHideTimer); leaveHideTimer = null; }
+        if (hintTimer) { clearTimeout(hintTimer); hintTimer = null; }
+        hintEl.classList.remove("visible");
+        leavePieceEl.innerHTML = INSTRUMENTS[currentInst].name;
+        leaveLastSec = -1;
+        leaveEl.classList.remove("open", "closing", "leaving");
+        scatterLetters(0.85, 480);
+        leaveEl.hidden = false;
+        leaveOpen = true; leaveVisible = true;
+        sizeScope();
+        _vUpdateText();
+        void leaveEl.offsetWidth;   // commit the scattered starting pose so the entrance animates
+        leaveEl.classList.add("open");
+        // A tap opened it: ignore taps for a moment so a double tap cannot answer it
+        leaveArmAt = performance.now() + (fromKey ? 0 : 420);
+        try { leaveStay.focus({ preventScroll: true }); } catch (_) {}
+      }
+
+      function closeLeave(mode) {   // "stay", "leave" or "end"
+        if (!leaveOpen) return;
+        leaveOpen = false;
+        const leaving = mode === "leave";
+        scatterLetters(leaving ? 1.5 : 0.6, leaving ? 300 : 110);
+        leaveEl.classList.remove("open");
+        leaveEl.classList.add(leaving ? "leaving" : "closing");
+        if (leaveEl.contains(document.activeElement)) { try { document.activeElement.blur(); } catch (_) {} }
+        if (leaveHideTimer) clearTimeout(leaveHideTimer);
+        leaveHideTimer = setTimeout(hideLeaveNow, leaving ? 1500 : 600);
+      }
+
+      function hideLeaveNow() {
+        if (leaveHideTimer) { clearTimeout(leaveHideTimer); leaveHideTimer = null; }
+        leaveOpen = false; leaveVisible = false;
+        leaveEl.hidden = true;
+        leaveEl.classList.remove("open", "closing", "leaving");
       }
 
       // ================================================================
       // TRANSPORT
       // ================================================================
+
+      // iPhone and iPad: claim a "playback" audio session before any sound starts.
+      // This is the page telling iOS it is music. WebKit then keeps the AudioContext
+      // running when the browser goes to the background or the screen locks (iOS 17.5
+      // and later), the silent switch no longer mutes it, and the piece appears on the
+      // lock screen with play and pause.
+      function claimPlaybackSession() {
+        if (!isIOS) return false;
+        try {
+          const s = navigator.audioSession;
+          if (!s) return false;
+          if (s.type !== "playback") s.type = "playback";
+          return s.type === "playback";
+        } catch (_) { return false; }
+      }
+
+      // Titles for the lock screen and Control Center
+      const PLAIN_NAMES = { ish: "In Suspended Harmony", lem: "Lemniscate", gen: "GENDY c²", chi: "Chiaroscuro", erg: "Ergodic" };
+      function setNowPlaying(instKey) {
+        try {
+          if (!("mediaSession" in navigator)) return;
+          navigator.mediaSession.metadata = (instKey && typeof MediaMetadata === "function")
+            ? new MediaMetadata({ title: PLAIN_NAMES[instKey] || "", artist: "Chris Colatos" })
+            : null;
+        } catch (_) {}
+      }
+
+      function onCtxState(ctx) {
+        if (ctx !== ac) return;
+        const s = ctx.state;
+        if (s === "running") userPaused = false;
+        else if (s === "suspended" && lastCtxState === "running" && playing && !stopping) userPaused = true;
+        lastCtxState = s;
+      }
 
       function cleanup() {
         runtimeStops.forEach(fn => fn()); runtimeStops = []; noiseNodes = [];
@@ -1484,15 +1835,20 @@ registerProcessor("dss-processor", DSSProcessor);
         if (iosAudioEl) { try { iosAudioEl.pause(); iosAudioEl.srcObject = null; } catch(_){} iosAudioEl = null; }
         if (ac) { try { ac.close(); } catch(_){} }
         ac = null; master = null; analyser = null; dssNode = null; buses = {};
-        playing = false; stopping = false;
+        playing = false; stopping = false; userPaused = false;
+        hideLeaveNow();
       }
 
       function showChooser() {
         chooserEl.classList.remove("hidden");
         overlayEl.classList.remove("visible");
+        hideLeaveNow();
+        if (hintTimer) { clearTimeout(hintTimer); hintTimer = null; }
+        pausedHintOn = false;
         hintEl.classList.remove("visible");
-        phaseEl.textContent = "idle"; timeEl.textContent = "00:00";
+        setPhase("idle"); timeEl.textContent = "00:00";
         currentInst = null;
+        setNowPlaying(null);
       }
 
       async function play(instKey) {
@@ -1500,6 +1856,10 @@ registerProcessor("dss-processor", DSSProcessor);
         const inst = INSTRUMENTS[instKey];
         currentInst = instKey;
         titleEl.innerHTML = inst.name;
+
+        // Before any audio starts (still inside the tap): claim the playback session
+        playbackSession = claimPlaybackSession();
+        if (playbackSession) setNowPlaying(instKey);
 
         await ensureAudio(inst);
         if (!dssNode) return;
@@ -1530,14 +1890,18 @@ registerProcessor("dss-processor", DSSProcessor);
         startedAt = ac.currentTime; playing = true; stopping = false;
         chooserEl.classList.add("hidden");
         overlayEl.classList.add("visible");
+        pausedHintOn = false;
+        hintEl.textContent = "tap anywhere to leave";
         hintEl.classList.add("visible");
-        setTimeout(() => hintEl.classList.remove("visible"), 3000);
+        if (hintTimer) clearTimeout(hintTimer);
+        hintTimer = setTimeout(() => { hintTimer = null; if (!pausedHintOn) hintEl.classList.remove("visible"); }, 3000);
         if (!vizStarted) { vizStarted = true; drawViz(); }
       }
 
       async function stop() {
         if (!ac || stopping) return;
         playing = false; stopping = true;
+        closeLeave("end");   // the piece ended while the dialog was open
         statusEl.textContent = "stopping";
         if (currentInst === "chi" || currentInst === "erg") { try { master.gain.setValueAtTime(0.0001, ac.currentTime); } catch (_) {} }
         cleanup();
@@ -1565,10 +1929,43 @@ registerProcessor("dss-processor", DSSProcessor);
         const btn = e.target.closest("[data-inst]");
         if (btn) play(btn.dataset.inst);
       });
-      canvas.addEventListener("pointerdown", () => { if (playing && !stopping) stop(); });
-      setInterval(() => { if (ac && playing && ac.state === "suspended") ac.resume(); }, 500);
-      document.addEventListener("visibilitychange", () => { if (!document.hidden && ac && playing && ac.state === "suspended") ac.resume(); });
-      document.addEventListener("touchstart", () => { if (ac && playing && ac.state === "suspended") ac.resume(); }, { passive: true });
+      // A tap on a playing piece asks first. Listening for the full click (not the
+      // press) means the same tap can never land on the dialog's buttons.
+      canvas.addEventListener("click", () => {
+        if (tapResumedAt && performance.now() - tapResumedAt < 800) { tapResumedAt = 0; return; }
+        if (playing && !stopping) openLeave(false);
+      });
+      leaveStay.addEventListener("click", () => { if (performance.now() >= leaveArmAt) closeLeave("stay"); });
+      leaveScrim.addEventListener("click", () => { if (performance.now() >= leaveArmAt) closeLeave("stay"); });
+      leaveGo.addEventListener("click", () => {
+        if (!leaveOpen || performance.now() < leaveArmAt) return;
+        closeLeave("leave");
+        stop();
+      });
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" || e.key === "Esc") {
+          if (leaveOpen) { e.preventDefault(); closeLeave("stay"); }
+          else if (playing && !stopping) { e.preventDefault(); openLeave(true); }
+        } else if (e.key === "Tab" && leaveOpen) {   // keep keyboard focus inside the dialog
+          const a = document.activeElement;
+          if (e.shiftKey ? (a === leaveStay || !leaveEl.contains(a)) : (a === leaveGo || !leaveEl.contains(a))) {
+            e.preventDefault();
+            (e.shiftKey ? leaveGo : leaveStay).focus();
+          }
+        }
+      });
+      addEventListener("resize", () => { if (leaveVisible) sizeScope(); });
+
+      // Recover from suspensions while the page is in view. Never while it is
+      // hidden: in the background iOS is in charge (phone calls, the lock screen's
+      // pause button) and the page must not override it. A pause chosen on the
+      // lock screen or in Control Center is respected here too.
+      setInterval(() => { if (ac && playing && !document.hidden && !userPaused && ac.state === "suspended") ac.resume(); }, 500);
+      document.addEventListener("visibilitychange", () => { if (!document.hidden && ac && playing && !userPaused && ac.state === "suspended") ac.resume(); });
+      // Touching the screen resumes a paused piece (and that tap does not open the dialog)
+      document.addEventListener("touchstart", () => {
+        if (ac && playing && ac.state === "suspended") { tapResumedAt = performance.now(); ac.resume(); }
+      }, { passive: true });
 
     })();
   </script>
