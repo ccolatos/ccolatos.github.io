@@ -69,7 +69,7 @@
   }
   @keyframes rise{ from{ opacity:0; transform:translateY(18px) scale(.99); } to{ opacity:1; transform:none; } }
 
-  /* walnut end-caps — solid vintage-synth wood cheeks */
+  /* walnut end-caps: solid vintage-synth wood cheeks */
   .wood{ position:absolute; top:0; bottom:0; width:clamp(18px,3.8vw,36px); z-index:2; pointer-events:none; overflow:hidden;
     background:
       /* fine vertical grain lines, irregular spacing so it doesn't read as ribbing */
@@ -264,13 +264,75 @@
     .meter{ padding:8px 11px 6px; }
     .meter .vu{ width:auto; height:112px; max-width:100%; margin:0 auto; }   /* shorter gauge, centered in the full-width face */
     .readout{ margin-top:5px; padding:4px; }
-    /* presets: a little tighter so the tallest (4-line) tile is shorter — all tiles equalize to it */
+    /* presets: a little tighter so the tallest (4-line) tile is shorter; all tiles equalize to it */
     .preset{ min-height:68px; padding:8px 10px 8px 22px; }
     .preset .psub{ margin-top:2px; line-height:1.15; }
     .bank{ margin-top:7px; padding-top:7px; row-gap:9px; column-gap:8px; }   /* row-gap keeps space under the value readouts */
     .bank .knob svg{ width:48px; }                 /* knobs a touch smaller + closer */
     .knob{ gap:3px; }
     .bottom{ margin-top:8px; row-gap:9px; }
+  }
+
+  /* ---------- programs: SLEEP · MEDITATE · CALM (time-shaped, research-built) ---------- */
+  .main{ grid-template-areas:"prog prog" "meter presets"; }
+  .meter{ grid-area:meter; }
+  .presets{ grid-area:presets; }
+  .programs{ grid-area:prog; display:grid; grid-template-columns:minmax(0,1fr) 108px; gap:9px; }
+  .progkeys{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:9px; }
+  .prog{ position:relative; overflow:hidden; text-align:left; cursor:pointer; border:none; border-radius:11px;
+    min-height:58px; padding:11px 12px 13px 32px; font-family:var(--font-label); color:var(--ink-dim); -webkit-tap-highlight-color:transparent;
+    background:linear-gradient(180deg,#262a31,#17191e);
+    box-shadow:0 1px 0 rgba(255,255,255,.06) inset, 0 -2px 0 rgba(0,0,0,.5) inset, 0 3px 7px -4px #000;
+    transition:.16s; }
+  .prog .pled{ position:absolute; left:12px; top:15px; width:10px; height:10px; border-radius:50%;
+    background:#34383f; box-shadow:0 0 0 1px rgba(0,0,0,.5) inset; transition:.2s; }
+  .prog .pnm{ display:block; font-family:var(--font-display); font-weight:600; font-size:.88rem; letter-spacing:.24em;
+    color:#c9c3b3; line-height:1.15; text-transform:uppercase; }
+  .prog .psb{ display:block; font-size:.64rem; letter-spacing:.06em; color:#7d7766; margin-top:3px; line-height:1.2;
+    text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .prog .pbar{ position:absolute; left:12px; right:12px; bottom:6px; height:2px; border-radius:2px;
+    background:rgba(255,179,92,.10); opacity:0; transition:opacity .6s; }
+  .prog .pbar i{ display:block; height:100%; width:0; border-radius:2px; background:var(--amber);
+    box-shadow:0 0 6px rgba(255,179,92,.55); transition:width 1s linear; }
+  .prog:hover{ filter:brightness(1.12); }
+  .prog[aria-pressed="true"]{ background:linear-gradient(180deg,#191c21,#101317);
+    box-shadow:0 2px 6px -2px #000 inset, 0 0 0 1px rgba(255,179,92,.24); }
+  .prog[aria-pressed="true"] .pled{ background:var(--amber); box-shadow:0 0 8px 1px rgba(255,179,92,.85), 0 0 16px 3px rgba(255,179,92,.35); }
+  .prog[aria-pressed="true"] .pnm{ color:var(--amber-soft); }
+  .prog[aria-pressed="true"] .pbar.on{ opacity:1; }
+  .progopts{ display:grid; grid-template-rows:1fr 1fr; gap:6px; }
+  .ptog{ display:flex; align-items:center; justify-content:center; gap:7px; border:none; border-radius:9px; cursor:pointer;
+    padding:0 9px 0 7px; font-family:var(--font-label); font-weight:600; font-size:.66rem; letter-spacing:.16em; text-transform:uppercase;
+    color:var(--ink-dim); -webkit-tap-highlight-color:transparent;
+    background:linear-gradient(180deg,#23272e,#16191e);
+    box-shadow:0 1px 0 rgba(255,255,255,.05) inset,0 -2px 0 rgba(0,0,0,.5) inset,0 3px 7px -4px #000; transition:.15s; }
+  .ptog .tled{ flex:none; width:6px; height:6px; border-radius:50%; background:#34383f; box-shadow:0 0 0 1px rgba(0,0,0,.5) inset; transition:.2s; }
+  .ptog:hover:not(:disabled){ filter:brightness(1.14); color:var(--ink); }
+  .ptog[aria-pressed="true"]{ color:var(--amber-soft); box-shadow:0 2px 6px -2px #000 inset,0 0 0 1px rgba(255,179,92,.26); }
+  .ptog[aria-pressed="true"] .tled{ background:var(--amber); box-shadow:0 0 6px 1px rgba(255,179,92,.8); }
+  .ptog:disabled{ opacity:.3; cursor:default; }
+  .prog:focus-visible, .ptog:focus-visible{ outline:2px solid var(--amber-soft); outline-offset:2px; }
+  .errbar.note{ background:#1c1912; border-color:#4a3f26; color:#f1ddb4; }
+  .info a{ color:var(--amber-soft); text-underline-offset:2px; }
+  .info .src{ font-size:.72rem; line-height:1.7; opacity:.85; }
+
+  /* phones & narrow: the program keys stand beside the meter, so the panel gains no height */
+  @media (max-width:680px){
+    .main{ grid-template-columns:minmax(0,1fr) clamp(104px,34%,150px); grid-template-areas:"meter prog" "presets presets"; }
+    .meter{ display:flex; flex-direction:column; }
+    .meterface{ flex:1; display:flex; align-items:center; justify-content:center; }
+    .programs{ display:flex; flex-direction:column; gap:6px; }
+    .progkeys{ display:flex; flex-direction:column; gap:6px; flex:1; }
+    .prog{ flex:1; min-height:40px; padding:6px 8px 8px 23px; display:flex; flex-direction:column; justify-content:center; }
+    .prog .pled{ left:9px; top:50%; margin-top:-8px; width:8px; height:8px; }
+    .prog .pnm{ font-size:.74rem; letter-spacing:.17em; }
+    .prog .psb{ font-size:.56rem; letter-spacing:.04em; margin-top:1px; }
+    .prog .pbar{ left:9px; right:9px; bottom:4px; }
+    .progopts{ grid-template-rows:none; grid-template-columns:1fr 1fr; gap:5px; height:30px; }
+    .ptog{ padding:0 4px; gap:5px; font-size:.6rem; letter-spacing:.1em; }
+  }
+  @media (max-width:560px){
+    .meter .vu{ width:100%; height:auto; max-height:112px; }
   }
 </style>
 </head>
@@ -302,6 +364,13 @@
           </div>
           <div class="readout" id="readout">CONT</div>
         </div>
+        <div class="programs" id="programs" role="group" aria-label="Programs">
+          <div class="progkeys" id="progkeys"></div>
+          <div class="progopts">
+            <button class="ptog" id="optGuide" aria-pressed="false" disabled title="Breath guide on or off"><span class="tled"></span>Guide</button>
+            <button class="ptog" id="optBirds" aria-pressed="false" disabled title="Birdsong on or off"><span class="tled"></span>Birds</button>
+          </div>
+        </div>
         <div class="presets" id="presets"></div>
       </div>
 
@@ -325,12 +394,21 @@
   <div class="errbar" id="err"></div>
 
   <div class="info" id="info" hidden>
+    <h3>Programs</h3>
+    <p><b>SLEEP</b> opens beside a gentle creek. For about 15 minutes a breeze rises and falls six times a minute, slowing toward five, so you can breathe along: the slow pace that helped people with insomnia fall asleep faster in a 2015 study. Over 30 minutes the creek drifts into a distant river, the breeze settles, the tone darkens and the level eases down 3&nbsp;dB. After that nothing changes, because sudden changes in sound are what tend to wake people. It dissolves over the last five minutes of the timer. It starts on <b>1h</b>, a cautious default: a 2026 sleep-lab study of healthy adults found that all-night pink noise shortened REM sleep. Choose <b>8h</b> only if you need it to cover noise, and consider earplugs, which protected sleep best in that study.</p>
+    <p><b>MEDITATE</b> opens with a struck singing bowl, then rests on a quiet mountain stream, a distant thrush and a mourning dove. When the timer ends the bowl sounds three times and the stream fades to silence.</p>
+    <p><b>CALM</b> is a forest creek with distant birdsong. For five minutes the breeze guides a cyclic sigh: breathe in as it rises (<b>IN</b>), take a short second sip of air at the top (<b>SIP</b>), then breathe out slowly as it falls away (<b>OUT</b>). The readout shows each step and the needle follows the breeze. Then the guide fades and the creek carries on.</p>
+    <p><b>GUIDE</b> turns a program’s breathing pace on or off; in MEDITATE it is an optional slow guide of six breaths a minute for the first five minutes. <b>BIRDS</b> turns birdsong on or off. Stillpoint remembers both.</p>
+    <p>Programs keep your <b>VOLUME</b>. The other knobs keep working too: <b>TONE</b> makes the whole scene darker or brighter, and <b>NOISE</b>, <b>RAIN</b>, <b>SURF</b> and <b>DRONE</b> add their own layers. Choosing a preset leaves the program and recalls that preset, volume included. While a timer is fading out, changing the timer or choosing a program or preset brings the sound back up.</p>
+    <h3>Why these sounds</h3>
+    <p>The programs follow the research, but the studies tested real nature sounds and breathing exercises, not this app. In a review of natural-sound studies, water sounds did the most for health and mood, and birdsong the most for easing stress and annoyance. In a brain-imaging study, natural sounds turned attention outward and raised the body’s rest-and-digest activity, while artificial sounds turned attention inward. Slow breathing calms the body, and five minutes a day of cyclic sighing, with its long exhale, lifted mood more than mindfulness meditation in a 2023 Stanford trial. These soundscapes are not recordings: they are synthesized live from physical models of water bubbles and wind and from measurements of real birdsong, so they never loop. No program uses binaural beats or special frequencies, because the evidence for them is inconsistent.</p>
+    <p class="src">Studies: <a href="https://doi.org/10.1111/psyp.12333" target="_blank" rel="noopener">paced breathing and insomnia (2015)</a> · <a href="https://doi.org/10.1093/sleep/zsag001" target="_blank" rel="noopener">pink noise, earplugs and sleep (2026)</a> · <a href="https://pubmed.ncbi.nlm.nih.gov/33753555/" target="_blank" rel="noopener">health benefits of natural sounds (2021)</a> · <a href="https://doi.org/10.1038/srep45273" target="_blank" rel="noopener">natural sounds and attention (2017)</a> · <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9873947/" target="_blank" rel="noopener">cyclic sighing (2023)</a> · <a href="https://pubmed.ncbi.nlm.nih.gov/37205669/" target="_blank" rel="noopener">binaural beats review (2023)</a></p>
     <h3>How it works</h3>
     <p>The <b>NOISE</b> bed is steady broadband sound that masks disruptive noise; <b>TONE</b> shifts it from deep/brown to balanced/pink. <b>RAIN</b> and <b>SURF</b> add slow, predictable natural texture with no sudden transients. <b>DRONE</b> is a quiet low tone used purely for comfort, with no entrainment, binaural, or “miracle frequency” claims.</p>
     <h3>Sensory note</h3>
-    <p>If you’re sensitive to sound, start with <b>Sensory‑Simple</b> (one steady sound) and add layers only if they help. Layered sound can become overstimulating.</p>
+    <p>If you’re sensitive to sound, start with <b>Sensory‑Simple</b> (one steady sound) and add layers only if they help. Layered sound can become overstimulating. Presets and programs glide into each other over about two seconds instead of switching abruptly, and <b>BIRDS</b> turns off birdsong. If your device is set to reduce motion, the needle stays still and the breathing guide is shown in words.</p>
     <h3>Using it well</h3>
-    <p>Set the volume so the sound is almost forgettable, especially overnight. Low volume and amber light are easier on sleep. Playback continues when you switch apps or lock the phone, and shows up in your lock‑screen controls. <b>DIM</b> darkens the panel for bedside use and keeps the screen awake while it’s on.</p>
+    <p>Set the volume so the sound is almost forgettable, especially overnight. Low volume and amber light are easier on sleep. Playback is built to continue when you switch apps or lock the phone and to show up in your lock‑screen controls, though some phones and browsers may still stop it. Pausing there holds your place, including the program and the timer, and Play picks up where you left off; <b>POWER</b> still fades out gently. <b>DIM</b> darkens the panel for bedside use and keeps the screen awake while it’s on.</p>
     <h3>Safety</h3>
     <p>This is not medical treatment. Stop if you notice distress, headache, ear pain, or agitation. In a mental‑health emergency, contact local emergency services or a crisis line.</p>
   </div>
@@ -339,14 +417,442 @@
 "use strict";
 
 /* =========================================================================
-   AUDIO ENGINE — single AudioWorklet, all layers synthesised in real time.
+   AUDIO ENGINE: single AudioWorklet, all layers synthesized in real time.
    ========================================================================= */
-const workletCode = `
+/* BREATH-BEGIN */
+/* ---- shared breath timing: the worklet voices it, the main thread draws it on the needle ---- */
+function breathShape(e, pat, out){
+  // pat 0 = cyclic sigh (calm), 1 = slow 6/min (meditate), 2 = settling waves (sleep)
+  // out[0] = breath 0..1; out[1] = 1 breathing in, 2 the second short inhale of a sigh, 0 breathing out
+  var r0, r1, tr;
+  if(pat === 2){ r0 = 0.1; r1 = 1/12; tr = 600; }
+  else if(pat === 1){ r0 = 0.125; r1 = 0.1; tr = 90; }
+  else { r0 = 0.125; r1 = 1/10.5; tr = 90; }
+  var ph = e < tr ? r0*e + 0.5*(r1 - r0)*e*e/tr : r0*tr + 0.5*(r1 - r0)*tr + r1*(e - tr);
+  var x = ph - Math.floor(ph), b, inh, u;
+  if(pat === 0){
+    if(x < 0.26){ u = x/0.26; b = 0.78*u*u*(3 - 2*u); inh = 1; }
+    else if(x < 0.29){ b = 0.78; inh = 1; }
+    else if(x < 0.37){ u = (x - 0.29)/0.08; b = 0.78 + 0.22*(1 - (1 - u)*(1 - u)); inh = 2; }
+    else if(x < 0.95){ u = (x - 0.37)/0.58; b = 1 - u*u*(3 - 2*u); inh = 0; }
+    else { b = 0; inh = 0; }
+  } else if(pat === 1){
+    if(x < 0.4){ u = x/0.4; b = u*u*(3 - 2*u); inh = 1; }
+    else if(x < 0.98){ u = (x - 0.4)/0.58; b = 1 - u*u*(3 - 2*u); inh = 0; }
+    else { b = 0; inh = 0; }
+  } else {
+    if(x < 0.42){ u = x/0.42; b = u*u*(3 - 2*u); inh = 1; }
+    else { u = (x - 0.42)/0.58; b = 1 - u*u*(3 - 2*u); inh = 0; }
+  }
+  out[0] = b; out[1] = inh;
+  return b;
+}
+function guideEnv(e, mode){
+  // mode 0: five guided minutes, then a gentle fade. mode 1 (sleep): soft waves, gone by minute 20
+  if(e < 0) return 0;
+  var fin = e < 5 ? e/5 : 1, u;
+  if(mode === 1){ u = Math.min(1, Math.max(0, (e - 840)/360)); return 0.62*fin*(1 - u*u*(3 - 2*u)); }
+  if(e <= 300) return fin;
+  u = (e - 300)/24;
+  return u >= 1 ? 0 : 1 - u*u*(3 - 2*u);
+}
+/* BREATH-END */
+const BREATH_SRC = breathShape.toString() + '\n' + guideEnv.toString() + '\n';
+const workletCode = BREATH_SRC + `
+const TAU = 6.283185307179586;
+function sstep(a, b, x){ if(x <= a) return 0; if(x >= b) return 1; const u = (x - a)/(b - a); return u*u*(3 - 2*u); }
+function cutK(fc, sr){ return 1 - Math.exp(-TAU*fc/sr); }
+function rgauss(){ return (Math.random() + Math.random() + Math.random() - 1.5)*2; }
+
+/* ---- small feedback-delay-network reverb: the air of an outdoor space ---- */
+class FDN {
+  constructor(sr, rt, damp, ms){
+    this.L = ms.map(m => Math.max(8, Math.round(m*sr/1000)));
+    this.b = this.L.map(l => new Float32Array(l));
+    this.i = [0, 0, 0, 0]; this.lp = [0, 0, 0, 0];
+    this.g = this.L.map(l => Math.pow(10, -3*l/(sr*rt)));
+    this.kd = cutK(damp, sr);
+    this.pd = new Float32Array(Math.max(8, Math.round(0.014*sr))); this.pi = 0;
+  }
+  run(inp, oL, oR, n){
+    const b0 = this.b[0], b1 = this.b[1], b2 = this.b[2], b3 = this.b[3];
+    const L0 = this.L[0], L1 = this.L[1], L2 = this.L[2], L3 = this.L[3];
+    const g0 = this.g[0], g1 = this.g[1], g2 = this.g[2], g3 = this.g[3], kd = this.kd, pd = this.pd, PL = pd.length;
+    let i0 = this.i[0], i1 = this.i[1], i2 = this.i[2], i3 = this.i[3], pi = this.pi;
+    let l0 = this.lp[0], l1 = this.lp[1], l2 = this.lp[2], l3 = this.lp[3];
+    for(let i = 0; i < n; i++){
+      const x = pd[pi]; pd[pi] = inp[i] + 1e-20; if(++pi >= PL) pi = 0;
+      const d0 = b0[i0], d1 = b1[i1], d2 = b2[i2], d3 = b3[i3];
+      l0 += kd*(d0 - l0); l1 += kd*(d1 - l1); l2 += kd*(d2 - l2); l3 += kd*(d3 - l3);
+      const y0 = l0*g0, y1 = l1*g1, y2 = l2*g2, y3 = l3*g3;
+      const a = y0 + y1, c = y0 - y1, e = y2 + y3, f = y2 - y3;
+      b0[i0] = 0.5*(a + e) + x; b1[i1] = 0.5*(c + f) - 0.9*x; b2[i2] = 0.5*(a - e) + 0.8*x; b3[i3] = 0.5*(c - f) - 0.7*x;
+      oL[i] += 0.55*(d0 + 0.7*d2); oR[i] += 0.55*(d1 + 0.7*d3);
+      if(++i0 >= L0) i0 = 0; if(++i1 >= L1) i1 = 0; if(++i2 >= L2) i2 = 0; if(++i3 >= L3) i3 = 0;
+    }
+    this.i[0] = i0; this.i[1] = i1; this.i[2] = i2; this.i[3] = i3; this.pi = pi;
+    this.lp[0] = l0; this.lp[1] = l1; this.lp[2] = l2; this.lp[3] = l3;
+  }
+}
+
+/* ---- singing bowl: modal synthesis from a measured 180 mm Tibetan bowl (221 / 614 / 1145 / 1804 / 2577 Hz).
+        Each mode is a slightly split pair, which gives the bowl its slow, shimmering beat.
+        A soft felt mallet: rounded attack, no click. ---- */
+const BOWL_R = [1, 2.778, 5.181, 8.163, 11.661];
+const BOWL_A = [1, 0.55, 0.26, 0.12, 0.05];
+const BOWL_T = [30, 16, 8.5, 4.5, 2.6];
+const BOWL_S = [0.8, 1.9, 3.1, 4.4, 5.9];
+class Bowl {
+  constructor(sr){
+    this.sr = sr; this.S = 4; const N = this.S*10;
+    this.re = new Float64Array(N); this.im = new Float64Array(N); this.cr = new Float64Array(N); this.ci = new Float64Array(N);
+    this.dc = new Float64Array(N); this.gl = new Float64Array(N); this.gr = new Float64Array(N);
+    this.on = new Uint8Array(this.S); this.e1 = new Float64Array(this.S); this.e2 = new Float64Array(this.S);
+    this.th = new Float64Array(this.S); this.tl = new Float64Array(this.S); this.age = new Float64Array(this.S);
+    this.ka = 1 - Math.exp(-1/(0.0035*sr)); this.kt = cutK(700, sr); this.td = Math.exp(-1/(0.018*sr));
+    this.fdn = new FDN(sr, 2.4, 5200, [29.3, 37.9, 46.1, 57.7]);
+    this.snd = new Float32Array(128); this.n = 0;
+  }
+  active(){ return this.n > 0; }
+  stop(){ this.on.fill(0); this.n = 0; }
+  strike(g){
+    let s = -1, oldest = -1, oa = -1;
+    for(let q = 0; q < this.S; q++){ if(!this.on[q]){ s = q; break; } if(this.age[q] > oa){ oa = this.age[q]; oldest = q; } }
+    if(s < 0) s = oldest; else this.n++;
+    const sr = this.sr, f1 = 221*(1 + (Math.random() - 0.5)*0.003), gg = 0.63*g*(0.97 + Math.random()*0.06);
+    for(let m = 0; m < 5; m++){
+      for(let q = 0; q < 2; q++){
+        const idx = s*10 + m*2 + q, f = f1*BOWL_R[m] + (q ? 0.5 : -0.5)*BOWL_S[m], w = TAU*f/sr, ph = Math.random()*TAU;
+        const amp = gg*BOWL_A[m]*(q ? 0.72 : 1);
+        this.re[idx] = amp*Math.cos(ph); this.im[idx] = amp*Math.sin(ph);
+        this.cr[idx] = Math.cos(w); this.ci[idx] = Math.sin(w);
+        this.dc[idx] = Math.exp(-6.907755/(BOWL_T[m]*sr));
+        const pan = q ? 0.62 : 0.38;
+        this.gl[idx] = Math.cos(pan*1.5707963); this.gr[idx] = Math.sin(pan*1.5707963);
+      }
+    }
+    this.e1[s] = 0; this.e2[s] = 0; this.th[s] = gg; this.tl[s] = 0; this.age[s] = 0; this.on[s] = 1;
+  }
+  render(n, oL, oR){
+    if(this.snd.length < n) this.snd = new Float32Array(n);
+    const snd = this.snd; snd.fill(0, 0, n);
+    const re = this.re, im = this.im, cr = this.cr, ci = this.ci, dc = this.dc, gl = this.gl, gr = this.gr, ka = this.ka, kt = this.kt, td = this.td;
+    for(let s = 0; s < this.S; s++){
+      if(!this.on[s]) continue;
+      let e1 = this.e1[s], e2 = this.e2[s], th = this.th[s], tl = this.tl[s];
+      const base = s*10;
+      for(let i = 0; i < n; i++){
+        e1 += ka*(1 - e1); e2 += ka*(e1 - e2);
+        let l = 0, r = 0;
+        for(let o = base; o < base + 10; o++){
+          const a = re[o], b = im[o], c = cr[o], d = ci[o], k = dc[o];
+          re[o] = (a*c - b*d)*k; im[o] = (a*d + b*c)*k;
+          l += im[o]*gl[o]; r += im[o]*gr[o];
+        }
+        tl += kt*((Math.random()*2 - 1)*th - tl); th *= td;
+        const v = 0.05*tl;
+        l = l*e2 + v; r = r*e2 + v;
+        oL[i] += l; oR[i] += r; snd[i] += 0.5*(l + r);
+      }
+      this.e1[s] = e1; this.e2[s] = e2; this.th[s] = th; this.tl[s] = tl; this.age[s] += n;
+      const amp = re[base]*re[base] + im[base]*im[base];
+      if(amp < 1e-10){ this.on[s] = 0; this.n--; }
+    }
+    for(let i = 0; i < n; i++) snd[i] *= 0.32;
+    this.fdn.run(snd, oL, oR, n);
+  }
+}
+
+/* ---- the natural soundscape: physically modeled water, wind in trees, and birdsong ----
+   Water: every sound of a stream is a ringing air bubble (Minnaert resonance, f = 3.26 / radius),
+   decaying and rising in pitch as it surfaces (van den Doel's liquid-sound model).
+   Birds: species with simple whistled songs, built from published song measurements:
+   black-capped chickadee (fee-bee), dark-eyed junco (trill), varied thrush (long burry whistle),
+   mourning dove (perch coo). Everything is generated live, so it never repeats or loops. */
+const SCN = [null,
+  /* 1 sleep    */ { rate:170, rmed:0.0019, sig:0.50, fizz:0.15, big:0.05, rmin:0.00045, alpha:0.35, far:260, rush:0.9, gur:2.2, rushHz:1100, lp:9000,  gust:0.30, wbase:0.30, birds:[] },
+  /* 2 meditate */ { rate:120, rmed:0.0010, sig:0.45, fizz:0.30, big:0.005, rmin:0.00040, alpha:0.35, far:200, rush:0.7, gur:0.6, rushHz:1900, lp:8000,  gust:0.45, wbase:0.30, birds:[[3, 1.0], [4, 0.35]] },
+  /* 3 calm     */ { rate:260, rmed:0.0015, sig:0.55, fizz:0.25, big:0.04, rmin:0.00035, alpha:0.35, far:240, rush:1.0, gur:2.2, rushHz:1500, lp:12000, gust:0.55, wbase:0.36, birds:[[1, 1.0], [2, 0.8], [3, 0.7], [4, 0.5]] }
+];
+const CREEK_G = 0.56, RUSH_G = 0.30, RIVER_G = 0.85, FAR_G = 0.05, BODY_G = 2.5, LEAF_G = 0.6, GBODY_G = 1.9, GLEAF_G = 0.55, BIRD_G = 0.75;
+const SC_KEYS = ['rate', 'rmed', 'sig', 'fizz', 'big', 'rmin', 'alpha', 'far', 'rush', 'gur', 'rushHz', 'gust', 'wbase'];
+
+function birdInd(id){
+  const dist = 0.35 + Math.random()*0.65, top = id === 4 ? 3200 : 9500;
+  const ind = { pan:(Math.random()*2 - 1)*0.85, fc:Math.max(2400, top - (top - 2400)*dist*0.9), g:1/(0.55 + 1.9*dist), snd:0.22 + 0.5*dist, fs:0.94 + Math.random()*0.12 };
+  if(id === 3){ ind.pitches = [2850, 3300, 3750, 4250, 4800].map(f => f*ind.fs*(0.985 + Math.random()*0.03)); }
+  return ind;
+}
+function birdBout(id){ return id === 1 ? 4 + (Math.random()*6|0) : id === 2 ? 3 + (Math.random()*5|0) : id === 3 ? 5 + (Math.random()*8|0) : 2 + (Math.random()*3|0); }
+function birdGap(id){ return id === 1 ? 3.5 + Math.random()*3.5 : id === 2 ? 6.5 + Math.random()*6.5 : id === 3 ? 4 + Math.random()*13 : 12 + Math.random()*10; }
+function birdRest(id){ return id === 1 ? 45 + Math.random()*75 : id === 2 ? 50 + Math.random()*90 : id === 3 ? 60 + Math.random()*120 : 90 + Math.random()*150; }
+function birdSong(id, ind, sp){
+  if(id === 1){
+    // black-capped chickadee: "fee" glides down about 6%, "bee" sits about 13% below the end of "fee"
+    const f0 = 3800*ind.fs, f1 = f0/1.06, fb = f1/1.13;
+    const d1 = 0.30 + Math.random()*0.07, g = 0.09 + Math.random()*0.05, d2 = 0.33 + Math.random()*0.07;
+    return [ { t:0, d:d1, f0:f0, f1:f1, a:0.8, atk:0.035, rel:0.05, h2:0.015 },
+             { t:d1 + g, d:d2, f0:fb*1.006, f1:fb*0.994, a:1.0, atk:0.03, rel:0.07, h2:0.015, dip:0.3 } ];
+  }
+  if(id === 2){
+    // dark-eyed junco: a level, musical trill of quick down-slurred notes
+    const nN = 10 + (Math.random()*7|0), rate = 12.5 + Math.random()*4, fh = 5600*ind.fs, fl = 3900*ind.fs, out = [];
+    for(let k = 0; k < nN; k++){ out.push({ t:k/rate, d:0.040, f0:fh, f1:fl, ex:1, a:(k < 3 ? 0.55 + 0.15*k : (k > nN - 3 ? 0.9 : 1)), atk:0.004, rel:0.012, h2:0.06 }); }
+    return out;
+  }
+  if(id === 3){
+    // varied thrush: one long, ethereal, burry whistle; the next one on another pitch
+    let pi = 0, tries = 0;
+    do { pi = Math.random()*ind.pitches.length|0; tries++; } while(pi === sp.last && tries < 6);
+    sp.last = pi; const f = ind.pitches[pi];
+    return [ { t:0, d:1.3 + Math.random()*0.9, f0:f, f1:f*0.985, a:1.0, atk:0.22, rel:0.38, h2:0.03, dual:1.042, dualA:0.5, buzz:0.22, bhz:55 + Math.random()*25, dec:0.3 } ];
+  }
+  // mourning dove perch coo: "coo-OO, oo, oo, oo", hollow and breathy, the second note highest
+  const fs = ind.fs;
+  return [ { t:0.00, d:0.17, f0:430*fs, f1:530*fs, a:0.5, atk:0.045, rel:0.05, h2:0.18, h3:0.05, br:0.04 },
+           { t:0.19, d:0.46, f0:540*fs, f1:520*fs, pk:640*fs, a:1.0, atk:0.05, rel:0.09, h2:0.18, h3:0.05, br:0.04 },
+           { t:0.98, d:0.44, f0:480*fs, f1:455*fs, a:0.78, atk:0.05, rel:0.09, h2:0.16, h3:0.05, br:0.04 },
+           { t:1.62, d:0.44, f0:470*fs, f1:445*fs, a:0.70, atk:0.05, rel:0.09, h2:0.16, h3:0.05, br:0.04 },
+           { t:2.26, d:0.44, f0:462*fs, f1:438*fs, a:0.62, atk:0.05, rel:0.09, h2:0.16, h3:0.05, br:0.04 } ];
+}
+
+class Nature {
+  constructor(sr){
+    this.sr = sr; this.isr = 1/sr; this.t = 0;
+    // bubble pools: [0] near riffles, [1] distant river. Each bubble is a decaying complex phasor whose
+    // step itself rotates a little every sample, so its pitch rises as it surfaces (no per-sample sin).
+    this.pool = [this.mkPool(96), this.mkPool(48)];
+    this.cdN = 0; this.cdF = 0;
+    this.batk = 1 - Math.exp(-1/(0.0004*sr));
+    this.spPan = [-0.58, 0.1, 0.6]; this.spW = [0.42, 0.22, 0.36]; this.spS = [0, 0, 0]; this.spM = [1, 1, 1];
+    this.cLL = 0; this.cLR = 0; this.kc = cutK(9000, sr); this.kcT = this.kc;
+    this.sLoL = 0; this.sBpL = 0; this.sLoR = 0; this.sBpR = 0; this.turb = 0;
+    this.gLL = 0; this.gLR = 0; this.kG = cutK(320, sr);
+    this.pk = new Float64Array(14);
+    this.r1L = 0; this.r2L = 0; this.rhL = 0; this.r1R = 0; this.r2R = 0; this.rhR = 0; this.rw = 0;
+    this.kr1 = cutK(1100, sr); this.kr2 = cutK(2600, sr); this.krh = cutK(55, sr);
+    this.fLL = 0; this.fLR = 0; this.kf = cutK(1700, sr);
+    this.w1 = 0; this.w2 = 0; this.gT = 0; this.gDur = 1; this.gAmp = 0; this.gNext = 6;
+    this.bLoL = 0; this.bBpL = 0; this.bLoR = 0; this.bBpR = 0;
+    this.lhL = 0; this.lhR = 0; this.lfL = 0; this.lfR = 0; this.flz = 0.5;
+    this.kLh = cutK(2300, sr); this.kLf = cutK(7000, sr); this.kFz = cutK(28, sr);
+    this.voices = [];
+    for(let i = 0; i < 4; i++) this.voices.push({ on:false, notes:null, ni:0, tt:0, ph:0, ph2:0, lp:0, k:0.5, gl:0.7, gr:0.7, g:1, snd:0.4 });
+    this.spc = [];
+    this.fdn = new FDN(sr, 1.5, 3800, [31.7, 41.3, 53.9, 67.1]);
+    this.snd = new Float32Array(128);
+    this.scn = SCN[3];
+    this.awake = false; this.quiet = 0;
+  }
+  mkPool(M){
+    return { M, n:0, zr:new Float64Array(M), zi:new Float64Array(M), wr:new Float64Array(M), wi:new Float64Array(M),
+             dr:new Float64Array(M), di:new Float64Array(M), dc:new Float64Array(M), en:new Float64Array(M),
+             gl:new Float64Array(M), gr:new Float64Array(M) };
+  }
+  scene(id){
+    // the first scene starts exactly; a later one eases in over about two seconds (see render)
+    const s = SCN[id] || SCN[3];
+    if(!this.scC){ this.scC = Object.assign({}, s); this.kc = cutK(s.lp, this.sr); }
+    this.scT = s; this.scn = this.scC; this.scC.birds = s.birds;
+    this.kcT = cutK(s.lp, this.sr);
+    this.spc = s.birds.map(b => ({ id:b[0], w:b[1], next:this.t + 2 + Math.random()*14/b[1], left:0, ind:null, last:-1 }));
+    this.awake = true; this.quiet = 0;
+  }
+  spawn(far){
+    const P = this.pool[far ? 1 : 0];
+    if(P.n >= P.M) return;
+    const s = this.scn, sr = this.sr;
+    let r;
+    if(far) r = 0.0005 + Math.random()*Math.random()*0.0028;
+    else {
+      const u = Math.random();
+      if(u < s.fizz) r = s.rmin*Math.pow(3, Math.random());
+      else if(u < s.fizz + s.big) r = 0.004 + Math.random()*Math.random()*0.007;
+      else r = s.rmed*Math.exp(rgauss()*s.sig);
+      if(r < 0.0003) r = 0.0003;
+    }
+    const f0 = 3.26/r, d = 0.13/r + 0.0072*Math.pow(r, -1.5), xi = 0.06 + Math.random()*0.16;
+    const j = P.n++, w = TAU*f0/sr, dw = w*xi*d/sr;
+    P.zr[j] = (far ? 0.6 : 1)*Math.pow(r*1000, s.alpha)*(0.3 + 0.7*Math.random()); P.zi[j] = 0;
+    P.wr[j] = Math.cos(w); P.wi[j] = Math.sin(w); P.dr[j] = Math.cos(dw); P.di[j] = Math.sin(dw);
+    P.dc[j] = Math.exp(-d/sr); P.en[j] = 0;
+    let pan;
+    if(far){ pan = (Math.random()*2 - 1)*0.8; }
+    else {
+      const a0 = this.spW[0]*this.spM[0], a1 = this.spW[1]*this.spM[1], a2 = this.spW[2]*this.spM[2], x = Math.random()*(a0 + a1 + a2);
+      pan = this.spPan[x < a0 ? 0 : (x < a0 + a1 ? 1 : 2)] + (Math.random() - 0.5)*0.3;
+    }
+    if(pan < -1) pan = -1; else if(pan > 1) pan = 1;
+    const ang = (pan + 1)*0.7853981633974483;
+    P.gl[j] = Math.cos(ang); P.gr[j] = Math.sin(ang);
+  }
+  ring(P, atk, out){
+    // advance every live bubble one sample; out[0], out[1] receive the stereo sum
+    const zr = P.zr, zi = P.zi, wr = P.wr, wi = P.wi, dr = P.dr, di = P.di, dc = P.dc, en = P.en, gl = P.gl, gr = P.gr;
+    let l = 0, r = 0;
+    for(let j = 0; j < P.n; ){
+      const a = zr[j], b = zi[j], c = wr[j], d = wi[j], k = dc[j];
+      const nr = (a*c - b*d)*k, ni = (a*d + b*c)*k;
+      zr[j] = nr; zi[j] = ni;
+      wr[j] = c*dr[j] - d*di[j]; wi[j] = c*di[j] + d*dr[j];
+      const e = en[j] + (1 - en[j])*atk; en[j] = e;
+      const x = ni*e;
+      l += x*gl[j]; r += x*gr[j];
+      if(nr*nr + ni*ni < 1.6e-7){
+        const z = --P.n;
+        if(j !== z){ zr[j] = zr[z]; zi[j] = zi[z]; wr[j] = wr[z]; wi[j] = wi[z]; dr[j] = dr[z]; di[j] = di[z]; dc[j] = dc[z]; en[j] = en[z]; gl[j] = gl[z]; gr[j] = gr[z]; }
+      } else j++;
+    }
+    out[0] = l; out[1] = r;
+  }
+  birds(level){
+    if(level < 0.02){
+      // while birds are off, each species' next song stays a little way ahead, so turning BIRDS back on never starts them all at once
+      for(const sp of this.spc){ if(sp.next < this.t + 1) sp.next = this.t + 1 + Math.random()*12/sp.w; }
+      return;
+    }
+    for(const sp of this.spc){
+      if(this.t < sp.next) continue;
+      let vo = null;
+      for(const v of this.voices){ if(!v.on){ vo = v; break; } }
+      if(!vo){ sp.next = this.t + 0.7; continue; }
+      if(sp.left <= 0){ sp.ind = birdInd(sp.id); sp.left = birdBout(sp.id); }
+      const ind = sp.ind, notes = birdSong(sp.id, ind, sp), last = notes[notes.length - 1];
+      vo.on = true; vo.notes = notes; vo.ni = 0; vo.tt = 0; vo.ph = Math.random()*TAU; vo.ph2 = vo.ph; vo.lp = 0;
+      vo.k = cutK(ind.fc, this.sr); vo.g = ind.g; vo.snd = ind.snd;
+      const ang = (ind.pan + 1)*0.7853981633974483; vo.gl = Math.cos(ang); vo.gr = Math.sin(ang);
+      sp.left--;
+      sp.next = this.t + last.t + last.d + (sp.left > 0 ? birdGap(sp.id) : birdRest(sp.id)/sp.w);
+    }
+  }
+  render(n, oL, oR, c0, c1, r0, r1, w0, w1, q0, q1, D, br0, br1, gust){
+    const sr = this.sr, isr = this.isr, s = this.scn, bd = n/sr;
+    if(this.snd.length < n) this.snd = new Float32Array(n);
+    const snd = this.snd;
+    // scene changes ease in: every numeric scene parameter moves toward the new scene's value
+    const kE = 1 - Math.exp(-bd/0.6), T = this.scT;
+    if(T && T !== s){ for(let j = 0; j < SC_KEYS.length; j++){ const key = SC_KEYS[j]; s[key] += (T[key] - s[key])*kE; } }
+    // ---- block-rate: riffle surges, turbulence, river drift, wind speed, gusts, birds ----
+    const kS = 1 - Math.exp(-bd/2.5), fS = Math.sqrt(2/kS)*0.5;
+    for(let j = 0; j < 3; j++){ this.spS[j] += kS*(rgauss()*fS - this.spS[j]); this.spM[j] = Math.exp(0.75*this.spS[j]); }
+    const kT = 1 - Math.exp(-bd/0.25); this.turb += kT*(rgauss()*Math.sqrt(2/kT)*0.22 - this.turb);
+    const kR = 1 - Math.exp(-bd/15); this.rw += kR*(rgauss()*Math.sqrt(2/kR)*0.07 - this.rw);
+    const k1 = 1 - Math.exp(-bd/9), k2 = 1 - Math.exp(-bd/2.5);
+    this.w1 += k1*(rgauss()*Math.sqrt(2/k1)*0.16 - this.w1);
+    this.w2 += k2*(rgauss()*Math.sqrt(2/k2)*0.08 - this.w2);
+    const ga = gust >= 0 ? gust : s.gust;
+    if(this.t >= this.gNext){ this.gT = 0; this.gDur = 4 + Math.random()*6; this.gAmp = (0.15 + Math.random()*0.35)*ga; this.gNext = this.t + this.gDur + (10 + Math.random()*26)/Math.max(0.15, ga); }
+    let g = 0;
+    if(this.gT < this.gDur){ g = this.gAmp*(0.5 - 0.5*Math.cos(TAU*this.gT/this.gDur)); this.gT += bd; }
+    let v = s.wbase + this.w1 + this.w2 + g; if(v < 0.03) v = 0.03; else if(v > 1) v = 1;
+    this.kc += (this.kcT - this.kc)*kE;
+    this.birds(q1);
+    // wind timbre: natural gusts blend toward the breath guide as D rises
+    const bm = 0.5*(br0 + br1), fcN = 220 + 650*v, fcG = 260 + 760*bm, fc = fcN + (fcG - fcN)*D;
+    const wf = 2*Math.sin(Math.PI*fc/sr), wq = 0.7;
+    const vB = Math.pow(v, 1.5)*BODY_G*(1 - D), vL = v*v*LEAF_G*(1 - D);
+    const rushHz = s.rushHz*(1 + 0.08*this.turb), sf = 2*Math.sin(Math.PI*rushHz/sr), sq = 1.4;
+    const rushG = RUSH_G*s.rush*Math.max(0.2, 1 + this.turb);
+    const nearRate = c1 > 1e-4 ? s.rate*(this.spW[0]*this.spM[0] + this.spW[1]*this.spM[1] + this.spW[2]*this.spM[2]) : 0;
+    const farRate = r1 > 1e-4 ? s.far*Math.min(1, r1/0.5) : 0;
+    const rg = RIVER_G*Math.exp(this.rw);
+    const kc = this.kc, kr1 = this.kr1, kr2 = this.kr2, krh = this.krh, kf = this.kf, atk = this.batk;
+    const kG = this.kG, gur = s.gur;
+    const kLh = this.kLh, kLf = this.kLf, kFz = this.kFz, pk = this.pk;
+    const PN = this.pool[0], PF = this.pool[1], acc = this.acc || (this.acc = [0, 0]);
+    const V = this.voices;
+    let anyV = V[0].on || V[1].on || V[2].on || V[3].on;
+    for(let i = 0; i < n; i++){
+      const u = i/n;
+      const cl = c0 + (c1 - c0)*u, rl = r0 + (r1 - r0)*u, wl = w0 + (w1 - w0)*u, ql = q0 + (q1 - q0)*u, b = br0 + (br1 - br0)*u;
+      // spawn bubbles (Poisson)
+      if(nearRate > 0){ this.cdN -= 1; while(this.cdN <= 0){ this.spawn(0); this.cdN += -Math.log(1 - Math.random())*sr/nearRate; } }
+      if(farRate > 0){ this.cdF -= 1; while(this.cdF <= 0){ this.spawn(1); this.cdF += -Math.log(1 - Math.random())*sr/farRate; } }
+      // ring every live bubble
+      let nL = 0, nR = 0, fL = 0, fR = 0;
+      if(PN.n){ this.ring(PN, atk, acc); nL = acc[0]; nR = acc[1]; }
+      if(PF.n){ this.ring(PF, atk, acc); fL = acc[0]; fR = acc[1]; }
+      // turbulent rush of the near water
+      const xL = Math.random()*2 - 1, xR = Math.random()*2 - 1;
+      this.sLoL += sf*this.sBpL; const hL = xL - this.sLoL - sq*this.sBpL; this.sBpL += sf*hL;
+      this.sLoR += sf*this.sBpR; const hR = xR - this.sLoR - sq*this.sBpR; this.sBpR += sf*hR;
+      this.gLL += kG*(xL - this.gLL); this.gLR += kG*(xR - this.gLR);
+      this.cLL += kc*((nL*CREEK_G + (this.sBpL + gur*this.gLL)*rushG)*cl - this.cLL);
+      this.cLR += kc*((nR*CREEK_G + (this.sBpR + gur*this.gLR)*rushG)*cl - this.cLR);
+      // distant river: pink noise, softened by distance
+      const wL = Math.random()*2 - 1, wR = Math.random()*2 - 1;
+      pk[0] = 0.99886*pk[0] + wL*0.0555179; pk[1] = 0.99332*pk[1] + wL*0.0750759; pk[2] = 0.96900*pk[2] + wL*0.1538520;
+      pk[3] = 0.86650*pk[3] + wL*0.3104856; pk[4] = 0.55000*pk[4] + wL*0.5329522; pk[5] = -0.7616*pk[5] - wL*0.0168980;
+      const pL = (pk[0] + pk[1] + pk[2] + pk[3] + pk[4] + pk[5] + pk[6] + wL*0.5362)*0.5; pk[6] = wL*0.115926;
+      pk[7] = 0.99886*pk[7] + wR*0.0555179; pk[8] = 0.99332*pk[8] + wR*0.0750759; pk[9] = 0.96900*pk[9] + wR*0.1538520;
+      pk[10] = 0.86650*pk[10] + wR*0.3104856; pk[11] = 0.55000*pk[11] + wR*0.5329522; pk[12] = -0.7616*pk[12] - wR*0.0168980;
+      const pR = (pk[7] + pk[8] + pk[9] + pk[10] + pk[11] + pk[12] + pk[13] + wR*0.5362)*0.5; pk[13] = wR*0.115926;
+      this.r1L += kr1*(pL - this.r1L); this.r2L += kr2*(this.r1L - this.r2L); this.rhL += krh*(this.r2L - this.rhL);
+      this.r1R += kr1*(pR - this.r1R); this.r2R += kr2*(this.r1R - this.r2R); this.rhR += krh*(this.r2R - this.rhR);
+      this.fLL += kf*(fL - this.fLL); this.fLR += kf*(fR - this.fLR);
+      const rvL = ((this.r2L - this.rhL)*rg + this.fLL*FAR_G)*rl, rvR = ((this.r2R - this.rhR)*rg + this.fLR*FAR_G)*rl;
+      // wind: a breathing band of air through the branches, plus leaf flutter
+      const zL = Math.random()*2 - 1, zR = Math.random()*2 - 1;
+      this.bLoL += wf*this.bBpL; const bhL = zL - this.bLoL - wq*this.bBpL; this.bBpL += wf*bhL;
+      this.bLoR += wf*this.bBpR; const bhR = zR - this.bLoR - wq*this.bBpR; this.bBpR += wf*bhR;
+      const yL = Math.random()*2 - 1, yR = Math.random()*2 - 1;
+      this.lhL += kLh*(yL - this.lhL); this.lfL += kLf*((yL - this.lhL) - this.lfL);
+      this.lhR += kLh*(yR - this.lhR); this.lfR += kLf*((yR - this.lhR) - this.lfR);
+      this.flz += kFz*(Math.abs(zL) - this.flz);
+      const fz = this.flz*2, flt = fz*fz;
+      const gb = 0.05 + 0.95*b;
+      const bodyG = vB + D*gb*gb*GBODY_G, leafG = vL + D*b*b*GLEAF_G;
+      const wdL = (this.bBpL*bodyG + this.lfL*leafG*flt)*wl, wdR = (this.bBpR*bodyG + this.lfR*leafG*flt)*wl;
+      // birds
+      let sL = 0, sR = 0, ss = 0;
+      if(anyV){
+        for(let q = 0; q < 4; q++){
+          const vo = V[q]; if(!vo.on) continue;
+          let nt = vo.notes[vo.ni];
+          while(vo.tt >= nt.t + nt.d){ vo.ni++; if(vo.ni >= vo.notes.length){ vo.on = false; break; } nt = vo.notes[vo.ni]; }
+          let y = 0;
+          if(vo.on && vo.tt >= nt.t){
+            const x = vo.tt - nt.t, uu = x/nt.d, rx = nt.d - x;
+            let env = 1;
+            if(x < nt.atk) env = 0.5 - 0.5*Math.cos(Math.PI*x/nt.atk);
+            if(rx < nt.rel) env *= 0.5 - 0.5*Math.cos(Math.PI*rx/nt.rel);
+            if(nt.dec) env *= 1 - nt.dec*uu;
+            if(nt.dip){ const dd = uu - 0.32; env *= 1 - nt.dip*Math.exp(-dd*dd*120); }
+            let f = nt.f0 + (nt.f1 - nt.f0)*(nt.ex ? (1 - Math.exp(-4*uu))*1.0187 : uu);
+            if(nt.pk) f += (nt.pk - 0.5*(nt.f0 + nt.f1))*Math.sin(Math.PI*uu);
+            vo.ph += TAU*f*isr; if(vo.ph > TAU) vo.ph -= TAU;
+            const s1 = Math.sin(vo.ph);
+            y = s1;
+            if(nt.h2) y += nt.h2*2*s1*Math.cos(vo.ph);
+            if(nt.h3) y += nt.h3*s1*(3 - 4*s1*s1);
+            if(nt.dual){ vo.ph2 += TAU*f*nt.dual*isr; if(vo.ph2 > TAU) vo.ph2 -= TAU; y += nt.dualA*Math.sin(vo.ph2); }
+            if(nt.buzz) y *= 1 - nt.buzz*(0.5 + 0.5*Math.sin(TAU*nt.bhz*vo.tt));
+            if(nt.br) y += nt.br*(Math.random()*2 - 1);
+            y *= env*nt.a;
+          }
+          vo.lp += vo.k*(y - vo.lp);
+          const o = vo.lp*vo.g*ql*BIRD_G;
+          sL += o*vo.gl; sR += o*vo.gr; ss += o*vo.snd;
+          vo.tt += isr;
+        }
+        anyV = V[0].on || V[1].on || V[2].on || V[3].on;
+      }
+      oL[i] = this.cLL + rvL + wdL + sL;
+      oR[i] = this.cLR + rvR + wdR + sR;
+      snd[i] = 0.12*(this.cLL + this.cLR) + 0.05*(wdL + wdR) + 0.02*(rvL + rvR) + ss;
+    }
+    this.fdn.run(snd, oL, oR, n);
+    this.t += bd;
+    if(c1 + r1 + w1 + q1 < 1e-4 && !anyV){ this.quiet += bd; if(this.quiet > 4){ this.awake = false; this.pool[0].n = 0; this.pool[1].n = 0; } }
+    else { this.quiet = 0; this.awake = true; }
+  }
+}
+
 class PeaceProcessor extends AudioWorkletProcessor {
   constructor(){
     super();
-    this.p  = { master:0,   tone:0.2, noise:0.7, rain:0.2, surf:0, drone:0.12, fade:30 };
-    this.tp = { master:0.3, tone:0.2, noise:0.7, rain:0.2, surf:0, drone:0.12, fade:30 };
+    this.p  = { master:0,   tone:0.2, noise:0.7, rain:0.2, surf:0, drone:0.12, fade:30, creek:0, river:0, wind:0, birds:0, tref:0.2, pgain:1 };
+    this.tp = { master:0.3, tone:0.2, noise:0.7, rain:0.2, surf:0, drone:0.12, fade:30, creek:0, river:0, wind:0, birds:0, tref:0.2, pgain:1 };
     this.t=0; this.started=false; this.startT=0; this.ending=false; this.endStart=0;
     // pink (Kellet) state, L = pk[0..6], R = pk[7..13]
     this.pk = new Float64Array(14);
@@ -357,19 +863,208 @@ class PeaceProcessor extends AudioWorkletProcessor {
     this.surfPhase=0; this.surfPeriod=10; this.surfLpL=0; this.surfLpR=0; this.surfEnv=0;
     // dc blockers
     this.dcInL=0; this.dcOutL=0; this.dcInR=0; this.dcOutR=0;
+    // glides, envelopes, programs (all inert until a program or a glide asks for them)
+    this.gp=null; this.g1=null; this.kg=0;
+    this.endLen=0; this.env=0; this.startLevel=0; this.inLen=30; this.outLen=30; this.fInNow=0; this.fInHold=1; this.sid=0;
+    this.fo0=1; this.fOutNow=1; this.endedSent=false; this.pz=1; this.pzT=1; this.pzStep=0; this.pauseSent=true; this.bowlFadeAt=0; this.bowlG=1;
+    this.pausedTotal=0; this.pauseMark=0; this.pausePid=0;   // audio time spent paused; the session clock (clk) leaves it out
+    this.toneMul=1; this.gainMul=1; this.bedMul=1; this.tg=1; this.tlL=0; this.tlR=0; this.kTilt=0;
+    this.prog=0; this.pT0=0; this.gOn=0; this.gT0=0; this.gPat=0; this.gMode=0; this.gD=0; this.bPrev=0; this.bs=[0,0];
+    this.gOld=null; this.bs2=[0,0]; this.cMul=1; this.rMul=1;
+    this.sessAt=0; this.sessKind=0; this.sessFired=false; this.bedFadeAt=0; this.bedFadeLen=30; this.finalAt=0;
+    this.bells=[]; this.nat=null; this.bowl=null; this.natOn=false; this.belOn=false;
+    this.nl = { creek:0, river:0, wind:0, birds:0 };
+    this.natL = new Float32Array(128); this.natR = new Float32Array(128);
+    this.belL = new Float32Array(128); this.belR = new Float32Array(128);
     this.port.onmessage = (e) => {
       const d = e.data; if(!d) return;
-      if(d.type==='state'){ Object.assign(this.tp, d.state); }
-      else if(d.type==='fadeout'){ this.ending=true; this.endStart=this.t; }
-      else if(d.type==='start'){ this.started=true; this.startT=this.t; this.ending=false; }
+      if(d.type==='state'){
+        if(d.glide > 0){
+          if(!this.gp){ this.gp = {}; this.g1 = {}; }
+          for(const key in d.state){
+            if(key === 'fade' || !(key in this.tp)){ this.tp[key] = d.state[key]; continue; }
+            if(this.g1[key] === undefined) this.g1[key] = this.tp[key];
+            this.gp[key] = d.state[key];
+          }
+          this.kg = 1 - Math.exp(-(128/sampleRate)/(d.glide/5));
+        } else if(this.gp){
+          // a direct change during a glide: what the listener changed moves now, everything else keeps gliding
+          for(const key in d.state){
+            const v = d.state[key];
+            if(key in this.gp){ if(v !== this.gp[key]){ this.tp[key] = v; delete this.gp[key]; delete this.g1[key]; } }
+            else this.tp[key] = v;
+          }
+          if(Object.keys(this.gp).length === 0){ this.gp = null; this.g1 = null; }
+        } else Object.assign(this.tp, d.state);
+      }
+      else if(d.type==='fadeout'){
+        this.bells.length = 0;   // nothing new rings once the power is off
+        const want = d.len > 0 ? d.len : this.tp.fade;
+        if(!this.ending){ this.ending=true; this.endStart=this.t; this.endLen=0; this.outLen=want; this.fo0=1; this.fInHold=this.fInNow; this.endedSent=false; }
+        else {
+          // already ending on its own (a timer): finish within this fade if that is sooner, from the level it has reached,
+          // and tell the page how long is left so it parks the audio at the right moment
+          const len = this.endLen > 0 ? this.endLen : this.outLen, left = Math.max(0, len - (this.t - this.endStart));
+          if(want < left){ this.fo0 = this.fOutNow; this.endStart = this.t; this.endLen = 0; this.outLen = want; }
+          this.port.postMessage({ type:'ending', remain:Math.min(left, want), sid:this.sid });
+        }
+      }
+      else if(d.type==='pause'){
+        if(this.pzT !== 0){ this.pauseMark = this.pausedTotal; this.pausePid = d.pid|0; }
+        this.pzT = 0; this.pzStep = 1/(Math.max(0.05, d.len || 0.4)*sampleRate); this.pauseSent = false;
+      }
+      else if(d.type==='resume'){
+        this.pzT = 1; this.pzStep = 1/(Math.max(0.05, d.len || 1.5)*sampleRate);
+        // tell the page how long the session clock stood still, so its needle and readout stay in step
+        this.port.postMessage({ type:'clock', shift:this.pausedTotal - (this.pauseMark || 0), pid:this.pausePid || 0, sid:this.sid });
+      }
+      else if(d.type==='start'){
+        // a restart during a fade or a closing ring-out rises from wherever the sound is now
+        this.startLevel = this.started ? this.env : 0;
+        this.started=true; this.startT=this.t; this.ending=false; this.endLen=0; this.inLen = d.rise > 0 ? d.rise : this.tp.fade; this.sid=d.id|0;
+        this.fo0=1; this.endedSent=false; this.pz=1; this.pzT=1; this.pauseSent=true;
+        // a finished session's end time must not fire again before the page sends the new one
+        this.sessAt=0; this.sessFired=false; this.bedMul=1; this.bedFadeAt=0; this.finalAt=0; this.bells.length=0;
+      }
+      else if(d.type==='program'){
+        this.keepOldGuide();
+        if(this.prog === 2 && (d.id|0) !== 2 && this.bowl && this.bowl.active()) this.bowlFadeAt = this.clk();
+        this.prog = d.id|0; this.pT0 = this.toClk(d.t0 || currentTime);
+        this.gOn = d.guide ? 1 : 0; this.gT0 = this.pT0; this.gPat = d.pat|0; this.gMode = d.mode|0;
+        if(this.prog){ if(!this.nat) this.nat = new Nature(sampleRate); this.nat.scene(this.prog); }
+        this.bells.length = 0;   // a bell still waiting from the previous program is dropped
+        if(d.bell) this.bells.push({ at:this.toClk(d.bell), g:1 });
+      }
+      else if(d.type==='guide'){ this.keepOldGuide(); this.gOn = d.on ? 1 : 0; this.gT0 = this.toClk(d.t0 || currentTime); }
+      else if(d.type==='session'){ this.sessAt = d.at ? this.toClk(d.at) : 0; this.sessKind = d.kind|0; this.sessFired = false; }
     };
   }
   rnd(){ return Math.random()*2-1; }
+  clk(){ return currentTime - this.pausedTotal; }
+  toClk(x){ return x - this.pausedTotal; }
+  /* a breath guide that is being replaced keeps its own rhythm while it fades out, so the breeze never jumps mid-breath */
+  keepOldGuide(){
+    if(this.gOn && this.prog && this.gD > 0.01) this.gOld = { T0:this.gT0, pat:this.gPat, mode:this.gMode, at:this.clk() };
+  }
+  ensure(n){
+    if(this.natL.length < n){ this.natL = new Float32Array(n); this.natR = new Float32Array(n); this.belL = new Float32Array(n); this.belR = new Float32Array(n); }
+  }
+  control(n){
+    const now = this.clk(), sr = sampleRate, bd = n/sr, tp = this.tp;
+    // preset and program changes glide in: two cascaded smoothers give an S-shaped, click-free move
+    if(this.gp){
+      const gp = this.gp, g1 = this.g1, kg = this.kg; let moving = false;
+      for(const key in gp){ g1[key] += (gp[key] - g1[key])*kg; tp[key] += (g1[key] - tp[key])*kg; if(Math.abs(gp[key] - tp[key]) > 1e-5) moving = true; }
+      if(!moving){ for(const key in gp) tp[key] = gp[key]; this.gp = null; this.g1 = null; }
+    }
+    // SLEEP drifts: the creek recedes into a distant river, tone darkens, level eases down 3 dB over 30 minutes
+    let toneMul = 1, gainMul = 1, cMul = 1, rMul = 1, gust = -1;
+    if(this.prog === 1){
+      const e = now - this.pT0, dr = sstep(0, 1800, e);
+      toneMul = 1 - 0.45*dr; gainMul = Math.pow(10, -0.15*dr);
+      cMul = 1 - sstep(240, 1800, e); rMul = 1 + 0.25*sstep(240, 1800, e); gust = 0.30*(1 - dr);
+      if(this.nat) this.nat.kcT = cutK(9000 - 6200*dr, sr);
+    }
+    // these settle over about two seconds when a program starts over or ends, and snap to exactly 1 when done
+    const ks = 1 - Math.exp(-bd/0.6);
+    this.toneMul += (toneMul - this.toneMul)*ks; if(Math.abs(toneMul - this.toneMul) < 1e-6) this.toneMul = toneMul;
+    this.gainMul += (gainMul - this.gainMul)*ks; if(Math.abs(gainMul - this.gainMul) < 1e-6) this.gainMul = gainMul;
+    this.cMul += (cMul - this.cMul)*ks; this.rMul += (rMul - this.rMul)*ks;
+    // breath guide (a replaced guide fades out over 1.5 s in its own rhythm while the new one fades in)
+    let D = 0, b = 0;
+    if(this.gOn && this.prog){ const ge = now - this.gT0; D = guideEnv(ge, this.gMode); b = breathShape(ge, this.gPat, this.bs); }
+    const go = this.gOld;
+    if(go){
+      const f = 1 - sstep(go.at, go.at + 1.5, now);
+      if(f <= 0) this.gOld = null;
+      else {
+        const oe = now - go.T0, Do = guideEnv(oe, go.mode)*f, bo = breathShape(oe, go.pat, this.bs2), Dn = D;
+        D = Dn + Do; if(D > 1e-9) b = (Dn*b + Do*bo)/D; if(D > 1) D = 1;
+      }
+    }
+    this.gD += (D - this.gD)*0.04;
+    // nature
+    this.natOn = false;
+    const nl = this.nl, cT = tp.creek*this.cMul, rT = tp.river*this.rMul, wT = tp.wind, qT = tp.birds;
+    if(this.nat && (this.nat.awake || cT + rT + wT + qT > 1e-4)){
+      const c0 = nl.creek, r0 = nl.river, w0 = nl.wind, q0 = nl.birds, kb = 0.05;
+      nl.creek += (cT - c0)*kb; nl.river += (rT - r0)*kb; nl.wind += (wT - w0)*kb; nl.birds += (qT - q0)*kb;
+      this.ensure(n);
+      this.nat.render(n, this.natL, this.natR, c0, nl.creek, r0, nl.river, w0, nl.wind, q0, nl.birds, this.gD, this.bPrev, b, gust);
+      // TONE tilts the whole scene darker or brighter around the program's own setting (unity at its default):
+      // a first-order shelf above about 900 Hz, from -12 dB with TONE at 0 to +6 dB with TONE at 100
+      const ref = Math.min(0.99, Math.max(0.01, tp.tref)), tv = this.p.tone;
+      const tilt = tv < ref ? (tv - ref)/ref : (tv - ref)/(1 - ref);
+      const g1 = Math.pow(2, tilt < 0 ? 2*tilt : tilt), g0 = this.tg, kt = this.kTilt || (this.kTilt = cutK(900, sr));
+      const xL = this.natL, xR = this.natR; let lL = this.tlL, lR = this.tlR;
+      for(let i = 0; i < n; i++){
+        const g = g0 + (g1 - g0)*(i + 1)/n;
+        lL += kt*(xL[i] - lL); lR += kt*(xR[i] - lR);
+        xL[i] = lL + g*(xL[i] - lL); xR[i] = lR + g*(xR[i] - lR);
+      }
+      this.tlL = lL; this.tlR = lR; this.tg = g1;
+      this.natOn = true;
+    }
+    this.bPrev = b;
+    // bells (never once the sound is fading out)
+    if(this.ending && this.bells.length) this.bells.length = 0;
+    if(this.bells.length){
+      for(let q = this.bells.length - 1; q >= 0; q--){
+        const bb = this.bells[q];
+        if(bb.at <= now + bd){
+          if(!this.bowl) this.bowl = new Bowl(sr);
+          if(this.bowlFadeAt > 0){ this.bowl.stop(); this.bowlFadeAt = 0; }
+          this.bowl.strike(bb.g); this.bells.splice(q, 1);
+        }
+      }
+    }
+    this.belOn = false; this.bowlG = 1;
+    if(this.bowl && this.bowl.active() && this.bowlFadeAt > 0){
+      this.bowlG = 1 - sstep(this.bowlFadeAt, this.bowlFadeAt + 2.2, now);
+      if(this.bowlG <= 0){ this.bowl.stop(); this.bowlFadeAt = 0; }
+    }
+    if(this.bowl && this.bowl.active()){ this.ensure(n); this.belL.fill(0, 0, n); this.belR.fill(0, 0, n); this.bowl.render(n, this.belL, this.belR); this.belOn = true; }
+    // timed session end, kept on the audio clock so it holds even when the phone is locked
+    if(this.sessAt > 0 && !this.sessFired && this.started && !this.ending){
+      if(this.sessKind === 2){
+        if(now >= this.sessAt){
+          const T = this.sessAt; this.sessFired = true;
+          this.bells.push({ at:T, g:1 }, { at:T + 6.5, g:0.9 }, { at:T + 13, g:0.8 });
+          this.bedFadeAt = T; this.bedFadeLen = 30; this.finalAt = T + 36;
+          this.port.postMessage({ type:'ending', remain:39.5, sid:this.sid });
+        }
+      } else {
+        const len = this.sessKind === 1 ? Math.max(this.tp.fade, 300) : this.tp.fade;
+        if(now >= this.sessAt - len){
+          this.sessFired = true; this.ending = true; this.endStart = this.t; this.endLen = len; this.fInHold = this.fInNow; this.fo0 = 1; this.endedSent = false;
+          this.port.postMessage({ type:'ending', remain:len, sid:this.sid });
+        }
+      }
+    }
+    this.bedMul = this.bedFadeAt > 0 ? 1 - sstep(this.bedFadeAt, this.bedFadeAt + this.bedFadeLen, now) : 1;
+    if(this.finalAt > 0 && now >= this.finalAt && !this.ending){ this.ending = true; this.endStart = this.t; this.endLen = 3; this.fInHold = this.fInNow; this.fo0 = 1; this.endedSent = false; }
+    if(this.ending && !this.endedSent && this.t - this.endStart >= (this.endLen > 0 ? this.endLen : this.outLen)){
+      this.endedSent = true; this.port.postMessage({ type:'ended', sid:this.sid });
+    }
+  }
   process(inputs, outputs){
     const out = outputs[0]; const L = out[0]; const R = out[1] || out[0];
     const n = L.length; const sr = sampleRate;
     const p = this.p, tp = this.tp; const sm = 0.0025;
     const k = this.pk;
+    // once a fade-out has fully finished, send silence without computing anything until the next start;
+    // the page normally parks the audio by then, and this saves the battery overnight if it cannot
+    if(this.pz === 0 && this.pzT === 0 && this.pauseSent && this.started){
+      // paused: silence, and the session clock stands still (fades, drift, breathing, bells and timer all wait)
+      L.fill(0); if(R !== L) R.fill(0); this.pausedTotal += n/sr; return true;
+    }
+    if(!this.started || (this.ending && this.env === 0 && this.t - this.endStart > (this.endLen > 0 ? this.endLen : this.outLen) + 2)){
+      L.fill(0); if(R !== L) R.fill(0); this.t += n/sr; return true;
+    }
+    this.control(n);
+    const toneMul = this.toneMul, gainMul = this.gainMul, bedMul = this.bedMul, sl = this.startLevel, pg = tp.pgain, bowlG = this.bowlG;
+    const pzOn = this.pz !== 1 || this.pzT !== 1;
+    const natOn = this.natOn, belOn = this.belOn, nL = this.natL, nR = this.natR, bL = this.belL, bR = this.belR;
     for(let i=0;i<n;i++){
       p.master += (tp.master-p.master)*sm;
       p.tone   += (tp.tone  -p.tone )*sm;
@@ -393,7 +1088,7 @@ class PeaceProcessor extends AudioWorkletProcessor {
       // ---- tone morph: dark (low-passed pink ~ brown) <-> balanced pink. Never harsh white. ----
       this.darkL += 0.045*(pinkL - this.darkL);
       this.darkR += 0.045*(pinkR - this.darkR);
-      const tn = p.tone;
+      const tn = p.tone*toneMul;
       const noiseL = this.darkL*1.7*(1-tn) + pinkL*tn;
       const noiseR = this.darkR*1.7*(1-tn) + pinkR*tn;
 
@@ -420,7 +1115,7 @@ class PeaceProcessor extends AudioWorkletProcessor {
       const surfL = (this.surfLpL*2.7 + this.rhpL*foam*0.5)*this.surfEnv;
       const surfR = (this.surfLpR*2.7 + this.rhpR*foam*0.5)*this.surfEnv;
 
-      // ---- drone: low partials, very slow amplitude breathing, mono-centred ----
+      // ---- drone: low partials, very slow amplitude breathing, mono-centered ----
       const breathe = 0.82 + 0.18*Math.sin(2*Math.PI*0.016*t);
       const shimmer = 0.95 + 0.05*Math.sin(2*Math.PI*0.0061*t + 1.7);
       const drone = (
@@ -433,13 +1128,25 @@ class PeaceProcessor extends AudioWorkletProcessor {
       // ---- mix + fades ----
       let mixL = noiseL*p.noise + rainL*p.rain + surfL*p.surf + drone*p.drone;
       let mixR = noiseR*p.noise + rainR*p.rain + surfR*p.surf + drone*p.drone;
+      if(natOn){ mixL += nL[i]; mixR += nR[i]; }
 
+      // fade lengths are fixed when a fade begins, so changing FADE or switching program mid-fade never jumps the level;
+      // and a fade-in stops rising once a fade-out has begun
       let fIn = 1;
-      if(this.started){ fIn = Math.min(1,(t-this.startT)/Math.max(0.001,p.fade)); fIn = fIn*fIn*(3-2*fIn); }
+      if(this.started){ fIn = Math.min(1,(t-this.startT)/Math.max(0.001,this.inLen)); fIn = fIn*fIn*(3-2*fIn); if(sl > 0) fIn = sl + (1 - sl)*fIn; }
       let fOut = 1;
-      if(this.ending){ const e=(t-this.endStart)/Math.max(0.001,p.fade); fOut = 1-Math.min(1,e); fOut = fOut*fOut*(3-2*fOut); }
-      const amp = p.master * fIn * fOut * 0.45;
+      if(this.ending){ if(fIn > this.fInHold) fIn = this.fInHold; const e=(t-this.endStart)/Math.max(0.001, this.endLen > 0 ? this.endLen : this.outLen); fOut = 1-Math.min(1,e); fOut = fOut*fOut*(3-2*fOut); if(this.fo0 !== 1) fOut *= this.fo0; }
+      // pause (lock screen): a short smooth dip to silence, and back
+      let pzg = 1;
+      if(pzOn){
+        if(this.pz < this.pzT) this.pz = Math.min(this.pzT, this.pz + this.pzStep); else if(this.pz > this.pzT) this.pz = Math.max(this.pzT, this.pz - this.pzStep);
+        const z = this.pz; pzg = z*z*(3 - 2*z);
+      }
+      this.fInNow = fIn; this.fOutNow = fOut;
+      this.env = fIn*fOut*bedMul*pzg;
+      const amp = p.master * fIn * fOut * 0.45 * gainMul * bedMul * pg * pzg;
       mixL *= amp; mixR *= amp;
+      if(belOn){ const ba = p.master * fOut * 0.45 * pg * pzg * bowlG; mixL += bL[i]*ba; mixR += bR[i]*ba; }
 
       // dc block
       const oL = mixL - this.dcInL + 0.999*this.dcOutL; this.dcInL = mixL; this.dcOutL = oL;
@@ -450,6 +1157,7 @@ class PeaceProcessor extends AudioWorkletProcessor {
       R[i] = Math.tanh(oR*1.1)/1.1;
       this.t += 1/sr;
     }
+    if(this.pz === 0 && this.pzT === 0 && !this.pauseSent){ this.pauseSent = true; this.port.postMessage({ type:'paused', sid:this.sid }); }
     return true;
   }
 }
@@ -483,13 +1191,41 @@ const PRESETS = {
 const TIMERS = [ {l:'CONT',v:0}, {l:'20m',v:20}, {l:'45m',v:45}, {l:'1h',v:60}, {l:'8h',v:480} ];
 const FADES  = [ {l:'FAST',v:8}, {l:'SLOW',v:30}, {l:'GENTLE',v:90} ];
 
-const state = { master:.30, tone:.20, noise:.70, rain:.22, surf:0, drone:.12, fade:30, timer:0 };
+/* ---- programs: three time-shaped soundscapes built from the sleep, breathing and nature-sound research ---- */
+const GLIDE = 2.2;   // seconds: preset and program changes glide in rather than jumping
+// master: the VOLUME each scene was balanced at. Programs keep the listener's own VOLUME; the engine applies
+// master/0.30 as an internal trim, so each scene keeps its designed balance at the default volume.
+const PROGRAMS = {
+  sleep:    { id:1, name:'Sleep',    sub:'river drift',    title:'Sleep · River Drift',
+              master:.30, tone:.12, noise:.36, rain:0, surf:0, drone:0, creek:.55, river:.75, wind:.35, birds:0,
+              fade:90, timer:60, birdsOpt:false, pat:2, gmode:1 },
+  meditate: { id:2, name:'Meditate', sub:'singing bowl',   title:'Meditate · Singing Bowl',
+              master:.32, tone:.20, noise:0,   rain:0, surf:0, drone:0, creek:.80, river:.10, wind:.30, birds:.70,
+              fade:30, timer:20, birdsOpt:true,  pat:1, gmode:0 },
+  calm:     { id:3, name:'Calm',     sub:'breath + creek', title:'Calm · Forest Creek',
+              master:.34, tone:.30, noise:0,   rain:0, surf:0, drone:0, creek:.85, river:.23, wind:.50, birds:.80,
+              fade:8,  timer:0,  birdsOpt:true,  pat:0, gmode:0 },
+};
+const KNOB_IDS = ['master','tone','noise','rain','surf','drone'];
+const NATURE_IDS = ['creek','river','wind','birds'];
+let progOpts = { sleep:{ guide:true, birds:true }, meditate:{ guide:false, birds:true }, calm:{ guide:true, birds:true } };
+try{ const saved = JSON.parse(localStorage.getItem('stillpoint.programs') || 'null');
+     if(saved) for(const key in progOpts) if(saved[key]) Object.assign(progOpts[key], saved[key]); }catch(_){}
+function saveOpts(){ try{ localStorage.setItem('stillpoint.programs', JSON.stringify(progOpts)); }catch(_){} }
+
+const state = { master:.30, tone:.20, noise:.70, rain:.22, surf:0, drone:.12, fade:30, timer:0, creek:0, river:0, wind:0, birds:0 };
 
 let ctx=null, node=null, masterGain=null, analyser=null, meterBuf=null;
 let streamDest=null, sinkEl=null, elementSink=false;
-let playing=false, dimmed=false, activePreset=null, wakeLock=null;
+let playing=false, dimmed=false, activePreset=null, activeProgram=null, wakeLock=null;
 let raf=0, endTimer=0, secTimer=0, sessionEnd=0;
 let needleVal=0;
+let offToken=0, suspendTimer=0, progTimer=0, progStart=0, knobAnim=0, breathLabel='', sessId=0, fadingOut=false;
+let paused=false, pausedBy='', pauseRemain=0, pauseTimerChanged=false, endingNow=false, starting=null, moduleReady=false, expectPause=0, bgNoted=false;
+let playGen=0, resuming=0, guideDirty=false, pauseEpoch=0, progEp=0, afterStart='';
+let guideInfo = { on:false, g0:0, pat:0, mode:0, ep:0 };
+const knobShown = {};
+const bsMain = [0, 0];
 const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion:reduce)').matches;
 
 const $ = id => document.getElementById(id);
@@ -521,7 +1257,7 @@ function buildKnobs(){
     wrap.setAttribute('aria-valuemin','0'); wrap.setAttribute('aria-valuemax','100');
 
     const svg = el('svg', { viewBox:'0 0 120 120' });
-    // defs (gradients) — one set is enough but harmless per-knob; keep ids unique
+    // defs (gradients): one set is enough but harmless per-knob; keep ids unique
     const defs = el('defs', {});
     const gb = el('radialGradient', { id:'kb_'+cfg.id, cx:'38%', cy:'30%', r:'75%' });
     gb.appendChild(el('stop',{offset:'0%','stop-color':'#3a3f47'}));
@@ -554,16 +1290,34 @@ function buildKnobs(){
   });
 }
 
-function updateKnob(id){
-  const r = knobRefs[id]; const v = state[id];
+function updateKnob(id, shown){
+  const r = knobRefs[id]; const v = (shown === undefined) ? state[id] : shown;
+  knobShown[id] = v;
   const ang = -135 + v*270;
   r.ind.setAttribute('transform', `rotate(${ang.toFixed(2)} 60 60)`);
   r.val.setAttribute('d', vArc(60,60,50,-135,ang));
   r.num.textContent = Math.round(v*100);
-  r.wrap.setAttribute('aria-valuenow', Math.round(v*100));
+  r.wrap.setAttribute('aria-valuenow', Math.round(state[id]*100));
+}
+
+/* recalling a preset or program turns the knobs smoothly, like motorized hardware */
+function knobSnapshot(){ const o = {}; KNOB_IDS.forEach(id => { o[id] = (knobShown[id] === undefined) ? state[id] : knobShown[id]; }); return o; }
+function stopKnobAnim(){ if(knobAnim){ cancelAnimationFrame(knobAnim); knobAnim = 0; KNOB_IDS.forEach(id => updateKnob(id)); } }
+function animateKnobs(from){
+  if(knobAnim){ cancelAnimationFrame(knobAnim); knobAnim = 0; }
+  if(reduceMotion || document.visibilityState !== 'visible'){ KNOB_IDS.forEach(id => updateKnob(id)); return; }
+  const t0 = performance.now(), dur = 1200;
+  const step = (now) => {
+    const u = Math.min(1, (now - t0)/dur), e = u < 0.5 ? 4*u*u*u : 1 - Math.pow(-2*u + 2, 3)/2;
+    KNOB_IDS.forEach(id => updateKnob(id, from[id] + (state[id] - from[id])*e));
+    if(u < 1) knobAnim = requestAnimationFrame(step);
+    else { knobAnim = 0; KNOB_IDS.forEach(id => updateKnob(id)); }
+  };
+  knobAnim = requestAnimationFrame(step);
 }
 
 function setKnob(id, v, userAction){
+  stopKnobAnim();
   v = Math.max(0, Math.min(1, v));
   state[id] = v;
   updateKnob(id);
@@ -620,12 +1374,19 @@ function buildPresets(){
 
 function applyPreset(key){
   const p = PRESETS[key];
-  ['master','tone','noise','rain','surf','drone'].forEach(id => { state[id]=p[id]; updateKnob(id); });
+  const from = knobSnapshot();
+  ['master','tone','noise','rain','surf','drone'].forEach(id => { state[id]=p[id]; });
+  NATURE_IDS.forEach(id => { state[id] = 0; });
+  animateKnobs(from);
   state.fade = p.fade;
   // reflect fade + timer segmented controls
   setSeg('fade', p.fade);
   setSeg('timer', p.timer); state.timer = p.timer;
-  sendState();
+  if(paused) endPaused();
+  revive();
+  const leaving = !!activeProgram; activeProgram = null;
+  sendState(audible() ? GLIDE : 0);
+  if(leaving){ sendProgram(false); refreshProgramUI(); }
   updateReadout();
   if(playing) scheduleEnd();
   // highlight active preset
@@ -639,6 +1400,363 @@ function clearActivePreset(){
   activePreset = null;
   document.querySelectorAll('.preset').forEach(b=> b.setAttribute('aria-pressed','false'));
 }
+
+/* =========================================================================
+   PROGRAMS
+   ========================================================================= */
+function buildPrograms(){
+  const host = $('progkeys');
+  Object.keys(PROGRAMS).forEach(key => {
+    const P = PROGRAMS[key];
+    const b = document.createElement('button');
+    b.className = 'prog'; b.setAttribute('aria-pressed','false'); b.dataset.key = key;
+    b.innerHTML = `<span class="pled"></span><span class="pnm">${P.name}</span><span class="psb">${P.sub}</span><span class="pbar" aria-hidden="true"><i></i></span>`;
+    b.addEventListener('click', ()=> applyProgram(key));
+    host.appendChild(b);
+  });
+}
+
+function applyProgram(key){
+  if(paused) endPaused();          // choosing something new lets go of a paused session; POWER then starts fresh
+  revive();                        // and calls off a timer's closing fade
+  const P = PROGRAMS[key], o = progOpts[key];
+  const from = knobSnapshot();
+  KNOB_IDS.forEach(id => { if(id !== 'master') state[id] = P[id]; });   // programs keep the listener's VOLUME
+  state.creek = P.creek; state.river = P.river; state.wind = P.wind;
+  state.birds = (P.birdsOpt && o.birds) ? P.birds : 0;
+  animateKnobs(from);
+  state.fade = P.fade; setSeg('fade', P.fade);
+  state.timer = P.timer; setSeg('timer', P.timer);
+  activeProgram = key;
+  activePreset = null;
+  document.querySelectorAll('.preset').forEach(b=> b.setAttribute('aria-pressed','false'));
+  sendState(audible() ? GLIDE : 0);
+  if(playing){ sendProgram(false); scheduleEnd(); }
+  updateReadout();
+  refreshProgramUI();
+  ensureMeter();
+  updateMediaMetadata();
+}
+
+/* tell the engine which program is running; fromStart = just powered on (the opening bell waits for the fade-in) */
+function sendProgram(fromStart){
+  if(!node || !ctx) return;
+  const t0 = ctx.currentTime + 0.03;
+  if(!activeProgram){ node.port.postMessage({ type:'program', id:0, t0 }); guideInfo = { on:false, g0:t0, pat:0, mode:0, ep:pauseEpoch }; return; }
+  const P = PROGRAMS[activeProgram], o = progOpts[activeProgram];
+  const msg = { type:'program', id:P.id, t0, guide:!!o.guide, pat:P.pat, mode:P.gmode };
+  if(P.id === 2) msg.bell = t0 + (fromStart ? Math.min(8, Math.max(3, state.fade*0.4)) : 2.5);
+  node.port.postMessage(msg);
+  guideInfo = { on:!!o.guide, g0:t0, pat:P.pat, mode:P.gmode, ep:pauseEpoch };
+  progStart = t0; progEp = pauseEpoch;
+}
+
+/* timed endings run on the audio clock inside the engine, so they hold even while the phone is locked */
+function sessionKind(){ return activeProgram === 'sleep' ? 1 : (activeProgram === 'meditate' ? 2 : 0); }
+function sendSession(){
+  if(!node || !ctx) return;
+  const min = state.timer;
+  node.port.postMessage({ type:'session', at: min > 0 ? ctx.currentTime + min*60 : 0, kind:sessionKind() });
+}
+
+function onEngineMessage(e){
+  const d = e.data;
+  if(d && d.type === 'clock'){                            // the session clock stood still while paused: shift what was set before
+    if((guideInfo.ep || 0) < d.pid){ guideInfo.g0 += d.shift; guideInfo.ep = d.pid; }
+    if(progEp < d.pid){ progStart += d.shift; progEp = d.pid; }
+    return;
+  }
+  if(!d || d.sid !== sessId) return;                      // news about an earlier session is ignored
+  if(d.type === 'ending'){
+    if(playing || paused) endingNow = true;               // a timer's closing fade has begun: still on until the sound has ended
+    else scheduleSuspend((d.remain + 0.4) * 1000);        // already switched off: park when the engine's own fade is done
+  }
+  else if(d.type === 'ended'){
+    if(playing || paused) finishSession();                // the closing fade has finished (even if a pause began in its last moment)
+    else scheduleSuspend(400);                            // a power-off fade has finished
+  }
+  else if(d.type === 'paused'){ if(paused && pausedBy === 'user') scheduleSuspend(30); }
+}
+
+/* a timer's closing fade (fade-out, five-minute dissolve, or closing bells) has finished: switch off */
+function finishSession(){
+  ++playGen; resuming = 0; endingNow = false;
+  paused = false; pausedBy = ''; pauseRemain = 0; pauseTimerChanged = false; guideDirty = false;
+  clearTimeout(endTimer); clearInterval(secTimer); secTimer=0; sessionEnd=0;
+  playing = false; breathLabel = '';
+  scheduleSuspend(400);
+  $('power').setAttribute('aria-pressed','false');
+  if('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
+  releaseWake();
+  stopMeter();
+  stopProgTimer();
+  updateReadout();
+  refreshProgramUI();
+}
+
+/* a timer's closing fade is under way and the listener asks for more: bring the sound back up over a few seconds */
+function revive(){
+  if(!node || !endingNow) return;
+  endingNow = false;
+  sessId++;
+  node.port.postMessage({ type:'start', id:sessId, rise:3 });
+}
+
+/* lock-screen Pause (or the system stopping playback): a quick, smooth dip to silence that holds your place,
+   including the program, the breathing guide and the timer. Play or POWER picks up from there. */
+function pauseSession(by){
+  if(!playing || !node) return;
+  ++playGen; resuming = 0;                   // any play attempt still in flight belongs to the past now
+  paused = true; pausedBy = by; pauseTimerChanged = false;
+  playing = false; breathLabel = '';
+  pauseRemain = sessionEnd ? Math.max(0, sessionEnd - Date.now()) : 0;
+  clearTimeout(endTimer); clearInterval(secTimer); secTimer = 0; sessionEnd = 0;
+  node.port.postMessage({ type:'pause', len:0.4, pid:++pauseEpoch });
+  if(by === 'user') scheduleSuspend(900);   // park the audio once the dip is done (the engine also says when)
+  $('power').setAttribute('aria-pressed','false');
+  if('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
+  releaseWake();
+  stopMeter();
+  stopProgTimer();
+  updateReadout();
+  refreshProgramUI();
+}
+/* Play or POWER while paused. Whatever needs the tap starts at once; the session is committed only when the audio
+   is really running again, so a refused restart leaves it paused (and Play can simply be tried again). */
+function resumeSession(gesture){
+  if(!paused || !ctx || !node || resuming) return;
+  const gen = ++playGen; resuming = gen;
+  offToken++; clearTimeout(suspendTimer); fadingOut = false;
+  let r = null; try{ r = ctx.resume(); }catch(_){}
+  const ctxReady = settleWithin(Promise.resolve(r).then(()=> ctx.state === 'running', ()=> false), 3000, ()=> ctx.state === 'running');
+  // the output route must confirm too: the element's play promise has to be fulfilled (asked for every time,
+  // since a not-paused element can still be waiting to start). A request that has not confirmed in time is a
+  // failure: the session stays paused and Play can be tried again. Only an outright refusal after a tap on a
+  // visible page switches to direct (foreground) playback instead, as at start-up.
+  const routeReady = (elementSink && sinkEl) ? settleWithin(playOnce(gen), 3000, ()=> 'timeout') : Promise.resolve('ok');
+  Promise.all([ctxReady, routeReady]).then(([okCtx, route])=>{
+    if(resuming === gen) resuming = 0;
+    if(gen !== playGen || !paused) return;                       // a newer pause, stop or start has taken over
+    let okRoute = route === 'ok';
+    if(okCtx && route === 'refused' && gesture && document.visibilityState === 'visible' && elementSink && ctx.state === 'running'){
+      cancelPendingPlay(); fallbackDirect(); okRoute = true;      // a tap the browser refused: play directly instead (and say so)
+    }
+    if(!okCtx || !okRoute || ctx.state !== 'running'){          // could not restart: still paused, timer kept
+      ++playGen;                                                 // this attempt is over: late callbacks change nothing
+      cancelPendingPlay();
+      if(pausedBy === 'user') scheduleSuspend(100);
+      updateReadout(); return;
+    }
+    if(elementSink && route === 'ok') hideNote();   // only a confirmed background route clears the foreground-only warning
+    commitResume();
+  });
+}
+/* resolves with the promise's value, or with fallback() if it has not settled within ms */
+function settleWithin(promise, ms, fallback){
+  return new Promise(res=>{
+    let done = false;
+    const t = setTimeout(()=>{ if(!done){ done = true; res(fallback()); } }, ms);
+    promise.then(v=>{ if(!done){ done = true; clearTimeout(t); res(v); } }, ()=>{ if(!done){ done = true; clearTimeout(t); res(false); } });
+  });
+}
+/* Pause pressed (or the system stopping playback) while a restart is still on its way: call it off, stay paused */
+function cancelResume(by){
+  ++playGen; resuming = 0; pausedBy = by;
+  if(by === 'user') scheduleSuspend(100);     // the restart may already have woken the audio: park it again
+  updateReadout();
+}
+function commitResume(){
+  paused = false; pausedBy = '';
+  node.port.postMessage({ type:'resume', len:1.5 });
+  playing = true;
+  if(endingNow && pauseTimerChanged) revive();          // the timer was changed while paused: the closing fade is called off
+  if(!endingNow) node.port.postMessage({ type:'session', at: pauseRemain > 0 ? ctx.currentTime + pauseRemain/1000 : 0, kind:sessionKind() });
+  if(guideDirty && activeProgram){                       // GUIDE was switched while paused: apply it now
+    const P = PROGRAMS[activeProgram], o = progOpts[activeProgram], t0 = ctx.currentTime + 0.03;
+    node.port.postMessage({ type:'guide', on:!!o.guide, t0 });
+    guideInfo = { on:!!o.guide, g0:t0, pat:P.pat, mode:P.gmode, ep:pauseEpoch };
+  }
+  guideDirty = false;
+  if(pauseRemain > 0){ sessionEnd = Date.now() + pauseRemain; armBackstop(pauseRemain); secTimer = setInterval(updateReadout, 1000); }
+  pauseRemain = 0; pauseTimerChanged = false;
+  $('power').setAttribute('aria-pressed','true');
+  if('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+  if(dimmed) requestWake();
+  startMeter();
+  startProgTimer();
+  refreshProgramUI();
+  updateReadout();
+}
+/* choosing a program or preset while paused lets go of the held session; POWER then starts fresh */
+function endPaused(){
+  if(!paused) return;
+  ++playGen; resuming = 0;
+  paused = false; pausedBy = ''; pauseRemain = 0; pauseTimerChanged = false; endingNow = false; guideDirty = false;
+  if(ctx && ctx.state === 'running') scheduleSuspend(100);   // a system pause can leave the audio running silently
+  updateReadout();
+}
+/* lock-screen Pause or Stop while POWER's fade is still sounding: finish it quickly */
+function quickFinish(len){
+  if(!node) return;
+  ++playGen;
+  node.port.postMessage({ type:'fadeout', len });
+  scheduleSuspend((len + 0.4) * 1000);
+}
+
+/* the system can stop playback by itself (a call, another app, headphones unplugged). That counts as a pause that
+   holds your place; it picks up again when the system resumes the audio, or when you press Play or POWER. */
+function onSinkPause(){
+  if(expectPause > 0){ expectPause--; return; }   // one of our own pauses
+  if(playing) pauseSession('system');
+  else if(paused && resuming) cancelResume('system');                         // it stopped again while restarting
+  else if(starting){ ++playGen; if(!afterStart) afterStart = 'syspause'; }   // stopped while still starting up
+}
+function onSinkPlay(){ if(paused && pausedBy === 'system' && !resuming) resumeSession(false); }
+function onCtxState(){
+  if(!ctx) return;
+  const st = ctx.state;
+  if((st === 'interrupted' || st === 'suspended') && playing) pauseSession('system');
+  else if((st === 'interrupted' || st === 'suspended') && starting && !afterStart) afterStart = 'syspause';
+  else if(st === 'running' && paused && pausedBy === 'system' && !resuming) resumeSession(false);
+  else if(st === 'running' && !playing && !paused && !fadingOut && !starting) scheduleSuspend(100);
+  else if(st === 'running' && paused && pausedBy === 'user' && !resuming && !fadingOut) scheduleSuspend(100);   // a late wake-up during your pause
+}
+
+/* the background-capable route (graph -> MediaStream -> <audio>). If the browser refuses it, play directly
+   instead (foreground only), say so once, and try the background route again on the next start. */
+/* One request to play the audio element. Resolves 'ok' only when its play promise is fulfilled, which is what
+   confirms playback has started; the paused flag and the 'play' event are not proof. Resolves 'refused' if the
+   browser says no, or 'stale' once a newer pause, stop or start has made the request moot. An interrupted
+   request is retried once. (Callers add a time limit; a request that never confirms counts as a failure.) */
+function playOnce(gen){
+  return new Promise(resolve=>{
+    if(!sinkEl){ resolve('refused'); return; }
+    let pp; try{ pp = sinkEl.play(); }catch(_){ resolve('refused'); return; }
+    if(!pp || !pp.then){ resolve('refused'); return; }     // nothing to confirm with: do not assume
+    const done = ()=> resolve(gen === playGen ? 'ok' : 'stale');
+    pp.then(done, (err)=>{
+      if(gen !== playGen){ resolve('stale'); return; }
+      if(err && err.name === 'AbortError'){
+        setTimeout(()=>{
+          if(gen !== playGen || !sinkEl){ resolve('stale'); return; }
+          let p2; try{ p2 = sinkEl.play(); }catch(_){ resolve('refused'); return; }
+          if(p2 && p2.then) p2.then(done, ()=> resolve(gen === playGen ? 'refused' : 'stale')); else resolve('refused');
+        }, 250);
+      } else resolve('refused');
+    });
+  });
+}
+function playSink(){ return playOnce(playGen); }
+/* stop an element play request that was given up on, so it cannot start later on its own */
+function cancelPendingPlay(){ try{ if(sinkEl && !sinkEl.paused){ expectPause++; sinkEl.pause(); } }catch(_){} }
+function hideNote(){ const e = $('err'); if(e.classList.contains('note')){ e.classList.remove('note'); e.style.display = 'none'; } }
+function fallbackDirect(){
+  if(!elementSink) return;
+  routeDirect();
+  bgNoted = true;   // the warning stays up for as long as playback goes through this page directly
+  showNote('This browser would not play Stillpoint in the background, so it is playing directly from this page. Keep the page open, or tap POWER off and on to try again.');
+}
+function routeElement(){
+  try{
+    if(analyser){ try{ analyser.disconnect(); }catch(_){} analyser.connect(streamDest); }
+    sinkEl.srcObject = streamDest.stream; sinkEl.muted = false; sinkEl.volume = 1;
+    elementSink = true; bgNoted = false;
+    return playSink();
+  }catch(_){ fallbackDirect(); return Promise.resolve('direct'); }
+}
+function showNote(msg){ const e = $('err'); e.textContent = msg; e.classList.add('note'); e.style.display = 'block'; }
+
+/* park the audio once a fade has finished; any later power-on cancels it */
+function scheduleSuspend(ms){
+  const tok = ++offToken;
+  clearTimeout(suspendTimer);
+  fadingOut = true;
+  suspendTimer = setTimeout(()=>{
+    if(tok !== offToken) return;
+    fadingOut = false;
+    try{ if(sinkEl && !sinkEl.paused){ expectPause++; sinkEl.pause(); } }catch(_){}
+    try{ if(ctx) ctx.suspend(); }catch(_){}
+  }, ms);
+}
+/* sound is still coming out: playing, or fading out after power-off */
+function audible(){ return playing || fadingOut; }
+
+function refreshProgramUI(){
+  document.querySelectorAll('.prog').forEach(b=> b.setAttribute('aria-pressed', b.dataset.key === activeProgram ? 'true':'false'));
+  const P = activeProgram ? PROGRAMS[activeProgram] : null, o = activeProgram ? progOpts[activeProgram] : null;
+  const g = $('optGuide'), bi = $('optBirds');
+  g.disabled = !P;
+  bi.disabled = !(P && P.birdsOpt);
+  g.setAttribute('aria-pressed', P && o.guide ? 'true':'false');
+  bi.setAttribute('aria-pressed', P && P.birdsOpt && o.birds ? 'true':'false');
+  updateProgress();
+}
+
+function toggleGuide(){
+  if(!activeProgram) return;
+  const P = PROGRAMS[activeProgram], o = progOpts[activeProgram];
+  o.guide = !o.guide; saveOpts();
+  if(node && ctx && playing){
+    const t0 = ctx.currentTime + 0.03;
+    node.port.postMessage({ type:'guide', on:o.guide, t0 });
+    guideInfo = { on:o.guide, g0:t0, pat:P.pat, mode:P.gmode, ep:pauseEpoch };
+  }
+  else if(paused) guideDirty = true;     // applied the moment the session resumes
+  refreshProgramUI();
+  ensureMeter();
+}
+function toggleBirds(){
+  if(!activeProgram) return;
+  const P = PROGRAMS[activeProgram]; if(!P.birdsOpt) return;
+  const o = progOpts[activeProgram];
+  o.birds = !o.birds; saveOpts();
+  state.birds = o.birds ? P.birds : 0;
+  sendState(audible() ? GLIDE : 0);
+  refreshProgramUI();
+}
+
+/* audio time as it reaches the ear, so the needle moves with what you hear */
+function audioNow(){
+  if(!ctx) return 0;
+  try{ if(ctx.getOutputTimestamp){ const ts = ctx.getOutputTimestamp(); if(ts && ts.contextTime > 0) return ts.contextTime; } }catch(_){}
+  return Math.max(0, ctx.currentTime - (ctx.baseLatency || 0));
+}
+/* breath guide depth right now (0 = off); fills bsMain with [breath 0..1, inhaling] */
+function guideNow(){
+  if(!playing || !activeProgram || !guideInfo.on || !ctx) return 0;
+  const e = audioNow() - guideInfo.g0;
+  const d = guideEnv(e, guideInfo.mode);
+  if(d > 0) breathShape(e, guideInfo.pat, bsMain);
+  return d;
+}
+function updateBreathLabel(gd){
+  let lab = '';
+  if(gd > 0.3 && guideInfo.mode === 0) lab = bsMain[1] === 2 ? 'SIP' : (bsMain[1] ? 'IN' : 'OUT');
+  if(lab !== breathLabel){ breathLabel = lab; updateReadout(); }
+}
+/* a guide counts as running from the moment it is scheduled until it has fully faded */
+function guideActive(){
+  if(!playing || !activeProgram || !guideInfo.on || !ctx) return false;
+  return audioNow() - guideInfo.g0 < (guideInfo.mode === 1 ? 1200 : 324);
+}
+function ensureMeter(){ if(playing && !raf && ((!dimmed && !reduceMotion) || guideActive())) startMeter(); }
+
+/* a thin amber line under the running program shows where it is in its arc */
+function updateProgress(){
+  document.querySelectorAll('.prog').forEach(b=>{
+    const bar = b.querySelector('.pbar'), fill = bar.firstElementChild;
+    let v = -1;
+    if(playing && ctx && b.dataset.key === activeProgram){
+      if(activeProgram === 'sleep') v = Math.min(1, Math.max(0, (audioNow() - progStart)/1800));
+      else if(activeProgram === 'calm'){ const e = audioNow() - guideInfo.g0; if(guideInfo.on && e < 324) v = Math.min(1, Math.max(0, e/300)); }
+      else if(activeProgram === 'meditate' && state.timer > 0 && sessionEnd) v = Math.min(1, Math.max(0, 1 - (sessionEnd - Date.now())/(state.timer*60000)));
+    }
+    bar.classList.toggle('on', v >= 0);
+    if(v >= 0) fill.style.width = (v*100).toFixed(1) + '%';
+  });
+}
+function startProgTimer(){ stopProgTimer(); progTimer = setInterval(updateProgress, 1000); updateProgress(); }
+function stopProgTimer(){ clearInterval(progTimer); progTimer = 0; }
 
 /* =========================================================================
    BUILD: SEGMENTED CONTROLS (timer, fade)
@@ -696,27 +1814,43 @@ function setNeedle(v){
 /* =========================================================================
    AUDIO LIFECYCLE
    ========================================================================= */
-function sendState(){
-  if(node) node.port.postMessage({ type:'state', state:{
-    master:state.master, tone:state.tone, noise:state.noise, rain:state.rain, surf:state.surf, drone:state.drone, fade:state.fade
+function sendState(glide){
+  if(node) node.port.postMessage({ type:'state', glide: glide || 0, state:{
+    master:state.master, tone:state.tone, noise:state.noise, rain:state.rain, surf:state.surf, drone:state.drone, fade:state.fade,
+    creek:state.creek, river:state.river, wind:state.wind, birds:state.birds,
+    tref: activeProgram ? PROGRAMS[activeProgram].tone : state.tone,  // TONE tilts a program's scene around this point
+    pgain: activeProgram ? PROGRAMS[activeProgram].master/0.30 : 1     // each scene's designed balance at the default VOLUME
   }});
 }
 
 // Fallback only: play straight to the speakers (foreground; no background/lock support).
 function routeDirect(){
   elementSink = false;
-  try{ if(sinkEl){ sinkEl.pause(); sinkEl.srcObject = null; } }catch(_){}
+  try{ if(sinkEl){ if(!sinkEl.paused) expectPause++; sinkEl.pause(); sinkEl.srcObject = null; } }catch(_){}
   try{ if(analyser && ctx){ try{ analyser.disconnect(); }catch(_){} analyser.connect(ctx.destination); } }catch(_){}
 }
 
-async function powerOn(){
+/* one power-on at a time: taps that arrive while the audio is still starting are ignored */
+function powerOn(){
+  if(starting) return starting;
+  starting = powerOnNow().finally(()=>{ starting = null; });
+  return starting;
+}
+async function powerOnNow(){
   try{
-    if(!ctx){ ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint:'playback' }); }
+    offToken++; clearTimeout(suspendTimer);   // a new session cancels any pending park from the last fade-out
+    sessId++;                                  // and anything the engine says about an earlier session is ignored
+    ++playGen; resuming = 0; guideDirty = false; afterStart = '';
+    fadingOut = false; endingNow = false; paused = false; pausedBy = ''; pauseRemain = 0;
+    // where supported, ask for media-playback behavior (Safari: keeps playing like music, including with the ringer off)
+    try{ if(navigator.audioSession && navigator.audioSession.type !== 'playback') navigator.audioSession.type = 'playback'; }catch(_){}
+    if(!ctx){ ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint:'playback' }); ctx.addEventListener('statechange', onCtxState); }
+    let firstPlay = null;
     // ---- everything that establishes the audio session must run SYNCHRONOUSLY, ----
     // ---- inside the user gesture, BEFORE the first await (iOS/Safari requirement) ----
     const resumed = ctx.resume();
 
-    if(!node){
+    if(!masterGain){
       // Build the routing graph now, so the media element can start within the gesture.
       masterGain = ctx.createGain(); masterGain.gain.value = 1;
       analyser = ctx.createAnalyser(); analyser.fftSize = 1024; analyser.smoothingTimeConstant = 0.7;
@@ -730,44 +1864,68 @@ async function powerOn(){
         streamDest = ctx.createMediaStreamDestination();
         analyser.connect(streamDest);
         sinkEl = $('sink');
+        sinkEl.addEventListener('pause', onSinkPause); sinkEl.addEventListener('play', onSinkPlay);
         sinkEl.srcObject = streamDest.stream;
         sinkEl.muted = false; sinkEl.volume = 1;
         elementSink = true; routed = true;
-        const pp = sinkEl.play();            // start now (silent until worklet connects)
-        if(pp && pp.catch) pp.catch(()=>{ routeDirect(); });
+        firstPlay = playSink();              // start now, within the tap (silent until the worklet connects)
       }catch(_){}
       if(!routed) routeDirect();
 
-      // tiny silent buffer — extra unlock kick for stubborn mobile audio sessions
+      // tiny silent buffer: extra unlock kick for stubborn mobile audio sessions
       try{ const b=ctx.createBuffer(1,1,ctx.sampleRate); const s=ctx.createBufferSource(); s.buffer=b; s.connect(ctx.destination); s.start(0); }catch(_){}
 
       setupMediaSession();
+    } else if(!elementSink && streamDest && sinkEl){
+      firstPlay = routeElement();            // an earlier start fell back to direct playback: try the background route again
+    }
 
-      // load the DSP worklet (FIRST await — the session is already live by now)
-      const blob = new Blob([workletCode], { type:'application/javascript' });
-      const url = URL.createObjectURL(blob);
-      await ctx.audioWorklet.addModule(url);
-      URL.revokeObjectURL(url);
+    if(!node){
+      // load the DSP worklet (FIRST await: the session is already live by now); it is only ever loaded once
+      if(!moduleReady){
+        const blob = new Blob([workletCode], { type:'application/javascript' });
+        const url = URL.createObjectURL(blob);
+        try{ await ctx.audioWorklet.addModule(url); } finally { URL.revokeObjectURL(url); }
+        moduleReady = true;
+      }
       node = new AudioWorkletNode(ctx, 'peace-processor', { numberOfInputs:0, numberOfOutputs:1, outputChannelCount:[2] });
       node.connect(masterGain);
+      node.port.onmessage = onEngineMessage;
     }
 
     await resumed;
     if(ctx.state === 'suspended') await ctx.resume();
-    // re-assert element playback in case the OS parked it during the worklet load
-    if(elementSink && sinkEl){ try{ const pp=sinkEl.play(); if(pp&&pp.catch) pp.catch(()=>{}); }catch(_){} }
+    // the system stopped playback, or the audio could not run, while starting: begin the session paused
+    if(!afterStart && ctx.state !== 'running') afterStart = 'syspause';
+    // confirm the output: the element's play promise must be fulfilled (asked again if the OS parked it during the
+    // load). If it never confirms, play directly from the page instead and say so, rather than show "on" in silence.
+    if(afterStart !== 'syspause' && elementSink && sinkEl){
+      const gen = playGen;
+      if(!firstPlay || sinkEl.paused) firstPlay = playSink();
+      const outcome = await settleWithin(firstPlay, 3000, ()=> 'timeout');
+      if(gen === playGen && afterStart !== 'syspause' && elementSink){
+        if(outcome === 'ok') hideNote(); else { ++playGen; cancelPendingPlay(); fallbackDirect(); }
+      }
+    }
 
     sendState();
-    node.port.postMessage({ type:'start' });
+    node.port.postMessage({ type:'start', id:sessId });
+    sendProgram(true);
     playing = true;
     $('power').setAttribute('aria-pressed','true');
     if('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
     updateMediaMetadata();
     scheduleEnd();
     if(dimmed) requestWake();
-    // vintage power-on: peg the needle, then settle into real level
-    needleVal = 1; setNeedle(1);
+    // vintage power-on: peg the needle, then settle into real level (the needle stays still if the device asks for reduced motion)
+    if(!reduceMotion){ needleVal = 1; setNeedle(1); }
     startMeter();
+    refreshProgramUI();
+    startProgTimer();
+    if(afterStart === 'pause') pauseSession('user');
+    else if(afterStart === 'stop') powerOff(1.5);
+    else if(afterStart === 'syspause') pauseSession('system');
+    afterStart = '';
   }catch(err){
     showError('Audio could not start: ' + (err && err.message ? err.message : err) + '. Tap POWER again, or check that the browser allows sound.');
   }
@@ -777,9 +1935,9 @@ async function powerOn(){
 function setupMediaSession(){
   if(!('mediaSession' in navigator)) return;
   try{
-    navigator.mediaSession.setActionHandler('play',  ()=>{ if(!playing) powerOn(); });
-    navigator.mediaSession.setActionHandler('pause', ()=>{ if(playing) powerOff(); });
-    navigator.mediaSession.setActionHandler('stop',  ()=>{ if(playing) powerOff(); });
+    navigator.mediaSession.setActionHandler('play',  ()=>{ if(paused) resumeSession(true); else if(!playing) powerOn(); });
+    navigator.mediaSession.setActionHandler('pause', ()=>{ if(starting) afterStart = 'pause'; else if(playing) pauseSession('user'); else if(paused && resuming) cancelResume('user'); else if(!paused && fadingOut) quickFinish(0.4); });
+    navigator.mediaSession.setActionHandler('stop',  ()=>{ if(starting) afterStart = 'stop'; else if(playing) powerOff(1.5); else if(paused) endPaused(); else if(fadingOut) quickFinish(1.5); });
   }catch(_){}
   updateMediaMetadata();
 }
@@ -789,9 +1947,10 @@ const ENSO_ART = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAYAAAAGACAMAAACT
 function updateMediaMetadata(){
   if(!('mediaSession' in navigator) || typeof MediaMetadata === 'undefined') return;
   const p = activePreset && PRESETS[activePreset];
+  const pr = activeProgram && PROGRAMS[activeProgram];
   try{
     navigator.mediaSession.metadata = new MediaMetadata({
-      title: p ? p.name : 'Stillpoint',
+      title: pr ? pr.title : (p ? p.name : 'Stillpoint'),
       artist: 'Stillpoint · SP‑1',
       album: 'Sound Conditioner',
       artwork: [
@@ -805,36 +1964,46 @@ function updateMediaMetadata(){
   }catch(_){}
 }
 
-function powerOff(){
-  if(node) node.port.postMessage({ type:'fadeout' });
+function powerOff(quick){
+  ++playGen; endingNow = false;
+  if(node) node.port.postMessage(quick ? { type:'fadeout', len:quick } : { type:'fadeout' });
   clearTimeout(endTimer); clearInterval(secTimer); secTimer=0; sessionEnd=0;
-  const ms = (state.fade + 0.4) * 1000;
-  setTimeout(()=>{ try{ if(sinkEl) sinkEl.pause(); }catch(_){} try{ if(ctx) ctx.suspend(); }catch(_){} }, ms);
-  playing = false;
+  scheduleSuspend(((quick || state.fade) + 0.4) * 1000);
+  playing = false; breathLabel = '';
+  stopProgTimer();
   $('power').setAttribute('aria-pressed','false');
   if('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
   releaseWake();
   stopMeter();
   updateReadout();
+  refreshProgramUI();
 }
 
-function togglePower(){ if(playing) powerOff(); else powerOn(); }
+function togglePower(){ if(starting) return; if(playing) powerOff(); else if(paused) resumeSession(true); else powerOn(); }
 
 /* ---- session timer ---- */
 function scheduleEnd(){
+  revive();   // changing the timer (or the program) while a closing fade is under way brings the sound back
   clearTimeout(endTimer); clearInterval(secTimer); secTimer=0; sessionEnd=0;
   const min = state.timer;
   if(min > 0){
     const total = min*60;
     sessionEnd = Date.now() + total*1000;
-    const fireIn = Math.max(1000, (total - state.fade)*1000);
-    endTimer = setTimeout(()=> powerOff(), fireIn);
+    armBackstop(total*1000);
     secTimer = setInterval(updateReadout, 1000);
   }
+  sendSession();
   updateReadout();
+}
+/* the engine ends the session on its own clock; this timer only acts if the countdown is over and it has not */
+function armBackstop(ms){
+  clearTimeout(endTimer);
+  endTimer = setTimeout(()=>{ if(playing) powerOff(); }, Math.max(1000, ms + (activeProgram === 'meditate' ? 45000 : 0) + 2500));
 }
 function updateReadout(){
   const out = $('readout');
+  if(paused){ out.textContent = 'PAUSE'; return; }
+  if(playing && breathLabel){ out.textContent = breathLabel; return; }
   if(playing && sessionEnd){
     let s = Math.max(0, Math.round((sessionEnd - Date.now())/1000));
     const h=Math.floor(s/3600), m=Math.floor((s%3600)/60), ss=s%60;
@@ -849,18 +2018,24 @@ function updateReadout(){
 }
 
 /* ---- meter loop ---- */
-function startMeter(){ cancelAnimationFrame(raf); if(!reduceMotion || true) raf = requestAnimationFrame(meterLoop); }
+function startMeter(){ cancelAnimationFrame(raf); raf = requestAnimationFrame(meterLoop); }   // meterLoop itself honors reduced motion
 function stopMeter(){ cancelAnimationFrame(raf); raf=0; needleVal=0; setNeedle(0); }
 function meterLoop(){
-  if(!playing || dimmed){ raf=0; return; }
+  const gd = guideNow();   // while a breath guide runs, the needle rises and falls with it
+  if(!playing || ((dimmed || reduceMotion) && !guideActive())){ raf=0; updateBreathLabel(0); return; }
+  let target = -1;
   if(analyser){
     analyser.getFloatTimeDomainData(meterBuf);
     let sum=0; for(let i=0;i<meterBuf.length;i++){ const v=meterBuf[i]; sum+=v*v; }
     const rms = Math.sqrt(sum/meterBuf.length);
-    const target = Math.min(1, Math.pow(rms*4.6, 0.62));
-    needleVal += (target - needleVal) * (reduceMotion ? 0.25 : 0.12);
+    target = Math.min(1, Math.pow(rms*4.6, 0.62));
+  }
+  if(gd > 0) target = (target < 0 ? 0 : target)*(1 - gd) + (0.08 + 0.84*bsMain[0])*gd;
+  if(target >= 0 && !reduceMotion){
+    needleVal += (target - needleVal) * 0.12;
     setNeedle(needleVal);
   }
+  updateBreathLabel(gd);
   raf = requestAnimationFrame(meterLoop);
 }
 
@@ -875,13 +2050,13 @@ function toggleDim(){
   dimmed = !dimmed;
   $('device').classList.toggle('dim', dimmed);
   $('dim').setAttribute('aria-pressed', dimmed?'true':'false');
-  if(dimmed){ if(playing) requestWake(); stopMeterAnimOnly(); }
+  if(dimmed){ if(playing) requestWake(); stopMeterAnimOnly(); ensureMeter(); }
   else { releaseWake(); if(playing) startMeter(); }
 }
 function stopMeterAnimOnly(){ cancelAnimationFrame(raf); raf=0; } // freeze needle, keep audio
 
 /* ---- error display ---- */
-function showError(msg){ const e=$('err'); e.textContent=msg; e.style.display='block'; }
+function showError(msg){ const e=$('err'); e.classList.remove('note'); e.textContent=msg; e.style.display='block'; }
 
 /* =========================================================================
    WIRE UP
@@ -889,7 +2064,10 @@ function showError(msg){ const e=$('err'); e.textContent=msg; e.style.display='b
 buildKnobs();
 buildPresets();
 buildMeter();
-buildSeg('timer', TIMERS, v=>{ state.timer=v; setSeg('timer',v); clearActivePreset(); if(playing) scheduleEnd(); else updateReadout(); });
+buildPrograms();
+buildSeg('timer', TIMERS, v=>{ state.timer=v; setSeg('timer',v); clearActivePreset();
+  if(paused){ pauseRemain = v > 0 ? v*60000 : 0; pauseTimerChanged = true; }   // paused: the new timer starts when you resume
+  if(playing) scheduleEnd(); else updateReadout(); });
 buildSeg('fade',  FADES,  v=>{ state.fade=v;  setSeg('fade',v);  clearActivePreset(); sendState(); });
 setSeg('timer', state.timer);
 setSeg('fade', state.fade);
@@ -897,6 +2075,9 @@ updateReadout();
 
 $('power').addEventListener('click', togglePower);
 $('dim').addEventListener('click', toggleDim);
+$('optGuide').addEventListener('click', toggleGuide);
+$('optBirds').addEventListener('click', toggleBirds);
+refreshProgramUI();
 $('infoBtn').addEventListener('click', ()=>{
   const i=$('info'); const open=i.hasAttribute('hidden');
   if(open){ i.removeAttribute('hidden'); } else { i.setAttribute('hidden',''); }
@@ -906,10 +2087,11 @@ $('infoBtn').addEventListener('click', ()=>{
 // re-arm audio (context + media element + wake lock) when returning to the tab
 document.addEventListener('visibilitychange', ()=>{
   if(document.visibilityState==='visible' && playing){
-    if(ctx && ctx.state==='suspended'){ ctx.resume().catch(()=>{}); }
+    if(ctx && (ctx.state==='suspended' || ctx.state==='interrupted')){ ctx.resume().catch(()=>{}); }
     if(elementSink && sinkEl){ try{ const pp=sinkEl.play(); if(pp&&pp.catch) pp.catch(()=>{}); }catch(_){} }
     if(!dimmed && !raf){ startMeter(); }
-    if(dimmed){ requestWake(); }
+    if(dimmed){ requestWake(); ensureMeter(); }
+    updateProgress();
   }
 });
 </script>
