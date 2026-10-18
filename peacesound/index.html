@@ -277,7 +277,7 @@
   .main{ grid-template-areas:"prog prog" "meter presets"; }
   .meter{ grid-area:meter; }
   .presets{ grid-area:presets; }
-  .programs{ grid-area:prog; display:grid; grid-template-columns:minmax(0,1fr) 108px; gap:9px; }
+  .programs{ grid-area:prog; }
   .progkeys{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:9px; }
   .prog{ position:relative; overflow:hidden; text-align:left; cursor:pointer; border:none; border-radius:11px;
     min-height:58px; padding:11px 12px 13px 32px; font-family:var(--font-label); color:var(--ink-dim); -webkit-tap-highlight-color:transparent;
@@ -300,39 +300,60 @@
   .prog[aria-pressed="true"] .pled{ background:var(--amber); box-shadow:0 0 8px 1px rgba(255,179,92,.85), 0 0 16px 3px rgba(255,179,92,.35); }
   .prog[aria-pressed="true"] .pnm{ color:var(--amber-soft); }
   .prog[aria-pressed="true"] .pbar.on{ opacity:1; }
-  .progopts{ display:grid; grid-template-rows:1fr 1fr; gap:6px; }
-  .ptog{ display:flex; align-items:center; justify-content:center; gap:7px; border:none; border-radius:9px; cursor:pointer;
-    padding:0 9px 0 7px; font-family:var(--font-label); font-weight:600; font-size:.66rem; letter-spacing:.16em; text-transform:uppercase;
-    color:var(--ink-dim); -webkit-tap-highlight-color:transparent;
-    background:linear-gradient(180deg,#23272e,#16191e);
-    box-shadow:0 1px 0 rgba(255,255,255,.05) inset,0 -2px 0 rgba(0,0,0,.5) inset,0 3px 7px -4px #000; transition:.15s; }
-  .ptog .tled{ flex:none; width:6px; height:6px; border-radius:50%; background:#34383f; box-shadow:0 0 0 1px rgba(0,0,0,.5) inset; transition:.2s; }
-  .ptog:hover:not(:disabled){ filter:brightness(1.14); color:var(--ink); }
-  .ptog[aria-pressed="true"]{ color:var(--amber-soft); box-shadow:0 2px 6px -2px #000 inset,0 0 0 1px rgba(255,179,92,.26); }
-  .ptog[aria-pressed="true"] .tled{ background:var(--amber); box-shadow:0 0 6px 1px rgba(255,179,92,.8); }
-  .ptog:disabled{ opacity:.3; cursor:default; }
-  .prog:focus-visible, .ptog:focus-visible{ outline:2px solid var(--amber-soft); outline-offset:2px; }
+  .prog:focus-visible{ outline:2px solid var(--amber-soft); outline-offset:2px; }
   .errbar.note{ background:#1c1912; border-color:#4a3f26; color:#f1ddb4; }
   .info a{ color:var(--amber-soft); text-underline-offset:2px; }
   .info .src{ font-size:.72rem; line-height:1.7; opacity:.85; }
+  /* playback log (troubleshooting) */
+  .info .logbar{ display:flex; flex-wrap:wrap; gap:8px; margin:2px 0 10px; }
+  .info .logbtn{ border:none; cursor:pointer; font-family:var(--font-label); font-weight:600; font-size:.66rem; letter-spacing:.12em;
+    text-transform:uppercase; color:var(--ink-dim); padding:7px 11px; border-radius:8px; -webkit-tap-highlight-color:transparent;
+    background:linear-gradient(180deg,#23272e,#16191e); box-shadow:0 1px 0 rgba(255,255,255,.05) inset,0 -2px 0 rgba(0,0,0,.5) inset,0 3px 7px -4px #000; }
+  .info .logbtn:hover{ filter:brightness(1.14); color:var(--ink); }
+  .info .plog{ max-height:42vh; overflow:auto; margin:0; padding:10px 12px; border-radius:9px; font-family:var(--font-mono);
+    font-size:.64rem; line-height:1.5; color:#cfc8b8; background:#07090c; box-shadow:0 0 0 1px #05070a inset;
+    white-space:pre-wrap; word-break:break-word; }
+  .info .plog[hidden]{ display:none; }
 
-  /* phones & narrow: the program keys stand beside the meter, so the panel gains no height */
+  /* tablets in portrait: a slightly narrower meter leaves the presets room for their longest name */
+  @media (min-width:681px) and (max-width:900px){ .main{ grid-template-columns:272px 1fr; } }
+  /* just above phone width (small tablets, narrow windows): a little narrower still, with tighter tiles */
+  @media (min-width:681px) and (max-width:760px){
+    .main{ grid-template-columns:248px 1fr; }
+    .preset{ padding-left:22px; padding-right:8px; }
+    .preset .dot{ left:9px; }
+    .preset .pname{ font-size:.8rem; letter-spacing:.02em; }
+  }
+
+  /* phones & narrow: the meter keeps the full width it has in the original, and the three programs sit in one row beneath it */
   @media (max-width:680px){
-    .main{ grid-template-columns:minmax(0,1fr) clamp(104px,34%,150px); grid-template-areas:"meter prog" "presets presets"; }
-    .meter{ display:flex; flex-direction:column; }
-    .meterface{ flex:1; display:flex; align-items:center; justify-content:center; }
-    .programs{ display:flex; flex-direction:column; gap:6px; }
-    .progkeys{ display:flex; flex-direction:column; gap:6px; flex:1; }
-    .prog{ flex:1; min-height:40px; padding:6px 8px 8px 23px; display:flex; flex-direction:column; justify-content:center; }
-    .prog .pled{ left:9px; top:50%; margin-top:-8px; width:8px; height:8px; }
-    .prog .pnm{ font-size:.74rem; letter-spacing:.17em; }
-    .prog .psb{ font-size:.56rem; letter-spacing:.04em; margin-top:1px; }
-    .prog .pbar{ left:9px; right:9px; bottom:4px; }
-    .progopts{ grid-template-rows:none; grid-template-columns:1fr 1fr; gap:5px; height:30px; }
-    .ptog{ padding:0 4px; gap:5px; font-size:.6rem; letter-spacing:.1em; }
+    .main{ grid-template-columns:minmax(0,1fr); grid-template-areas:"meter" "prog" "presets"; }
+    .prog{ min-height:54px; padding:9px 8px 11px 26px; }
+    .prog .pled{ left:11px; top:13px; width:8px; height:8px; }
+    .prog .pnm{ font-size:.8rem; letter-spacing:.16em; }
+    .prog .psb{ font-size:.6rem; letter-spacing:.05em; margin-top:2px; white-space:normal; }
+    .prog .pbar{ left:11px; right:11px; bottom:5px; }
   }
   @media (max-width:560px){
-    .meter .vu{ width:100%; height:auto; max-height:112px; }
+    .programs{ margin-bottom:5px; }    /* a little air sets the programs apart from the presets below */
+    .prog{ min-height:50px; padding:8px 6px 10px 22px; }
+    .prog .pled{ left:9px; top:12px; }
+    .prog .pnm{ font-size:.74rem; letter-spacing:.1em; }
+    .prog .psb{ font-size:.56rem; letter-spacing:.03em; }
+    .bank .knob svg{ width:68px; }     /* knobs large enough to take hold of with a thumb */
+  }
+  @media (max-width:380px){
+    .prog{ padding-left:19px; padding-right:4px; }
+    .prog .pled{ left:7px; }
+    .prog .pnm{ font-size:.68rem; letter-spacing:.05em; }
+  }
+  /* the narrowest phones (320 px, which includes larger iPhones set to Display Zoom): every label still fits */
+  @media (max-width:340px){
+    .prog{ padding-left:16px; padding-right:3px; }
+    .prog .pled{ left:6px; }
+    .prog .pnm{ font-size:.64rem; letter-spacing:.04em; }
+    .prog .psb{ font-size:.52rem; letter-spacing:.01em; }
+    .seg button{ letter-spacing:.04em; padding-left:2px; padding-right:2px; }
   }
 </style>
 </head>
@@ -366,10 +387,6 @@
         </div>
         <div class="programs" id="programs" role="group" aria-label="Programs">
           <div class="progkeys" id="progkeys"></div>
-          <div class="progopts">
-            <button class="ptog" id="optGuide" aria-pressed="false" disabled title="Breathing guide on or off (SLEEP and CALM)"><span class="tled"></span>Guide</button>
-            <button class="ptog" id="optBowls" aria-pressed="false" disabled title="Singing bowls through the whole session, or only to begin and end (MEDITATE)"><span class="tled"></span>Bowls</button>
-          </div>
         </div>
         <div class="presets" id="presets"></div>
       </div>
@@ -396,21 +413,24 @@
   <div class="info" id="info" hidden>
     <h3>Programs</h3>
     <p><b>SLEEP</b> is a deep, steady noise with a soft, distant river. For about 15 minutes a breeze rises and falls six times a minute, slowing toward five, so you can breathe along: the slow pace that helped people with insomnia fall asleep faster in a 2015 study. Over 30 minutes the tone darkens and the level eases down 3&nbsp;dB. After that nothing changes, because sudden changes in sound are what tend to wake people. It dissolves over the last five minutes of the timer. It starts on <b>1h</b>, a cautious default: a 2026 sleep-lab study of healthy adults found that all-night pink noise shortened REM sleep. Choose <b>8h</b> only if you need it to cover noise, and consider earplugs, which protected sleep best in that study.</p>
-    <p><b>MEDITATE</b> is a singing bowl session modeled on a 2023 randomized trial, with bowls at the trial’s four pitches (about 99, 220, 465 and 927&nbsp;Hz). One bowl opens the session. Then the small, high bowls lead and the larger, lower bowls join over the first few minutes, the order the trial used. Each bowl keeps ringing as the next one sounds, as real bowls do, and nothing else plays. When the timer ends, the bowl sounds three times and the session fades to silence. With <b>BOWLS</b> off it becomes a silent sit: one bowl to begin and three to end.</p>
+    <p><b>MEDITATE</b> is a singing bowl session modeled on a 2023 randomized trial, with bowls at the trial’s four pitches (about 99, 220, 465 and 927&nbsp;Hz). One bowl opens the session. Then the small, high bowls lead and the larger, lower bowls join over the first few minutes, the order the trial used. Each bowl keeps ringing as the next one sounds, as real bowls do, and nothing else plays. When the timer ends, the bowl sounds three times and the session fades to silence.</p>
     <p><b>CALM</b> is five minutes of cyclic sighing, guided by slow ocean waves. Breathe in as a wave rises (<b>IN</b>), take a short second sip of air as it crests (<b>SIP</b>), then breathe out slowly as it washes back (<b>OUT</b>). The readout shows each step and the needle follows the wave. Then the waves return to their own slow rhythm and carry on.</p>
-    <p><b>GUIDE</b> turns the breathing pace on or off in SLEEP and CALM. <b>BOWLS</b> chooses between bowls through the whole MEDITATE session and a silent sit. Stillpoint remembers both.</p>
-    <p>Programs keep your <b>VOLUME</b>. The other knobs keep working too: <b>TONE</b> makes the sound darker or brighter, and <b>NOISE</b>, <b>RAIN</b>, <b>SURF</b> and <b>DRONE</b> add their own layers. Choosing a preset leaves the program and recalls that preset, volume included. While a timer is fading out, changing the timer or choosing a program or preset brings the sound back up.</p>
+    <p>Programs keep your <b>VOLUME</b>. The other knobs keep working too. <b>TONE</b> shifts the noise from deep to bright, as in the presets, and in SLEEP and MEDITATE it also darkens or brightens the river, breeze and bowls. <b>NOISE</b>, <b>RAIN</b>, <b>SURF</b> and <b>DRONE</b> set their own layers; in CALM, <b>SURF</b> is the waves themselves. Choosing a preset leaves the program and recalls that preset, volume included. While a timer is fading out, changing the timer or choosing a program or preset brings the sound back up.</p>
     <h3>Why these sounds</h3>
-    <p>The programs follow the research, but the studies tested real bowls and breathing exercises, not this app. <b>Singing bowls:</b> in a 2023 randomized trial with 50 anxious adults, a music therapist’s 50-minute session with four bowls raised heart-rate variability (a sign of relaxation) more than progressive muscle relaxation or sitting quietly, and its drop in anxiety was the largest. In a 2014 study, 12 minutes of a singing bowl before a guided relaxation lowered heart rate and systolic blood pressure more than 12 minutes of silence. A 2025 review of 19 studies calls the evidence promising but preliminary: the trials were small, and listeners always knew which session they had. <b>Breathing:</b> slow breathing calms the body, and five minutes a day of cyclic sighing, with its long exhale, lifted mood more than mindfulness meditation in a 2023 Stanford trial. <b>Sleep:</b> SLEEP keeps the sound steady, with no sudden changes, and gives a slow breathing pace at bedtime. Everything is synthesized live, so nothing loops: the bowls are physical models based on a measured Tibetan bowl, and the waves, river and breeze are shaped noise. No program uses binaural beats or so-called healing frequencies, because the evidence for them is inconsistent; MEDITATE’s pitches simply match the bowls the trial used.</p>
+    <p>The programs follow the research, but the studies tested real bowls and breathing exercises, not this app. <b>Singing bowls:</b> in a 2023 randomized trial with 50 anxious adults, a music therapist’s 50-minute session with four bowls raised heart-rate variability (a sign of relaxation) more than progressive muscle relaxation or sitting quietly, and its drop in anxiety was the largest. In a 2014 study, 12 minutes of a singing bowl before a guided relaxation lowered heart rate and systolic blood pressure more than 12 minutes of silence. A 2025 review of 19 studies calls the evidence promising but preliminary: the trials were small, and listeners always knew which session they had. <b>Breathing:</b> slow breathing calms the body, and five minutes a day of cyclic sighing, with its long exhale, lifted mood more than mindfulness meditation in a 2023 Stanford trial. <b>Sleep:</b> SLEEP keeps the sound steady, with no sudden changes, and gives a slow breathing pace at bedtime. Everything is synthesized live, so nothing loops: the bowls are modeled on the way metal bowls ring, and the waves, river and breeze are shaped noise. No program uses binaural beats or so-called healing frequencies, because the evidence for them is inconsistent; MEDITATE’s pitches simply match the bowls the trial used.</p>
     <p class="src">Studies: <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9955072/" target="_blank" rel="noopener">singing bowl trial (2023)</a> · <a href="https://pubmed.ncbi.nlm.nih.gov/23941101/" target="_blank" rel="noopener">singing bowl vs. silence (2014)</a> · <a href="https://doi.org/10.1016/j.imr.2025.101144" target="_blank" rel="noopener">singing bowl review (2025)</a> · <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9873947/" target="_blank" rel="noopener">cyclic sighing (2023)</a> · <a href="https://doi.org/10.1111/psyp.12333" target="_blank" rel="noopener">paced breathing and insomnia (2015)</a> · <a href="https://doi.org/10.1093/sleep/zsag001" target="_blank" rel="noopener">pink noise, earplugs and sleep (2026)</a> · <a href="https://pubmed.ncbi.nlm.nih.gov/37205669/" target="_blank" rel="noopener">binaural beats review (2023)</a></p>
     <h3>How it works</h3>
     <p>The <b>NOISE</b> bed is steady broadband sound that masks disruptive noise; <b>TONE</b> shifts it from deep/brown to balanced/pink. <b>RAIN</b> and <b>SURF</b> add slow, predictable natural texture with no sudden transients. <b>DRONE</b> is a quiet low tone used purely for comfort, with no entrainment, binaural, or “miracle frequency” claims.</p>
     <h3>Sensory note</h3>
-    <p>If you’re sensitive to sound, start with <b>Sensory‑Simple</b> (one steady sound) and add layers only if they help. Layered sound can become overstimulating. Presets and programs glide into each other over about two seconds instead of switching abruptly. If your device is set to reduce motion, the needle stays still and the breathing guide is shown in words.</p>
+    <p>If you’re sensitive to sound, start with <b>Sensory‑Simple</b> (one steady sound) and add layers only if they help. Layered sound can become overstimulating. Presets and programs glide into each other over about two seconds instead of switching abruptly. If your device is set to reduce motion, the needle stays still, and CALM still shows each breathing step in words.</p>
     <h3>Using it well</h3>
-    <p>Set the volume so the sound is almost forgettable, especially overnight. Low volume and amber light are easier on sleep. Playback is built to continue when you switch apps or lock the phone and to show up in your lock‑screen controls, though some phones and browsers may still stop it. Pausing there holds your place, including the program and the timer, and Play picks up where you left off; <b>POWER</b> still fades out gently. <b>DIM</b> darkens the panel for bedside use and keeps the screen awake while it’s on.</p>
+    <p>Set the volume so the sound is almost forgettable, especially overnight. Low volume and amber light are easier on sleep. Playback is built to continue when you switch apps or lock the phone and to show up in your lock‑screen controls, though some phones and browsers may still stop it. Pausing there holds your place, including the program and the timer, and Play picks up where you left off. If an iPhone stops answering lock‑screen Play after a long pause, open STILLPOINT and tap <b>POWER</b>. <b>POWER</b> itself still fades out gently. <b>DIM</b> darkens the panel for bedside use and, while sound is playing, keeps the screen awake where the browser allows it.</p>
     <h3>Safety</h3>
     <p>This is not medical treatment. Stop if you notice distress, headache, ear pain, or agitation. In a mental‑health emergency, contact local emergency services or a crisis line.</p>
+    <h3>Playback log</h3>
+    <p class="src">If the lock‑screen controls misbehave, this log shows what the browser did, step by step. Copy it and send it to whoever is helping you.</p>
+    <div class="logbar"><button class="logbtn" id="logShow" aria-expanded="false" aria-controls="plog">Show log</button><button class="logbtn" id="logCopy">Copy log</button><button class="logbtn" id="logClear">Clear</button></div>
+    <pre class="plog" id="plog" hidden></pre>
   </div>
 
 <script>
@@ -497,8 +517,8 @@ class FDN {
 }
 
 /* ---- singing bowls: modal synthesis. Four bowls at the pitches a 2023 randomized trial used (99, 219, 465
-        and 927 Hz); the 221 Hz bowl is modeled on a measured 180 mm Tibetan bowl (221 / 614 / 1145 / 1804 / 2577 Hz).
-        Each mode is a slightly split pair, which gives a bowl its slow, shimmering beat. A soft felt mallet:
+        and 927 Hz; the second is tuned to 221 Hz). Each bowl rings as a handful of inharmonic modes, as metal bowls do,
+        and each mode is a slightly split pair, which gives a bowl its slow, shimmering beat. A soft felt mallet:
         rounded attack, no click. Each bowl keeps ringing between strikes, so a new strike adds to the sound
         that is already there, as on a real bowl.
         f: fundamental (Hz); r: mode ratios; a: mode levels; t: decay to -60 dB (s); s: pair splits (Hz);
@@ -698,7 +718,7 @@ class PeaceProcessor extends AudioWorkletProcessor {
     this.gOld=null; this.bs2=[0,0]; this.rMul=1;
     this.sessAt=0; this.sessKind=0; this.sessFired=false; this.bedFadeAt=0; this.bedFadeLen=30; this.finalAt=0;
     this.bells=[]; this.nat=null; this.bowl=null; this.natOn=false; this.belOn=false;
-    // MEDITATE's bowl session: on/off, next strike, when it began, last bowl, and when each bowl last sounded (session clock)
+    // MEDITATE's bowl session: running, next strike, when it began, last bowl, and when each bowl last sounded (session clock)
     this.bsOn=false; this.bsNext=0; this.bsT0=0; this.bsLast=1; this.bsAt=[-1e9,-1e9,-1e9,-1e9]; this.bsW=[0,0,0,0];
     // CALM's breathing waves: the guide that shapes the SURF swell, its depth now, and its per-block ramp
     this.wGOn=false; this.wGT0=0; this.wPat=0; this.wD=0; this.wD0=0; this.wD1=0; this.wb0=0; this.wb1=0; this.wvOn=false; this.bs3=[0,0];
@@ -773,8 +793,8 @@ class PeaceProcessor extends AudioWorkletProcessor {
         if(this.prog === 1){ if(!this.nat) this.nat = new Nature(sampleRate); this.nat.wake(); }
         this.bells.length = 0;   // a bell still waiting from the previous program is dropped
         if(d.bell) this.bells.push({ at:this.toClk(d.bell), g:1 });
-        // MEDITATE: the bowls play through the session after the opening bowl, or only open and close it
-        this.bsOn = this.prog === 2 && !!d.bowls;
+        // MEDITATE: the bowls play through the session after the opening bowl
+        this.bsOn = this.prog === 2;
         this.bsT0 = d.bell ? this.toClk(d.bell) : this.pT0;
         this.bsNext = this.bsOn ? this.bsT0 + 10 + Math.random()*5 : 0;
         this.bsLast = 1; this.bsAt.fill(-1e9); this.bsAt[1] = this.bsT0;
@@ -785,10 +805,6 @@ class PeaceProcessor extends AudioWorkletProcessor {
       else if(d.type==='guide'){
         this.keepOldGuide(); this.gOn = d.on ? 1 : 0; this.gT0 = this.toClk(d.t0 || currentTime);
         if(this.prog === 3){ if(this.gOn){ this.keepOldWaves(); this.wGOn = true; this.wGT0 = this.gT0; this.wPat = this.gPat; } else this.wGOn = false; }
-      }
-      else if(d.type==='bowls'){
-        this.bsOn = this.prog === 2 && !!d.on;
-        if(this.bsOn){ const now = this.clk(), base = Math.max(now, this.bsT0); if(this.bsNext < base + 4) this.bsNext = base + (this.bsT0 > now ? 10 : 4) + Math.random()*4; }
       }
       else if(d.type==='session'){
         this.sessAt = d.at ? this.toClk(d.at) : 0; this.sessKind = d.kind|0; this.sessFired = false;
@@ -1129,25 +1145,41 @@ const FADES  = [ {l:'FAST',v:8}, {l:'SLOW',v:30}, {l:'GENTLE',v:90} ];
 const GLIDE = 2.2;   // seconds: preset and program changes glide in rather than jumping
 // master: the VOLUME each program was balanced at. Programs keep the listener's own VOLUME; the engine applies
 // master/0.30 as an internal trim, so each program keeps its designed balance at the default volume.
-// guideOpt: the program has a breathing guide (GUIDE). bowlsOpt: the program's bowls can play throughout (BOWLS).
+// guide: the program paces the breath (SLEEP and CALM). Each program always runs in its designed form.
 const PROGRAMS = {
   sleep:    { id:1, name:'Sleep',    sub:'river drift',     title:'Sleep · River Drift',
               master:.30, tone:.12, noise:.36, rain:0, surf:0,   drone:0,   river:.75, wind:.35,
-              fade:90, timer:60, guideOpt:true,  bowlsOpt:false, pat:2, gmode:1 },
+              fade:90, timer:60, guide:true,  pat:2, gmode:1 },
   meditate: { id:2, name:'Meditate', sub:'singing bowls',   title:'Meditate · Singing Bowls',
               master:.32, tone:.20, noise:0,   rain:0, surf:0,   drone:0,   river:0,   wind:0,
-              fade:30, timer:20, guideOpt:false, bowlsOpt:true,  pat:1, gmode:0 },
+              fade:30, timer:20, guide:false, pat:1, gmode:0 },
   calm:     { id:3, name:'Calm',     sub:'breathing waves', title:'Calm · Breathing Waves',
               master:.44, tone:.22, noise:.15, rain:0, surf:.72, drone:.04, river:0,   wind:0,
-              fade:8,  timer:0,  guideOpt:true,  bowlsOpt:false, pat:0, gmode:0 },
+              fade:8,  timer:0,  guide:true,  pat:0, gmode:0 },
 };
 const KNOB_IDS = ['master','tone','noise','rain','surf','drone'];
 const NATURE_IDS = ['river','wind'];
-let progOpts = { sleep:{ guide:true }, meditate:{ bowls:true }, calm:{ guide:true } };
-try{ const saved = JSON.parse(localStorage.getItem('stillpoint.programs') || 'null');
-     // only the options this version has are taken up (older saves also held BIRDS, and a GUIDE for MEDITATE)
-     if(saved) for(const key in progOpts) if(saved[key]) for(const k in progOpts[key]) if(typeof saved[key][k] === 'boolean') progOpts[key][k] = saved[key][k]; }catch(_){}
-function saveOpts(){ try{ localStorage.setItem('stillpoint.programs', JSON.stringify(progOpts)); }catch(_){} }
+try{ localStorage.removeItem('stillpoint.programs'); }catch(_){}   // options saved by earlier versions are no longer used
+
+/* ---- playback log: a short record of what the browser did, kept across reloads, for troubleshooting playback
+   (above all on a phone's lock screen). Nothing leaves the device unless the listener copies it. ---- */
+const PLOG_KEY = 'stillpoint.log';
+let plog = [];
+try{ const saved = JSON.parse(localStorage.getItem(PLOG_KEY) || '[]'); if(Array.isArray(saved)) plog = saved.slice(-200); }catch(_){}
+function logp(ev, extra){
+  try{
+    const d = new Date(), pad = (n, w)=> String(n).padStart(w || 2, '0');
+    const ts = pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()) + '.' + pad(d.getMilliseconds(), 3);
+    const now = (typeof playing === 'undefined') ? '' : ((playing ? 'playing' : (paused ? 'paused by ' + (pausedBy || '?') : 'off'))
+      + (ctx ? ', engine ' + ctx.state : '') + (sinkEl ? ', output ' + (elementSink ? (sinkEl.paused ? 'paused' : 'playing') : 'direct') : '')
+      + (document.visibilityState === 'visible' ? '' : ', page hidden'));
+    plog.push(ts + '  ' + ev + (extra ? ' (' + extra + ')' : '') + (now ? '   [' + now + ']' : ''));
+    if(plog.length > 200) plog.splice(0, plog.length - 200);
+    try{ localStorage.setItem(PLOG_KEY, JSON.stringify(plog)); }catch(_){}
+    const pre = document.getElementById('plog');
+    if(pre && !pre.hidden){ pre.textContent = plog.join('\n'); pre.scrollTop = pre.scrollHeight; }
+  }catch(_){}
+}
 
 const state = { master:.30, tone:.20, noise:.70, rain:.22, surf:0, drone:.12, fade:30, timer:0, river:0, wind:0 };
 
@@ -1158,7 +1190,8 @@ let raf=0, endTimer=0, secTimer=0, sessionEnd=0;
 let needleVal=0;
 let offToken=0, suspendTimer=0, progTimer=0, progStart=0, knobAnim=0, breathLabel='', sessId=0, fadingOut=false;
 let paused=false, pausedBy='', pauseRemain=0, pauseTimerChanged=false, endingNow=false, starting=null, moduleReady=false, expectPause=0, bgNoted=false;
-let playGen=0, resuming=0, guideDirty=false, pauseEpoch=0, progEp=0, afterStart='';
+let playGen=0, resuming=0, pauseEpoch=0, progEp=0, afterStart='', parkTimer=0, ctxParked=false, modulePromise=null;
+let HOLD_MS = 600000;   // a lock-screen pause keeps the audio engine running this long (ms) before parking it
 let guideInfo = { on:false, g0:0, pat:0, mode:0, ep:0 };
 const knobShown = {};
 const bsMain = [0, 0];
@@ -1373,18 +1406,15 @@ function applyProgram(key){
   updateMediaMetadata();
 }
 
-/* the program's breathing guide is on: it has one (SLEEP, CALM) and GUIDE is on for it */
-function guideOn(key){ return !!(key && PROGRAMS[key].guideOpt && progOpts[key].guide); }
-
 /* tell the engine which program is running; fromStart = just powered on (the opening bowl comes 3 s in, once the
    sound is surely running; when switching programs, 2.5 s after the switch) */
 function sendProgram(fromStart){
   if(!node || !ctx) return;
   const t0 = ctx.currentTime + 0.03;
   if(!activeProgram){ node.port.postMessage({ type:'program', id:0, t0 }); guideInfo = { on:false, g0:t0, pat:0, mode:0, ep:pauseEpoch }; return; }
-  const P = PROGRAMS[activeProgram], o = progOpts[activeProgram], g = guideOn(activeProgram);
+  const P = PROGRAMS[activeProgram], g = !!P.guide;
   const msg = { type:'program', id:P.id, t0, guide:g, pat:P.pat, mode:P.gmode };
-  if(P.id === 2){ msg.bell = t0 + (fromStart ? 3 : 2.5); msg.bowls = !!o.bowls; }
+  if(P.id === 2) msg.bell = t0 + (fromStart ? 3 : 2.5);
   node.port.postMessage(msg);
   guideInfo = { on:g, g0:t0, pat:P.pat, mode:P.gmode, ep:pauseEpoch };
   progStart = t0; progEp = pauseEpoch;
@@ -1414,15 +1444,16 @@ function onEngineMessage(e){
     if(playing || paused) finishSession();                // the closing fade has finished (even if a pause began in its last moment)
     else scheduleSuspend(400);                            // a power-off fade has finished
   }
-  else if(d.type === 'paused'){ if(paused && pausedBy === 'user') scheduleSuspend(30); }
+  else if(d.type === 'paused'){ if(paused && pausedBy === 'user' && !resuming) holdPaused(30); }   // (a resume under way decides for itself)
 }
 
 /* a timer's closing fade (fade-out, five-minute dissolve, or closing bells) has finished: switch off */
 function finishSession(){
   ++playGen; resuming = 0; endingNow = false;
-  paused = false; pausedBy = ''; pauseRemain = 0; pauseTimerChanged = false; guideDirty = false;
+  paused = false; pausedBy = ''; pauseRemain = 0; pauseTimerChanged = false;
   clearTimeout(endTimer); clearInterval(secTimer); secTimer=0; sessionEnd=0;
   playing = false; breathLabel = '';
+  logp('session finished');
   scheduleSuspend(400);
   $('power').setAttribute('aria-pressed','false');
   if('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
@@ -1443,15 +1474,17 @@ function revive(){
 
 /* lock-screen Pause (or the system stopping playback): a quick, smooth dip to silence that holds your place,
    including the program, the breathing guide and the timer. Play or POWER picks up from there. */
-function pauseSession(by){
+function pauseSession(by, why){
   if(!playing || !node) return;
+  logp('pause', why || (by === 'user' ? 'lock screen or media keys' : (by === 'system' ? 'by the system' : by)));
   ++playGen; resuming = 0;                   // any play attempt still in flight belongs to the past now
   paused = true; pausedBy = by; pauseTimerChanged = false;
   playing = false; breathLabel = '';
-  pauseRemain = sessionEnd ? Math.max(0, sessionEnd - Date.now()) : 0;
+  pauseRemain = sessionEnd ? Math.max(1000, sessionEnd - Date.now()) : 0;   // a timer that ran out unnoticed still ends the session
   clearTimeout(endTimer); clearInterval(secTimer); secTimer = 0; sessionEnd = 0;
   node.port.postMessage({ type:'pause', len:0.4, pid:++pauseEpoch });
-  if(by === 'user') scheduleSuspend(900);   // park the audio once the dip is done (the engine also says when)
+  if(by === 'user') holdPaused(900);        // hold once the dip is done (the engine also says when)
+  else armPark();                           // paused by the system: park the engine later if it is left running
   $('power').setAttribute('aria-pressed','false');
   if('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
   releaseWake();
@@ -1465,17 +1498,19 @@ function pauseSession(by){
 function resumeSession(gesture){
   if(!paused || !ctx || !node || resuming) return;
   const gen = ++playGen; resuming = gen;
-  offToken++; clearTimeout(suspendTimer); fadingOut = false;
-  let r = null; try{ r = ctx.resume(); }catch(_){}
-  const ctxReady = settleWithin(Promise.resolve(r).then(()=> ctx.state === 'running', ()=> false), 3000, ()=> ctx.state === 'running');
-  // the output route must confirm too: the element's play promise has to be fulfilled (asked for every time,
-  // since a not-paused element can still be waiting to start). A request that has not confirmed in time is a
-  // failure: the session stays paused and Play can be tried again. Only an outright refusal after a tap on a
-  // visible page switches to direct (foreground) playback instead, as at start-up.
+  offToken++; clearTimeout(suspendTimer); clearTimeout(parkTimer); fadingOut = false;
+  logp('resume', gesture ? 'Play or POWER' : 'the system');
+  // the output element first: on a phone it is what wakes the audio. It must confirm: its play promise has to be
+  // fulfilled (asked for every time, since a not-paused element can still be waiting to start). The engine is asked
+  // to run too, again and again while the audio wakes. A request that has not confirmed in time is a failure: the
+  // session stays paused and Play can be tried again. Only an outright refusal after a tap on a visible page
+  // switches to direct (foreground) playback instead, as at start-up.
   const routeReady = (elementSink && sinkEl) ? settleWithin(playOnce(gen), 3000, ()=> 'timeout') : Promise.resolve('ok');
+  const ctxReady = ctxRunning(gen, 3000);
   Promise.all([ctxReady, routeReady]).then(([okCtx, route])=>{
     if(resuming === gen) resuming = 0;
     if(gen !== playGen || !paused) return;                       // a newer pause, stop or start has taken over
+    logp('resume attempt settled', 'output ' + route + ', engine ' + (okCtx ? 'running' : 'not running'));
     let okRoute = route === 'ok';
     if(okCtx && route === 'refused' && gesture && document.visibilityState === 'visible' && elementSink && ctx.state === 'running'){
       cancelPendingPlay(); fallbackDirect(); okRoute = true;      // a tap the browser refused: play directly instead (and say so)
@@ -1483,12 +1518,62 @@ function resumeSession(gesture){
     if(!okCtx || !okRoute || ctx.state !== 'running'){          // could not restart: still paused, timer kept
       ++playGen;                                                 // this attempt is over: late callbacks change nothing
       cancelPendingPlay();
-      if(pausedBy === 'user') scheduleSuspend(100);
+      if(pausedBy === 'user') holdPaused(100); else armPark();
+      logp('resume failed: still paused');
+      if(gesture) showNote(document.visibilityState === 'visible' ? NOTE_RETRY : NOTE_LOCK);
       updateReadout(); return;
     }
     if(elementSink && route === 'ok') hideNote();   // only a confirmed background route clears the foreground-only warning
+    else if(!elementSink && bgNoted) showNote(NOTE_DIRECT);   // still playing directly from the page: keep saying so
     commitResume();
   });
+}
+/* resolves true once the audio engine is running. It asks the engine to resume at once (inside the tap or the
+   lock-screen action) and again every 0.4 s while the audio wakes, for up to ms. Resolves false if it never runs in
+   time, or as soon as a newer pause, stop or start has taken over. */
+function ctxRunning(gen, ms){
+  return new Promise(res=>{
+    if(ctx.state === 'running'){ res(true); return; }
+    const t0 = Date.now(); let done = false, tm = 0, refusalLogged = false;
+    const finish = (v)=>{ if(done) return; done = true; clearTimeout(tm); ctx.removeEventListener('statechange', onSt); res(v); };
+    const onSt = ()=>{ if(ctx.state === 'running') finish(true); };
+    ctx.addEventListener('statechange', onSt);
+    const attempt = ()=>{
+      if(done) return;
+      if(gen !== playGen){ finish(false); return; }
+      if(ctx.state === 'running'){ finish(true); return; }
+      if(Date.now() - t0 >= ms){ finish(false); return; }
+      try{ const r = ctx.resume(); if(r && r.then) r.then(()=>{ if(ctx.state === 'running') finish(true); }, (err)=>{ if(!refusalLogged){ refusalLogged = true; logp('engine refused to resume', err && err.name); } }); }catch(_){}
+      tm = setTimeout(attempt, 400);
+    };
+    attempt();
+  });
+}
+/* lock-screen Pause: once the sound has dipped, pause the output element so the lock screen shows Play, but keep the
+   audio engine running for ten minutes. A phone may not let a page restart its audio engine from the lock screen,
+   so a Play within that time only has to restart the element. After that the audio is parked fully, to save power. */
+function holdPaused(ms){
+  const tok = ++offToken;
+  clearTimeout(suspendTimer); clearTimeout(parkTimer);
+  fadingOut = true;
+  suspendTimer = setTimeout(()=>{
+    if(tok !== offToken) return;
+    fadingOut = false;
+    try{ if(sinkEl && !sinkEl.paused){ expectPause++; sinkEl.pause(); } }catch(_){}
+    armPark(tok);
+  }, ms);
+}
+/* still paused after the hold time: park the audio engine to save power. After a lock-screen Pause it is parked in
+   any case (and parked again if it wakes by itself). After a system pause only if it is still running, so that the
+   system can still bring the sound back by itself when an interruption, such as a call, ends. */
+function armPark(tok){
+  clearTimeout(parkTimer);
+  parkTimer = setTimeout(()=>{
+    if((tok !== undefined && tok !== offToken) || !paused || resuming) return;
+    if(pausedBy !== 'user' && !(ctx && ctx.state === 'running')) return;
+    ctxParked = true; logp('paused for ' + Math.round(HOLD_MS/60000) + ' min: audio engine parked');
+    try{ if(ctx) ctx.suspend(); }catch(_){}
+  }, HOLD_MS);
 }
 /* resolves with the promise's value, or with fallback() if it has not settled within ms */
 function settleWithin(promise, ms, fallback){
@@ -1501,21 +1586,18 @@ function settleWithin(promise, ms, fallback){
 /* Pause pressed (or the system stopping playback) while a restart is still on its way: call it off, stay paused */
 function cancelResume(by){
   ++playGen; resuming = 0; pausedBy = by;
-  if(by === 'user') scheduleSuspend(100);     // the restart may already have woken the audio: park it again
+  logp('resume called off', by);
+  if(by === 'user') holdPaused(100);          // the restart may already have woken the output: hold it again
   updateReadout();
 }
 function commitResume(){
-  paused = false; pausedBy = '';
+  paused = false; pausedBy = ''; ctxParked = false; clearTimeout(parkTimer);
+  offToken++; clearTimeout(suspendTimer); fadingOut = false;    // a hold still pending from the pause must not silence it now
+  logp('playing again');
   node.port.postMessage({ type:'resume', len:1.5 });
   playing = true;
   if(endingNow && pauseTimerChanged) revive();          // the timer was changed while paused: the closing fade is called off
   if(!endingNow) node.port.postMessage({ type:'session', at: pauseRemain > 0 ? ctx.currentTime + pauseRemain/1000 : 0, kind:sessionKind() });
-  if(guideDirty && activeProgram){                       // GUIDE was switched while paused: apply it now
-    const P = PROGRAMS[activeProgram], g = guideOn(activeProgram), t0 = ctx.currentTime + 0.03;
-    node.port.postMessage({ type:'guide', on:g, t0 });
-    guideInfo = { on:g, g0:t0, pat:P.pat, mode:P.gmode, ep:pauseEpoch };
-  }
-  guideDirty = false;
   if(pauseRemain > 0){ sessionEnd = Date.now() + pauseRemain; armBackstop(pauseRemain); secTimer = setInterval(updateReadout, 1000); }
   pauseRemain = 0; pauseTimerChanged = false;
   $('power').setAttribute('aria-pressed','true');
@@ -1530,8 +1612,10 @@ function commitResume(){
 function endPaused(){
   if(!paused) return;
   ++playGen; resuming = 0;
-  paused = false; pausedBy = ''; pauseRemain = 0; pauseTimerChanged = false; endingNow = false; guideDirty = false;
-  if(ctx && ctx.state === 'running') scheduleSuspend(100);   // a system pause can leave the audio running silently
+  paused = false; pausedBy = ''; pauseRemain = 0; pauseTimerChanged = false; endingNow = false; ctxParked = false;
+  clearTimeout(parkTimer);
+  logp('paused session let go');
+  scheduleSuspend(100);   // park the engine and the output, even if the engine is only now waking (cancels a pending hold too)
   updateReadout();
 }
 /* lock-screen Pause or Stop while POWER's fade is still sounding: finish it quickly */
@@ -1550,15 +1634,19 @@ function onSinkPause(){
   else if(paused && resuming) cancelResume('system');                         // it stopped again while restarting
   else if(starting){ ++playGen; if(!afterStart) afterStart = 'syspause'; }   // stopped while still starting up
 }
-function onSinkPlay(){ if(paused && pausedBy === 'system' && !resuming) resumeSession(false); }
+function onSinkPlay(){
+  if(paused && pausedBy === 'system' && !resuming) resumeSession(false);
+  else if(paused && pausedBy === 'user' && !resuming && !fadingOut) holdPaused(300);   // something else started the output while you had paused: keep it paused
+}
 function onCtxState(){
   if(!ctx) return;
   const st = ctx.state;
+  logp('engine ' + st);
   if((st === 'interrupted' || st === 'suspended') && playing) pauseSession('system');
   else if((st === 'interrupted' || st === 'suspended') && starting && !afterStart) afterStart = 'syspause';
+  else if(st === 'running' && paused && ctxParked && !resuming && !fadingOut){ try{ ctx.suspend(); }catch(_){} }   // a parked engine woke by itself
   else if(st === 'running' && paused && pausedBy === 'system' && !resuming) resumeSession(false);
   else if(st === 'running' && !playing && !paused && !fadingOut && !starting) scheduleSuspend(100);
-  else if(st === 'running' && paused && pausedBy === 'user' && !resuming && !fadingOut) scheduleSuspend(100);   // a late wake-up during your pause
 }
 
 /* the background-capable route (graph -> MediaStream -> <audio>). If the browser refuses it, play directly
@@ -1589,16 +1677,22 @@ function playSink(){ return playOnce(playGen); }
 /* stop an element play request that was given up on, so it cannot start later on its own */
 function cancelPendingPlay(){ try{ if(sinkEl && !sinkEl.paused){ expectPause++; sinkEl.pause(); } }catch(_){} }
 function hideNote(){ const e = $('err'); if(e.classList.contains('note')){ e.classList.remove('note'); e.style.display = 'none'; } }
+function clearError(){ const e = $('err'); if(!e.classList.contains('note')) e.style.display = 'none'; }   // an earlier failed start
+const NOTE_DIRECT = 'This browser would not play Stillpoint in the background, so it is playing directly from this page. Keep the page open, or tap POWER off and on to try again.';
+const NOTE_LOCK = 'The lock screen could not start the sound. Tap Play again, or open STILLPOINT and tap POWER.';
+const NOTE_RETRY = 'The sound did not start. Tap POWER to try again.';
 function fallbackDirect(){
   if(!elementSink) return;
+  logp('output switched to direct playback (foreground only)');
   routeDirect();
   bgNoted = true;   // the warning stays up for as long as playback goes through this page directly
-  showNote('This browser would not play Stillpoint in the background, so it is playing directly from this page. Keep the page open, or tap POWER off and on to try again.');
+  showNote(NOTE_DIRECT);
 }
 function routeElement(){
   try{
     if(analyser){ try{ analyser.disconnect(); }catch(_){} analyser.connect(streamDest); }
     sinkEl.srcObject = streamDest.stream; sinkEl.muted = false; sinkEl.volume = 1;
+    expectPause = 0;    // a new source drops the element's queued events, so no pause of ours is still on its way
     elementSink = true; bgNoted = false;
     return playSink();
   }catch(_){ fallbackDirect(); return Promise.resolve('direct'); }
@@ -1622,35 +1716,7 @@ function audible(){ return playing || fadingOut; }
 
 function refreshProgramUI(){
   document.querySelectorAll('.prog').forEach(b=> b.setAttribute('aria-pressed', b.dataset.key === activeProgram ? 'true':'false'));
-  const P = activeProgram ? PROGRAMS[activeProgram] : null, o = activeProgram ? progOpts[activeProgram] : null;
-  const g = $('optGuide'), bw = $('optBowls');
-  g.disabled = !(P && P.guideOpt);
-  bw.disabled = !(P && P.bowlsOpt);
-  g.setAttribute('aria-pressed', P && P.guideOpt && o.guide ? 'true':'false');
-  bw.setAttribute('aria-pressed', P && P.bowlsOpt && o.bowls ? 'true':'false');
   updateProgress();
-}
-
-function toggleGuide(){
-  if(!activeProgram) return;
-  const P = PROGRAMS[activeProgram], o = progOpts[activeProgram]; if(!P.guideOpt) return;
-  o.guide = !o.guide; saveOpts();
-  if(node && ctx && playing){
-    const t0 = ctx.currentTime + 0.03;
-    node.port.postMessage({ type:'guide', on:o.guide, t0 });
-    guideInfo = { on:o.guide, g0:t0, pat:P.pat, mode:P.gmode, ep:pauseEpoch };
-  }
-  else if(paused) guideDirty = true;     // applied the moment the session resumes
-  refreshProgramUI();
-  ensureMeter();
-}
-/* MEDITATE: BOWLS on plays the bowls through the session; off keeps only the opening bowl and the closing three */
-function toggleBowls(){
-  if(!activeProgram) return;
-  const P = PROGRAMS[activeProgram], o = progOpts[activeProgram]; if(!P.bowlsOpt) return;
-  o.bowls = !o.bowls; saveOpts();
-  if(node && (playing || paused)) node.port.postMessage({ type:'bowls', on:o.bowls });   // a paused session takes it up when it resumes
-  refreshProgramUI();
 }
 
 /* audio time as it reaches the ear, so the needle moves with what you hear */
@@ -1764,7 +1830,7 @@ function sendState(glide){
 // Fallback only: play straight to the speakers (foreground; no background/lock support).
 function routeDirect(){
   elementSink = false;
-  try{ if(sinkEl){ if(!sinkEl.paused) expectPause++; sinkEl.pause(); sinkEl.srcObject = null; } }catch(_){}
+  try{ if(sinkEl){ if(!sinkEl.paused) expectPause++; sinkEl.pause(); sinkEl.srcObject = null; expectPause = 0; } }catch(_){}   // (clearing the source drops our pause's queued event)
   try{ if(analyser && ctx){ try{ analyser.disconnect(); }catch(_){} analyser.connect(ctx.destination); } }catch(_){}
 }
 
@@ -1778,8 +1844,9 @@ async function powerOnNow(){
   try{
     offToken++; clearTimeout(suspendTimer);   // a new session cancels any pending park from the last fade-out
     sessId++;                                  // and anything the engine says about an earlier session is ignored
-    ++playGen; resuming = 0; guideDirty = false; afterStart = '';
+    ++playGen; resuming = 0; afterStart = ''; clearTimeout(parkTimer); ctxParked = false;
     fadingOut = false; endingNow = false; paused = false; pausedBy = ''; pauseRemain = 0;
+    logp('POWER on');
     // where supported, ask for media-playback behavior (Safari: keeps playing like music, including with the ringer off)
     try{ if(navigator.audioSession && navigator.audioSession.type !== 'playback') navigator.audioSession.type = 'playback'; }catch(_){}
     if(!ctx){ ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint:'playback' }); ctx.addEventListener('statechange', onCtxState); }
@@ -1787,6 +1854,7 @@ async function powerOnNow(){
     // ---- everything that establishes the audio session must run SYNCHRONOUSLY, ----
     // ---- inside the user gesture, BEFORE the first await (iOS/Safari requirement) ----
     const resumed = ctx.resume();
+    if(resumed && resumed.catch) resumed.catch(()=>{});   // a refusal is dealt with below: the engine is asked again
 
     if(!masterGain){
       // Build the routing graph now, so the media element can start within the gesture.
@@ -1816,40 +1884,51 @@ async function powerOnNow(){
       setupMediaSession();
     } else if(!elementSink && streamDest && sinkEl){
       firstPlay = routeElement();            // an earlier start fell back to direct playback: try the background route again
+    } else if(elementSink && sinkEl && sinkEl.paused){
+      firstPlay = playSink();                // the output too, now, inside the tap or lock-screen Play: on a phone it is what wakes the audio
     }
 
     if(!node){
-      // load the DSP worklet (FIRST await: the session is already live by now); it is only ever loaded once
+      // load the DSP worklet (FIRST await: the session is already live by now). It is only ever loaded once; a load
+      // that hangs is given up after ten seconds, and the next POWER waits on that same load.
       if(!moduleReady){
-        const blob = new Blob([workletCode], { type:'application/javascript' });
-        const url = URL.createObjectURL(blob);
-        try{ await ctx.audioWorklet.addModule(url); } finally { URL.revokeObjectURL(url); }
-        moduleReady = true;
+        if(!modulePromise){
+          const blob = new Blob([workletCode], { type:'application/javascript' });
+          const url = URL.createObjectURL(blob);
+          modulePromise = ctx.audioWorklet.addModule(url).then(()=>{ moduleReady = true; URL.revokeObjectURL(url); },
+                                                              (e)=>{ modulePromise = null; URL.revokeObjectURL(url); throw e; });
+        }
+        if(!await settleWithin(modulePromise.then(()=> true), 10000, ()=> false)) throw new Error('the sound engine did not load');
       }
       node = new AudioWorkletNode(ctx, 'peace-processor', { numberOfInputs:0, numberOfOutputs:1, outputChannelCount:[2] });
       node.connect(masterGain);
       node.port.onmessage = onEngineMessage;
     }
 
-    await resumed;
-    if(ctx.state === 'suspended') await ctx.resume();
-    // the system stopped playback, or the audio could not run, while starting: begin the session paused
-    if(!afterStart && ctx.state !== 'running') afterStart = 'syspause';
+    // the audio engine must be running: asked again while the audio wakes, but never waited on for more than 3 s.
+    // If it does not run, the session begins paused, and POWER or Play can try again (a late wake-up starts nothing).
+    Promise.resolve(resumed).catch(()=>{});
+    const okCtx = await ctxRunning(playGen, 3000);
+    if(!afterStart && !okCtx) afterStart = 'stalled';
     // confirm the output: the element's play promise must be fulfilled (asked again if the OS parked it during the
-    // load). If it never confirms, play directly from the page instead and say so, rather than show "on" in silence.
-    if(afterStart !== 'syspause' && elementSink && sinkEl){
+    // load). If it never confirms after a tap on the page, play directly from the page instead and say so, rather than
+    // show "on" in silence. From the lock screen, direct playback would be silent, so the session waits, paused, for Play.
+    if(afterStart !== 'syspause' && afterStart !== 'stalled' && elementSink && sinkEl){
       const gen = playGen;
       if(!firstPlay || sinkEl.paused) firstPlay = playSink();
       const outcome = await settleWithin(firstPlay, 3000, ()=> 'timeout');
+      logp('output element at start', String(outcome));
       if(gen === playGen && afterStart !== 'syspause' && elementSink){
-        if(outcome === 'ok') hideNote(); else { ++playGen; cancelPendingPlay(); fallbackDirect(); }
+        if(outcome === 'ok') hideNote();
+        else if(document.visibilityState === 'visible'){ ++playGen; cancelPendingPlay(); fallbackDirect(); }
+        else { ++playGen; cancelPendingPlay(); if(!afterStart) afterStart = 'held'; }
       }
     }
 
     sendState();
     node.port.postMessage({ type:'start', id:sessId });
     sendProgram(true);
-    playing = true;
+    playing = true; clearError();
     $('power').setAttribute('aria-pressed','true');
     if('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
     updateMediaMetadata();
@@ -1860,11 +1939,17 @@ async function powerOnNow(){
     startMeter();
     refreshProgramUI();
     startProgTimer();
+    logp('started', (activeProgram ? PROGRAMS[activeProgram].name : (activePreset ? PRESETS[activePreset].name : 'knobs')) + ', output ' + (elementSink ? 'background-capable' : 'direct'));
     if(afterStart === 'pause') pauseSession('user');
     else if(afterStart === 'stop') powerOff(1.5);
     else if(afterStart === 'syspause') pauseSession('system');
+    else if(afterStart === 'held'){ pauseSession('user', 'the output did not start in the background'); showNote(NOTE_LOCK); }
+    else if(afterStart === 'stalled'){ pauseSession('user', 'the audio engine did not start'); showNote(document.visibilityState === 'visible' ? NOTE_RETRY : NOTE_LOCK); }
     afterStart = '';
   }catch(err){
+    ++playGen; cancelPendingPlay();
+    try{ if(ctx && ctx.state === 'running' && !playing) ctx.suspend(); }catch(_){}
+    logp('start failed', err && err.message ? err.message : String(err));
     showError('Audio could not start: ' + (err && err.message ? err.message : err) + '. Tap POWER again, or check that the browser allows sound.');
   }
 }
@@ -1873,9 +1958,9 @@ async function powerOnNow(){
 function setupMediaSession(){
   if(!('mediaSession' in navigator)) return;
   try{
-    navigator.mediaSession.setActionHandler('play',  ()=>{ if(paused) resumeSession(true); else if(!playing) powerOn(); });
-    navigator.mediaSession.setActionHandler('pause', ()=>{ if(starting) afterStart = 'pause'; else if(playing) pauseSession('user'); else if(paused && resuming) cancelResume('user'); else if(!paused && fadingOut) quickFinish(0.4); });
-    navigator.mediaSession.setActionHandler('stop',  ()=>{ if(starting) afterStart = 'stop'; else if(playing) powerOff(1.5); else if(paused) endPaused(); else if(fadingOut) quickFinish(1.5); });
+    navigator.mediaSession.setActionHandler('play',  ()=>{ logp('media control: Play'); if(paused) resumeSession(true); else if(!playing) powerOn(); });
+    navigator.mediaSession.setActionHandler('pause', ()=>{ logp('media control: Pause'); if(starting) afterStart = 'pause'; else if(playing) pauseSession('user'); else if(paused && resuming) cancelResume('user'); else if(!paused && fadingOut) quickFinish(0.4); });
+    navigator.mediaSession.setActionHandler('stop',  ()=>{ logp('media control: Stop'); if(starting) afterStart = 'stop'; else if(playing) powerOff(1.5); else if(paused) endPaused(); else if(fadingOut) quickFinish(1.5); });
   }catch(_){}
   updateMediaMetadata();
 }
@@ -1904,6 +1989,7 @@ function updateMediaMetadata(){
 
 function powerOff(quick){
   ++playGen; endingNow = false;
+  logp('POWER off' + (quick ? ' (quick)' : ''));
   if(node) node.port.postMessage(quick ? { type:'fadeout', len:quick } : { type:'fadeout' });
   clearTimeout(endTimer); clearInterval(secTimer); secTimer=0; sessionEnd=0;
   scheduleSuspend(((quick || state.fade) + 0.4) * 1000);
@@ -2013,9 +2099,41 @@ updateReadout();
 
 $('power').addEventListener('click', togglePower);
 $('dim').addEventListener('click', toggleDim);
-$('optGuide').addEventListener('click', toggleGuide);
-$('optBowls').addEventListener('click', toggleBowls);
 refreshProgramUI();
+/* playback log: page, output element and audio session events, and the log's own buttons */
+(function(){
+  const sk = $('sink');
+  ['play','playing','pause','waiting','stalled','emptied','ended','error'].forEach(ev => sk.addEventListener(ev, ()=> logp('output element ' + ev + (ev === 'error' && sk.error ? ' ' + sk.error.code : ''))));
+  document.addEventListener('visibilitychange', ()=> logp('page ' + document.visibilityState));
+  window.addEventListener('pagehide', (e)=> logp('page hidden by the browser' + (e.persisted ? ', kept in memory' : '')));
+  window.addEventListener('pageshow', (e)=> { if(e.persisted) logp('page restored from memory'); });
+  document.addEventListener('freeze', ()=> logp('page frozen'));
+  document.addEventListener('resume', ()=> logp('page unfrozen'));
+  try{ if(navigator.audioSession && navigator.audioSession.addEventListener) navigator.audioSession.addEventListener('statechange', ()=> logp('audio session ' + navigator.audioSession.state)); }catch(_){}
+  const standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+  const device = navigator.userAgent.replace(/\s+/g, ' ') + '; ' + (standalone ? 'home-screen app' : 'browser tab') + '; audio session ' + (navigator.audioSession ? 'supported' : 'not supported');
+  logp('page loaded', device);
+  $('logShow').addEventListener('click', ()=>{
+    const pre = $('plog'), b = $('logShow'); pre.hidden = !pre.hidden;
+    b.textContent = pre.hidden ? 'Show log' : 'Hide log'; b.setAttribute('aria-expanded', pre.hidden ? 'false' : 'true');
+    if(!pre.hidden){ pre.textContent = plog.join('\n'); pre.scrollTop = pre.scrollHeight; }
+  });
+  $('logCopy').addEventListener('click', ()=>{
+    const text = 'STILLPOINT playback log\n' + device + '\n\n' + plog.join('\n'), b = $('logCopy');
+    const done = (ok)=>{ b.textContent = ok ? 'Copied' : 'Copy failed'; setTimeout(()=>{ b.textContent = 'Copy log'; }, 1600); };
+    const fallback = ()=>{
+      try{ const ta = document.createElement('textarea'); ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.top = '0'; ta.style.opacity = '0';
+           document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0, text.length); const ok = document.execCommand('copy'); document.body.removeChild(ta); done(ok); }
+      catch(_){ done(false); }
+    };
+    try{ if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(()=> done(true), fallback); else fallback(); }catch(_){ fallback(); }
+  });
+  $('logClear').addEventListener('click', ()=>{
+    plog = []; try{ localStorage.removeItem(PLOG_KEY); }catch(_){}
+    logp('log cleared');
+    const pre = $('plog'); if(!pre.hidden) pre.textContent = plog.join('\n');
+  });
+})();
 $('infoBtn').addEventListener('click', ()=>{
   const i=$('info'); const open=i.hasAttribute('hidden');
   if(open){ i.removeAttribute('hidden'); } else { i.setAttribute('hidden',''); }
