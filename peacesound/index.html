@@ -313,7 +313,8 @@
   .info .plog{ max-height:42vh; overflow:auto; margin:0; padding:10px 12px; border-radius:9px; font-family:var(--font-mono);
     font-size:.64rem; line-height:1.5; color:#cfc8b8; background:#07090c; box-shadow:0 0 0 1px #05070a inset;
     white-space:pre-wrap; word-break:break-word; }
-  .info .plog[hidden]{ display:none; }
+  .info .plog[hidden], .info .logsec[hidden]{ display:none; }
+  #infoBtn{ -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; }   /* holding it (see the playback log) shows no callout */
 
   /* tablets in portrait: a slightly narrower meter leaves the presets room for their longest name */
   @media (min-width:681px) and (max-width:900px){ .main{ grid-template-columns:272px 1fr; } }
@@ -427,10 +428,11 @@
     <p>Set the volume so the sound is almost forgettable, especially overnight. Low volume and amber light are easier on sleep. Playback is built to continue when you switch apps or lock the phone and to show up in your lock‑screen controls, though some phones and browsers may still stop it. Pausing there holds your place, including the program and the timer, and Play picks up where you left off. If an iPhone stops answering lock‑screen Play after a long pause, open STILLPOINT and tap <b>POWER</b>. <b>POWER</b> itself still fades out gently. <b>DIM</b> darkens the panel for bedside use and, while sound is playing, keeps the screen awake where the browser allows it.</p>
     <h3>Safety</h3>
     <p>This is not medical treatment. Stop if you notice distress, headache, ear pain, or agitation. In a mental‑health emergency, contact local emergency services or a crisis line.</p>
+    <div class="logsec" id="logsec" hidden>
     <h3>Playback log</h3>
-    <p class="src">If the lock‑screen controls misbehave, this log shows what the browser did, step by step. Copy it and send it to whoever is helping you.</p>
     <div class="logbar"><button class="logbtn" id="logShow" aria-expanded="false" aria-controls="plog">Show log</button><button class="logbtn" id="logCopy">Copy log</button><button class="logbtn" id="logClear">Clear</button></div>
     <pre class="plog" id="plog" hidden></pre>
+    </div>
   </div>
 
 <script>
@@ -1588,6 +1590,15 @@ function cancelResume(by){
   ++playGen; resuming = 0; pausedBy = by;
   logp('resume called off', by);
   if(by === 'user') holdPaused(100);          // the restart may already have woken the output: hold it again
+  else armPark();                             // the system stopped it: the engine still parks after the hold time
+  updateReadout();
+}
+/* Pause pressed while the system has paused the session (a call, another app): it becomes your pause. It stays
+   silent when the system gives the audio back, until you press Play. */
+function keepPausedByUser(){
+  pausedBy = 'user';
+  logp('pause', 'lock screen or media keys, while paused by the system');
+  holdPaused(100);
   updateReadout();
 }
 function commitResume(){
@@ -1959,7 +1970,7 @@ function setupMediaSession(){
   if(!('mediaSession' in navigator)) return;
   try{
     navigator.mediaSession.setActionHandler('play',  ()=>{ logp('media control: Play'); if(paused) resumeSession(true); else if(!playing) powerOn(); });
-    navigator.mediaSession.setActionHandler('pause', ()=>{ logp('media control: Pause'); if(starting) afterStart = 'pause'; else if(playing) pauseSession('user'); else if(paused && resuming) cancelResume('user'); else if(!paused && fadingOut) quickFinish(0.4); });
+    navigator.mediaSession.setActionHandler('pause', ()=>{ logp('media control: Pause'); if(starting) afterStart = 'pause'; else if(playing) pauseSession('user'); else if(paused && resuming) cancelResume('user'); else if(paused && pausedBy !== 'user') keepPausedByUser(); else if(!paused && fadingOut) quickFinish(0.4); });
     navigator.mediaSession.setActionHandler('stop',  ()=>{ logp('media control: Stop'); if(starting) afterStart = 'stop'; else if(playing) powerOff(1.5); else if(paused) endPaused(); else if(fadingOut) quickFinish(1.5); });
   }catch(_){}
   updateMediaMetadata();
@@ -2113,11 +2124,33 @@ refreshProgramUI();
   const standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
   const device = navigator.userAgent.replace(/\s+/g, ' ') + '; ' + (standalone ? 'home-screen app' : 'browser tab') + '; audio session ' + (navigator.audioSession ? 'supported' : 'not supported');
   logp('page loaded', device);
-  $('logShow').addEventListener('click', ()=>{
-    const pre = $('plog'), b = $('logShow'); pre.hidden = !pre.hidden;
-    b.textContent = pre.hidden ? 'Show log' : 'Hide log'; b.setAttribute('aria-expanded', pre.hidden ? 'false' : 'true');
-    if(!pre.hidden){ pre.textContent = plog.join('\n'); pre.scrollTop = pre.scrollHeight; }
+  const showLog = (show)=>{
+    const pre = $('plog'), b = $('logShow'); pre.hidden = !show;
+    b.textContent = show ? 'Hide log' : 'Show log'; b.setAttribute('aria-expanded', show ? 'true' : 'false');
+    if(show){ pre.textContent = plog.join('\n'); pre.scrollTop = pre.scrollHeight; }
+  };
+  $('logShow').addEventListener('click', ()=> showLog($('plog').hidden));
+  // the log is for troubleshooting and is not part of the public panel: press and hold i for two seconds to show
+  // or hide it. Closing the panel puts it away again. Holding is not also a tap.
+  const ib = $('infoBtn'); let holdT = 0, swallow = false;
+  const endHold = ()=>{ clearTimeout(holdT); holdT = 0; };
+  ib.addEventListener('pointerdown', ()=>{
+    endHold(); swallow = false;
+    holdT = setTimeout(()=>{
+      holdT = 0; swallow = true;
+      const sec = $('logsec'), info = $('info'); sec.hidden = !sec.hidden;
+      if(!sec.hidden){
+        if(info.hasAttribute('hidden')){ info.removeAttribute('hidden'); ib.setAttribute('aria-pressed', 'true'); }
+        showLog(true); try{ sec.scrollIntoView({ block:'nearest' }); }catch(_){}
+      }
+    }, 2000);
   });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => ib.addEventListener(ev, ()=>{ endHold(); if(swallow) setTimeout(()=>{ swallow = false; }, 700); }));
+  ib.addEventListener('click', (e)=>{
+    if(swallow){ swallow = false; e.stopImmediatePropagation(); e.preventDefault(); return; }
+    if(!$('info').hasAttribute('hidden')){ $('logsec').hidden = true; showLog(false); }   // closing the panel puts the log away again
+  }, true);
+  ib.addEventListener('contextmenu', (e)=> e.preventDefault());
   $('logCopy').addEventListener('click', ()=>{
     const text = 'STILLPOINT playback log\n' + device + '\n\n' + plog.join('\n'), b = $('logCopy');
     const done = (ok)=>{ b.textContent = ok ? 'Copied' : 'Copy failed'; setTimeout(()=>{ b.textContent = 'Copy log'; }, 1600); };
