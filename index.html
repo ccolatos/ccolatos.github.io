@@ -3626,6 +3626,7 @@
     var GHOST_NAMES = ['BLINKY','PINKY','INKY','CLYDE'];
 
     function initGame(keepProgress) {
+      if (TES.on) tesOff();   // leaving movement VI for the plain game
       // Deep copy maze
       maze = [];
       dots = 0;
@@ -3820,7 +3821,8 @@
       { n: 'II', name: 'Drone', sub: 'for signal, tanpura, shruti box, and voice', bg: '#06080C', line: 'rgba(165,188,214,0.42)', dot: 'rgba(186,204,224,0.62)', acc: '#D8C39A', ink: '#EEF3F8', dim: 'rgba(170,192,216,0.62)', ghosts: ['#EEF3F8', '#B9CBE0', '#DCE6F0', '#98AFC8'], dark: true },
       { n: 'III', name: 'Stochastic', sub: 'for signal and four stochastic voices, after Xenakis', bg: '#0B0908', line: 'rgba(226,122,82,0.42)', dot: 'rgba(238,200,182,0.62)', acc: '#E27A52', ink: '#F7EFEA', dim: 'rgba(230,160,130,0.62)', ghosts: ['#F7EFEA', '#EBC7B6', '#F0DCCF', '#D9A48C'], dark: true },
       { n: 'IV', name: 'Harmonic Series', sub: 'for signal, harmonic arpeggio, and bells, after Jean-Claude Risset', bg: '#07070C', line: 'rgba(236,232,224,0.26)', dot: 'rgba(236,232,224,0.55)', acc: '#D9B36A', ink: '#F4F1EA', dim: 'rgba(236,232,224,0.6)', ghosts: [7, 11, 13, 14].map(function (n) { return 'hsl(' + hueOf(n).toFixed(0) + ',72%,80%)'; }), dark: true },
-      { n: 'V', name: 'Musique Concr\u00E8te', sub: 'for signal and the sound you made, after Pierre Schaeffer and Steve Reich', bg: '#0C0A08', line: 'rgba(222,176,112,0.40)', dot: 'rgba(236,214,180,0.62)', acc: '#E0A85A', ink: '#F6EEE2', dim: 'rgba(226,196,150,0.62)', ghosts: ['#F6EEE2', '#E8CFAA', '#F0DEC4', '#D6B48A'], dark: true }
+      { n: 'V', name: 'Musique Concr\u00E8te', sub: 'for signal and the sound you made, after Pierre Schaeffer and Steve Reich', bg: '#0C0A08', line: 'rgba(222,176,112,0.40)', dot: 'rgba(236,214,180,0.62)', acc: '#E0A85A', ink: '#F6EEE2', dim: 'rgba(226,196,150,0.62)', ghosts: ['#F6EEE2', '#E8CFAA', '#F0DEC4', '#D6B48A'], dark: true },
+      { n: 'VI', name: 'Tesseract', sub: 'for signal and four shadows, after Partch, Lucier, Stockhausen, and Cage', bg: '#050507', line: 'rgba(201,204,209,0.42)', dot: 'rgba(245,244,240,0.7)', acc: '#C4A882', ink: '#F5F4F0', dim: 'rgba(201,204,209,0.62)', ghosts: ['#C9CCD1', '#BACCE2', '#EC825A', '#BCA0FF'], dark: true }
     ];
     function movIdx() { return ((level || 1) - 1) % 5; }
     function mov() { return MOVS[movIdx()]; }
@@ -3898,7 +3900,7 @@
     function hueOf(n) { return (38 + ((1200 * Math.log(n) / Math.LN2) % 1200) * 0.3) % 360; }   // a partial's color: its pitch class on the color wheel, B-flat in the page's gold
     function hsla(h, s2, l, a) { return 'hsla(' + h.toFixed(1) + ',' + s2 + '%,' + l + '%,' + a.toFixed(3) + ')'; }
     var CELLS_UP = [[1, 2, 3, 4], [1, 2, 4, 5], [2, 1, 2, 4], [1, 3, 2, 4]], CELLS_DN = [[-1, -2, -3, -4], [-1, -2, -4, -5], [-2, -1, -2, -4], [-1, -3, -2, -4]];
-    var MOV_TRIM = [-2, 3.2, 15.8, 6.5, 2.5], MASTER_GAIN = 2;   // each movement's trim in dB, measured so the five sit at one loudness; then the makeup that brings the whole game up to a phone's speaker
+    var MOV_TRIM = [-2, 3.2, 15.8, 6.5, 2.5, 0], MASTER_GAIN = 2;   // each movement's trim in dB, measured so the five sit at one loudness; then the makeup that brings the whole game up to a phone's speaker
     function busFor(c) {   // a small room and a gentle compressor; then makeup gain, a limiter, and a soft clip, so the game plays loud on a phone without distorting; the same live and when a run is rendered
       var trim = c.createGain(), comp = c.createDynamicsCompressor(), verb = c.createConvolver(), wet = c.createGain(), bus = c.createGain(), mk = c.createGain(), lim = c.createDynamicsCompressor(), clip = c.createWaveShaper(), cv = new Float32Array(2049), i;
       comp.threshold.value = -18; comp.ratio.value = 3;
@@ -5146,7 +5148,7 @@
     // ---------- the ghosts you can hear ----------
     // Each ghost is its oscillator, panned to where it is and swelling as it nears; its height in the maze sets its pitch.
     var GV = null;
-    function voiceType(m, i) { return m === 0 ? GTYPES[i] : m === 2 ? 'sawtooth' : m === 4 ? 'tape' : 'sine'; }
+    function voiceType(m, i) { return m === 0 || m === 5 ? GTYPES[i] : m === 2 ? 'sawtooth' : m === 4 ? 'tape' : 'sine'; }
     function typeMul(ty) { return ty === 'square' ? 0.45 : ty === 'sawtooth' ? 0.55 : ty === 'noise' ? 1.6 : ty === 'tape' ? 0.6 : 1; }
     function ghostVoicesBuild(m, title) {
       ghostVoicesKill();
@@ -5325,6 +5327,7 @@
       if (!show && tilt.btn) { tilt.btn.remove(); tilt.btn = null; }
     }
     function suiteClose() {   // closing: stop everything, and let go of the big things (rendered audio, the recording) so nothing lingers
+      try { tesOff(); } catch (x) {}
       clearInterval(titleTimer);
       var r = card && card.run;
       hideCard();
@@ -5357,13 +5360,14 @@
     }
     function godSync(force) {
       if (!god.panel) return;
-      var m = gameState === 'title' ? -1 : movIdx();
+      var m = gameState === 'title' ? -1 : TES.on ? 5 : movIdx();
       if (!force && god.cur === m) return;
       god.cur = m;
       god.btns.forEach(function (b, i) { b.setAttribute('aria-pressed', i === m ? 'true' : 'false'); });
       god.invBtn.setAttribute('aria-pressed', god.inv ? 'true' : 'false');
     }
     function godJump(m) {   // straight to movement m on a fresh maze; the run's score records the jump
+      if (m === 5) { tesGodJump(); return; }
       closeStudio();
       if (gameState === 'title') { clearInterval(titleTimer); titleUI(false); ghostVoicesKill(); }
       if (gameAudioCtx && gameAudioCtx.state !== 'running') gameAudioCtx.resume();
@@ -5373,12 +5377,12 @@
       if (lives < 1) lives = 3;
       startMusic(); godSync(true);
     }
-    function godClear() { if (gameState !== 'playing') return; gameState = 'won'; stopMusic(); playWinSound(); }
-    function godEnd() { if (gameState !== 'playing' && gameState !== 'won') return; gameState = 'gameover'; stopMusic(); }
+    function godClear() { if (TES.on) { tesGodClear(); return; } if (gameState !== 'playing') return; gameState = 'won'; stopMusic(); playWinSound(); }
+    function godEnd() { if (gameState !== 'playing' && gameState !== 'won') return; if (TES.on) tesGodEnd(); gameState = 'gameover'; stopMusic(); }
     function godKey(e, k) {   // keys: 1 to 4 jump to a movement, C clears it, E ends the run, I toggles invincibility
       if (e.metaKey || e.ctrlKey || e.altKey) return false;
       var lk = k.toLowerCase();
-      if (k.length === 1 && k >= '1' && k <= '5') godJump(+k - 1);
+      if (k.length === 1 && k >= '1' && k <= '6') godJump(+k - 1);
       else if (lk === 'c') godClear();
       else if (lk === 'e') godEnd();
       else if (lk === 'i') { god.inv = !god.inv; godSync(true); }
@@ -5411,7 +5415,7 @@
       el('div', 'sc-sub', 'Signal Chase, for one player and four oscillators');
       el('div', 'sc-meta', MONTHS[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear() + ', ' + hh + ':' + pad2(d.getMinutes()) + ' ' + (d.getHours() < 12 ? 'AM' : 'PM') +
         '  \u00b7  ' + run.score + ' Hz' + (run.newBest ? ' (your best)' : '') + '  \u00b7  ' + (movs.length > 1 ? 'movements ' : 'movement ') + listWords(movs) + '  \u00b7  ' + fmtDur(run.end) +
-        (run.end > 240 ? '  \u00b7  audio: the first four minutes' : '') + (run.god ? '  \u00b7  god mode' : ''));
+        (run.end > 240 ? '  \u00b7  audio: the first four minutes' : '') + (run.fine ? '  \u00b7  the suite complete' : '') + (run.god ? '  \u00b7  god mode' : ''));
       var cv = el('canvas', 'sc-cv'); cv.width = 1720; cv.height = 760; card.cv = cv;
       var bt = el('div', 'sc-btns');
       function btn(label, alt, fn) { var b = document.createElement('button'); b.textContent = label; if (alt) b.className = 'alt'; bindTap(b, fn); bt.appendChild(b); return b; }
@@ -5767,7 +5771,7 @@
       var u = Math.min(w / 16, h / 22), cx = w / 2, y0 = h * 0.5 - u * 7, i;
       ctx.textAlign = 'center';
       ctx.font = hudFont(600, Math.round(u * 0.42)); spaced(u * 0.12); ctx.fillStyle = 'rgba(196,168,130,0.9)';
-      ctx.fillText('A SUITE IN FIVE MOVEMENTS', cx, y0); spaced(0);
+      ctx.fillText(tesUnlocked() ? 'A SUITE IN SIX MOVEMENTS' : 'A SUITE IN FIVE MOVEMENTS', cx, y0); spaced(0);
       if ('fontStretch' in ctx) ctx.fontStretch = 'condensed';
       var ts = Math.round(u * 2.5); ctx.font = hudFont(200, ts);
       var tw = ctx.measureText('SIGNAL CHASE').width; if (tw > w * 0.86) { ts = Math.floor(ts * w * 0.86 / tw); ctx.font = hudFont(200, ts); }   // always fits the screen
@@ -5784,6 +5788,7 @@
       }
       ctx.font = serifFont(Math.round(u * 0.7)); ctx.fillStyle = 'rgba(245,244,240,0.92)';
       var mvs = ['I. Hard Bop', 'II. Drone', 'III. Stochastic', 'IV. Harmonic Series', 'V. Musique Concr\u00E8te'], ly = gy + u * 3, rowsT = [mvs];
+      if (tesUnlocked()) mvs.push('VI. Tesseract');   // once you have reached the finale, the title page lists it
       if (ctx.measureText(mvs.join('     ')).width > w * 0.9) rowsT = [mvs.slice(0, 3), mvs.slice(3)];
       if (rowsT.length > 1 && ctx.measureText(rowsT[0].join('     ')).width > w * 0.9) rowsT = [mvs.slice(0, 2), mvs.slice(2, 4), mvs.slice(4)];
       rowsT.forEach(function (rw, k) { if (k) ly += u * 0.95; ctx.fillText(rw.join('     '), cx, ly); });
@@ -5996,7 +6001,7 @@
         if ('fontStretch' in ctx) ctx.fontStretch = 'normal';
         ctx.font = hudFont(500, Math.round(cellSize * 0.7)); ctx.fillStyle = M.dark ? M.acc : '#7B5F34';
         ctx.fillText(score + ' Hz', w / 2, h / 2 + cellSize * 0.6);
-        if (gameState === 'won') { var NM = MOVS[level % 5]; ctx.font = serifFont(Math.round(cellSize * 0.62)); ctx.fillStyle = M.dim; ctx.fillText('Next: ' + NM.n + '. ' + NM.name, w / 2, h / 2 + cellSize * 1.5); }
+        if (gameState === 'won') { var NM = movIdx() === 4 ? MOVS[5] : MOVS[level % 5]; ctx.font = serifFont(Math.round(cellSize * 0.62)); ctx.fillStyle = M.dim; ctx.fillText('Next: ' + NM.n + '. ' + NM.name, w / 2, h / 2 + cellSize * 1.5); }
         ctx.font = hudFont(600, Math.round(cellSize * 0.42)); ctx.fillStyle = M.dim; spaced(cellSize * 0.1);
         ctx.fillText(gameState === 'won' ? 'TAP OR PRESS ENTER FOR NEXT LEVEL' : 'TAP OR PRESS ENTER TO RESTART', w / 2, h / 2 + cellSize * (gameState === 'won' ? 2.5 : 1.9));
         spaced(0); ctx.globalAlpha = 1;
@@ -6112,12 +6117,1226 @@
       var dt = simLast ? now - simLast : STEP_MS; simLast = now;
       if (!(dt > 0) || dt > 250) dt = STEP_MS;
       frameK = dt / STEP_MS; simAcc += dt;
-      for (var n = 0; simAcc >= STEP_MS - 2 && n < 8; n++) { simAcc -= STEP_MS; if (gameState === 'playing') gameStep(); }
+      for (var n = 0; simAcc >= STEP_MS - 2 && n < 8; n++) { simAcc -= STEP_MS; if (TES.on) { try { tesStep(); } catch (x) { tesFail(x); } } else if (gameState === 'playing') gameStep(); }
       if (simAcc > STEP_MS) simAcc = 0;   // still behind after eight steps: let the backlog go
-      drawGame();
+      if (TES.on) { try { tesDraw(); } catch (x) { tesFail(x); } } else drawGame();
       animFrame = requestAnimationFrame(gameLoop);
     }
 
+    // =====================================================================================
+    // VI. TESSERACT, the finale: for signal and four shadows, after Harry Partch, Alvin Lucier, Karlheinz Stockhausen, and John Cage.
+    // The maze of the first five movements was one slice of a four-dimensional maze all along. Its four slices are the first four
+    // movements, recalled (a finale that looks back at what came before, as Beethoven's Ninth does), each in its own key: B-flat,
+    // D-flat, F-flat, and A-double-flat, a ring of just minor thirds (6:5) that never quite closes. Four of them overshoot the
+    // octave by a greater diesis (648:625); a Shepard drone lets you climb the ring forever. Space or a tap turns you through the
+    // fourth dimension into the next slice, and so does the tunnel. Each slice keeps its own notes and its own doors.
+    // The four oscillators return as shadows. In another slice a shadow is only half there, singing that slice's key; as it glides
+    // into yours it slides into your key and beats against your drone, slower and slower (after Lucier's Crossings), until the
+    // beating stops: unison, and it is here. The first shadow is your own echo, walking your path a few seconds behind you and
+    // singing your melody back to you, a canon that tightens as it runs (after Reich). The Tesseract at the center charges a slice
+    // and sends a pulse through it, a rhythm sped up until it becomes a pitch (after Stockhausen's Kontakte): turn out of that slice
+    // before the wave reaches you. A power pellet is a tacet (after Cage): the music stops, the page turns white, and the shadows
+    // can be caught, each in its own slice. Eat every note in a slice and it folds away, taking its shadow with it: four
+    // dimensions, three, two, one. When the last slice folds, the Tesseract has fallen to a single point, the last note of the
+    // suite. Catch it, in silence.
+    // =====================================================================================
+    var TES = { on: false, stage: '', hints: {}, hintQ: [], hint: null, sh: [], ring: [], hist: [], notes: [], trail: [] };
+    var TES_R = [116.54, 139.848, 167.818, 201.381];   // the four keys: B-flat, and each a just minor third (6:5) above the last
+    var TES_PC = [0, 315.641, 631.283, 946.924];   // the same, in cents above B-flat
+    var TES_KEY = ['B\u266D', 'D\u266D', 'F\u266D', 'A\u266D\u266D'];
+    var TES_NAME = ['Hard Bop', 'Drone', 'Stochastic', 'Harmonic Series'], TES_NO = ['I', 'II', 'III', 'IV'];
+    var TES_RGB = [[111, 168, 255], [186, 204, 226], [236, 130, 90], [188, 160, 255]];   // each slice wears its movement's color: the sleeve's blue, the drone's steel, the stochastic vermilion, the spectrum's violet
+    var TES_ACC = ['#F28A1E', '#D8C39A', '#F4D3C3', '#D9B36A'];
+    var TES_DOORS = [   // the passages each slice has and the others do not
+      [[9, 1], [9, 13], [2, 4], [16, 4], [7, 16], [11, 16]],
+      [[9, 5], [9, 17], [5, 2], [13, 2], [3, 15], [15, 15]],
+      [[9, 14], [8, 4], [10, 4], [1, 16], [17, 16], [5, 17], [13, 17]],
+      [[9, 18], [5, 4], [13, 4], [6, 14], [12, 14], [3, 18], [15, 18]]
+    ];
+    var TES_PELLET = [[1, 1], [17, 1], [1, 15], [17, 15]];   // one power pellet in each slice, one to a corner
+    var TES_MAP = ['###################', '#P1111111#1111111P#', '#3##3###3#3###3##3#', '#00000000000000000#', '#3##3#3#####3#3##3#', '#3333#333#333#3333#', '####2### # ###2####', '####2#       #2####', '####2# ##=## #2####', '####2  #   #  2####', '####2# ##### #2####', '####2#       #2####', '####2# ##### #2####', '#22222222#22222222#', '#1##1###1#1###1##1#', '#P3#33333 33333#3P#', '##2#2#2#####2#2#2##', '#1111#111#111#1111#', '#0######0#0######0#', '#00000000000000000#', '###################'];   // whose notes are where: each slice's notes lie along its own lines of the maze, like the four voices of a score
+    var TES_JP = [1, 9 / 8, 5 / 4, 3 / 2, 5 / 3];   // the solo's scale in every key: a pentatonic in just intonation
+    var TES_EVERY = [12, 11, 10, 10], TES_GLIDE = [0.22, 0.27, 0.32, 0.38], TES_TACET = [420, 390, 360, 330];   // by the number of slices already folded: the shadows quicken
+    var TES_D0 = [6, 5, 4.2, 3.4], TES_DMIN = [2.8, 2.5, 2.2, 1.9], TES_PULSE = [0, 0, 12, 14, 16];   // the echo's distance, its shortest, and the time between pulses (by slices left)
+    var TES_CORNER = [[17, 1], [1, 1], [17, 19], [1, 19]];
+    var TES_STEP = 60 / 104 / 2;   // the finale's eighth note
+    function tesRGBA(s, a) { var q = TES_RGB[s] || [201, 204, 209]; return 'rgba(' + q[0] + ',' + q[1] + ',' + q[2] + ',' + Math.max(0, Math.min(1, a)).toFixed(3) + ')'; }
+    function tesUnlocked() { try { return +(localStorage.getItem('signalChaseFinale') || 0); } catch (x) { return 0; } }
+    // ---------- the four-dimensional maze ----------
+    function tesIdx(c, r) { return r * COLS + c; }
+    function tesWall(s, c, r, ghost) {   // is (c, r) closed in slice s? (s < 0: the plain maze, no slice's doors open)
+      if (r === 9 && (c < 0 || c >= COLS)) return false;   // the tunnel's mouths
+      if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return true;
+      var v = TES.base[r][c];
+      if (v === 4) return !ghost;
+      if (v !== 1) return false;
+      return !(s >= 0 && TES.door[s] && TES.door[s][tesIdx(c, r)] === 1 && TES.ring.indexOf(s) >= 0);
+    }
+    function tesStepTo(c, r, d) {   // the cell one step away, through the tunnel if need be, and which way the tunnel turned you
+      var nc = c + (d === 1 ? 1 : d === 3 ? -1 : 0), nr = r + (d === 2 ? 1 : d === 0 ? -1 : 0), wr = 0;
+      if (nr === 9 && nc < 0) { nc = COLS - 1; wr = -1; } else if (nr === 9 && nc >= COLS) { nc = 0; wr = 1; }
+      return [nc, nr, wr];
+    }
+    function tesCan(s, c, r, d, ghost) { var n = tesStepTo(c, r, d); return !tesWall(s, n[0], n[1], ghost); }
+    function tesN() { return TES.ring.length; }
+    function tesPI() { return TES.ring.indexOf(TES.ps); }   // your place on the ring of slices
+    function tesWrapW(w) { var N = tesN(); return N ? ((w % N) + N) % N : 0; }
+    function tesWD(a, b) { var N = tesN(); if (N < 2) return 0; var d = tesWrapW(b - a); return d > N / 2 ? d - N : d; }   // the shorter way around the ring from a to b, signed
+    function tesSliceAt(w) { var N = tesN(); return N ? TES.ring[Math.round(tesWrapW(w)) % N] : -1; }
+    function tesCents(w) {   // where a place on the ring sits in pitch, in cents above B-flat: turning ana always climbs, and the ring wraps at the octave
+      var N = tesN(); if (!N) return 0;
+      var x = tesWrapW(w), i = Math.floor(x) % N, f = x - Math.floor(x), a = TES_PC[TES.ring[i]], b = TES_PC[TES.ring[(i + 1) % N]], st = b - a;
+      if (st <= 0) st += 1200;
+      return a + f * st;
+    }
+    function tesBuild() {   // a fresh four-dimensional maze: the plain maze with its tunnel opened, and four slices of doors and notes
+      var r, c, s;
+      TES.base = mazeTemplate.map(function (row) { return row.slice(); });
+      for (c = 0; c < 4; c++) { TES.base[9][c] = 3; TES.base[9][COLS - 1 - c] = 3; }
+      for (r = 0; r < ROWS; r++) for (c = 0; c < COLS; c++) if (TES.base[r][c] === 0 || TES.base[r][c] === 2) TES.base[r][c] = 3;   // the notes live in the slices now
+      TES.ring = [0, 1, 2, 3]; TES.door = []; TES.dots = []; TES.left = []; TES.k = 0;
+      for (s = 0; s < 4; s++) {
+        var dr = new Uint8Array(COLS * ROWS), dt = new Uint8Array(COLS * ROWS), n = 0;
+        TES_DOORS[s].forEach(function (p) { dr[tesIdx(p[0], p[1])] = 1; });
+        for (r = 0; r < ROWS; r++) for (c = 0; c < COLS; c++) if (TES_MAP[r].charAt(c) === String(s)) { dt[tesIdx(c, r)] = 1; n++; }
+        dt[tesIdx(TES_PELLET[s][0], TES_PELLET[s][1])] = 2; n++;
+        TES.door.push(dr); TES.dots.push(dt); TES.left.push(n);
+      }
+      TES.sh = [0, 1, 2, 3].map(function (i) { return { i: i, x: 9, y: 9, ox: 9, oy: 9, dir: 0, w: i, mode: 'house', fr: false, home: 0, mat: 0, jumpAt: 0, worm: [], ep: 0, hi: 0, ni: 0, s: 0, goneAt: 0 }; });
+    }
+    function tesPlace() {   // everyone to their places: you at the start, the shadows inside the Tesseract, your echo not yet sounding
+      playerX = 9; playerY = 15; playerDir = 3; playerNextDir = 3;
+      TES.hist = [{ t: TES.clock, x: 9, y: 15, s: TES.ps }]; TES.notes = []; TES.moves = 0; TES.trail = [];
+      var pi = tesPI();
+      TES.sh.forEach(function (h, i) {
+        if (h.mode === 'gone') return;
+        h.x = [9, 8, 9, 10][i]; h.y = 9; h.ox = h.x; h.oy = h.y; h.dir = 0; h.fr = false; h.mat = 0; h.worm = [];
+        h.mode = i === 0 ? 'wait' : 'house'; h.home = [0, 70, 220, 370][i];
+        var ni = TES.ring.indexOf(i); h.w = ni >= 0 ? ni : pi;   // each shadow begins in its own slice
+        h.jumpAt = TES.clock + 7 + Math.random() * 4;
+      });
+      tesPulseCut(); TES.tacet = 0; TES.modeT0 = TES.clock;
+    }
+    // ---------- movement VI's sounds ----------
+    function tesShepAmp(x) { return 0.5 - 0.5 * Math.cos(6.2832 * x / 8); }   // the Shepard bell: loud in the middle octaves, silent at both ends
+    function tesWrap8(x) { return ((x % 8) + 8) % 8; }
+    function tesDroneMake(c, out, t, pc, v, att) {   // the Tesseract's drone: a Shepard tone on your slice's key, root and fifth, under a fixed bell of loudness, so a turn ana always climbs and the ring can be climbed forever
+      var g = c.createGain(), lp = c.createBiquadFilter(), comps = [], i;
+      lp.type = 'lowpass'; lp.frequency.value = 2400; lp.Q.value = 0.3;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(0.0002, v), t + (att || 1.5)); g.connect(lp); lp.connect(out);
+      for (i = 0; i < 16; i++) {
+        var o = c.createOscillator(), a = c.createGain(), wgt = i < 8 ? 1 : 0.5, x = tesWrap8((i % 8) + pc / 1200 + (i < 8 ? 0 : 0.585));
+        o.frequency.setValueAtTime(29.135 * Math.pow(2, x), t); a.gain.setValueAtTime(tesShepAmp(x) * wgt, t);
+        o.connect(a); a.connect(g); o.start(t);
+        comps.push({ o: o, a: a, wgt: wgt, xa: x, xb: x, ta: t, tb: t });
+      }
+      function xAt(q, tt) { if (tt >= q.tb) return tesWrap8(q.xb); if (tt <= q.ta) return tesWrap8(q.xa); return tesWrap8(q.xa + (q.xb - q.xa) * (tt - q.ta) / (q.tb - q.ta)); }
+      var api = {
+        pc: pc, live: true,
+        glide: function (t1, to, gl) {   // to a new key; the target may lie above 1200 cents or below 0, so the glide always goes the way you turned
+          if (!api.live) return;
+          var dx = (to - api.pc) / 1200; api.pc = to;
+          comps.forEach(function (q) {
+            var x0 = xAt(q, t1), x1 = x0 + dx, F = q.o.frequency, A = q.a.gain;
+            F.cancelScheduledValues(t1); A.cancelScheduledValues(t1);
+            F.setValueAtTime(29.135 * Math.pow(2, x0), t1); A.setValueAtTime(tesShepAmp(x0) * q.wgt, t1);
+            if (x1 >= 8 || x1 < 0) {   // this partial runs off one end of the bell, where it is silent, and comes back in at the other
+              var up = x1 >= 8, tw = t1 + gl * ((up ? 8 : 0) - x0) / (x1 - x0), x2 = up ? x1 - 8 : x1 + 8;
+              F.exponentialRampToValueAtTime(29.135 * Math.pow(2, up ? 7.999 : 0.001), tw); A.linearRampToValueAtTime(0, tw);
+              F.setValueAtTime(29.135 * Math.pow(2, up ? 0.001 : 7.999), tw + 0.001);
+              F.exponentialRampToValueAtTime(29.135 * Math.pow(2, x2), t1 + gl); A.linearRampToValueAtTime(tesShepAmp(x2) * q.wgt, t1 + gl);
+            } else {
+              F.exponentialRampToValueAtTime(29.135 * Math.pow(2, x1), t1 + gl); A.linearRampToValueAtTime(tesShepAmp(x1) * q.wgt, t1 + gl);
+            }
+            q.xa = x0; q.xb = x1; q.ta = t1; q.tb = t1 + gl;
+          });
+        },
+        level: function (t1, lv, tau) {
+          if (!api.live) return;
+          if (g.gain.cancelAndHoldAtTime) g.gain.cancelAndHoldAtTime(t1); else g.gain.cancelScheduledValues(t1);
+          g.gain.setTargetAtTime(lv, t1, tau || 0.3);
+        },
+        stop: function (t1) {
+          if (!api.live) return; api.live = false;
+          if (g.gain.cancelAndHoldAtTime) g.gain.cancelAndHoldAtTime(t1); else g.gain.cancelScheduledValues(t1);
+          g.gain.setTargetAtTime(0, t1, 0.12);
+          comps.forEach(function (q) { try { q.o.stop(t1 + 1.2); } catch (x) {} });
+          letGo(comps[0].o, [g, lp]); comps.forEach(function (q) { letGo(q.o, [q.a]); });
+        }
+      };
+      return api;
+    }
+    SND.f6d = function (c, out, t, pc0, pc1, gl, v, dur) {   // a stretch of the drone, as the score keeps it: a key, the glide into it, and how long it held
+      var d = tesDroneMake(c, out, t, pc0, v, 0.25);
+      if (pc1 !== pc0) d.glide(t + 0.01, pc1, gl || 0.45);
+      d.stop(t + Math.max(0.3, dur || 1));
+    };
+    SND.f6p = function (c, out, t, f1, T, v, p) {   // the Tesseract's pulse: a rhythm sped up until it is a pitch (Stockhausen's continuum, as in Kontakte), then let go as a wave
+      var o = c.createOscillator(), hp = c.createBiquadFilter(), lp = c.createBiquadFilter(), g = c.createGain(), pk = 0.018 + v * 0.026, t2 = t + T;
+      var pm = c.createGain(); pm.connect(out); c.__tesPulse = pm;   // the whole pulse through one gain, so it can be cut off (f6c)
+      o.type = 'square'; o.frequency.setValueAtTime(2.5, t); o.frequency.exponentialRampToValueAtTime(f1, t2);
+      hp.type = 'highpass'; hp.frequency.value = 90; lp.type = 'lowpass'; lp.frequency.setValueAtTime(900, t); lp.frequency.exponentialRampToValueAtTime(5200, t2);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(pk, t + T * 0.85); g.gain.setValueAtTime(pk, t2); g.gain.exponentialRampToValueAtTime(0.0001, t2 + 0.45);
+      o.connect(hp); hp.connect(lp); lp.connect(g); var pn = panTo(c, g, pm, p || 0);
+      o.start(t); o.stop(t2 + 0.5); letGo(o, [hp, lp, g, pn]);
+      var b = c.createOscillator(), bg = c.createGain();   // the release: a low thump as the wave leaves the center
+      b.frequency.setValueAtTime(Math.max(40, f1 / 2), t2); b.frequency.exponentialRampToValueAtTime(Math.max(24, f1 / 8), t2 + 0.7);
+      bg.gain.setValueAtTime(0.0001, t2); bg.gain.exponentialRampToValueAtTime(0.06 + v * 0.06, t2 + 0.01); bg.gain.exponentialRampToValueAtTime(0.0001, t2 + 0.8);
+      b.connect(bg); var pb = panTo(c, bg, pm, 0); b.start(t2); b.stop(t2 + 0.85); letGo(b, [bg, pb]);
+      var n = c.createBufferSource(), nf = c.createBiquadFilter(), ng = c.createGain();   // and a breath of noise, falling, as it passes through the maze
+      n.buffer = noiseBufOf(c); nf.type = 'bandpass'; nf.Q.value = 1.2; nf.frequency.setValueAtTime(4200, t2); nf.frequency.exponentialRampToValueAtTime(260, t2 + 1.3);
+      ng.gain.setValueAtTime(0.0001, t2); ng.gain.exponentialRampToValueAtTime(0.03 + v * 0.03, t2 + 0.05); ng.gain.exponentialRampToValueAtTime(0.0001, t2 + 1.35);
+      n.connect(nf); nf.connect(ng); var pz = panTo(c, ng, pm, 0); n.start(t2, Math.random() * 0.5, 1.4); letGo(n, [nf, ng, pz, pm]);
+    };
+    SND.f6c = function (c, out, t) {   // the pulse cut off where it is, by a tacet, a fold, or a lost life: a quick fade, then nothing
+      var pm = c.__tesPulse; if (!pm) return; c.__tesPulse = null;
+      try { pm.gain.setValueAtTime(1, t); pm.gain.linearRampToValueAtTime(0, t + 0.08); } catch (x) {}
+    };
+    SND.f6x = function (c, out, t, f, v, p) {   // a shadow caught in antiphase: its tone and an inverted twin, the twin gliding into unison so the beating slows into silence
+      var o1 = c.createOscillator(), o2 = c.createOscillator(), g1 = c.createGain(), g2 = c.createGain(), m = c.createGain(), pk = 0.035 + v * 0.045;
+      o1.frequency.value = f; o2.frequency.setValueAtTime(f * 1.06, t); o2.frequency.exponentialRampToValueAtTime(f, t + 0.5);
+      g1.gain.value = 1; g2.gain.value = -1;
+      m.gain.setValueAtTime(0.0001, t); m.gain.exponentialRampToValueAtTime(pk, t + 0.008); m.gain.setValueAtTime(pk, t + 0.45); m.gain.exponentialRampToValueAtTime(0.0001, t + 0.8);
+      o1.connect(g1); o2.connect(g2); g1.connect(m); g2.connect(m); var pn = panTo(c, m, out, p || 0);
+      o1.start(t); o2.start(t); o1.stop(t + 0.85); o2.stop(t + 0.85); letGo(o1, [g1, m, pn]); letGo(o2, [g2]);
+    };
+    function tesPan(x) { return Math.max(-0.8, Math.min(0.8, (x / (COLS - 1) - 0.5) * 1.6)); }
+    function tesDroneSeg(t, pc0, pc1, gl, v) { TES.dseg = { t0: t, pc0: pc0, pc1: pc1, gl: gl, v: v }; }
+    function tesDroneLog(t) {   // the drone, written into the score one held stretch at a time
+      var s2 = TES.dseg; TES.dseg = null;
+      if (!s2 || !perf || perf.done) return;
+      perf.ev.push([pt(s2.t0), 'f6d', s2.pc0, s2.pc1, s2.gl, s2.v, Math.max(0.3, t - s2.t0)]);
+    }
+    var TES_DV = 0.11;   // the drone's level
+    function tesDroneStart(pc) {
+      var c = gameAudioCtx, out = gameOut(); if (!c || !out) return;
+      if (TES.drone) tesDroneStop();
+      var t = c.currentTime + 0.03;
+      try { TES.drone = tesDroneMake(c, out, t, pc, TES_DV, 1.5); tesDroneSeg(t, pc, pc, 0, TES_DV); } catch (x) { TES.drone = null; }
+    }
+    function tesDroneStop() {
+      var c = gameAudioCtx; if (!TES.drone || !c) { TES.drone = null; return; }
+      var t = c.currentTime; try { TES.drone.stop(t); } catch (x) {} TES.drone = null; tesDroneLog(t);
+    }
+    function tesDroneTo(s, dir) {   // a turn: the drone climbs (or falls) to the new slice's key, the way you turned
+      var c = gameAudioCtx, d = TES.drone; if (!c || !d) return;
+      var t = c.currentTime + 0.01, from = d.pc, to = TES_PC[s], dx = to - (((from % 1200) + 1200) % 1200);
+      if (dir > 0 && dx <= 0) dx += 1200; if (dir < 0 && dx >= 0) dx -= 1200;
+      try { d.glide(t, from + dx, 0.45); } catch (x) {}
+      tesDroneLog(t); tesDroneSeg(t, from, from + dx, 0.45, TES_DV);
+      if (Math.abs(d.pc) > 120000) { tesDroneStart(TES_PC[s]); }   // (after hundreds of turns, start a fresh drone in place)
+    }
+    function tesVoicesMake() {   // the four shadows' voices: sine, square, sawtooth, and noise, the four oscillators of the first movement
+      var c = gameAudioCtx, out = gameOut(); if (!c || !out) return null;
+      return [0, 1, 2, 3].map(function (i) {
+        var src, o = null, nz = null, bp = null, lp = c.createBiquadFilter(), g = c.createGain(), pn = c.createStereoPanner ? c.createStereoPanner() : null;
+        if (i === 3) { nz = c.createBufferSource(); nz.buffer = noiseBufOf(c); nz.loop = true; bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 18; nz.connect(bp); src = bp; }
+        else { o = c.createOscillator(); o.type = GTYPES[i]; o.frequency.value = 233.08; src = o; }
+        lp.type = 'lowpass'; lp.frequency.value = 900; lp.Q.value = 0.5; g.gain.value = 0;
+        src.connect(lp); lp.connect(g); if (pn) { g.connect(pn); pn.connect(out); } else g.connect(out);
+        if (o) o.start(); if (nz) nz.start();
+        return { o: o, nz: nz, bp: bp, lp: lp, g: g, pn: pn, ty: GTYPES[i] };
+      });
+    }
+    function tesVoicesKill() {
+      var V = TES.voices, c = gameAudioCtx; TES.voices = null;
+      if (!V || !c) return;
+      var t = c.currentTime;
+      V.forEach(function (v) { try { v.g.gain.cancelScheduledValues(t); v.g.gain.setTargetAtTime(0, t, 0.05); if (v.o) v.o.stop(t + 0.4); if (v.nz) v.nz.stop(t + 0.4); } catch (x) {} });
+      if (perf && !perf.done) { var z = [pt(t), 5]; for (var i = 0; i < 4; i++) z.push(220, 0, 0, 0); z.push(0, 0); perf.gh.push(z); }
+    }
+    function tesHumMake() {   // a faint overtone from a door in another slice beside you: you can hear a passage before you can see it
+      var c = gameAudioCtx, out = gameOut(); if (!c || !out) return null;
+      var o = c.createOscillator(), g = c.createGain(), pn = c.createStereoPanner ? c.createStereoPanner() : null;
+      o.frequency.value = 466; g.gain.value = 0; o.connect(g); if (pn) { g.connect(pn); pn.connect(out); } else g.connect(out); o.start();
+      return { o: o, g: g, pn: pn };
+    }
+    function tesHumKill() { var hm = TES.hum, c = gameAudioCtx; TES.hum = null; if (!hm || !c) return; try { hm.g.gain.setTargetAtTime(0, c.currentTime, 0.05); hm.o.stop(c.currentTime + 0.4); } catch (x) {} }
+    function tesAudioStart() {
+      try {
+        tesDroneStart(TES_PC[TES.ps]);
+        if (!TES.voices) TES.voices = tesVoicesMake();
+        if (!TES.hum) TES.hum = tesHumMake();
+      } catch (x) {}
+      tesBedStart();
+    }
+    function tesQuiet(all) {   // silence: the beds, the drone, the door's hum, and (all) the shadows' voices and the Tesseract's pulse too
+      clearInterval(TES.timer); TES.timer = 0;
+      tesDroneStop(); tesHumKill();
+      if (all) { tesVoicesKill(); tesPulseCut(); }
+    }
+    // the beds: each slice recalls its movement, in its own key, lightly, so the shadows can be heard over it
+    function tesBedStart() { clearInterval(TES.timer); var c = gameAudioCtx; TES.nextAt = c ? c.currentTime + 0.08 : 0; TES.timer = setInterval(tesPump, 25); }
+    function tesPump() {   // a look-ahead clock, like the suite's own: every eighth note lands on an exact grid
+      var c = gameAudioCtx; if (!c || !TES.on || gameState !== 'playing') return;
+      if (TES.nextAt < c.currentTime - 0.2) TES.nextAt = c.currentTime + 0.05;
+      while (TES.nextAt < c.currentTime + 0.12) { try { tesBeat(TES.nextAt); } catch (x) {} TES.nextAt += TES_STEP; }
+    }
+    var TES_WALK = [[1, 5 / 4, 3 / 2, 15 / 16], [1, 9 / 8, 5 / 4, 16 / 15], [1, 6 / 5, 3 / 2, 15 / 16], [1, 3 / 2, 5 / 3, 16 / 15]];   // the bass's bars: root, chord tones, and a half step into the next root
+    function tesBeat(t) {
+      var step = TES.beat = (TES.beat || 0) + 1;
+      if (TES.stage !== 'play' || TES.tacet > 0 || performance.now() < TES.freeze || TES.ps < 0) return;
+      var s = TES.ps, R = TES_R[s], b16 = step % 16, b8 = step % 8, beat = b8 >> 1, off = b8 & 1, dg = TES.danger || 0;
+      if (s === 0) {   // I. the trio, remembered: the ride's spang-a-lang, the hi-hat on two and four, the bass walking, the pianist's shells
+        var tt = t + (off ? TES_STEP * 0.24 : 0);
+        if (!off) play('drm', tt - 0.003, 'ride', (beat % 2 ? 0.74 : 0.58) * (0.9 + Math.random() * 0.2), 0.32);
+        else if (beat % 2 === 1 || dg > 0.6) play('drm', tt - 0.003, 'ride', 0.42 + Math.random() * 0.12, 0.32);
+        if (!off && beat % 2 === 1) play('drm', tt, 'hat', 0.62, 0.18);
+        if (!off) play('drm', tt, 'kick', 0.13, 0);
+        if (!off) { var wb = TES_WALK[Math.floor(step / 8) % 4]; play('ub', tt - 0.004, R / 2 * wb[beat], 0.58 + Math.random() * 0.2, -0.12, TES_STEP * 1.85); }
+        if (b8 === 0 || (b8 === 5 && Math.random() < 0.55)) [5 / 4, 9 / 5].forEach(function (q, i) { play('pno', tt + 0.006 + i * 0.005, R * q, 0.3 + dg * 0.15, -0.2, TES_STEP * 1.5); });
+      } else if (s === 1) {   // II. the tanpura, Pa, Sa, Sa, low Sa, one string at a time
+        if (!off || dg > 0.6) { var f1 = [1.5 * R, 2 * R, 2 * R, R][(TES.tan = (TES.tan || 0) + 1) % 4]; play('tan', t, f1, (0.5 + dg * 0.35) * 0.71, f1 < R * 1.2 ? -0.3 : f1 > R * 1.8 ? 0.25 : -0.1); }
+        if (b16 === 0) play('chm', t, R * [4, 5, 6, 8][Math.floor(Math.random() * 4)]);
+      } else if (s === 2) {   // III. stochastic grains on the key's partials, denser as the shadows close in
+        if (Math.random() < 0.2 + dg * 0.45) play('plk', t + Math.random() * TES_STEP * 0.9, R / 2 * (8 + Math.floor(Math.random() * 17)), 0.2 + Math.random() * 0.2, Math.random() * 1.6 - 0.8, 0.05 + Math.random() * 0.5);
+        if (Math.random() < 0.06) play('sin', t, R / 2 * (16 + Math.floor(Math.random() * 16)), 0.03, Math.random() * 1.6 - 0.8, 1.2);
+      } else {   // IV. down the harmonic series, sixteen to two, one harmonic every eighth note, and a bell at the top of each phrase
+        var kq = 16 - ((TES.scan = (TES.scan || 0) + 1) % 15);
+        if (!off || Math.random() < 0.5 + dg * 0.4) play('hp', t, R / 2 * kq, 0.25 + dg * 0.2, ((kq % 5) - 2) * 0.25);
+        if (b16 === 0) play('bell', t, R * 2, 0.35, 0, 1, 2.6);
+      }
+    }
+    function tesNote() {   // a note eaten: your melody, played by the slice's instrument, in the slice's key
+      var c = gameAudioCtx; if (!c) return;
+      var s = TES.ps, R = TES_R[s], t = c.currentTime + 0.005, pan = tesPan(playerX), f, d, o;
+      if (TES.tacet > 0) {   // in the silence your melody is turned upside down, each note mirrored about the key (Partch's utonality), and sung pure and soft
+        d = nextSoloDeg(10); o = Math.floor(d / 5); f = 2 * R * Math.pow(2, o) * TES_JP[d - o * 5];
+        f = 4 * R * R / f; while (f < 2 * R) f *= 2; while (f > 8 * R) f /= 2;
+        play('sin', t, f, 0.035, pan, 0.6); soloNote(f, 'string', 'sng');
+      } else if (s === 0) { d = nextSoloDeg(10); o = Math.floor(d / 5); f = 2 * R * Math.pow(2, o) * TES_JP[d - o * 5]; play('pno', t, f, 0.44 + Math.random() * 0.06, 0.18, 0.3, 2.8184); soloNote(f, 'ep', 'sx'); }
+      else if (s === 1) { d = nextSoloDeg(10); o = Math.floor(d / 5); f = 2 * R * Math.pow(2, o) * TES_JP[d - o * 5]; play('plk', t, f, 0.95, pan, 0.12); soloNote(f, 'string', 'plk'); }
+      else if (s === 2) { f = R / 2 * (8 + nextSoloDeg(16)); play('plk', t, f, 0.5, pan, 0.08 + Math.random() * 0.4); soloNote(f, 'string', 'plk'); }
+      else { f = R * (2 + nextSoloDeg(14)); while (f < 260) f *= 2; play('hp', t, f, 0.6, pan); soloNote(f, 'mode', 'hrn'); }
+      TES.notes.push([TES.clock, f]);
+    }
+    function tesEchoNote(f) {   // your echo sings back what you played: in the sound you made in movement V, if there is one
+      var c = gameAudioCtx, e = TES.sh[0]; if (!c) return;
+      var t = c.currentTime + 0.01, near = e.s === TES.ps ? 1 : 0.55, pan = tesPan(e.x);
+      if (tape) play('vchomp', t, tape.id, tapeRate(f, tape, tape.body), tape.body, 0.3 * near, pan);
+      else play('sin', t, f, 0.018 * near, pan, 0.45);
+    }
+    function tesFoldSound(s) {   // each slice ends its own way, and then folds down into the fourth dimension
+      var c = gameAudioCtx; if (!c) return; var t = c.currentTime + 0.02, R = TES_R[s];
+      if (s === 0) { [1 / 2, 5 / 4, 5 / 3, 9 / 4, 45 / 16].forEach(function (q, i) { play('pno', t + i * 0.006, R * q, 0.85, i ? 0.2 : -0.2, 2.4); }); play('ub', t, R / 2, 0.9, -0.12, 2); play('drm', t, 'crash', 1, 0.3); play('drm', t, 'kick', 0.9, 0); }
+      else if (s === 1) { [R, 1.5 * R, 2 * R, 2 * R].forEach(function (f, i) { play('tan', t + i * 0.2, f, 0.9, (i - 1.5) * 0.3); }); [4, 6, 8].forEach(function (q, i) { play('chm', t + 0.5 + i * 0.3, R * q); }); }
+      else if (s === 2) { [8, 10, 12, 15, 16].forEach(function (q, i) { play('sin', t + i * 0.03, R / 2 * q, 0.06, (i - 2) * 0.3, 4); }); }
+      else { play('rfin', t, R, 1); }
+      play('shep', t + 0.15, 2.2, -1, 0.7, 1.1);
+    }
+    function tesDeathSound() {   // caught: the signal falls away in glissandi (and your own sound sinks, if you made one)
+      var c = gameAudioCtx; if (!c) return; var t = c.currentTime + 0.01, r = TES_R[TES.ps >= 0 ? TES.ps : 0];
+      if (tape) play('vwilt', t, tape.id, tape.head || tape.body, 1);
+      [1, 1.25, 1.5, 2].forEach(function (mm, i) { play('gls', t + i * 0.05, r * mm, 0.085, (i - 1.5) * 0.3, 0.25, 1.6); });
+    }
+    function tesIntroSound() {   // the Tesseract unfolds from a point, and each dimension it gains recalls a movement
+      var c = gameAudioCtx; if (!c) return; var t = c.currentTime + 0.05, i;
+      play('fh', t, 58.27, 0.8, 3.4);   // a point: the page's own B-flat
+      [1 / 2, 5 / 4, 5 / 3, 9 / 4].forEach(function (q, j) { play('pno', t + 0.72 + j * 0.006, 116.54 * q, 0.6, 0.2, 1.2); }); play('drm', t + 0.72, 'ride', 0.7, 0.32);   // a line: the first movement
+      play('tan', t + 1.44, 116.54, 0.8, -0.2); play('tan', t + 1.56, 174.61, 0.7, 0.2);   // a square: the second
+      for (i = 0; i < 10; i++) play('plk', t + 2.16 + Math.random() * 0.5, 58.27 * (8 + Math.floor(Math.random() * 16)), 0.3, Math.random() * 1.6 - 0.8, 0.05 + Math.random() * 0.4);   // a cube: the third
+      [2, 3, 4, 5].forEach(function (k, j) { play('hp', t + 2.88 + j * 0.07, 116.54 * k, 0.7, (j - 1.5) * 0.4); });   // the Tesseract: the fourth
+      if (tape) play('vwhoop', t + 3.4, tape.id, tape.body, 1); else play('shep', t + 3.3, 1.2, 1, 0.8, 1.2);   // and the fifth, the sound you made, swept upward
+    }
+    function tesFineSound() {   // the end of the suite: a moment of silence; the page's fundamental and its whole harmonic series; every note you played, swept past; and the tuning that began it all
+      var c = gameAudioCtx; if (!c) return; var t = c.currentTime + 1.5;
+      play('fh', t, 58.27, 1, 7);
+      play('rfin', t + 0.1, 58.27, 1);
+      var S = perf ? perf.solo : [], n = S.length, take = Math.min(150, n), T0 = t + 1.2, span = 7;
+      for (var i = 0; i < take; i++) {
+        var q = S[Math.floor(i * n / take)], f = q[1]; while (f > 1500) f /= 2; while (f < 180) f *= 2;
+        play('sin', T0 + span * i / Math.max(1, take - 1) + Math.random() * 0.02, f, 0.012 + 0.01 * Math.random(), (i / Math.max(1, take - 1)) * 1.4 - 0.7, 1.4);
+      }
+      [2, 3, 4, 5, 6].forEach(function (k, j) { play('chm', T0 + span + 0.4 + j * 0.16, 116.54 * k); });
+      [2, 3, 4, 5].forEach(function (k, j) { play('bell', T0 + span + 1.4 + j * 0.35, 116.54 * k, 0.8, (j - 1.5) * 0.4, 1, 3.6); });
+    }
+    function tesShadowHz(h) {   // what a shadow sings: the key of where it is on the ring, folded to within a tritone of your own drone, so one gliding into your slice beats against it
+      if (TES.ps < 0) return 233.08;
+      var D = tesCents(h.w) - TES_PC[TES.ps]; D = ((D % 1200) + 1200) % 1200; if (D > 600) D -= 1200;
+      return 2 * TES_R[TES.ps] * Math.pow(2, D / 1200);
+    }
+    function tesBeatHz(h) { return Math.abs(tesShadowHz(h) - 2 * TES_R[TES.ps]); }
+    var tesLastVoice = 0, tesLastLog = 0;
+    function tesTick() {   // twenty times a second: the shadows' voices, the danger they bring, the door's hum; ten times a second, into the score
+      var now = performance.now(), c = gameAudioCtx;
+      if (!c || now - tesLastVoice < 50) return;
+      tesLastVoice = now;
+      var t = c.currentTime, V = TES.voices, pi = TES.ps >= 0 ? tesPI() : -1, row = [pt(t), 5], i, dmax = 0, playing = TES.stage === 'play' && gameState === 'playing';
+      for (i = 0; i < 4; i++) {
+        var h = TES.sh[i], f = 233.08, gn = 0, pan = 0, br = 0;
+        if (playing && h && i > 0 && h.mode === 'out' && pi >= 0) {
+          var dx = h.x - playerX, dy = h.y - playerY, prox = Math.max(0, 1 - Math.sqrt(dx * dx + dy * dy) / 12), dw = Math.abs(tesWD(h.w, pi)), wp = Math.max(0, 1 - dw);
+          f = tesShadowHz(h); if (h.fr) f /= 2;
+          gn = (0.003 + 0.05 * Math.pow(prox, 1.5)) * (0.45 + 0.55 * wp) * (h.fr ? 0.6 : 1) * (h.mat > 0 ? 0.5 : 1);
+          pan = Math.max(-0.9, Math.min(0.9, h.x / (COLS - 1) * 2 - 1)); br = h.fr ? 0.08 : prox * (0.3 + 0.7 * wp);
+          if (!h.fr && dw < 0.001) dmax = Math.max(dmax, prox);
+          if (!h.fr && dw < 0.6 && dw > 0.001 && prox > 0.45) tesHint('beat');
+        }
+        if (TES.stage === 'coda' && i === 0 && TES.pt) {   // in the coda, the last note's voice: a pure B-flat, louder as you close in
+          var pq = TES.pt, ddx = pq.x - playerX, ddy = pq.y - playerY, pr2 = Math.max(0, 1 - Math.sqrt(ddx * ddx + ddy * ddy) / 16);
+          f = 233.08; gn = 0.012 + 0.05 * pr2 * pr2; pan = Math.max(-0.9, Math.min(0.9, pq.x / (COLS - 1) * 2 - 1)); br = 0.15 + 0.4 * pr2;
+        }
+        if (V && V[i]) {
+          var v = V[i], mul = typeMul(v.ty);
+          if (v.o) v.o.frequency.setTargetAtTime(f, t, 0.08); if (v.bp) v.bp.frequency.setTargetAtTime(f, t, 0.08);
+          v.lp.frequency.setTargetAtTime(300 + br * 5200, t, 0.1); v.g.gain.setTargetAtTime(gn * mul, t, 0.08);
+          if (v.pn) v.pn.pan.setTargetAtTime(pan, t, 0.1);
+        }
+        row.push(f, gn, pan, br);
+      }
+      TES.danger = (TES.danger || 0) + (dmax - (TES.danger || 0)) * 0.12;
+      if (TES.hum && pi >= 0 && playing) {   // a door of another slice beside you hums in that slice's key
+        var hs = -1, hx = playerX;
+        for (var d = 0; d < 4 && hs < 0; d++) {
+          var n = tesStepTo(playerX, playerY, d); if (n[0] < 0 || n[0] >= COLS || n[1] < 0 || n[1] >= ROWS) continue;
+          for (var q = 0; q < TES.ring.length; q++) { var sq = TES.ring[q]; if (sq !== TES.ps && TES.door[sq][tesIdx(n[0], n[1])] && tesWall(TES.ps, n[0], n[1], false)) { hs = sq; hx = n[0]; break; } }
+        }
+        TES.hum.o.frequency.setTargetAtTime(hs >= 0 ? TES_R[hs] * 4 : 466, t, 0.05);
+        TES.hum.g.gain.setTargetAtTime(hs >= 0 && TES.tacet <= 0 ? 0.006 : 0, t, 0.12);
+        if (TES.hum.pn) TES.hum.pn.pan.setTargetAtTime(tesPan(hx), t, 0.1);
+      } else if (TES.hum) TES.hum.g.gain.setTargetAtTime(0, t, 0.1);
+      if (perf && !perf.done && (playing || TES.stage === 'coda') && now - tesLastLog >= 100) {
+        tesLastLog = now;
+        row.push(0, 0); perf.gh.push(row);
+        perf.path.push([pt(t), playerX, playerY]);
+      }
+    }
+    // ---------- movement VI's play ----------
+    function tesEnter(fromGod) {   // into movement VI: from the end of movement V, or straight here in god mode
+      if (TES.on) return;
+      clearTimeout(startTimer); startTimer = 0;
+      stopMusic(); closeStudio(); hideCard();
+      if (gameState === 'title') { clearInterval(titleTimer); titleUI(false); ghostVoicesKill(); }
+      var c = gameAudioCtx; if (c && c.state !== 'running') c.resume();
+      TES.on = true; level = 6; gameState = 'playing';
+      if (!perf || perf.done) perfStart();
+      logMark('mov', 5); var o = gameOut(); if (o && o.movAt && c) o.movAt(5, c.currentTime);
+      if (!fromGod) lives = Math.min(5, lives + 1);   // the suite gives you one more signal for its finale
+      if (lives < 1) lives = 3;
+      TES.score0 = score; TES.hints = {}; TES.hintQ = []; TES.hint = null; TES.danger = 0;
+      TES.clock = 0; TES.tick = 0; TES.ps = 0; TES.freeze = 0; TES.pt = null;
+      tesBuild(); tesPlace();
+      TES.stage = 'intro'; TES.st0 = performance.now();
+      try { if (tesUnlocked() < 1) localStorage.setItem('signalChaseFinale', '1'); } catch (x) {}
+      tesIntroSound();
+    }
+    function tesPlay() {   // the intro is over (or skipped): the drone, the beds, the shadows' voices, and play
+      TES.stage = 'play'; TES.titleAt = performance.now(); TES.modeT0 = TES.clock; TES.nextPulse = TES.clock + 15; TES.st0 = performance.now();
+      tesAudioStart();
+      TES.notesHintAt = TES.clock + 7;
+    }
+    function tesOff() {   // leaving movement VI by any door: a restart, god mode, or closing the game
+      if (!TES.on) return;
+      TES.on = false; TES.stage = '';
+      tesQuiet(true);
+    }
+    function tesFail(x) {   // a safeguard: should the finale ever go wrong, it ends the run quietly instead of stopping the game
+      try { console.error('Signal Chase, movement VI:', x); } catch (y) {}
+      try { tesOff(); } catch (y) {}
+      if (gameState === 'playing') { gameState = 'gameover'; try { stopMusic(); } catch (y) {} }
+    }
+    function tesStep() {   // one sixtieth of a second of movement VI
+      var now = performance.now(), st = TES.stage;
+      if (st === 'intro') { if (now - TES.st0 > 4300) tesPlay(); return; }
+      if (st === 'fold') { if (now - TES.st0 > 2600) tesFoldDone(); return; }
+      if (st === 'cont') { if (now - TES.st0 > 10000) tesLose(); return; }
+      if (st === 'fine') { if (now - TES.st0 > 13800 && gameState === 'playing') { gameState = 'gameover'; stopMusic(); } return; }
+      if (gameState !== 'playing' || (st !== 'play' && st !== 'coda')) return;
+      if (now < TES.freeze) return;   // a lost life: everything holds still for a moment
+      TES.tick++; TES.clock += 1 / 60;
+      var ox = playerX, oy = playerY;
+      if (TES.tick % 12 === 0) tesMovePlayer();
+      if (TES.stage !== st) return;   // that step folded a slice
+      if (st === 'coda') { tesCodaStep(ox, oy); return; }
+      if (TES.notesHintAt && TES.clock > TES.notesHintAt) { TES.notesHintAt = 0; tesHint('notes'); }
+      tesShadowsStep();
+      tesEchoStep();
+      if (TES.tacet > 0 && --TES.tacet === 0) tesTacetEnd();
+      tesPulseStep();
+      if (TES.stage === st) tesCollide(ox, oy);
+    }
+    function tesMovePlayer() {
+      var s = TES.stage === 'coda' ? -1 : TES.ps;
+      if (tesCan(s, playerX, playerY, playerNextDir, false)) playerDir = playerNextDir;
+      if (!tesCan(s, playerX, playerY, playerDir, false)) return;
+      var n = tesStepTo(playerX, playerY, playerDir);
+      playerX = n[0]; playerY = n[1]; TES.moves++;
+      TES.trail.push({ x: playerX, y: playerY, t: performance.now() }); if (TES.trail.length > 40) TES.trail.shift();
+      if (TES.stage === 'coda') return;
+      if (n[2] && tesN() > 1) { tesTurn(n[2], 'tunnel'); tesHint('tunnel'); }
+      TES.hist.push({ t: TES.clock, x: playerX, y: playerY, s: TES.ps });
+      if (TES.hist.length > 600) { TES.hist.splice(0, 200); TES.sh[0].hi = Math.max(0, TES.sh[0].hi - 200); }
+      var k = tesIdx(playerX, playerY), v = TES.dots[TES.ps][k];
+      if (!v) return;
+      TES.dots[TES.ps][k] = 0; TES.left[TES.ps]--;
+      if (v === 2) { score += 50; tesTacet(); } else { score += 10; tesNote(); }
+      if (TES.notes.length > 400) { TES.notes.splice(0, 200); TES.sh[0].ni = Math.max(0, TES.sh[0].ni - 200); }
+      if (TES.left[TES.ps] > 0 && TES.left[TES.ps] <= 6) tesHint('fold');
+      if (TES.left[TES.ps] <= 0) tesFold(TES.ps);
+    }
+    function tesTurn(dir, why) {   // through the fourth dimension, into the next slice (ana) or back (kata)
+      var N = tesN(), c = gameAudioCtx;
+      if (N < 2) { if (why !== 'tunnel') tesBump(-1); return false; }
+      var i = tesPI(), s2 = TES.ring[(i + dir + N) % N];
+      if (why !== 'tunnel' && tesWall(s2, playerX, playerY, false)) { tesBump(s2); return false; }
+      TES.turnFrom = TES.ps; TES.ps = s2; TES.turnAt = performance.now();
+      if (why !== 'tunnel') TES.hist.push({ t: TES.clock, x: playerX, y: playerY, s: s2 });
+      tesDroneTo(s2, dir);
+      if (c) play('sin', c.currentTime + 0.01, TES_R[s2] * 4, 0.016, tesPan(playerX), 0.7);
+      return true;
+    }
+    function tesBump(s2) {   // a turn refused: the cell you stand on is a wall in the next slice
+      var c = gameAudioCtx; TES.bumpAt = performance.now(); TES.bumpS = s2;
+      if (c) play('bd', c.currentTime + 0.01, 0.25, tesPan(playerX));
+      if (s2 >= 0) tesHint('blocked');
+    }
+    function tesTacet() {   // a power pellet: tacet. Everything stops but you and the shadows, and the shadows can be caught
+      var c = gameAudioCtx;
+      TES.tacet = TES_TACET[Math.min(3, TES.k)];
+      burst(playerX, playerY, false); logMark('power');
+      TES.sh.forEach(function (h) { if ((h.i > 0 && h.mode === 'out') || (h.i === 0 && h.mode === 'echo')) { h.fr = true; if (h.i) h.dir = (h.dir + 2) % 4; } });
+      tesPulseCut();   // the Tesseract's charge, or its wave, dies away in the silence
+      TES.nextPulse = Math.max(TES.nextPulse, TES.clock + TES.tacet / 60 + 6);
+      if (TES.drone && c) { try { TES.drone.level(c.currentTime, 0, 0.04); } catch (x) {} tesDroneLog(c.currentTime); }
+      if (c) play('chm', c.currentTime + 0.02, TES_R[TES.ps] * 4);   // the bell that begins the silence
+      tesHint('tacet');
+    }
+    function tesTacetEnd() {
+      var c = gameAudioCtx;
+      TES.tacet = 0; tesHintEnd('tacet');
+      TES.sh.forEach(function (h) { h.fr = false; });
+      var e = TES.sh[0]; if (e.mode === 'echo' || e.mode === 'eyes') { e.mode = 'wait'; }   // the canon begins again, at its full distance
+      if (TES.drone && c && TES.stage === 'play') { try { TES.drone.level(c.currentTime, TES_DV, 0.5); } catch (x) {} tesDroneSeg(c.currentTime, TES.drone.pc, TES.drone.pc, 0, TES_DV); }
+      if (c && TES.stage === 'play') play('chm', c.currentTime + 0.02, TES_R[TES.ps] * 4);
+    }
+    function tesShadowsStep() {
+      var pi = tesPI(), N = tesN(), k = Math.min(3, TES.k), mt = TES.clock - TES.modeT0;
+      var chase = (mt >= 5 && mt < 25) || (mt >= 30 && mt < 50) || mt >= 54;
+      for (var i = 1; i < 4; i++) {
+        var h = TES.sh[i];
+        h.ox = h.x; h.oy = h.y;
+        if (h.mode === 'gone') continue;
+        if (h.mode === 'house') { if (h.home > 0) h.home--; else if (TES.tick % 10 === 0) tesHouseExit(h); continue; }
+        if (h.mode === 'eyes') { if (TES.tick % 6 === 0) tesEyes(h); continue; }
+        if (h.mat > 0) h.mat--;
+        tesGlide(h, chase, pi, N, k);
+        if (TES.tick % (h.fr ? 18 : TES_EVERY[k]) === 0) tesWalk(h, chase);
+      }
+    }
+    function tesHouseExit(h) {   // out of the Tesseract, through the gate
+      if (h.x !== 9) { h.x += h.x < 9 ? 1 : -1; return; }
+      if (h.y > 7) { h.y--; if (h.y === 7) { h.mode = 'out'; h.dir = Math.random() < 0.5 ? 1 : 3; } }
+    }
+    function tesGlide(h, chase, pi, N, k) {   // through the fourth dimension, toward you (or home to its own slice, or away when frightened)
+      if (N < 2) { h.w = 0; return; }
+      if (h.fr) { h.w = tesWrapW(Math.round(h.w)); return; }   // in a tacet the fourth dimension stands still: each shadow is held in the slice it was nearest, to be caught there
+      if (h.i === 3) {   // chance does not glide: now and then it leaps to a slice chosen at random
+        if (TES.clock >= h.jumpAt) {
+          var cur = Math.round(tesWrapW(h.w)) % N, opts = [];
+          for (var j = 0; j < N; j++) if (j !== cur && !tesWall(TES.ring[j], h.x, h.y, false)) opts.push(j);
+          if (opts.length) { h.w = opts[Math.floor(Math.random() * opts.length)]; h.mat = 60; tesLeap(h); }
+          h.jumpAt = TES.clock + 5 + Math.random() * 5 - k * 0.6;
+        }
+        return;
+      }
+      var tgt;
+      if (chase) tgt = pi;
+      else { var ni = TES.ring.indexOf(h.i); tgt = ni >= 0 ? ni : pi; }
+      var d = tesWD(h.w, tgt), rate = TES_GLIDE[k] / 60;
+      if (Math.abs(d) < 1e-6) { h.w = tesWrapW(Math.round(h.w)); return; }
+      var nw = Math.abs(d) <= rate || Math.abs(d) < 0.04 ? tgt : h.w + (d > 0 ? rate : -rate);
+      if (tesSliceAt(nw) !== tesSliceAt(h.w) && tesWall(tesSliceAt(nw), h.x, h.y, false)) return;   // standing in a doorway of its own slice, it cannot cross over until it steps out
+      h.w = tesWrapW(nw);
+    }
+    function tesLeap(h) {   // chance's leap, heard as a burst of noise in the slice it lands in
+      var c = gameAudioCtx; if (!c) return;
+      play('hh', c.currentTime + 0.01, 0.9, Math.max(-0.9, Math.min(0.9, h.x / (COLS - 1) * 2 - 1)));
+    }
+    function tesTarget(h, chase) {
+      var px = playerX, py = playerY, d = playerDir;
+      if (!chase) return TES_CORNER[h.i];
+      if (h.i === 1) return [px + (d === 1 ? 4 : d === 3 ? -4 : 0), py + (d === 2 ? 4 : d === 0 ? -4 : 0)];   // anticipation: four steps ahead of you
+      if (h.i === 2) {   // inversion: the point two steps ahead of you, mirrored through your echo
+        var ax = px + (d === 1 ? 2 : d === 3 ? -2 : 0), ay = py + (d === 2 ? 2 : d === 0 ? -2 : 0), e = TES.sh[0], on = e.mode === 'echo';
+        return [2 * ax - (on ? e.x : px), 2 * ay - (on ? e.y : py)];
+      }
+      var dx = h.x - px, dy = h.y - py;   // chance: hunts you from afar, wanders off up close
+      return dx * dx + dy * dy > 64 ? [px, py] : TES_CORNER[3];
+    }
+    function tesWalk(h, chase) {
+      var s = tesSliceAt(h.w), opp = (h.dir + 2) % 4, best = -1, bd = 1e9, opts = [], d, tg = tesTarget(h, chase);
+      for (d = 0; d < 4; d++) {
+        if (d === opp) continue;
+        var n = tesStepTo(h.x, h.y, d);
+        if (tesWall(s, n[0], n[1], false)) continue;
+        opts.push(d);
+        var dist = (n[0] - tg[0]) * (n[0] - tg[0]) + (n[1] - tg[1]) * (n[1] - tg[1]);
+        if (dist < bd) { bd = dist; best = d; }
+      }
+      if (!opts.length) best = opp;
+      else if (h.fr) best = opts[Math.floor(Math.random() * opts.length)];
+      else if (h.i === 3 && Math.random() < 0.25) best = opts[Math.floor(Math.random() * opts.length)];   // chance
+      var n2 = tesStepTo(h.x, h.y, best);
+      if (tesWall(s, n2[0], n2[1], false)) return;
+      h.dir = best; h.x = n2[0]; h.y = n2[1];
+      if (n2[2] && tesN() > 1) h.w = tesWrapW(Math.round(h.w) + n2[2]);   // the tunnel turns the shadows, too
+      h.worm.push([h.x, h.y, performance.now()]); if (h.worm.length > 16) h.worm.shift();
+    }
+    function tesPath(sx, sy, tx, ty) {   // the first step of the shortest way, by breadth-first search through the plain maze and the gate
+      if (sx === tx && sy === ty) return -1;
+      var seen = new Uint8Array(COLS * ROWS), q = [[sx, sy, -1]], head = 0; seen[tesIdx(sx, sy)] = 1;
+      while (head < q.length) {
+        var cur = q[head++];
+        for (var d = 0; d < 4; d++) {
+          var n = tesStepTo(cur[0], cur[1], d);
+          if (tesWall(-1, n[0], n[1], true)) continue;
+          var key = tesIdx(n[0], n[1]); if (seen[key]) continue; seen[key] = 1;
+          var first = cur[2] < 0 ? d : cur[2];
+          if (n[0] === tx && n[1] === ty) return first;
+          q.push([n[0], n[1], first]);
+        }
+      }
+      return -1;
+    }
+    function tesEyes(h) {   // a caught shadow's eyes, hurrying home into the Tesseract
+      if (h.x === 9 && h.y === 9) { h.mode = 'house'; h.home = 100; h.fr = false; h.mat = 0; var ni = TES.ring.indexOf(h.i); if (ni >= 0) h.w = ni; return; }
+      var d = tesPath(h.x, h.y, 9, 9);
+      if (d < 0) { h.x = 9; h.y = 9; return; }
+      var n = tesStepTo(h.x, h.y, d); h.x = n[0]; h.y = n[1]; h.dir = d;
+    }
+    function tesEchoStep() {   // your echo: your own path and turns, played back a few seconds late
+      var e = TES.sh[0], k = Math.min(3, TES.k);
+      e.ox = e.x; e.oy = e.y;
+      if (e.mode === 'gone' || e.mode === 'eyes') return;
+      if (e.mode === 'wait') {   // it enters once you have walked a while, a canon at the distance of its delay
+        if (TES.tacet > 0 || TES.moves < 10 || TES.clock - TES.hist[0].t < TES_D0[k]) return;
+        e.mode = 'echo'; e.ep = TES.clock - TES_D0[k]; e.hi = 0; e.mat = 72; e.ni = 0;
+        while (e.ni < TES.notes.length && TES.notes[e.ni][0] <= e.ep) e.ni++;
+        tesEchoSeek(e); e.ox = e.x; e.oy = e.y; tesHint('echo');
+        return;
+      }
+      if (e.mat > 0) e.mat--;
+      if (e.fr) return;   // tacet: the tape has stopped
+      e.ep += (TES.clock - e.ep > TES_DMIN[k] ? 1.022 : 1) / 60;   // it runs a hair fast, so the canon tightens (Reich's phasing), down to its shortest distance
+      tesEchoSeek(e);
+      while (e.ni < TES.notes.length && TES.notes[e.ni][0] <= e.ep) { tesEchoNote(TES.notes[e.ni][1]); e.ni++; }
+    }
+    function tesEchoSeek(e) {
+      var H = TES.hist;
+      if (e.hi >= H.length) e.hi = H.length - 1;
+      while (e.hi + 1 < H.length && H[e.hi + 1].t <= e.ep) e.hi++;
+      var q = H[Math.max(0, e.hi)]; e.x = q.x; e.y = q.y; e.s = TES.ring.indexOf(q.s) >= 0 ? q.s : TES.ps;
+    }
+    function tesPresent(h) {   // is this shadow wholly here, in your slice?
+      if (h.i === 0) return h.mode === 'echo' && h.mat <= 0 && h.s === TES.ps;
+      return h.mode === 'out' && h.mat <= 0 && Math.abs(tesWD(h.w, tesPI())) < 0.001;
+    }
+    function tesCollide(ox, oy) {
+      for (var i = 0; i < 4; i++) {
+        var h = TES.sh[i];
+        if (!tesPresent(h)) continue;
+        var same = h.x === playerX && h.y === playerY, swap = h.ox === playerX && h.oy === playerY && h.x === ox && h.y === oy;
+        if (!same && !swap) continue;
+        if (h.fr) { tesCatchShadow(h); continue; }
+        if (god.on && god.inv) continue;   // god mode: the shadows pass through you
+        tesCaught(); return;
+      }
+    }
+    function tesCatchShadow(h) {   // caught in the silence: canceled in antiphase
+      var c = gameAudioCtx; score += 200; burst(h.x, h.y, true); logMark('ghost');
+      if (c) play('f6x', c.currentTime + 0.01, tesShadowHz(h), 1, tesPan(h.x));
+      h.mode = 'eyes'; h.fr = false;
+    }
+    function tesCaught() {   // a lost life
+      lives--; logMark('death'); deathFx(playerX, playerY); tesDeathSound();
+      TES.freeze = performance.now() + 1100;
+      if (TES.tacet) tesTacetEnd();
+      if (lives <= 0) { tesContinuePrompt(); return; }
+      tesPlace(); TES.nextPulse = TES.clock + 10;
+      var c = gameAudioCtx; if (TES.drone && c) { try { TES.drone.level(c.currentTime, TES_DV, 0.5); } catch (x) {} }
+    }
+    function tesPulseCut() {   // the Tesseract's pulse stops where it is, and so does its sound if any of it is still to come
+      var p = TES.pulse, c = gameAudioCtx; TES.pulse = null;
+      if (p && c && TES.clock < p.t0 + p.T + 1.5) play('f6c', c.currentTime + 0.01);
+      tesHintEnd('pulse');
+    }
+    function tesPulseStep() {   // the Tesseract charges a slice, then fires a wave through it
+      var p = TES.pulse, c = gameAudioCtx, N = tesN();
+      if (!p) {
+        if (N >= 2 && TES.tacet <= 0 && TES.clock >= TES.nextPulse) {
+          p = TES.pulse = { s: TES.ps, t0: TES.clock, T: 2.8, fired: false, r: 0, pr: 0 };
+          if (c) play('f6p', c.currentTime + 0.02, 2 * TES_R[p.s], p.T, 0.8, 0);
+          tesHint('pulse');
+        }
+        return;
+      }
+      if (TES.ring.indexOf(p.s) < 0) { TES.pulse = null; return; }
+      if (!p.fired) { if (TES.clock >= p.t0 + p.T) { p.fired = true; p.r = 0; TES.flashAt = performance.now(); } return; }
+      p.pr = p.r; p.r += 12 / 60;
+      var cx = 9.5, cy = 9.5;
+      if (TES.ps === p.s && !(god.on && god.inv)) {
+        var dp = Math.sqrt((playerX + 0.5 - cx) * (playerX + 0.5 - cx) + (playerY + 0.5 - cy) * (playerY + 0.5 - cy));
+        if (dp > p.pr - 0.3 && dp <= p.r + 0.3) { TES.pulse = null; TES.nextPulse = TES.clock + TES_PULSE[N]; tesCaught(); return; }
+      }
+      for (var i = 1; i < 4; i++) {   // the wave cancels any shadow it finds in its slice
+        var h = TES.sh[i];
+        if (h.mode !== 'out' || tesSliceAt(h.w) !== p.s || Math.abs(tesWD(h.w, TES.ring.indexOf(p.s))) > 0.001) continue;
+        var dh = Math.sqrt((h.x + 0.5 - cx) * (h.x + 0.5 - cx) + (h.y + 0.5 - cy) * (h.y + 0.5 - cy));
+        if (dh > p.pr && dh <= p.r) { h.mode = 'eyes'; h.fr = false; score += 100; burst(h.x, h.y, true); if (c) play('gls', c.currentTime + 0.01, tesShadowHz(h), 0.06, tesPan(h.x), 0.5, 0.6); }
+      }
+      if (p.r > 17) { TES.pulse = null; TES.nextPulse = TES.clock + (TES_PULSE[N] || 14); }
+    }
+    function tesFold(s) {   // a slice's last note is eaten: it folds away into the fourth dimension, and its shadow with it
+      TES.stage = 'fold'; TES.st0 = performance.now(); TES.foldS = s; TES.foldN = tesN();
+      score += 400; logMark('clear', 5);
+      clearInterval(TES.timer); TES.timer = 0; tesFoldSound(s);
+      tesPulseCut(); if (TES.tacet) tesTacetEnd();
+      var c = gameAudioCtx; if (TES.drone && c) { try { TES.drone.level(c.currentTime, TES_DV * 0.4, 0.3); } catch (x) {} }
+    }
+    function tesFoldDone() {
+      var s = TES.foldS, oldRing = TES.ring.slice(), N = oldRing.length, i = oldRing.indexOf(s), nextS = N > 1 ? oldRing[(i + 1) % N] : -1;
+      TES.ring.splice(i, 1); TES.k++;
+      var gone = TES.sh[s]; if (gone.mode !== 'gone') { gone.mode = 'gone'; gone.goneAt = performance.now(); gone.fr = false; }
+      if (!TES.ring.length) { tesCodaStart(); return; }
+      if (TES.ps === s) TES.ps = nextS;
+      if (tesWall(TES.ps, playerX, playerY, false)) {   // (only god mode's Clear can fold a slice under you while you stand in one of its doorways: step out)
+        var bx = 9, by = 15, bd = 999;
+        for (var r0 = 0; r0 < ROWS; r0++) for (var c0 = 0; c0 < COLS; c0++) if (!tesWall(TES.ps, c0, r0, false) && Math.abs(c0 - playerX) + Math.abs(r0 - playerY) < bd) { bd = Math.abs(c0 - playerX) + Math.abs(r0 - playerY); bx = c0; by = r0; }
+        playerX = bx; playerY = by;
+      }
+      TES.sh.forEach(function (h) {   // every shadow's place on the ring, renumbered; any in the folded slice go on into the next
+        if (h.i === 0 || h.mode === 'gone') return;
+        var sid = oldRing[Math.round(((h.w % N) + N) % N) % N]; if (sid === s) sid = nextS;
+        h.w = TES.ring.indexOf(sid);
+        if (h.mode === 'out' && tesWall(sid, h.x, h.y, false)) { h.x = 9; h.y = 7; h.dir = 3; }   // (one left standing in a doorway that is gone)
+      });
+      TES.ring.forEach(function (q) { var p = TES_PELLET[q], kk = tesIdx(p[0], p[1]); if (!TES.dots[q][kk]) { TES.dots[q][kk] = 2; TES.left[q]++; } });   // the power pellets come back, one in every slice still standing
+      TES.hist = [{ t: TES.clock, x: playerX, y: playerY, s: TES.ps }]; TES.notes = []; TES.moves = 0;
+      var e = TES.sh[0]; if (e.mode === 'echo' || e.mode === 'eyes') e.mode = 'wait';
+      TES.modeT0 = TES.clock - 2; TES.nextPulse = TES.clock + 9; TES.stage = 'play';
+      tesDroneStart(TES_PC[TES.ps]); tesBedStart();
+    }
+    function tesCodaStart() {   // the last slice has folded: the Tesseract is a point, and the point is the last note of the suite
+      TES.stage = 'coda'; TES.st0 = performance.now(); TES.codaT = TES.clock; TES.ps = -1;
+      TES.pt = { x: 9, y: 9, ox: 9, oy: 9, dir: 0, out: false };
+      tesQuiet(false);
+      if (!TES.voices) TES.voices = tesVoicesMake();
+      tesHint('coda');
+    }
+    function tesCodaStep(ox, oy) {
+      var p = TES.pt, el = TES.clock - TES.codaT, every = Math.min(24, 14 + Math.floor(el / 4));   // the last note is dying away, so it slows as it fades
+      p.ox = p.x; p.oy = p.y;
+      if (el > 1.2 && TES.tick % every === 0) {
+        if (!p.out) { if (p.y > 7) p.y--; if (p.y === 7) { p.out = true; p.dir = 0; } }
+        else tesFlee(p);
+      }
+      var same = p.x === playerX && p.y === playerY, swap = p.ox === playerX && p.oy === playerY && p.x === ox && p.y === oy;
+      if (p.out && (same || swap)) tesCatchPoint();
+    }
+    function tesFlee(p) {   // away from you: the neighboring cell farthest from you by the maze's own distances, with now and then a wrong guess
+      var dist = tesDistFrom(playerX, playerY), opts = [], d, best = -1, bd = -1e9;
+      for (d = 0; d < 4; d++) {
+        var n = tesStepTo(p.x, p.y, d); if (tesWall(-1, n[0], n[1], false)) continue;
+        var v = dist[tesIdx(n[0], n[1])]; if (d === (p.dir + 2) % 4) v -= 1.5;
+        opts.push(d); if (v > bd) { bd = v; best = d; }
+      }
+      if (!opts.length) return;
+      if (Math.random() < 0.2) best = opts[Math.floor(Math.random() * opts.length)];
+      var n2 = tesStepTo(p.x, p.y, best); p.x = n2[0]; p.y = n2[1]; p.dir = best;
+    }
+    function tesDistFrom(x, y) {
+      var D = new Int16Array(COLS * ROWS), q = [[x, y]], head = 0; for (var i = 0; i < D.length; i++) D[i] = 999; D[tesIdx(x, y)] = 0;
+      while (head < q.length) {
+        var cur = q[head++], dc = D[tesIdx(cur[0], cur[1])];
+        for (var d = 0; d < 4; d++) { var n = tesStepTo(cur[0], cur[1], d); if (tesWall(-1, n[0], n[1], false)) continue; var key = tesIdx(n[0], n[1]); if (D[key] <= dc + 1) continue; D[key] = dc + 1; q.push([n[0], n[1]]); }
+      }
+      return D;
+    }
+    function tesCatchPoint() {   // the last note, caught: the end of the suite
+      TES.stage = 'fine'; TES.st0 = performance.now(); score += 1000;
+      var c = gameAudioCtx; TES.fineT = c ? pt(c.currentTime) : 0;
+      tesQuiet(true); burst(playerX, playerY, true); logMark('clear', 5);
+      if (perf) perf.fine = true;
+      try { localStorage.setItem('signalChaseFinale', '2'); } catch (x) {}
+      tesFineSound();
+    }
+    function tesContinuePrompt() {   // no signals left: the finale offers to begin again
+      TES.stage = 'cont'; TES.st0 = performance.now(); tesPulseCut();
+      tesQuiet(true);
+    }
+    function tesContinue() {   // movement VI once more, from its beginning, with three signals and the score you brought to it
+      lives = 3; score = TES.score0;
+      TES.clock = 0; TES.tick = 0; TES.ps = 0; TES.freeze = 0; TES.danger = 0;
+      tesBuild(); tesPlace(); tesPlay();
+    }
+    function tesLose() {   // the offer lapses: the run is over
+      TES.stage = 'lost'; gameState = 'gameover'; tesQuiet(true); stopMusic();
+    }
+    function tesGodJump() {   // god mode: straight to movement VI
+      if (TES.on) tesOff();
+      closeStudio();
+      if (gameState === 'title') { clearInterval(titleTimer); titleUI(false); ghostVoicesKill(); }
+      if (gameAudioCtx && gameAudioCtx.state !== 'running') gameAudioCtx.resume();
+      hideCard(); stopMusic();
+      initGame(true);
+      if (lives < 1) lives = 3;
+      tesEnter(true); godSync(true);
+    }
+    function tesGodClear() {   // god mode: clear the slice you are in, or catch the last note
+      var st = TES.stage;
+      if (st === 'intro') tesPlay();
+      else if (st === 'play') { var d = TES.dots[TES.ps]; for (var i = 0; i < d.length; i++) d[i] = 0; TES.left[TES.ps] = 0; tesFold(TES.ps); }
+      else if (st === 'coda') tesCatchPoint();
+    }
+    function tesGodEnd() { tesQuiet(true); TES.stage = 'lost'; }
+    // ---------- movement VI, drawn ----------
+    var TES_HINT = {
+      notes: 'EACH DIMENSION HOLDS ITS OWN NOTES: EAT THEM ALL AND IT FOLDS AWAY',
+      beat: 'SLOWING BEATS: A SHADOW IS CROSSING INTO YOUR DIMENSION',
+      echo: 'YOUR ECHO WALKS YOUR PATH: KEEP MOVING, NEVER DOUBLE BACK',
+      pulse: 'THE TESSERACT IS CHARGING YOUR DIMENSION: TURN OUT OF IT',
+      tunnel: 'THE TUNNEL TURNS YOU THROUGH THE FOURTH DIMENSION, TOO',
+      tacet: 'TACET: CATCH EACH SHADOW IN ITS OWN DIMENSION',
+      blocked: 'THAT CELL IS A WALL IN THE NEXT DIMENSION',
+      fold: 'A FEW NOTES LEFT: THIS DIMENSION IS ABOUT TO FOLD',
+      coda: 'CATCH THE LAST NOTE'
+    };
+    function tesHint(id) { if (!TES.on || TES.hints[id]) return; TES.hints[id] = 1; TES.hintQ.push(id); }
+    function tesHintEnd(id) {   // a hint no longer true: showing, it fades out now; still waiting, it waits for the next time instead
+      if (!TES.hintQ) return;
+      if (TES.hint && TES.hint.id === id) TES.hint.t0 = Math.min(TES.hint.t0, performance.now() - 3230);
+      var qi = TES.hintQ.indexOf(id); if (qi >= 0) { TES.hintQ.splice(qi, 1); TES.hints[id] = 0; }
+    }
+    var TES_V = [], TES_E = [];
+    (function () { var i, b; for (i = 0; i < 16; i++) TES_V.push([i & 1 ? 1 : -1, i & 2 ? 1 : -1, i & 4 ? 1 : -1, i & 8 ? 1 : -1]); for (i = 0; i < 16; i++) for (b = 0; b < 4; b++) { var j = i ^ (1 << b); if (j > i) TES_E.push([i, j, b]); } })();
+    function tesHyper(ctx, cx, cy, size, dims, tsec, alpha, lw, paper, chS, chA) {   // the Tesseract: a hypercube turning in two planes at once, in perspective; dims (4 down to 0) folds its axes away one at a time, w first
+      var sc = [Math.max(0, Math.min(1, dims)), Math.max(0, Math.min(1, dims - 1)), Math.max(0, Math.min(1, dims - 2)), Math.max(0, Math.min(1, dims - 3))];
+      var a1 = tsec * 0.42 + (chA || 0) * 2.5, a2 = tsec * 0.27, a3 = tsec * 0.11, P = [], i, N = tesN();
+      for (i = 0; i < 16; i++) {
+        var v = TES_V[i], x = v[0] * sc[0], y = v[1] * sc[1], z = v[2] * sc[2], w = v[3] * sc[3], t;
+        t = x * Math.cos(a1) - w * Math.sin(a1); w = x * Math.sin(a1) + w * Math.cos(a1); x = t;
+        t = y * Math.cos(a2) - z * Math.sin(a2); z = y * Math.sin(a2) + z * Math.cos(a2); y = t;
+        t = x * Math.cos(a3) - z * Math.sin(a3); z = x * Math.sin(a3) + z * Math.cos(a3); x = t;
+        var k4 = 1 / (3 - w), k3 = 2.2 / (3.4 - z * k4);
+        P.push([cx + x * k4 * k3 * size, cy + y * k4 * k3 * size]);
+      }
+      ctx.lineCap = 'round';
+      for (var pass = 0; pass < 2; pass++) {
+        TES_E.forEach(function (e, j) {
+          var p = P[e[0]], q = P[e[1]], col;
+          if (paper) col = 'rgba(10,10,10,';
+          else if (e[2] === 3) { var sq = chA > 0 ? chS : N ? TES.ring[j % N] : -1; col = sq >= 0 ? 'rgba(' + TES_RGB[sq].join(',') + ',' : 'rgba(196,168,130,'; }
+          else if (e[2] === 2) col = 'rgba(196,168,130,';
+          else col = 'rgba(201,204,209,';
+          var a = alpha * (e[2] === 3 && chA > 0 ? 0.6 + 0.4 * chA : 1) * (pass ? 0.9 : 0.16);
+          ctx.strokeStyle = col + Math.min(1, a).toFixed(3) + ')'; ctx.lineWidth = pass ? lw : lw * 4.5;
+          ctx.beginPath(); ctx.moveTo(p[0], p[1]); ctx.lineTo(q[0], q[1]); ctx.stroke();
+        });
+      }
+      if (dims < 0.6) {   // what is left of it: a point, glowing
+        var gr = size * 0.12 * (1 - dims * 0.8);
+        ctx.fillStyle = paper ? 'rgba(10,10,10,0.8)' : 'rgba(232,206,150,' + (0.5 * alpha).toFixed(3) + ')'; ctx.beginPath(); ctx.arc(cx, cy, gr * 2.2, 0, 6.2832); ctx.fill();
+        ctx.fillStyle = paper ? '#0A0A0A' : '#F3E3BC'; ctx.beginPath(); ctx.arc(cx, cy, gr, 0, 6.2832); ctx.fill();
+      }
+    }
+    function tesWalls(ctx, s, style, lw) {   // the outline of slice s's walls
+      var cs = cellSize, r, c;
+      ctx.strokeStyle = style; ctx.lineWidth = lw; ctx.beginPath();
+      for (r = 0; r < ROWS; r++) for (c = 0; c < COLS; c++) {
+        if (!tesWall(s, c, r, true)) continue;
+        var x = offsetX + c * cs, y = offsetY + r * cs;
+        if (r > 0 && !tesWall(s, c, r - 1, true)) { ctx.moveTo(x, y); ctx.lineTo(x + cs, y); }
+        if (r < ROWS - 1 && !tesWall(s, c, r + 1, true)) { ctx.moveTo(x, y + cs); ctx.lineTo(x + cs, y + cs); }
+        if (c > 0 && !tesWall(s, c - 1, r, true)) { ctx.moveTo(x, y); ctx.lineTo(x, y + cs); }
+        if (c < COLS - 1 && !tesWall(s, c + 1, r, true)) { ctx.moveTo(x + cs, y); ctx.lineTo(x + cs, y + cs); }
+      }
+      ctx.stroke();
+    }
+    function tesFitFont(ctx, text, weight, size, maxW, spacing) {   // a line of capitals, shrunk if it would not fit the width
+      ctx.font = hudFont(weight, size); spaced(spacing);
+      var tw = ctx.measureText(text).width;
+      if (tw > maxW) { size = Math.max(7, Math.floor(size * maxW / tw)); ctx.font = hudFont(weight, size); spaced(spacing * maxW / tw); }
+      return size;
+    }
+    function tesDraw() {
+      tesTick(); godSync(false);
+      var w = gameCanvas.width, h = gameCanvas.height, ctx = gameCtx, pnow = performance.now(), now = Date.now(), st = TES.stage, q, r, c, i;
+      var maxW = w * 0.92, maxH = h * 0.82;
+      cellSize = Math.floor(Math.min(maxW / COLS, maxH / ROWS));
+      offsetX = Math.floor((w - cellSize * COLS) / 2);
+      offsetY = Math.floor((h - cellSize * ROWS) / 2) + cellSize;
+      var cs = cellSize, hair = Math.max(1, cs / 22), N = tesN(), pi = TES.ps >= 0 ? tesPI() : -1, tsec = pnow / 1000;
+      var paper = TES.tacet > 0 && st === 'play', ink = paper ? '#0A0A0A' : '#F5F4F0', gold = paper ? '#7B5F34' : '#C4A882';
+      var hx = offsetX + 9.5 * cs, hy = offsetY + 9.5 * cs;
+      if (now - noiseAt > 90) { noiseAt = now; for (q = 0; q < 12; q++) noiseTab[q] = Math.random() * 2 - 1; }
+      // the ground: black, tinted by the slice you are in; white paper in a tacet
+      ctx.fillStyle = paper ? '#F2F2EF' : '#050507'; ctx.fillRect(0, 0, w, h);
+      if (st === 'intro') { tesDrawIntro(ctx, w, h, pnow); return; }
+      if (st === 'fine') { tesDrawFine(ctx, w, h, pnow); return; }
+      if (!paper && TES.ps >= 0) {
+        var rg = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h) * 0.7);
+        rg.addColorStop(0, tesRGBA(TES.ps, 0.09)); rg.addColorStop(1, tesRGBA(TES.ps, 0)); ctx.fillStyle = rg; ctx.fillRect(0, 0, w, h);
+      }
+      if (paper) {   // Cage's page: in a tacet, the music is the silence
+        ctx.save(); if ('fontStretch' in ctx) ctx.fontStretch = 'condensed';
+        ctx.font = hudFont(200, Math.round(Math.min(w * 0.3, h * 0.5))); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = 'rgba(10,10,10,0.05)'; ctx.fillText('TACET', w / 2, h / 2);
+        if ('fontStretch' in ctx) ctx.fontStretch = 'normal'; ctx.restore(); ctx.textBaseline = 'alphabetic';
+      }
+      var fold = st === 'fold' ? Math.min(1, (pnow - TES.st0) / 2600) : -1;
+      // the other slices, glimpsed: their doors and their notes, faintly, each in its own color
+      if (st !== 'coda') for (q = 0; q < N; q++) {
+        var so = TES.ring[q]; if (so === TES.ps) continue;
+        var fa = fold >= 0 && so === TES.foldS ? Math.max(0, 1 - fold * 1.6) : 1;
+        var nxt = N > 1 && so === TES.ring[(pi + 1) % N], da0 = (nxt ? 0.45 : 0.16) * fa;   // the next slice's doors, where a turn would take you, are the clearest
+        ctx.strokeStyle = paper ? 'rgba(10,10,10,' + (0.7 * da0).toFixed(3) + ')' : tesRGBA(so, da0); ctx.lineWidth = hair; ctx.setLineDash([hair * 2, hair * 2]);
+        TES_DOORS[so].forEach(function (p) { ctx.strokeRect(offsetX + p[0] * cs + cs * 0.18, offsetY + p[1] * cs + cs * 0.18, cs * 0.64, cs * 0.64); });
+        ctx.setLineDash([]);
+        ctx.fillStyle = paper ? 'rgba(10,10,10,' + (0.16 * fa).toFixed(3) + ')' : tesRGBA(so, 0.34 * fa);
+        var D0 = TES.dots[so];
+        for (r = 0; r < ROWS; r++) for (c = 0; c < COLS; c++) {
+          var dv = D0[tesIdx(c, r)]; if (!dv) continue;
+          var dx0 = offsetX + c * cs + cs / 2, dy0 = offsetY + r * cs + cs / 2;
+          if (fold >= 0 && so === TES.foldS) { dx0 += (hx - dx0) * fold; dy0 += (hy - dy0) * fold; }
+          ctx.beginPath(); ctx.arc(dx0, dy0, cs * (dv === 2 ? 0.11 : 0.05), 0, 6.2832); ctx.fill();
+        }
+      }
+      // the walls of your slice (in a turn, the old slice's walls give way to the new)
+      var tA = TES.turnAt ? (pnow - TES.turnAt) / 240 : 1;
+      if (st === 'coda') tesWalls(ctx, -1, 'rgba(201,204,209,0.42)', hair);
+      else {
+        var wallCol = function (s, a) { return paper ? 'rgba(10,10,10,' + (0.55 * a).toFixed(3) + ')' : tesRGBA(s, 0.66 * a); };
+        if (tA < 1 && TES.turnFrom >= 0 && TES.ring.indexOf(TES.turnFrom) >= 0) {
+          ctx.save(); var zs = reduceMotion ? 1 : 1 + 0.035 * tA, px0 = offsetX + playerX * cs + cs / 2, py0 = offsetY + playerY * cs + cs / 2;
+          ctx.translate(px0, py0); ctx.scale(zs, zs); ctx.translate(-px0, -py0); tesWalls(ctx, TES.turnFrom, wallCol(TES.turnFrom, 1 - tA), hair); ctx.restore();
+          ctx.save(); zs = reduceMotion ? 1 : 0.965 + 0.035 * tA; ctx.translate(px0, py0); ctx.scale(zs, zs); ctx.translate(-px0, -py0); tesWalls(ctx, TES.ps, wallCol(TES.ps, tA), hair); ctx.restore();
+        } else tesWalls(ctx, TES.ps, wallCol(TES.ps, 1), hair);
+        if (!paper) TES_DOORS[TES.ps].forEach(function (p) {   // your slice's own doors: a soft light in each doorway
+          var dx = offsetX + p[0] * cs + cs / 2, dy = offsetY + p[1] * cs + cs / 2, dg = ctx.createRadialGradient(dx, dy, 0, dx, dy, cs * 0.6);
+          dg.addColorStop(0, tesRGBA(TES.ps, 0.2)); dg.addColorStop(1, tesRGBA(TES.ps, 0)); ctx.fillStyle = dg; ctx.fillRect(dx - cs * 0.6, dy - cs * 0.6, cs * 1.2, cs * 1.2);
+        });
+        if (TES.bumpAt && pnow - TES.bumpAt < 500 && TES.bumpS >= 0) {   // a refused turn: the wall you would have turned into, flashed
+          ctx.fillStyle = tesRGBA(TES.bumpS, 0.45 * (1 - (pnow - TES.bumpAt) / 500)); ctx.fillRect(offsetX + playerX * cs, offsetY + playerY * cs, cs, cs);
+        }
+      }
+      ctx.strokeStyle = paper ? 'rgba(10,10,10,0.5)' : 'rgba(196,168,130,0.7)'; ctx.lineWidth = hair * 1.4; ctx.setLineDash([hair * 3, hair * 2.5]);   // the gate
+      ctx.beginPath(); ctx.moveTo(offsetX + 9 * cs + 2, offsetY + 8.5 * cs); ctx.lineTo(offsetX + 10 * cs - 2, offsetY + 8.5 * cs); ctx.stroke(); ctx.setLineDash([]);
+      // your slice's notes
+      if (st !== 'coda' && TES.ps >= 0) {
+        var D1 = TES.dots[TES.ps];
+        for (r = 0; r < ROWS; r++) for (c = 0; c < COLS; c++) {
+          var v1 = D1[tesIdx(c, r)]; if (!v1) continue;
+          var cx1 = offsetX + c * cs + cs / 2, cy1 = offsetY + r * cs + cs / 2;
+          if (fold >= 0 && TES.ps === TES.foldS) { cx1 += (hx - cx1) * fold; cy1 += (hy - cy1) * fold; }
+          if (v1 === 2) {
+            var pr0 = cs * (0.24 + 0.05 * Math.sin(now * 0.005)), pc0 = paper ? '#0A0A0A' : TES_ACC[TES.ps];
+            ctx.strokeStyle = pc0; ctx.lineWidth = hair * 1.6; ctx.beginPath(); ctx.arc(cx1, cy1, pr0, 0, 6.2832); ctx.stroke();
+            ctx.strokeStyle = paper ? 'rgba(10,10,10,0.3)' : hexA(pc0, 0.3); ctx.lineWidth = hair; ctx.beginPath(); ctx.arc(cx1, cy1, pr0 * 1.9, 0, 6.2832); ctx.stroke();
+            ctx.fillStyle = pc0; ctx.beginPath(); ctx.arc(cx1, cy1, cs * 0.07, 0, 6.2832); ctx.fill();
+          } else { ctx.fillStyle = paper ? 'rgba(10,10,10,0.78)' : tesRGBA(TES.ps, 0.95); ctx.beginPath(); ctx.arc(cx1, cy1, cs * 0.075, 0, 6.2832); ctx.fill(); }
+        }
+      }
+      // the Tesseract, turning at the center, charging a slice now and then; in a fold it loses a dimension
+      var dims = N, pl = TES.pulse, chA = pl && !pl.fired ? Math.min(1, (TES.clock - pl.t0) / pl.T) : 0;
+      if (fold >= 0) { var fe = Math.max(0, Math.min(1, (fold - 0.15) / 0.55)); dims = TES.foldN - fe * fe * (3 - 2 * fe); }
+      if (st !== 'coda') tesHyper(ctx, hx, hy, cs * 2.8, dims, tsec, paper ? 0.35 : 0.85, hair * 1.2, paper, pl ? pl.s : -1, chA);
+      if (pl && !pl.fired) {   // the charge: rings closing in on the center, faster and faster, the rhythm becoming a pitch
+        var cph = Math.pow(chA, 2.2) * 26;
+        for (q = 0; q < 3; q++) { var fr0 = 1 - ((cph + q / 3) % 1); ctx.strokeStyle = tesRGBA(pl.s, (pl.s === TES.ps ? 0.75 : 0.25) * (1 - fr0) * chA); ctx.lineWidth = hair * (1 + 2 * chA); ctx.beginPath(); ctx.arc(hx, hy, cs * (0.6 + fr0 * 6), 0, 6.2832); ctx.stroke(); }
+      } else if (pl && pl.fired) {   // the wave, rolling out through its slice
+        var mine = pl.s === TES.ps, rr0 = pl.r * cs;
+        ctx.strokeStyle = tesRGBA(pl.s, mine ? 0.9 : 0.28); ctx.lineWidth = mine ? hair * 3.2 : hair * 1.5; if (!mine) ctx.setLineDash([hair * 4, hair * 3]);
+        ctx.beginPath(); for (q = 0; q <= 96; q++) { var an = q / 96 * 6.2832, rq = rr0 + cs * 0.14 * Math.sin(an * 18 + tsec * 20); if (q) ctx.lineTo(hx + Math.cos(an) * rq, hy + Math.sin(an) * rq); else ctx.moveTo(hx + Math.cos(an) * rq, hy + Math.sin(an) * rq); } ctx.stroke(); ctx.setLineDash([]);
+        if (mine) { ctx.strokeStyle = tesRGBA(pl.s, 0.25); ctx.lineWidth = cs * 0.5; ctx.beginPath(); ctx.arc(hx, hy, Math.max(1, rr0 - cs * 0.4), 0, 6.2832); ctx.stroke(); }
+        if (mine && TES.flashAt && pnow - TES.flashAt < 320) { ctx.fillStyle = tesRGBA(pl.s, 0.16 * (1 - (pnow - TES.flashAt) / 320)); ctx.fillRect(0, 0, w, h); }   // the moment it fires through your slice, a flash
+      }
+      // your trail, plucked and fading
+      var px = offsetX + playerX * cs + cs / 2, py = offsetY + playerY * cs + cs / 2, prr = cs * 0.42;
+      if (TES.trail.length > 1 && (st === 'play' || st === 'coda')) {
+        ctx.lineCap = 'round';
+        for (q = 1; q < TES.trail.length; q++) {
+          var a0 = TES.trail[q - 1], a1 = TES.trail[q], age = (pnow - a1.t) / 1600;
+          if (age >= 1 || Math.abs(a0.x - a1.x) + Math.abs(a0.y - a1.y) !== 1) continue;
+          var x0 = offsetX + a0.x * cs + cs / 2, y0 = offsetY + a0.y * cs + cs / 2, x1 = offsetX + a1.x * cs + cs / 2, y1 = offsetY + a1.y * cs + cs / 2, vib = Math.sin(pnow * 0.03 + q) * cs * 0.07 * (1 - age);
+          ctx.strokeStyle = hexA(gold, 0.6 * (1 - age)); ctx.lineWidth = hair * (1 + 2 * (1 - age));
+          ctx.beginPath(); ctx.moveTo(x0, y0); ctx.quadraticCurveTo((x0 + x1) / 2 + (y0 === y1 ? 0 : vib), (y0 + y1) / 2 + (y0 === y1 ? vib : 0), x1, y1); ctx.stroke();
+        }
+        ctx.lineCap = 'butt';
+      }
+      rings = rings.filter(function (k) { return pnow - k.t < 1100; });
+      rings.forEach(function (k) {
+        var age2 = (pnow - k.t) / 1100, rx = offsetX + k.x * cs + cs / 2, ry = offsetY + k.y * cs + cs / 2;
+        for (var n2 = 0; n2 < 3; n2++) { var a2 = age2 - n2 * 0.12; if (a2 <= 0) continue; ctx.strokeStyle = hexA(k.bell ? ink : gold, 0.8 * (1 - a2)); ctx.lineWidth = hair * 1.4; ctx.beginPath(); ctx.arc(rx, ry, cs * (0.3 + a2 * 2.6), 0, 6.2832); ctx.stroke(); }
+      });
+      if (st === 'coda' && TES.pt) {   // the last note
+        var pq = TES.pt, qx = offsetX + pq.x * cs + cs / 2, qy = offsetY + pq.y * cs + cs / 2, br = 0.5 + 0.5 * Math.sin(tsec * 6.2832 * 0.9), gr2 = ctx.createRadialGradient(qx, qy, 0, qx, qy, cs * 1.3);
+        gr2.addColorStop(0, 'rgba(243,227,188,' + (0.55 + 0.25 * br).toFixed(3) + ')'); gr2.addColorStop(1, 'rgba(243,227,188,0)'); ctx.fillStyle = gr2; ctx.beginPath(); ctx.arc(qx, qy, cs * 1.3, 0, 6.2832); ctx.fill();
+        ctx.fillStyle = '#F3E3BC'; ctx.beginPath(); ctx.arc(qx, qy, cs * (0.16 + 0.03 * br), 0, 6.2832); ctx.fill();
+        ctx.font = serifFont(Math.round(cs * 0.5)); ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(243,227,188,0.8)'; ctx.fillText('B\u266D', qx, qy - cs * 0.55);
+      }
+      if (st !== 'coda') tesDrawShadows(ctx, cs, hair, pnow, now, paper, pi, N, px, py);
+      // you
+      if (!(deathAnim && pnow - deathAnim.t < 450)) {
+        mouthAngle += 0.15 * frameK;
+        var ang = playerDir === 0 ? -Math.PI / 2 : playerDir === 1 ? 0 : playerDir === 2 ? Math.PI / 2 : Math.PI;
+        if (tA < 1 && !reduceMotion && TES.ps >= 0) { ctx.strokeStyle = tesRGBA(TES.ps, 0.7 * (1 - tA)); ctx.lineWidth = hair * 2; ctx.beginPath(); ctx.arc(px, py, prr * (1.2 + tA * 3), 0, 6.2832); ctx.stroke(); }   // a turn: a ring in the new slice's color
+        drawSignal(ctx, px, py, prr, ang, paper ? '#0A0A0A' : '#C4A882', paper ? '#F2F2EF' : '#050507', Math.sin(mouthAngle), hair, TES.ps >= 0 ? tesRGBA(TES.ps, 0.4) : 'rgba(196,168,130,0.25)');
+        if (N > 1 && st !== 'coda') {   // the fourth dimension, around you: each live slice an arc, yours on top, and where the shadows are on it
+          var ar = prr * 2.05, seg = 6.2832 / N;
+          for (q = 0; q < N; q++) { var sa = -Math.PI / 2 + (q - pi) * seg - seg / 2 + 0.12, sq2 = TES.ring[q]; ctx.strokeStyle = paper ? 'rgba(10,10,10,' + (q === pi ? 0.6 : 0.2) + ')' : tesRGBA(sq2, q === pi ? 0.75 : 0.28); ctx.lineWidth = hair * (q === pi ? 1.6 : 1); ctx.beginPath(); ctx.arc(px, py, ar, sa, sa + seg - 0.24); ctx.stroke(); }
+          for (q = 1; q < 4; q++) {
+            var hq = TES.sh[q]; if (hq.mode !== 'out') continue;
+            var dq = tesWD(pi, hq.w), aq = -Math.PI / 2 + dq * seg, dxq = hq.x - playerX, dyq = hq.y - playerY, nq = Math.max(0, 1 - Math.sqrt(dxq * dxq + dyq * dyq) / 10);
+            ctx.fillStyle = paper ? 'rgba(10,10,10,0.7)' : tesRGBA(tesSliceAt(hq.w), 0.4 + 0.5 * nq); ctx.beginPath(); ctx.arc(px + Math.cos(aq) * ar, py + Math.sin(aq) * ar, hair * (1.2 + 2.4 * nq), 0, 6.2832); ctx.fill();
+          }
+        }
+      }
+      if (deathAnim) {   // a lost life: the play triangle becomes a stop square
+        var da = (pnow - deathAnim.t) / 900;
+        if (da >= 1) deathAnim = null;
+        else {
+          var dx1 = offsetX + deathAnim.x * cs + cs / 2, dy1 = offsetY + deathAnim.y * cs + cs / 2, rr2 = prr * (1 - 0.35 * da), e2 = Math.min(1, da * 2.4), A = deathAnim.ang, tr = rr2 * 0.42, sq3 = rr2 * 0.34;
+          var TR = [[Math.cos(A) * tr * 1.15, Math.sin(A) * tr * 1.15], [Math.cos(A + 2.3) * tr, Math.sin(A + 2.3) * tr], [Math.cos(A - 2.3) * tr, Math.sin(A - 2.3) * tr], [Math.cos(A - 2.3) * tr, Math.sin(A - 2.3) * tr]], SQ = [[sq3, -sq3], [sq3, sq3], [-sq3, sq3], [-sq3, -sq3]];
+          ctx.globalAlpha = 1 - da * da; ctx.fillStyle = gold; ctx.beginPath(); ctx.arc(dx1, dy1, rr2, 0, 6.2832); ctx.fill();
+          ctx.fillStyle = paper ? '#F2F2EF' : '#050507'; ctx.beginPath();
+          for (q = 0; q < 4; q++) { var qx2 = dx1 + TR[q][0] + (SQ[q][0] - TR[q][0]) * e2, qy2 = dy1 + TR[q][1] + (SQ[q][1] - TR[q][1]) * e2; if (q) ctx.lineTo(qx2, qy2); else ctx.moveTo(qx2, qy2); }
+          ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1;
+        }
+      }
+      tesDrawHud(ctx, w, h, cs, hair, pnow, paper, ink, gold, N, pi, fold);
+    }
+    function tesGhost(ctx, x, y, size, kind, rgb, a, st, now, hair, pdx, pdy, paper) {   // a shadow, its transparency carried in its colors (the suite's ghost resets the canvas's own alpha as it draws)
+      var A = Math.max(0, Math.min(1, a)).toFixed(3);
+      drawGhost(ctx, x, y, size, kind, 'rgba(' + rgb + ',' + A + ')', st, now, hair, pdx || 0, pdy || 0, paper ? 'rgba(10,10,10,' + A + ')' : 'rgba(245,244,240,' + A + ')', paper ? 'rgba(242,242,239,' + A + ')' : 'rgba(5,5,7,' + A + ')');
+    }
+    function tesDrawShadows(ctx, cs, hair, pnow, now, paper, pi, N, px, py) {
+      var i, q;
+      var e = TES.sh[0];
+      if (e.mode === 'echo') {   // your echo: a hollow copy of you, and the stretch of your path still between you
+        var eh = e.s === TES.ps, ea = (eh ? 1 : 0.32) * (e.mat > 0 ? 1 - e.mat / 72 : 1), H = TES.hist, ex = offsetX + e.x * cs + cs / 2, ey = offsetY + e.y * cs + cs / 2;
+        ctx.strokeStyle = paper ? 'rgba(10,10,10,' + (0.22 * ea).toFixed(3) + ')' : 'rgba(201,204,209,' + (0.22 * ea).toFixed(3) + ')'; ctx.lineWidth = hair; ctx.setLineDash([hair * 2, hair * 3]); ctx.beginPath(); ctx.moveTo(ex, ey);
+        for (q = Math.max(0, e.hi + 1); q < H.length; q++) { var hq = H[q], hp = H[q - 1]; if (hp && Math.abs(hq.x - hp.x) + Math.abs(hq.y - hp.y) > 1) ctx.moveTo(offsetX + hq.x * cs + cs / 2, offsetY + hq.y * cs + cs / 2); else ctx.lineTo(offsetX + hq.x * cs + cs / 2, offsetY + hq.y * cs + cs / 2); }
+        ctx.stroke(); ctx.setLineDash([]);
+        var ed = e.dir, eq = H[Math.max(0, e.hi - 1)]; if (eq && (eq.x !== e.x || eq.y !== e.y)) ed = e.x > eq.x ? 1 : e.x < eq.x ? 3 : e.y > eq.y ? 2 : 0; e.dir = ed;
+        var ean = ed === 0 ? -Math.PI / 2 : ed === 1 ? 0 : ed === 2 ? Math.PI / 2 : Math.PI, er = cs * 0.4, ecol = paper ? '10,10,10' : '201,204,209';
+        ctx.globalAlpha = ea; ctx.strokeStyle = 'rgba(' + ecol + ',0.95)'; ctx.lineWidth = hair * 1.6; if (e.fr) ctx.setLineDash([hair * 3, hair * 2.5]);
+        ctx.beginPath(); ctx.arc(ex, ey, er, 0, 6.2832); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(' + ecol + ',0.9)'; ctx.beginPath(); var et = er * 0.42; ctx.moveTo(ex + Math.cos(ean) * et * 1.15, ey + Math.sin(ean) * et * 1.15); ctx.lineTo(ex + Math.cos(ean + 2.3) * et, ey + Math.sin(ean + 2.3) * et); ctx.lineTo(ex + Math.cos(ean - 2.3) * et, ey + Math.sin(ean - 2.3) * et); ctx.closePath(); ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+      for (i = 1; i < 4; i++) {
+        var hh = TES.sh[i], gx = offsetX + hh.x * cs + cs / 2, gy = offsetY + hh.y * cs + cs / 2;
+        if (hh.mode === 'gone') {   // a shadow whose slice has folded: it flattens and fades
+          var ga = (pnow - hh.goneAt) / 1600; if (ga >= 1 || !hh.goneAt) continue;
+          ctx.save(); ctx.translate(gx, gy); ctx.scale(1, Math.max(0.02, 1 - ga)); tesGhost(ctx, 0, 0, cs * 0.42, i, TES_RGB[i].join(','), 1 - ga, 0, now, hair, 0, 0, false); ctx.restore();
+          continue;
+        }
+        if (hh.mode === 'house') { tesGhost(ctx, gx, gy, cs * 0.34, i, paper ? '10,10,10' : TES_RGB[i].join(','), 0.35, 0, now, hair, 0, 0, paper); continue; }
+        if (hh.mode === 'eyes') { tesGhost(ctx, gx, gy, cs * 0.42, i, paper ? '10,10,10' : '245,244,240', 0.6, 2, now, hair, 0, 0, paper); continue; }
+        var dw = N > 1 ? Math.abs(tesWD(hh.w, pi)) : 0, here = dw < 0.001 && hh.mat <= 0, sl = tesSliceAt(hh.w);
+        var al = here ? 1 : Math.max(0.16, 0.16 + 0.7 * Math.pow(Math.max(0, 1 - Math.min(1, dw)), 1.3));
+        if (hh.mat > 0) al *= 0.35 + 0.3 * Math.sin(pnow * 0.04);
+        var wob = 0;
+        if (!here && dw < 1 && !paper) { var bhz = Math.min(12, tesBeatHz(hh)); wob = Math.sin(pnow / 1000 * 6.2832 * bhz) * cs * 0.09 * (1 - dw); }   // a shadow crossing over trembles at its beating
+        if (paper && hh.worm.length > 1) {   // in the silence each shadow shows its path through time, the way it came and the way it is heading
+          ctx.strokeStyle = 'rgba(10,10,10,' + (0.35 * al).toFixed(3) + ')'; ctx.lineWidth = hair * 2; ctx.lineCap = 'round'; ctx.beginPath();
+          for (q = 0; q < hh.worm.length; q++) { var wq = hh.worm[q], wp = hh.worm[q - 1], wx = offsetX + wq[0] * cs + cs / 2, wy = offsetY + wq[1] * cs + cs / 2; if (!q || (wp && Math.abs(wq[0] - wp[0]) + Math.abs(wq[1] - wp[1]) > 1)) ctx.moveTo(wx, wy); else ctx.lineTo(wx, wy); }
+          ctx.stroke(); ctx.setLineDash([hair * 2, hair * 3]); ctx.beginPath(); ctx.moveTo(gx, gy);
+          var fx = hh.x, fy = hh.y; for (q = 0; q < 3; q++) { var nn = tesStepTo(fx, fy, hh.dir); if (tesWall(sl, nn[0], nn[1], false) || nn[2]) break; fx = nn[0]; fy = nn[1]; ctx.lineTo(offsetX + fx * cs + cs / 2, offsetY + fy * cs + cs / 2); }
+          ctx.stroke(); ctx.setLineDash([]); ctx.lineCap = 'butt';
+        }
+        var flash = hh.fr && TES.tacet < 60 && TES.tacet % 10 < 5, rgb = flash ? (paper ? '123,95,52' : '245,244,240') : paper ? '10,10,10' : hh.fr ? '201,204,209' : TES_RGB[sl].join(',');
+        tesGhost(ctx, gx + wob, gy, cs * 0.42, i, rgb, al, hh.fr ? 1 : 0, now, hair, playerX > hh.x ? 0.08 : playerX < hh.x ? -0.08 : 0, playerY > hh.y ? 0.08 : playerY < hh.y ? -0.08 : 0, paper);
+      }
+    }
+    function tesDrawHud(ctx, w, h, cs, hair, pnow, paper, ink2, gold, N, pi, fold) {
+      var st = TES.stage, q;
+      ctx.textAlign = 'left'; ctx.font = hudFont(500, Math.round(cs * 0.62)); ctx.fillStyle = hexA(ink2, 0.88);
+      ctx.fillText(score + ' Hz', offsetX, offsetY - cs * 0.4);
+      ctx.fillStyle = gold;
+      for (q = 0; q < lives; q++) { ctx.beginPath(); ctx.arc(offsetX + COLS * cs - cs * (0.3 + q * 0.62), offsetY - cs * 0.62, cs * 0.17, 0, 6.2832); ctx.fill(); }
+      ctx.textAlign = 'center'; ctx.fillStyle = paper ? 'rgba(10,10,10,0.6)' : 'rgba(201,204,209,0.62)';
+      var dimTxt = st === 'coda' ? 'CODA' : (fold >= 0 ? TES.foldN : N) + 'D' + (TES.ps >= 0 ? '  \u00b7  ON ' + TES_KEY[TES.ps] : '');
+      // a hint, now and then, the first time something new happens: it takes the header line's place while it shows
+      if (!TES.hint && TES.hintQ.length && (st === 'play' || st === 'coda') && pnow - (TES.titleAt || 0) > 4300) TES.hint = { id: TES.hintQ.shift(), t0: pnow };
+      var hA = 0, head = 'SIGNAL CHASE  \u00b7  VI. TESSERACT  \u00b7  ' + dimTxt + '  \u00b7  LEVEL ' + level;
+      if (TES.hint) { var ha = (pnow - TES.hint.t0) / 3800; if (ha >= 1) TES.hint = null; else hA = ha < 0.08 ? ha / 0.08 : ha > 0.85 ? (1 - ha) / 0.15 : 1; }
+      if (hA < 0.5) { ctx.globalAlpha = 1 - 2 * hA; tesFitFont(ctx, head, 600, Math.round(cs * 0.4), w * 0.94, cs * 0.1); ctx.fillText(head, w / 2, offsetY - cs * 1.15); spaced(0); }   // the header fades out, then the hint fades in
+      if (hA > 0.5 && TES.hint) { ctx.globalAlpha = 2 * hA - 1; ctx.fillStyle = gold; tesFitFont(ctx, TES_HINT[TES.hint.id], 600, Math.round(cs * 0.4), w * 0.94, cs * 0.1); ctx.fillText(TES_HINT[TES.hint.id], w / 2, offsetY - cs * 1.15); spaced(0); }
+      ctx.globalAlpha = 1;
+      if (st === 'play' || st === 'fold') tesDrawStrip(ctx, cs, hair, pnow, paper, N, pi);
+      if (TES.titleAt && st === 'play') {   // the movement announces itself, and how to play it
+        var mt = (pnow - TES.titleAt) / 4300;
+        if (mt < 1) {
+          var al = mt < 0.1 ? mt / 0.1 : mt > 0.66 ? Math.max(0, 1 - (mt - 0.66) / 0.34) : 1, ty0 = offsetY + cs * 6.2, M6 = MOVS[5];
+          ctx.globalAlpha = al * 0.88; ctx.fillStyle = paper ? '#F2F2EF' : '#050507'; ctx.fillRect(offsetX, ty0 - cs * 3.1, COLS * cs, cs * 5.6); ctx.globalAlpha = al;
+          ctx.font = hudFont(600, Math.round(cs * 0.46)); spaced(cs * 0.14); ctx.fillStyle = gold; ctx.fillText('MOVEMENT VI', w / 2, ty0 - cs * 1.9); spaced(0);
+          if ('fontStretch' in ctx) ctx.fontStretch = 'condensed';
+          ctx.font = hudFont(200, Math.round(cs * 2)); ctx.fillStyle = ink2; ctx.fillText('TESSERACT', w / 2, ty0);
+          if ('fontStretch' in ctx) ctx.fontStretch = 'normal';
+          ctx.font = serifFont(Math.round(cs * 0.5)); ctx.fillStyle = paper ? 'rgba(10,10,10,0.6)' : 'rgba(201,204,209,0.75)';
+          var sub = M6.sub; if (ctx.measureText(sub).width > COLS * cs * 0.98) ctx.font = serifFont(Math.max(8, Math.floor(cs * 0.5 * COLS * cs * 0.98 / ctx.measureText(sub).width)));
+          ctx.fillText(sub, w / 2, ty0 + cs * 0.95);
+          ctx.fillStyle = gold; tesFitFont(ctx, isMobile ? 'TAP TO TURN THROUGH THE FOURTH DIMENSION' : 'SPACE TO TURN THROUGH THE FOURTH DIMENSION', 600, Math.round(cs * 0.4), COLS * cs * 0.96, cs * 0.1);
+          ctx.fillText(isMobile ? 'TAP TO TURN THROUGH THE FOURTH DIMENSION' : 'SPACE TO TURN THROUGH THE FOURTH DIMENSION', w / 2, ty0 + cs * 2.05); spaced(0);
+          ctx.globalAlpha = 1;
+        }
+      }
+      if (st === 'fold') {   // a slice folds away
+        var fs = TES.foldS, left = TES.foldN - 1, fa = Math.min(1, fold * 5) * (fold > 0.8 ? Math.max(0, (1 - fold) / 0.2) : 1), ty1 = offsetY + cs * 6.2;
+        ctx.globalAlpha = fa * 0.85; ctx.fillStyle = '#050507'; ctx.fillRect(offsetX, ty1 - cs * 2.4, COLS * cs, cs * 4.4); ctx.globalAlpha = fa;
+        if ('fontStretch' in ctx) ctx.fontStretch = 'condensed';
+        ctx.font = hudFont(200, Math.round(cs * 1.6)); ctx.fillStyle = tesRGBA(fs, 1); ctx.fillText(TES_NO[fs] + '. ' + TES_NAME[fs].toUpperCase(), w / 2, ty1);
+        if ('fontStretch' in ctx) ctx.fontStretch = 'normal';
+        ctx.font = serifFont(Math.round(cs * 0.56)); ctx.fillStyle = 'rgba(201,204,209,0.8)'; ctx.fillText('folds away into the fourth dimension', w / 2, ty1 + cs * 0.95);
+        ctx.fillStyle = '#C4A882'; tesFitFont(ctx, left > 0 ? ['', 'ONE DIMENSION REMAINS', 'TWO DIMENSIONS REMAIN', 'THREE DIMENSIONS REMAIN'][left] : 'THE TESSERACT FALLS TO A POINT', 600, Math.round(cs * 0.42), COLS * cs * 0.96, cs * 0.12);
+        ctx.fillText(left > 0 ? ['', 'ONE DIMENSION REMAINS', 'TWO DIMENSIONS REMAIN', 'THREE DIMENSIONS REMAIN'][left] : 'THE TESSERACT FALLS TO A POINT', w / 2, ty1 + cs * 1.75); spaced(0);
+        ctx.globalAlpha = 1;
+      }
+      if (st === 'cont' || st === 'lost') {
+        ctx.fillStyle = 'rgba(5,5,7,0.86)'; ctx.fillRect(0, 0, w, h);
+        if ('fontStretch' in ctx) ctx.fontStretch = 'condensed';
+        ctx.font = hudFont(200, Math.round(cs * 2.4)); ctx.fillStyle = '#F5F4F0'; ctx.fillText('SIGNAL LOST', w / 2, h / 2 - cs * 0.8);
+        if ('fontStretch' in ctx) ctx.fontStretch = 'normal';
+        ctx.font = hudFont(500, Math.round(cs * 0.7)); ctx.fillStyle = '#C4A882';
+        if (st === 'cont') {
+          ctx.fillText('CONTINUE?  ' + Math.max(0, Math.ceil(10 - (pnow - TES.st0) / 1000)), w / 2, h / 2 + cs * 0.6);
+          ctx.fillStyle = 'rgba(201,204,209,0.7)'; tesFitFont(ctx, 'TAP OR PRESS ENTER TO PLAY MOVEMENT VI AGAIN', 600, Math.round(cs * 0.42), w * 0.92, cs * 0.1);
+          ctx.fillText('TAP OR PRESS ENTER TO PLAY MOVEMENT VI AGAIN', w / 2, h / 2 + cs * 1.9); spaced(0);
+        } else {
+          ctx.fillText(score + ' Hz', w / 2, h / 2 + cs * 0.6);
+          ctx.fillStyle = 'rgba(201,204,209,0.7)'; tesFitFont(ctx, 'TAP OR PRESS ENTER TO RESTART', 600, Math.round(cs * 0.42), w * 0.92, cs * 0.1);
+          ctx.fillText('TAP OR PRESS ENTER TO RESTART', w / 2, h / 2 + cs * 1.9); spaced(0);
+        }
+      }
+    }
+    function tesDrawStrip(ctx, cs, hair, pnow, paper, N, pi) {   // the fourth dimension, laid out below the maze: the slices still standing, their notes left, you, and the shadows
+      if (!N) return;
+      var x0 = offsetX, W = COLS * cs, y0 = offsetY + ROWS * cs + cs * 0.35, H = Math.min(30, cs * 0.85), gap = Math.max(3, cs * 0.15), sw = (W - gap * (N - 1)) / N, pl = TES.pulse, j, q, L;
+      var fsz = Math.max(7, Math.round(Math.min(H * 0.42, cs * 0.36)));
+      ctx.font = hudFont(600, fsz); spaced(fsz * 0.12);
+      for (L = 0; L < 3; L++) { for (j = 0; j < N; j++) if (ctx.measureText(tesStripLabel(TES.ring[j], L)).width > sw - (L < 2 ? 8 : 6)) break; if (j === N) break; }   // the fullest label that fits every slice, so the slices read alike
+      spaced(0);
+      for (j = 0; j < N; j++) {
+        var s = TES.ring[j], x = x0 + j * (sw + gap), cur = s === TES.ps, fl = TES.stage === 'fold' && s === TES.foldS;
+        ctx.globalAlpha = fl ? Math.max(0, 1 - (pnow - TES.st0) / 1200) : 1;
+        ctx.fillStyle = paper ? 'rgba(10,10,10,' + (cur ? 0.12 : 0.04) + ')' : tesRGBA(s, cur ? 0.3 : 0.1); ctx.fillRect(x, y0, sw, H);
+        if (pl && !pl.fired && pl.s === s) { var ch = Math.min(1, (TES.clock - pl.t0) / pl.T); ctx.fillStyle = tesRGBA(s, 0.35 + 0.35 * Math.abs(Math.sin(pnow * 0.012 * (1 + ch * 4)))); ctx.fillRect(x, y0, sw * ch, H); }   // the charge, filling the slice
+        ctx.strokeStyle = paper ? 'rgba(10,10,10,' + (cur ? 0.7 : 0.3) + ')' : tesRGBA(s, cur ? 0.95 : 0.4); ctx.lineWidth = cur ? Math.max(1.5, hair * 1.5) : 1; ctx.strokeRect(x + 0.5, y0 + 0.5, sw - 1, H - 1);
+        var lab = tesStripLabel(s, L);
+        ctx.font = hudFont(600, fsz); spaced(fsz * 0.12);
+        ctx.fillStyle = paper ? 'rgba(10,10,10,0.8)' : cur ? '#F5F4F0' : tesRGBA(s, 0.85); ctx.textAlign = 'center'; ctx.fillText(lab, x + sw / 2, y0 + H / 2 + fsz * 0.36); spaced(0);
+        ctx.globalAlpha = 1;
+      }
+      if (pi >= 0) { var ux = x0 + pi * (sw + gap) + sw / 2; ctx.fillStyle = paper ? '#0A0A0A' : '#C4A882'; ctx.beginPath(); ctx.moveTo(ux, y0 - 2); ctx.lineTo(ux - H * 0.28, y0 - H * 0.42); ctx.lineTo(ux + H * 0.28, y0 - H * 0.42); ctx.closePath(); ctx.fill(); }   // you
+      for (q = 0; q < 4; q++) {   // the shadows, each where it is on the ring
+        var hq = TES.sh[q], wpos;
+        if (q === 0) { if (hq.mode !== 'echo') continue; wpos = TES.ring.indexOf(hq.s); if (wpos < 0) continue; }
+        else { if (hq.mode !== 'out') continue; wpos = tesWrapW(hq.w); }
+        var mx = x0 + wpos * (sw + gap) + sw / 2; if (wpos > N - 0.5) mx -= N * (sw + gap);
+        var my = y0 + 1;
+        tesGhost(ctx, mx + (q - 1.5) * Math.max(4, H * 0.22), my, Math.max(3, H * 0.22), q, paper ? '10,10,10' : q === 0 ? '201,204,209' : TES_RGB[tesSliceAt(hq.w)].join(','), 0.85, hq.fr ? 1 : 0, Date.now(), Math.max(1, hair * 0.6), 0, 0, paper);
+      }
+    }
+    function tesStripLabel(s, L) {   // a slice's label in the strip, from fullest (L = 0) to just its notes left (L = 3)
+      var c = '  \u00B7  ';
+      return L === 0 ? TES_NO[s] + c + TES_NAME[s].toUpperCase() + c + TES_KEY[s] + c + TES.left[s] : L === 1 ? TES_NO[s] + c + TES_NAME[s].toUpperCase() + c + TES.left[s] : L === 2 ? TES_NO[s] + ' ' + TES_KEY[s] + '  ' + TES.left[s] : String(TES.left[s]);
+    }
+    function tesMovRGB(m) { return m >= 0 && m < 4 ? TES_RGB[m].join(',') : m === 4 ? '224,168,90' : '243,227,188'; }   // each movement's color in the closing score: the four slices' own, then V's amber, then VI's pale gold
+    var TES_CAP = ['A POINT', 'A LINE  \u00b7  I. HARD BOP', 'A SQUARE  \u00b7  II. DRONE', 'A CUBE  \u00b7  III. STOCHASTIC', 'A TESSERACT  \u00b7  IV. HARMONIC SERIES'];
+    function tesDrawIntro(ctx, w, h, pnow) {   // the Tesseract unfolds from a point, one dimension at a time, and settles into the maze
+      var el = (pnow - TES.st0) / 1000, u = el / 0.72, uk = Math.floor(u), ug = Math.min(1, (u - uk) / 0.35), dims = uk < 1 ? 0 : Math.min(4, uk - 1 + ug * ug * (3 - 2 * ug)), cs = cellSize;   // each new dimension grows out quickly, then holds
+      var hx = offsetX + 9.5 * cs, hy = offsetY + 9.5 * cs, big = Math.min(w, h) * 0.62;
+      var settle = Math.max(0, Math.min(1, (el - 3.5) / 0.75)), e = settle * settle * (3 - 2 * settle), cx = w / 2 + (hx - w / 2) * e, cy = h / 2 + (hy - h / 2) * e, size = big + (cs * 2.8 - big) * e;
+      if (settle > 0) { ctx.globalAlpha = e; tesWalls(ctx, 0, tesRGBA(0, 0.66), Math.max(1, cs / 22)); ctx.globalAlpha = 1; }
+      tesHyper(ctx, cx, cy, size, dims, pnow / 1000, 0.9, Math.max(1, cs / 22) * (1.6 - e * 0.4), false, -1, 0);
+      var ci = Math.min(4, Math.floor(el / 0.72)), ca = 1 - settle;
+      if (ca > 0) {
+        ctx.globalAlpha = ca; ctx.textAlign = 'center'; ctx.fillStyle = '#C4A882';
+        tesFitFont(ctx, TES_CAP[ci], 600, Math.round(cs * 0.46), w * 0.9, cs * 0.14); ctx.fillText(TES_CAP[ci], w / 2, h * 0.86); spaced(0);
+        ctx.font = serifFont(Math.round(cs * 0.6)); ctx.fillStyle = 'rgba(201,204,209,0.75)'; ctx.fillText('the maze has a fourth dimension', w / 2, h * 0.86 + cs * 1.1);
+        ctx.globalAlpha = 1;
+      }
+    }
+    function tesDrawFine(ctx, w, h, pnow) {   // the end: silence; the harmonic series of the page's B-flat; the score of your whole suite, written out at a glance; FINE
+      var el = (pnow - TES.st0) / 1000, cs = cellSize, i, q, T = Math.max(1, TES.fineT || 1), L = w * 0.07, R = w * 0.93, top = h * 0.2, bot = h * 0.78;
+      var fl = Math.max(0, 1 - el / 1.4);   // the point you caught, flaring and going out
+      if (fl > 0) { var px = offsetX + playerX * cs + cs / 2, py = offsetY + playerY * cs + cs / 2, gr = ctx.createRadialGradient(px, py, 0, px, py, cs * (1 + 6 * (1 - fl))); gr.addColorStop(0, 'rgba(243,227,188,' + (0.9 * fl).toFixed(3) + ')'); gr.addColorStop(1, 'rgba(243,227,188,0)'); ctx.fillStyle = gr; ctx.fillRect(0, 0, w, h); }
+      if (el > 1.5) {   // the sixteen harmonics of B-flat 1, as strings across the page, each in its mode
+        var sa = Math.min(1, (el - 1.5) / 1.2) * (el > 9.2 ? Math.max(0.25, 1 - (el - 9.2) / 1.5) : 1);
+        ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
+        for (var k = 1; k <= 16; k++) {
+          var on = Math.min(1, Math.max(0, (el - 1.5 - k * 0.06) / 0.5)) * (el > 3.0 ? Math.max(0.35, 1 - Math.max(0, el - 3.0 - (16 - k) * 0.12) / 2.5) : 1);
+          if (on <= 0) continue;
+          var yb = bot - (bot - top) * (k - 1) / 15, ap = h * 0.012 * on * Math.cos(el * (2.2 + k * 0.35) * 6.2832), hq = hueOfF(58.27 * k);
+          ctx.strokeStyle = hsla(hq, 85, 68, Math.min(0.85, 0.2 + 0.6 * on) * sa); ctx.lineWidth = Math.max(1, cs / 22) * (1 + on); ctx.beginPath();
+          for (var sx = 0; sx <= 80; sx++) { var xx = L + (R - L) * sx / 80, yy = yb + ap * Math.sin(k * Math.PI * sx / 80); if (sx) ctx.lineTo(xx, yy); else ctx.moveTo(xx, yy); }
+          ctx.stroke();
+        }
+        ctx.globalCompositeOperation = 'source-over';
+      }
+      if (el > 2.6 && perf) {   // the score of the run: every note of your solo, in its movement's color, written out as the sweep passes
+        var ph = Math.min(1, (el - 2.6) / 7), xph = L + (R - L) * ph, mv = perf.marks.filter(function (m) { return m[1] === 'mov'; });
+        var movAt = function (t) { var m = mv.length ? mv[0][2] : 0; for (var j = 0; j < mv.length; j++) if (mv[j][0] <= t) m = mv[j][2]; return m; };
+        var Y = function (f) { var p = Math.log(Math.max(20, f) / 58.27) / Math.LN2; return bot - (bot - top) * Math.max(0, Math.min(1, p / 5.2)); };
+        var S = perf.solo, n = S.length, step = Math.max(1, Math.floor(n / 1400));
+        for (i = 0; i < n; i += step) {
+          var sx2 = L + (R - L) * Math.min(1, S[i][0] / T); if (sx2 > xph) break;
+          ctx.fillStyle = 'rgba(' + tesMovRGB(movAt(S[i][0])) + ',0.85)'; ctx.fillRect(sx2 - 1.3, Y(S[i][1]) - 1.3, 2.6, 2.6);
+        }
+        ctx.textAlign = 'left'; ctx.font = hudFont(600, Math.max(8, Math.round(cs * 0.36)));
+        mv.forEach(function (m, j) { var mx = L + (R - L) * Math.min(1, m[0] / T); if (mx > xph) return; if (j && mx - (L + (R - L) * Math.min(1, mv[j - 1][0] / T)) < cs * 1.2) return; var M2 = MOVS[m[2]] || MOVS[5]; ctx.fillStyle = 'rgba(' + tesMovRGB(m[2]) + ',0.95)'; ctx.fillText(M2.n, mx, top - cs * 0.5); ctx.fillRect(mx, top - cs * 0.3, Math.max(2, cs * 0.06), bot - top + cs * 0.3); });
+        if (ph < 1) { ctx.fillStyle = 'rgba(196,168,130,0.9)'; ctx.fillRect(xph - 1, top - cs * 0.6, 2, bot - top + cs * 0.9); }
+      }
+      if (el > 9.8) {   // FINE
+        var fa = Math.min(1, (el - 9.8) / 1.2);
+        ctx.globalAlpha = fa; ctx.textAlign = 'center';
+        if ('fontStretch' in ctx) ctx.fontStretch = 'condensed';
+        ctx.font = hudFont(200, Math.round(Math.min(w * 0.22, h * 0.26))); ctx.fillStyle = '#F5F4F0'; ctx.fillText('FINE', w / 2, h * 0.53);
+        if ('fontStretch' in ctx) ctx.fontStretch = 'normal';
+        ctx.fillStyle = '#C4A882'; tesFitFont(ctx, 'SIGNAL CHASE  \u00b7  A SUITE IN SIX MOVEMENTS  \u00b7  ' + score + ' Hz', 600, Math.round(cs * 0.46), w * 0.9, cs * 0.14);
+        ctx.fillText('SIGNAL CHASE  \u00b7  A SUITE IN SIX MOVEMENTS  \u00b7  ' + score + ' Hz', w / 2, h * 0.53 + cs * 1.4); spaced(0);
+        ctx.font = serifFont(Math.round(cs * 0.62)); ctx.fillStyle = 'rgba(201,204,209,0.8)'; ctx.fillText('for one player and four oscillators', w / 2, h * 0.53 + cs * 2.4);
+        ctx.globalAlpha = 1;
+      }
+    }
+    // ---------- movement VI's controls: the way in, and the turn ----------
+    function tesKey(e, k) {   // returns true when movement VI has used the key
+      try {
+        if (!TES.on) {
+          if (gameState === 'won' && movIdx() === 4 && (k === 'Enter' || k === ' ')) { e.preventDefault(); tesEnter(false); return true; }   // after movement V, the finale
+          return false;
+        }
+        var st = TES.stage;
+        if (st === 'intro') {
+          if (k === 'Enter' || k === ' ' || k.indexOf('Arrow') === 0) {
+            e.preventDefault(); tesPlay();
+            if (k === 'ArrowUp') playerNextDir = 0; else if (k === 'ArrowRight') playerNextDir = 1; else if (k === 'ArrowDown') playerNextDir = 2; else if (k === 'ArrowLeft') playerNextDir = 3;
+            return true;
+          }
+          return false;
+        }
+        if (st === 'cont') { if (k === 'Enter' || k === ' ') { e.preventDefault(); tesContinue(); return true; } return false; }
+        if (st === 'fine') return gameState === 'gameover' ? false : (k === 'Enter' || k === ' ');   // let the ending play; once the card is up, Enter plays again
+        if (st === 'play' || st === 'fold' || st === 'coda') {
+          var lk = k.toLowerCase();
+          if (k === ' ') { e.preventDefault(); if (st === 'play' && !e.repeat) tesTurn(1, 'key'); return true; }   // ana
+          if (lk === 'q') { if (st === 'play' && !e.repeat) tesTurn(-1, 'key'); return true; }   // kata
+          if (k === 'Enter') return true;
+        }
+        return false;
+      } catch (x) { tesFail(x); return false; }
+    }
+    function tesTouch(e) {   // a touch beginning: returns true when movement VI has used it
+      try {
+        if (!TES.on) { if (gameState === 'won' && movIdx() === 4) { tesEnter(false); return true; } return false; }
+        var st = TES.stage;
+        if (st === 'intro') { tesPlay(); return true; }
+        if (st === 'cont') { tesContinue(); return true; }
+        if (st === 'fine' && gameState !== 'gameover') return true;
+        return false;
+      } catch (x) { tesFail(x); return false; }
+    }
+    function tesTap() { try { if (TES.on && TES.stage === 'play') tesTurn(1, 'tap'); } catch (x) { tesFail(x); } }   // a tap that is not a swipe: turn ana
     // === INPUT ===
     function onControl(e) {   // a focused button inside the game (the score card, tilt, close) keeps its own Enter and Space
       var t = e.target;
@@ -6138,6 +7357,7 @@
         }
         return;
       }
+      if (tesKey(e, k)) return;   // movement VI: its turn through the fourth dimension, and the way into it
       if ((gameState === 'gameover' || gameState === 'won') && (k === 'Enter' || k === ' ')) {
         e.preventDefault();
         var advancing = gameState === 'won';
@@ -6153,6 +7373,7 @@
       if (isUI(e)) return;
       e.preventDefault();
       if (gameState === 'title') { beginRun(); return; }
+      if (tesTouch(e)) return;   // movement VI: the way into it, and its own taps
       if (gameState === 'gameover' || gameState === 'won') {
         var advancing = gameState === 'won';
         if (advancing) level++;
@@ -6170,7 +7391,7 @@
       var t = e.changedTouches[0];
       var dx = t.clientX - sx0, dy = t.clientY - sy0;
       var absDx = Math.abs(dx), absDy = Math.abs(dy);
-      if (absDx < 15 && absDy < 15) return; // too small
+      if (absDx < 15 && absDy < 15) { tesTap(); return; } // too small (in movement VI, a tap turns you through the fourth dimension)
       if (absDx > absDy) {
         playerNextDir = dx > 0 ? 1 : 3;
       } else {
