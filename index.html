@@ -6003,7 +6003,7 @@
         ctx.fillText(score + ' Hz', w / 2, h / 2 + cellSize * 0.6);
         if (gameState === 'won') { var NM = movIdx() === 4 ? MOVS[5] : MOVS[level % 5]; ctx.font = serifFont(Math.round(cellSize * 0.62)); ctx.fillStyle = M.dim; ctx.fillText('Next: ' + NM.n + '. ' + NM.name, w / 2, h / 2 + cellSize * 1.5); }
         ctx.font = hudFont(600, Math.round(cellSize * 0.42)); ctx.fillStyle = M.dim; spaced(cellSize * 0.1);
-        ctx.fillText(gameState === 'won' ? 'TAP OR PRESS ENTER FOR NEXT LEVEL' : 'TAP OR PRESS ENTER TO RESTART', w / 2, h / 2 + cellSize * (gameState === 'won' ? 2.5 : 1.9));
+        ctx.fillText((isMobile ? 'TAP' : 'CLICK') + (gameState === 'won' ? ' OR PRESS ENTER FOR NEXT LEVEL' : ' OR PRESS ENTER TO RESTART'), w / 2, h / 2 + cellSize * (gameState === 'won' ? 2.5 : 1.9));
         spaced(0); ctx.globalAlpha = 1;
       }
     }
@@ -6230,14 +6230,15 @@
         o.connect(a); a.connect(g); o.start(t);
         comps.push({ o: o, a: a, wgt: wgt, xa: x, xb: x, ta: t, tb: t });
       }
-      function xAt(q, tt) { if (tt >= q.tb) return tesWrap8(q.xb); if (tt <= q.ta) return tesWrap8(q.xa); return tesWrap8(q.xa + (q.xb - q.xa) * (tt - q.ta) / (q.tb - q.ta)); }
+      function xuAt(q, tt) { if (tt >= q.tb) return q.xb; if (tt <= q.ta) return q.xa; return q.xa + (q.xb - q.xa) * (tt - q.ta) / (q.tb - q.ta); }   // where a partial is at time tt, in octaves, not yet wrapped (a glide can run past the bell's end)
       var api = {
-        pc: pc, live: true,
+        pc: pc, live: true,   // pc: the key the drone is on, or gliding to
+        pcAt: function (tt) { var q = comps[0]; return api.pc - (q.xb - xuAt(q, tt)) * 1200; },   // the pitch actually sounding at tt, in cents: short of pc while a glide is under way
         glide: function (t1, to, gl) {   // to a new key; the target may lie above 1200 cents or below 0, so the glide always goes the way you turned
           if (!api.live) return;
           var dx = (to - api.pc) / 1200; api.pc = to;
-          comps.forEach(function (q) {
-            var x0 = xAt(q, t1), x1 = x0 + dx, F = q.o.frequency, A = q.a.gain;
+          comps.forEach(function (q) {   // a turn that interrupts a glide starts from where the drone actually is, and covers what was left of that glide as well as its own step, so it lands exactly on its key
+            var xu = xuAt(q, t1), x0 = tesWrap8(xu), x1 = x0 + (q.xb - xu) + dx, F = q.o.frequency, A = q.a.gain;
             F.cancelScheduledValues(t1); A.cancelScheduledValues(t1);
             F.setValueAtTime(29.135 * Math.pow(2, x0), t1); A.setValueAtTime(tesShepAmp(x0) * q.wgt, t1);
             if (x1 >= 8 || x1 < 0) {   // this partial runs off one end of the bell, where it is silent, and comes back in at the other
@@ -6268,7 +6269,7 @@
     }
     SND.f6d = function (c, out, t, pc0, pc1, gl, v, dur) {   // a stretch of the drone, as the score keeps it: a key, the glide into it, and how long it held
       var d = tesDroneMake(c, out, t, pc0, v, 0.25);
-      if (pc1 !== pc0) d.glide(t + 0.01, pc1, gl || 0.45);
+      if (pc1 !== pc0) { d.glide(t + 0.01, pc1, gl || 0.45); d.level(t + 0.01, v * 2, 0.08); d.level(t + 0.01 + (gl || 0.45), v, 0.4); }   // a turn: the climb swells, as it did live
       d.stop(t + Math.max(0.3, dur || 1));
     };
     SND.f6p = function (c, out, t, f1, T, v, p) {   // the Tesseract's pulse: a rhythm sped up until it is a pitch (Stockhausen's continuum, as in Kontakte), then let go as a wave
@@ -6292,6 +6293,11 @@
       var pm = c.__tesPulse; if (!pm) return; c.__tesPulse = null;
       try { pm.gain.setValueAtTime(1, t); pm.gain.linearRampToValueAtTime(0, t + 0.08); } catch (x) {}
     };
+    SND.f6g = function (c, out, t, spec, a, b, c2, d, e) {   // an instrument of a slice at its own movement's level: spec is 'kind:dB'; one gain per level, kept on the output it feeds
+      var i = spec.indexOf(':'), kind = spec.slice(0, i), db = spec.slice(i + 1), key = '__tesG' + db, g = out[key];
+      if (!g) { g = out[key] = c.createGain(); g.gain.value = Math.pow(10, +db / 20); g.connect(out); }
+      SND[kind](c, g, t, a, b, c2, d, e);
+    };
     SND.f6x = function (c, out, t, f, v, p) {   // a shadow caught in antiphase: its tone and an inverted twin, the twin gliding into unison so the beating slows into silence
       var o1 = c.createOscillator(), o2 = c.createOscillator(), g1 = c.createGain(), g2 = c.createGain(), m = c.createGain(), pk = 0.035 + v * 0.045;
       o1.frequency.value = f; o2.frequency.setValueAtTime(f * 1.06, t); o2.frequency.exponentialRampToValueAtTime(f, t + 0.5);
@@ -6307,7 +6313,14 @@
       if (!s2 || !perf || perf.done) return;
       perf.ev.push([pt(s2.t0), 'f6d', s2.pc0, s2.pc1, s2.gl, s2.v, Math.max(0.3, t - s2.t0)]);
     }
-    var TES_DV = 0.11;   // the drone's level
+    var TES_DV = 0.015;   // the drone's level: a bed under the music, there to be climbed and to beat against, never over it
+    var TES_GDB = [0, 8, 12.5, 6.5];   // each slice's music in dB, so it sounds as loud as the movement it recalls (each movement has its own trim; movement VI has one, so its slices carry theirs)
+    function tesSnd(s, kind, t, a, b, c2, d, e) {   // an instrument of slice s, at that slice's level, live and in the score alike
+      var db = TES_GDB[s] || 0;
+      if (!db) { play(kind, t, a, b, c2, d, e); return; }
+      if (kind === 'hp') { play('hp', t, a, (Math.pow(10, db / 20) * (0.05 + 0.07 * b) - 0.05) / 0.07, c2); return; }   // a struck harmonic's level is all in its velocity (and the score draws it), so it is raised there
+      play('f6g', t, kind + ':' + db, a, b, c2, d, e);
+    }
     function tesDroneStart(pc) {
       var c = gameAudioCtx, out = gameOut(); if (!c || !out) return;
       if (TES.drone) tesDroneStop();
@@ -6320,10 +6333,11 @@
     }
     function tesDroneTo(s, dir) {   // a turn: the drone climbs (or falls) to the new slice's key, the way you turned
       var c = gameAudioCtx, d = TES.drone; if (!c || !d) return;
-      var t = c.currentTime + 0.01, from = d.pc, to = TES_PC[s], dx = to - (((from % 1200) + 1200) % 1200);
+      var t = c.currentTime + 0.01, from = d.pc, to = TES_PC[s], dx = to - (((from % 1200) + 1200) % 1200), now = from;
       if (dir > 0 && dx <= 0) dx += 1200; if (dir < 0 && dx >= 0) dx -= 1200;
-      try { d.glide(t, from + dx, 0.45); } catch (x) {}
-      tesDroneLog(t); tesDroneSeg(t, from, from + dx, 0.45, TES_DV);
+      var lit = TES.tacet <= 0;   // (in a tacet the drone is silent: it moves, but nothing sounds and nothing is written)
+      try { now = d.pcAt(t); d.glide(t, from + dx, 0.45); if (lit) { d.level(t, TES_DV * 2, 0.08); d.level(t + 0.45, TES_DV, 0.4); } } catch (x) {}   // the climb swells up out of the music, then sinks back under it
+      tesDroneLog(t); if (lit) tesDroneSeg(t, now, from + dx, 0.45, TES_DV);   // the score keeps the glide from where the drone actually was
       if (Math.abs(d.pc) > 120000) { tesDroneStart(TES_PC[s]); }   // (after hundreds of turns, start a fresh drone in place)
     }
     function tesVoicesMake() {   // the four shadows' voices: sine, square, sawtooth, and noise, the four oscillators of the first movement
@@ -6386,15 +6400,15 @@
         if (!off) { var wb = TES_WALK[Math.floor(step / 8) % 4]; play('ub', tt - 0.004, R / 2 * wb[beat], 0.58 + Math.random() * 0.2, -0.12, TES_STEP * 1.85); }
         if (b8 === 0 || (b8 === 5 && Math.random() < 0.55)) [5 / 4, 9 / 5].forEach(function (q, i) { play('pno', tt + 0.006 + i * 0.005, R * q, 0.3 + dg * 0.15, -0.2, TES_STEP * 1.5); });
       } else if (s === 1) {   // II. the tanpura, Pa, Sa, Sa, low Sa, one string at a time
-        if (!off || dg > 0.6) { var f1 = [1.5 * R, 2 * R, 2 * R, R][(TES.tan = (TES.tan || 0) + 1) % 4]; play('tan', t, f1, (0.5 + dg * 0.35) * 0.71, f1 < R * 1.2 ? -0.3 : f1 > R * 1.8 ? 0.25 : -0.1); }
-        if (b16 === 0) play('chm', t, R * [4, 5, 6, 8][Math.floor(Math.random() * 4)]);
+        if (!off || dg > 0.6) { var f1 = [1.5 * R, 2 * R, 2 * R, R][(TES.tan = (TES.tan || 0) + 1) % 4]; tesSnd(s, 'tan', t, f1, (0.5 + dg * 0.35) * 0.71, f1 < R * 1.2 ? -0.3 : f1 > R * 1.8 ? 0.25 : -0.1); }
+        if (b16 === 0) tesSnd(s, 'chm', t, R * [4, 5, 6, 8][Math.floor(Math.random() * 4)]);
       } else if (s === 2) {   // III. stochastic grains on the key's partials, denser as the shadows close in
-        if (Math.random() < 0.2 + dg * 0.45) play('plk', t + Math.random() * TES_STEP * 0.9, R / 2 * (8 + Math.floor(Math.random() * 17)), 0.2 + Math.random() * 0.2, Math.random() * 1.6 - 0.8, 0.05 + Math.random() * 0.5);
-        if (Math.random() < 0.06) play('sin', t, R / 2 * (16 + Math.floor(Math.random() * 16)), 0.03, Math.random() * 1.6 - 0.8, 1.2);
+        if (Math.random() < 0.2 + dg * 0.45) tesSnd(s, 'plk', t + Math.random() * TES_STEP * 0.9, R / 2 * (8 + Math.floor(Math.random() * 17)), 0.2 + Math.random() * 0.2, Math.random() * 1.6 - 0.8, 0.05 + Math.random() * 0.5);
+        if (Math.random() < 0.06) tesSnd(s, 'sin', t, R / 2 * (16 + Math.floor(Math.random() * 16)), 0.03, Math.random() * 1.6 - 0.8, 1.2);
       } else {   // IV. down the harmonic series, sixteen to two, one harmonic every eighth note, and a bell at the top of each phrase
         var kq = 16 - ((TES.scan = (TES.scan || 0) + 1) % 15);
-        if (!off || Math.random() < 0.5 + dg * 0.4) play('hp', t, R / 2 * kq, 0.25 + dg * 0.2, ((kq % 5) - 2) * 0.25);
-        if (b16 === 0) play('bell', t, R * 2, 0.35, 0, 1, 2.6);
+        if (!off || Math.random() < 0.5 + dg * 0.4) tesSnd(s, 'hp', t, R / 2 * kq, 0.25 + dg * 0.2, ((kq % 5) - 2) * 0.25);
+        if (b16 === 0) tesSnd(s, 'bell', t, R * 2, 0.35, 0, 1, 2.6);
       }
     }
     function tesNote() {   // a note eaten: your melody, played by the slice's instrument, in the slice's key
@@ -6405,9 +6419,9 @@
         f = 4 * R * R / f; while (f < 2 * R) f *= 2; while (f > 8 * R) f /= 2;
         play('sin', t, f, 0.035, pan, 0.6); soloNote(f, 'string', 'sng');
       } else if (s === 0) { d = nextSoloDeg(10); o = Math.floor(d / 5); f = 2 * R * Math.pow(2, o) * TES_JP[d - o * 5]; play('pno', t, f, 0.44 + Math.random() * 0.06, 0.18, 0.3, 2.8184); soloNote(f, 'ep', 'sx'); }
-      else if (s === 1) { d = nextSoloDeg(10); o = Math.floor(d / 5); f = 2 * R * Math.pow(2, o) * TES_JP[d - o * 5]; play('plk', t, f, 0.95, pan, 0.12); soloNote(f, 'string', 'plk'); }
-      else if (s === 2) { f = R / 2 * (8 + nextSoloDeg(16)); play('plk', t, f, 0.5, pan, 0.08 + Math.random() * 0.4); soloNote(f, 'string', 'plk'); }
-      else { f = R * (2 + nextSoloDeg(14)); while (f < 260) f *= 2; play('hp', t, f, 0.6, pan); soloNote(f, 'mode', 'hrn'); }
+      else if (s === 1) { d = nextSoloDeg(10); o = Math.floor(d / 5); f = 2 * R * Math.pow(2, o) * TES_JP[d - o * 5]; tesSnd(s, 'plk', t, f, 0.95, pan, 0.12); soloNote(f, 'string', 'plk'); }
+      else if (s === 2) { f = R / 2 * (8 + nextSoloDeg(16)); tesSnd(s, 'plk', t, f, 0.5, pan, 0.08 + Math.random() * 0.4); soloNote(f, 'string', 'plk'); }
+      else { f = R * (2 + nextSoloDeg(14)); while (f < 260) f *= 2; tesSnd(s, 'hp', t, f, 0.6, pan); soloNote(f, 'mode', 'hrn'); }
       TES.notes.push([TES.clock, f]);
     }
     function tesEchoNote(f) {   // your echo sings back what you played: in the sound you made in movement V, if there is one
@@ -6419,9 +6433,9 @@
     function tesFoldSound(s) {   // each slice ends its own way, and then folds down into the fourth dimension
       var c = gameAudioCtx; if (!c) return; var t = c.currentTime + 0.02, R = TES_R[s];
       if (s === 0) { [1 / 2, 5 / 4, 5 / 3, 9 / 4, 45 / 16].forEach(function (q, i) { play('pno', t + i * 0.006, R * q, 0.85, i ? 0.2 : -0.2, 2.4); }); play('ub', t, R / 2, 0.9, -0.12, 2); play('drm', t, 'crash', 1, 0.3); play('drm', t, 'kick', 0.9, 0); }
-      else if (s === 1) { [R, 1.5 * R, 2 * R, 2 * R].forEach(function (f, i) { play('tan', t + i * 0.2, f, 0.9, (i - 1.5) * 0.3); }); [4, 6, 8].forEach(function (q, i) { play('chm', t + 0.5 + i * 0.3, R * q); }); }
-      else if (s === 2) { [8, 10, 12, 15, 16].forEach(function (q, i) { play('sin', t + i * 0.03, R / 2 * q, 0.06, (i - 2) * 0.3, 4); }); }
-      else { play('rfin', t, R, 1); }
+      else if (s === 1) { [R, 1.5 * R, 2 * R, 2 * R].forEach(function (f, i) { tesSnd(s, 'tan', t + i * 0.2, f, 0.9, (i - 1.5) * 0.3); }); [4, 6, 8].forEach(function (q, i) { tesSnd(s, 'chm', t + 0.5 + i * 0.3, R * q); }); }
+      else if (s === 2) { [8, 10, 12, 15, 16].forEach(function (q, i) { tesSnd(s, 'sin', t + i * 0.03, R / 2 * q, 0.06, (i - 2) * 0.3, 4); }); }
+      else { tesSnd(s, 'rfin', t, R, 1); }
       play('shep', t + 0.15, 2.2, -1, 0.7, 1.1);
     }
     function tesDeathSound() {   // caught: the signal falls away in glissandi (and your own sound sinks, if you made one)
@@ -6433,9 +6447,9 @@
       var c = gameAudioCtx; if (!c) return; var t = c.currentTime + 0.05, i;
       play('fh', t, 58.27, 0.8, 3.4);   // a point: the page's own B-flat
       [1 / 2, 5 / 4, 5 / 3, 9 / 4].forEach(function (q, j) { play('pno', t + 0.72 + j * 0.006, 116.54 * q, 0.6, 0.2, 1.2); }); play('drm', t + 0.72, 'ride', 0.7, 0.32);   // a line: the first movement
-      play('tan', t + 1.44, 116.54, 0.8, -0.2); play('tan', t + 1.56, 174.61, 0.7, 0.2);   // a square: the second
-      for (i = 0; i < 10; i++) play('plk', t + 2.16 + Math.random() * 0.5, 58.27 * (8 + Math.floor(Math.random() * 16)), 0.3, Math.random() * 1.6 - 0.8, 0.05 + Math.random() * 0.4);   // a cube: the third
-      [2, 3, 4, 5].forEach(function (k, j) { play('hp', t + 2.88 + j * 0.07, 116.54 * k, 0.7, (j - 1.5) * 0.4); });   // the Tesseract: the fourth
+      tesSnd(1, 'tan', t + 1.44, 116.54, 0.8, -0.2); tesSnd(1, 'tan', t + 1.56, 174.61, 0.7, 0.2);   // a square: the second
+      for (i = 0; i < 10; i++) tesSnd(2, 'plk', t + 2.16 + Math.random() * 0.5, 58.27 * (8 + Math.floor(Math.random() * 16)), 0.3, Math.random() * 1.6 - 0.8, 0.05 + Math.random() * 0.4);   // a cube: the third
+      [2, 3, 4, 5].forEach(function (k, j) { tesSnd(3, 'hp', t + 2.88 + j * 0.07, 116.54 * k, 0.7, (j - 1.5) * 0.4); });   // the Tesseract: the fourth
       if (tape) play('vwhoop', t + 3.4, tape.id, tape.body, 1); else play('shep', t + 3.3, 1.2, 1, 0.8, 1.2);   // and the fifth, the sound you made, swept upward
     }
     function tesFineSound() {   // the end of the suite: a moment of silence; the page's fundamental and its whole harmonic series; every note you played, swept past; and the tuning that began it all
@@ -6467,7 +6481,7 @@
         if (playing && h && i > 0 && h.mode === 'out' && pi >= 0) {
           var dx = h.x - playerX, dy = h.y - playerY, prox = Math.max(0, 1 - Math.sqrt(dx * dx + dy * dy) / 12), dw = Math.abs(tesWD(h.w, pi)), wp = Math.max(0, 1 - dw);
           f = tesShadowHz(h); if (h.fr) f /= 2;
-          gn = (0.003 + 0.05 * Math.pow(prox, 1.5)) * (0.45 + 0.55 * wp) * (h.fr ? 0.6 : 1) * (h.mat > 0 ? 0.5 : 1);
+          gn = (0.0045 + 0.075 * Math.pow(prox, 1.5)) * (0.45 + 0.55 * wp) * (h.fr ? 0.6 : 1) * (h.mat > 0 ? 0.5 : 1);
           pan = Math.max(-0.9, Math.min(0.9, h.x / (COLS - 1) * 2 - 1)); br = h.fr ? 0.08 : prox * (0.3 + 0.7 * wp);
           if (!h.fr && dw < 0.001) dmax = Math.max(dmax, prox);
           if (!h.fr && dw < 0.6 && dw > 0.001 && prox > 0.45) tesHint('beat');
@@ -7176,8 +7190,8 @@
           ctx.font = serifFont(Math.round(cs * 0.5)); ctx.fillStyle = paper ? 'rgba(10,10,10,0.6)' : 'rgba(201,204,209,0.75)';
           var sub = M6.sub; if (ctx.measureText(sub).width > COLS * cs * 0.98) ctx.font = serifFont(Math.max(8, Math.floor(cs * 0.5 * COLS * cs * 0.98 / ctx.measureText(sub).width)));
           ctx.fillText(sub, w / 2, ty0 + cs * 0.95);
-          ctx.fillStyle = gold; tesFitFont(ctx, isMobile ? 'TAP TO TURN THROUGH THE FOURTH DIMENSION' : 'SPACE TO TURN THROUGH THE FOURTH DIMENSION', 600, Math.round(cs * 0.4), COLS * cs * 0.96, cs * 0.1);
-          ctx.fillText(isMobile ? 'TAP TO TURN THROUGH THE FOURTH DIMENSION' : 'SPACE TO TURN THROUGH THE FOURTH DIMENSION', w / 2, ty0 + cs * 2.05); spaced(0);
+          ctx.fillStyle = gold; tesFitFont(ctx, isMobile ? 'TAP TO TURN THROUGH THE FOURTH DIMENSION' : 'SPACE OR CLICK TO TURN THROUGH THE FOURTH DIMENSION', 600, Math.round(cs * 0.4), COLS * cs * 0.96, cs * 0.1);
+          ctx.fillText(isMobile ? 'TAP TO TURN THROUGH THE FOURTH DIMENSION' : 'SPACE OR CLICK TO TURN THROUGH THE FOURTH DIMENSION', w / 2, ty0 + cs * 2.05); spaced(0);
           ctx.globalAlpha = 1;
         }
       }
@@ -7200,12 +7214,12 @@
         ctx.font = hudFont(500, Math.round(cs * 0.7)); ctx.fillStyle = '#C4A882';
         if (st === 'cont') {
           ctx.fillText('CONTINUE?  ' + Math.max(0, Math.ceil(10 - (pnow - TES.st0) / 1000)), w / 2, h / 2 + cs * 0.6);
-          ctx.fillStyle = 'rgba(201,204,209,0.7)'; tesFitFont(ctx, 'TAP OR PRESS ENTER TO PLAY MOVEMENT VI AGAIN', 600, Math.round(cs * 0.42), w * 0.92, cs * 0.1);
-          ctx.fillText('TAP OR PRESS ENTER TO PLAY MOVEMENT VI AGAIN', w / 2, h / 2 + cs * 1.9); spaced(0);
+          ctx.fillStyle = 'rgba(201,204,209,0.7)'; tesFitFont(ctx, (isMobile ? 'TAP' : 'CLICK') + ' OR PRESS ENTER TO PLAY MOVEMENT VI AGAIN', 600, Math.round(cs * 0.42), w * 0.92, cs * 0.1);
+          ctx.fillText((isMobile ? 'TAP' : 'CLICK') + ' OR PRESS ENTER TO PLAY MOVEMENT VI AGAIN', w / 2, h / 2 + cs * 1.9); spaced(0);
         } else {
           ctx.fillText(score + ' Hz', w / 2, h / 2 + cs * 0.6);
-          ctx.fillStyle = 'rgba(201,204,209,0.7)'; tesFitFont(ctx, 'TAP OR PRESS ENTER TO RESTART', 600, Math.round(cs * 0.42), w * 0.92, cs * 0.1);
-          ctx.fillText('TAP OR PRESS ENTER TO RESTART', w / 2, h / 2 + cs * 1.9); spaced(0);
+          ctx.fillStyle = 'rgba(201,204,209,0.7)'; tesFitFont(ctx, (isMobile ? 'TAP' : 'CLICK') + ' OR PRESS ENTER TO RESTART', 600, Math.round(cs * 0.42), w * 0.92, cs * 0.1);
+          ctx.fillText((isMobile ? 'TAP' : 'CLICK') + ' OR PRESS ENTER TO RESTART', w / 2, h / 2 + cs * 1.9); spaced(0);
         }
       }
     }
@@ -7337,6 +7351,24 @@
       } catch (x) { tesFail(x); return false; }
     }
     function tesTap() { try { if (TES.on && TES.stage === 'play') tesTurn(1, 'tap'); } catch (x) { tesFail(x); } }   // a tap that is not a swipe: turn ana
+    function gameAudioWake() {   // any key, tap, or click wakes the game's sound if the browser has suspended it (a call, another app, a locked screen); the run itself carries on untouched
+      var c = gameAudioCtx;
+      if (c && c.state !== 'running' && c.state !== 'closed') { try { var p = c.resume(); if (p && p.catch) p.catch(function () {}); } catch (x) {} }
+      if (gameIosAudio && gameIosAudio.paused) { try { var q = gameIosAudio.play(); if (q && q.catch) q.catch(function () {}); } catch (x) {} }   // (on a phone, the silent stream that keeps its sound on)
+    }
+    function tesClick(e) {   // on a computer, a click (or a pen) does what a tap does on a phone; the game's buttons, panels, and score card keep their own clicks
+      try {
+        if (e.pointerType === 'touch' || (e.button != null && e.button !== 0)) return;   // (touches have their own handlers)
+        var tg = e.target;
+        if (tg && tg.closest && tg.closest('button, a, input, select, textarea, .sc-ui')) return;
+        gameAudioWake();
+        if (gameState === 'title') { beginRun(); return; }
+        if (gameState === 'studio') return;
+        if (tesTouch(e)) return;
+        if (gameState === 'gameover' || gameState === 'won') { var advancing = gameState === 'won'; if (advancing) level++; initGame(advancing); startMusic(); return; }
+        tesTap();
+      } catch (x) {}
+    }
     // === INPUT ===
     function onControl(e) {   // a focused button inside the game (the score card, tilt, close) keeps its own Enter and Space
       var t = e.target;
@@ -7344,6 +7376,7 @@
     }
     function handleGameKey(e) {
       var k = e.key || '';
+      gameAudioWake();   // a key wakes the game's sound if the browser has suspended it
       if ((k === 'Enter' || k === ' ') && onControl(e)) return;
       if (k === 'Escape') { e.preventDefault(); closeGame(); return; }
       if (god.on && godKey(e, k)) return;
@@ -7370,6 +7403,7 @@
       if (dir >= 0) { playerNextDir = dir; e.preventDefault(); }   // only the keys the game uses are kept from the browser; Tab and the rest work normally
     }
     function handleSwipeStart(e) {
+      gameAudioWake();   // so does a touch
       if (isUI(e)) return;
       e.preventDefault();
       if (gameState === 'title') { beginRun(); return; }
@@ -7438,6 +7472,7 @@
       overlay.removeEventListener('touchstart', handleSwipeStart);
       overlay.removeEventListener('touchend', handleSwipeEnd);
       overlay.removeEventListener('touchmove', blockTouch);
+      overlay.removeEventListener(window.PointerEvent ? 'pointerdown' : 'mousedown', tesClick);
       window.removeEventListener('resize', resizeGameCanvas);
       if (gameIosAudio) { gameIosAudio.pause(); gameIosAudio.srcObject = null; gameIosAudio = null; }
       if (gameAudioCtx) { gameAudioCtx.close().catch(function(){}); gameAudioCtx = null; }
@@ -7455,6 +7490,7 @@
     overlay.addEventListener('touchstart', handleSwipeStart, {passive: false});
     overlay.addEventListener('touchend', handleSwipeEnd, {passive: false});
     overlay.addEventListener('touchmove', blockTouch, {passive: false});
+    overlay.addEventListener(window.PointerEvent ? 'pointerdown' : 'mousedown', tesClick);   // on a computer, a click does what a tap does
 
     // Start
     initGameAudio();
