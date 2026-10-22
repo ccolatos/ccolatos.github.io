@@ -5475,6 +5475,7 @@
       if (live) {
         var L = live, c = gameAudioCtx; live = null; clearInterval(L.timer);
         try { L.pg.gain.setTargetAtTime(0, c.currentTime, 0.03); if (L.sched) L.sched.end(c.currentTime + 0.3); } catch (x) {}
+        try { tesVoicesEnd(L.pg, c.currentTime + 0.3); } catch (x) {}   // (and movement VI's held voices)
         setTimeout(function () { try { L.pg.disconnect(); L.ptr.disconnect(); } catch (x) {} }, 300);   // and its trim stage goes with it, along with anything still scheduled on it
       }
       cancelAnimationFrame(runRaf);
@@ -5692,7 +5693,7 @@
           x.beginPath(); x.moveTo(cx, cy); for (var q = 1; q <= 4; q++) x.lineTo(cx + q * (R - L) / T * 0.05, cy + (Math.random() * 2 - 1) * amp); x.stroke(); }
       });
       run.ev.forEach(function (e) {   // movement IV: every struck harmonic, a point on its harmonic's line, in its color
-        if (e[1] !== 'rp' && e[1] !== 'pt' && e[1] !== 'hp') return;
+        if (e[1] !== 'rp' && e[1] !== 'pt' && e[1] !== 'hp' && e[1] !== 'f6h') return;
         x.fillStyle = 'hsla(' + hueOfF(e[2]).toFixed(0) + ',60%,36%,' + Math.min(0.9, 0.2 + e[3] * 14).toFixed(2) + ')';
         x.fillRect(X(e[0]) - 1.8, Y(e[2]) - 1.8, 3.6, 3.6);
       });
@@ -6508,53 +6509,83 @@
       lp.connect(g); var pn = panTo(c, g, out, p || 0); letGo(src, [lp, g, pn]);
     };
     function tesB(id, kind, t, a, b, c2, d, e, db) { play('f6b', t, kind + ':' + id + (db ? ':' + db : ''), a, b, c2, d, e); }   // play an instrument through a style's bus
+    // the band's two held voices, the singer and Risset's harmonic arpeggio, sound through buses of their own ('sing' and 'arp'), so a
+    // tacet, a turn, or the end silences them at once, whatever their own envelopes are doing; and every move of them is an event in
+    // the score, so a saved run sounds as it was played
+    SND.f6s = function (c, out, t) { var o = out.__tesSg; if (o) { try { o.end(t); } catch (x) {} } out.__tesSg = makeSinger(c, tesBus(c, out, 'sing'), t); };
+    SND.f6sn = function (c, out, t, f, v) { var o = out.__tesSg; if (o) o.note(t, f, v); };
+    SND.f6so = function (c, out, t) { var o = out.__tesSg; out.__tesSg = null; if (o) { try { o.end(t); } catch (x) {} } };
+    SND.f6r = function (c, out, t, root, d0) {   // the arpeggio begins, its first five harmonics lit (it swells in over its first 0.8 s)
+      var o = out.__tesRs; if (o) { try { o.stop(t); } catch (x) {} }
+      var rs = out.__tesRs = makeRisset(c, tesBus(c, out, 'arp')); rs.start(t, root, d0);
+      [[1, 1], [2, 0.7], [3, 0.6], [4, 0.5], [5, 0.4]].forEach(function (p2) { rs.lit(t, p2[0], p2[1]); });
+    };
+    SND.f6h = function (c, out, t, f, v, p, id) { SND.hp(c, tesBus(c, out, id || 'solo'), t, f, v, p); };   // a struck harmonic through a bus (the score draws it as it does movement IV's)
+    SND.f6rr = function (c, out, t, root) { var o = out.__tesRs; if (o) o.root(t, root, 0); };
+    SND.f6rl = function (c, out, t, k, v) { var o = out.__tesRs; if (o) o.lit(t, k, v); };
+    SND.f6rt = function (c, out, t, d) { var o = out.__tesRs; if (o) o.rate(t, d); };
+    SND.f6ro = function (c, out, t) { var o = out.__tesRs; out.__tesRs = null; if (o) { try { o.stop(t); } catch (x) {} } };
+    function tesVoicesEnd(out, t) { if (out.__tesSg) SND.f6so(null, out, t); if (out.__tesRs) SND.f6ro(null, out, t); }   // (a run played back from its score and stopped partway lets its held voices go too)
+    // (each held voice keeps the time it began: nothing for it, a note, a light, or its stop, is ever written into the score before that,
+    // so the score, played back in time order, does what the game did)
+    function tesSingerOn(t) { var o; play('f6s', t); o = gameOut(); TES.singer = (o && o.__tesSg) || null; TES.singerT = t; }   // the raga's voice, ready
+    function tesSingerNote(t, f, v) { if (TES.singer) play('f6sn', Math.max(t, (TES.singerT || 0) + 0.001), f, v); }
+    function tesRissetOn(t, root) {   // Risset's arpeggio, begun on the root of the moment
+      var M = TES.mu, o; play('f6r', t, root, 1 / 5.5); o = gameOut(); TES.rs = (o && o.__tesRs) || null; TES.rsT = t;
+      if (M) { M.rsRoot = root; M.rsRate = 1 / 5.5; M.rootT = t; M.litT = Math.max(M.litT || 0, t); }
+    }
     var TES_BUS = ['bop', 'raga', 'cloud', 'harm'], TES_BUSG = [1.2, 1, 1, 1];   // (the quartet a little up, so each slice sounds as loud as the others, and as its own movement did)
     function tesInTacet(t) { return !!TES.tacetEnd && t < TES.tacetEnd - 0.002; }   // is time t inside the tacet? (the band's clock reaches the downbeat that ends it by adding up eighths, and can land a hair short of it: the downbeat belongs to the band)
     function tesBusLevel(s, t) {   // where a style's bus belongs: up for your slice, half for a folded one, and down in a tacet or after the last fold
       if (TES.stage !== 'play' || tesInTacet(t)) return 0;
       return s === TES.ps ? 1 : TES.ring.indexOf(s) < 0 ? 0.5 : 0;
     }
-    // (every move of a bus, or of the arpeggio's level, is set no earlier than the last one, so the last move made is the one that
-    // stands, live and in the saved score alike, even when a turn lands between a downbeat's scheduling and the downbeat itself)
+    // (every move of a bus is set no earlier than the last one, so the last move made is the one that stands, live and in the saved
+    // score alike, even when a turn lands between a downbeat's scheduling and the downbeat itself)
     function tesBusAt(M, at) { var c = gameAudioCtx, tw = Math.max(c ? c.currentTime : 0, at, M.busT || 0); M.busT = tw; return tw; }
-    function tesRgAt(M, at) { var c = gameAudioCtx, tw = Math.max(c ? c.currentTime : 0, at, M.rgT || 0); M.rgT = tw; return tw; }
-    function tesBusSync(t, tau, at) {   // the buses where they belong at time t (moved from time at, a little ahead, so a downbeat is never clipped)
+    function tesBusSync(t, tau, at, fp) {   // the buses where they belong at time t (moved from time at, a little ahead, so a downbeat is never clipped); fp: the eighth of the form sounding then
       var M = TES.mu; if (!M) return;
-      for (var s = 0; s < 4; s++) { var v = tesBusLevel(s, t); if (M.bl[s] !== v) { M.bl[s] = v; play('f6f', tesBusAt(M, at == null ? t : at), TES_BUS[s], v * TES_BUSG[s], tau); } }
-      var rv = TES.stage === 'coda' ? 1.6 : tesInTacet(t) || TES.stage !== 'play' ? 0 : TES.ps === 3 ? TES_RSG : TES.ring.indexOf(3) < 0 ? TES_RSG * 0.5 : 0;
-      if (rv > 0 && !TES.rs) tesRgAt(M, tesRissetMake(tesRgAt(M, t)));   // (it swells in as it starts, then settles where it belongs)
-      if (TES.rs && M.rg !== rv) { M.rg = rv; var tr = tesRgAt(M, t); try { TES.rs.gain(tr, rv, tau || 0.08); } catch (x) {} logEvAt(tr, 'rsgain', rv, tau || 0.08); }
+      var tw = at == null ? t : at, s, v;
+      if (fp == null) fp = Math.max(0, M.fp - 1);
+      var te = Math.max(t, (TES.nextAt || 0) - (TES.step || 0));   // (judged as of the last eighth already scheduled: a turn just before the re-entry downbeat finds the band already back in, as it is)
+      for (s = 0; s < 4; s++) { v = tesBusLevel(s, te); if (M.bl[s] !== v) { M.bl[s] = v; play('f6f', tesBusAt(M, tw), TES_BUS[s], v * TES_BUSG[s], tau); } }
+      // the held voices: the singer in the raga's slice and in the coda; the arpeggio in its own slice, half as loud under the others once
+      // it has folded, and in the coda; both silent in a tacet
+      var coda = TES.stage === 'coda', on = TES.stage === 'play' && !tesInTacet(te);
+      var sv = coda || (on && TES.ps === 1) ? 1 : 0, rv = coda ? 1.6 : !on ? 0 : TES.ps === 3 ? TES_RSG : TES.ring.indexOf(3) < 0 ? TES_RSG * 0.5 : 0, ta = tw;
+      if (M.sv !== sv) { M.sv = sv; play('f6f', tesBusAt(M, tw), 'sing', sv, tau); }
+      if (M.so !== (on ? 1 : 0)) { M.so = on ? 1 : 0; play('f6f', tesBusAt(M, tw), 'solo', M.so, tau); }   // your solo: open in play, closed in a rest (a turn leaves it open, so no note's attack is caught in a crossfade)
+      if (rv > 0 && !TES.rs) tesRissetOn(tesBusAt(M, tw), tesRissetRootFor(fp));   // (it begins on the root of the moment, and swells in as it starts)
+      else { var tq = tesRissetRoot(tw, fp); if (tq && rv > M.rg) ta = tq + 0.065; }   // on a turn it is retuned at once: on a new root, it opens only once it has landed there
+      if (M.rg !== rv) { M.rg = rv; play('f6f', tesBusAt(M, ta), 'arp', rv, tau); }
     }
-    function tesRissetMake(t) {   // Risset's harmonic arpeggio, begun on the root of the moment; returns when it is ready to be set
-      var c = gameAudioCtx, M = TES.mu, root = TES.stage === 'coda' ? 58.27 : TES_R[Math.max(0, TES.ps)] / 2 * tesHarm(Math.max(0, TES.ps), M ? M.fp : 0)[0], d0 = 1 / 5.5;
-      if (!c || !gameOut()) return t;
-      try {
-        TES.rs = makeRisset(c, gameOut()); TES.rs.start(t, root, d0); logEvAt(t, 'rson', root, d0);
-        [[1, 1], [2, 0.7], [3, 0.6], [4, 0.5], [5, 0.4]].forEach(function (p2) { TES.rs.lit(t, p2[0], p2[1]); logEvAt(t, 'rslit', p2[0], p2[1]); });
-        if (M) { M.rsRoot = root; M.rsRate = d0; M.rg = 1; }
-      } catch (x) { TES.rs = null; }
-      return t + 0.82;
+    function tesRissetRootFor(fp) { return TES.stage === 'coda' || TES.ps < 0 ? 58.27 : TES_R[TES.ps] / 2 * tesHarm(TES.ps, fp)[0]; }   // the arpeggio's root: your slice's chord (in the coda, the last note's B-flat)
+    function tesRissetRoot(t, fp) {   // the arpeggio onto that root, if it is not there (each glide begun only once the last has landed); returns when, if it moved
+      var M = TES.mu, c = gameAudioCtx; if (!M || !TES.rs) return 0;
+      var root = tesRissetRootFor(fp); if (M.rsRoot && Math.abs(root / M.rsRoot - 1) < 0.001) return 0;
+      var tq = Math.max(c ? c.currentTime : 0, t, (M.rootT || 0) + 0.07); M.rootT = tq; M.rsRoot = root;
+      play('f6rr', tq, root); return tq;
     }
     function tesBandStart() {   // the band begins (or begins again after a fold): its clock picks up where the form was
       var c = gameAudioCtx; clearInterval(TES.timer); TES.timer = 0;
       var M = TES.mu = TES.mu || { e8: 0, fp: 0 };
       if (M.e8 % 8) { var add = 8 - M.e8 % 8; M.e8 += add; M.fp += add; }   // (after a fold, the band comes back in on a downbeat)
-      M.bl = [-1, -1, -1, -1]; M.rg = -1; M.sn = null; M.bomb = -1; M.fill = false; M.afterFill = false; M.comp = null; M.bassPrev = 0; M.cr = M.cr || { n: 0, last: 0, next: 0 }; M.tacetOut = true; M.restrike = true;
+      M.bl = [-1, -1, -1, -1]; M.sv = -1; M.so = -1; M.rg = -1; M.sn = null; M.bomb = -1; M.fill = false; M.afterFill = false; M.comp = null; M.bassPrev = 0; M.cr = M.cr || { n: 0, last: 0, next: 0 }; M.tacetOut = true; M.restrike = true;
       TES.step = 60 / TES_BPM[Math.min(3, TES.k)] / 2;
       if (!c) return;
       var t = c.currentTime + 0.08;
-      if (!TES.singer && gameOut()) { try { TES.singer = makeSinger(c, gameOut(), t); logEvAt(t, 'sgon'); } catch (x) { TES.singer = null; } }   // the raga's voice, ready
-      if (TES.rs) { M.rg = -1; M.rsRoot = M.rsRoot || 1; M.rsRate = M.rsRate || 1 / 5.5; }
-      TES.nextAt = t; tesBusSync(t, 0.01, t - 0.04);
+      if (!TES.singer) tesSingerOn(t);
+      TES.nextAt = t; tesBusSync(t, 0.01, t - 0.04, M.fp);
       TES.timer = setInterval(tesPump, 25);
     }
-    function tesBandStop(all) {   // the band stops; (all) its voices too
+    function tesBandStop(all) {   // the band stops; (all) its held voices too
       clearInterval(TES.timer); TES.timer = 0;
-      var c = gameAudioCtx, t = c ? c.currentTime : 0;
-      if (TES.mu && c) for (var s = 0; s < 4; s++) if (TES.mu.bl[s] !== 0) { TES.mu.bl[s] = 0; play('f6f', tesBusAt(TES.mu, t), TES_BUS[s], 0, 0.1); }
+      var c = gameAudioCtx, t = c ? c.currentTime : 0, M = TES.mu;
+      if (M && c) { for (var s = 0; s < 4; s++) if (M.bl[s] !== 0) { M.bl[s] = 0; play('f6f', tesBusAt(M, t), TES_BUS[s], 0, 0.1); } if (M.so !== 0) { M.so = 0; play('f6f', tesBusAt(M, t), 'solo', 0, 0.1); } }
       if (!all) return;
-      if (TES.singer && c) { try { TES.singer.end(t); } catch (x) {} logEvAt(t, 'sgoff'); }
-      if (TES.rs && c) { var tr = TES.mu ? tesRgAt(TES.mu, t) : t; try { TES.rs.stop(tr); } catch (x) {} logEvAt(tr, 'rsoff'); }
+      if (M && c) { if (M.sv !== 0) { M.sv = 0; play('f6f', tesBusAt(M, t), 'sing', 0, 0.1); } if (M.rg !== 0) { M.rg = 0; play('f6f', tesBusAt(M, t), 'arp', 0, 0.1); } }
+      if (TES.singer && c) play('f6so', Math.max(t, (TES.singerT || 0) + 0.005));
+      if (TES.rs && c) play('f6ro', Math.max(t, (TES.rsT || 0) + 0.005, M ? (M.litT || 0) + 0.001 : 0));
       TES.singer = null; TES.rs = null;
     }
     function tesPump() {   // a look-ahead clock, like the suite's own: every eighth note lands on an exact grid
@@ -6566,7 +6597,7 @@
       var M = TES.mu; if (!M || TES.stage !== 'play' || TES.ps < 0) return;
       var e = M.e8++, step = e % 8, beat = step >> 1, off = step & 1, bar = Math.floor(e / 8), dg = TES.danger || 0, s = TES.ps, j;
       if (performance.now() < TES.freeze) { M.fp++; return; }   // a lost life: the band breaks off for a moment
-      tesBusSync(t, 0.01, t - 0.025);
+      tesBusSync(t, 0.01, t - 0.025, M.fp);   // (the arpeggio's root follows the chords here, in the rests too, so it comes back in tune)
       if (tesInTacet(t)) { tesTacetBeat(t, step, beat, off); M.fp++; return; }   // tacet: the band rests, and the bars go by
       if (!M.tacetOut) { M.tacetOut = true; M.restrike = true; tesReentry(t, s); }   // back in, on the downbeat
       tesStyle(s, s, t, step, beat, off, bar, dg, true);
@@ -6664,17 +6695,18 @@
       if (!full) return;   // (folded, the arpeggio itself goes on, quieter: see tesRisset)
       if (step === 0 && bar % 4 === 0) tesB(B, 'bell', t, r * 4, 0.4, 0, 1, 2.8, 5);
       var kq = 16 - ((TES.mu.scan = (TES.mu.scan || 0) + 1) % 15);   // down the series, sixteen to two
-      if (!off && Math.random() < 0.75) play('hp', t, r * kq, tesHpV(0.22 + dg * 0.2, 5.5), ((kq % 5) - 2) * 0.25);
+      if (!off && Math.random() < 0.75) play('f6h', t, r * kq, tesHpV(0.22 + dg * 0.2, 5.5), ((kq % 5) - 2) * 0.25, B);
     }
     function tesHpV(v, db) { return Math.max(0, Math.min(1.8, (Math.pow(10, db / 20) * (0.05 + 0.07 * v) - 0.05) / 0.07)); }   // a struck harmonic's velocity for a level db above v's
-    function tesRisset(t, step, bar, dg) {   // the arpeggio follows the harmony of your slice, and scans faster as the shadows close in
+    function tesRisset(t, step, bar, dg) {   // the arpeggio scans faster as the shadows close in (its root follows your slice's chords: see tesBusSync)
       var rs = TES.rs, M = TES.mu; if (!rs || step !== 0) return;
-      var root = TES_R[TES.ps] / 2 * tesHarm(TES.ps, M.fp)[0];
-      if (Math.abs(root / M.rsRoot - 1) > 0.001) { try { rs.root(t, root, 0); } catch (x) {} logEvAt(t, 'rsroot', root, 0); M.rsRoot = root; }
       var d = 1 / Math.max(2.4, 6.5 - 3.2 * dg);
-      if (t >= rs.rampEnd() + 0.01 && Math.abs(d - M.rsRate) / M.rsRate > 0.06) { try { rs.rate(t, d); } catch (x) {} logEvAt(t, 'rsrate', d); M.rsRate = d; }
+      if (t >= rs.rampEnd() + 0.01 && Math.abs(d - M.rsRate) / M.rsRate > 0.06) { play('f6rt', t, d); M.rsRate = d; }
     }
-    function tesRissetLight(t, k, v) { var rs = TES.rs; if (!rs || !(k >= 1 && k <= RS_K)) return; v = Math.max(0, Math.min(1, v)); if (Math.abs((rs.lits[k] || 0) - v) < 0.03) return; try { rs.lit(t, k, v); } catch (x) {} logEvAt(t, 'rslit', k, v); }
+    function tesRissetLight(t, k, v) {   // a harmonic of the arpeggio lit (each light set no earlier than the last, so the last one set is the one that stands)
+      var rs = TES.rs, M = TES.mu; if (!rs || !(k >= 1 && k <= RS_K)) return; v = Math.max(0, Math.min(1, v)); if (Math.abs((rs.lits[k] || 0) - v) < 0.03) return;
+      var tl = Math.max(t, (M && M.litT) || 0, (TES.rsT || 0) + 0.001); if (M) M.litT = tl; play('f6rl', tl, k, v);
+    }
     // the shadows' parts: the square plays the chord's arpeggio, the sawtooth a counter-line, the noise band chance itself; each from
     // its own place in the fourth dimension, in that slice's key, louder as it nears you. Frozen in a tacet, each holds its note.
     function tesChase() { var mt = TES.clock - TES.modeT0; return (mt >= 8 && mt < 26) || (mt >= 33 && mt < 51) || mt >= 57; }
@@ -6752,23 +6784,23 @@
       } else if (s === 0) {
         if (!M.line || !M.line.length) { M.line = tesBopLine(R, H); M.lineFirst = true; }
         f = M.line.shift(); var vv = 0.42 + dg * 0.22 + Math.random() * 0.06, endP = !M.line.length, tn = t;
-        if (M.lineFirst && Math.random() < 0.35) { play('pno', t, f * 15 / 16, vv * 0.75, 0.18, 0.04, 2.8184); tn = t + 0.016; }   // Monk's crushed note
-        play('pno', tn, f, vv, 0.18, endP ? 0.7 : 0.3, 2.8184);
-        if (endP) play('pno', tn + 0.004, f / 2, vv * 0.85, 0.12, 0.7, 2.8184);   // the phrase's last note doubled at the octave
+        if (M.lineFirst && Math.random() < 0.35) { tesB('solo', 'pno', t, f * 15 / 16, vv * 0.75, 0.18, 0.04, 2.8184); tn = t + 0.016; }   // Monk's crushed note
+        tesB('solo', 'pno', tn, f, vv, 0.18, endP ? 0.7 : 0.3, 2.8184);
+        if (endP) tesB('solo', 'pno', tn + 0.004, f / 2, vv * 0.85, 0.12, 0.7, 2.8184);   // the phrase's last note doubled at the octave
         M.lineFirst = false; soloNote(f, 'ep', 'sx');
         if (M.cr) { M.cr.n++; M.cr.last = performance.now(); }   // the horns are listening for the end of your phrase
       } else if (s === 1) {
         d = nextSoloDeg(14); o = Math.floor(d / 7); f = 2 * R * YAMAN[d - o * 7] * Math.pow(2, o); var v2 = 0.45 + dg * 0.5;
-        if (TES.singer) { try { TES.singer.note(t, f, v2); } catch (x) {} } logEvAt(t, 'sng', f, v2);   // the voice glides (meend) to each new note
-        play('f6g', t, 'plk:6', f, 0.85, pan, 0.12); soloNote(f, 'string', 'sng');   // and a light stroke on the zither beside it
+        tesSingerNote(t, f, v2);   // the voice glides (meend) to each new note
+        tesB('solo', 'plk', t, f, 0.85, pan, 0.12, 0, 6); soloNote(f, 'string', 'sng');   // and a light stroke on the zither beside it
       } else if (s === 2) {
-        f = R / 2 * (8 + nextSoloDeg(16)); play('f6g', t, 'plk:12', f, 0.55, pan, 0.08 + Math.random() * 0.4); soloNote(f, 'string', 'plk');
-        if (Math.random() < 0.18) play('f6g', t + 0.05, 'gls:12', f, 0.03, pan, 2, 0.5);
+        f = R / 2 * (8 + nextSoloDeg(16)); tesB('solo', 'plk', t, f, 0.55, pan, 0.08 + Math.random() * 0.4, 0, 12); soloNote(f, 'string', 'plk');
+        if (Math.random() < 0.18) tesB('solo', 'gls', t + 0.05, f, 0.03, pan, 2, 0.5, 12);
       } else {
         var rs = TES.rs, root = R / 2 * H[0], kk = 2, best = -1;
         if (rs) for (var k = 2; k <= RS_K; k++) { var L = rs.lits[k] || 0; if (L < 0.02 || k === M.prevK) continue; var sc = rs.env(k, t) * (0.4 + L); if (sc > best) { best = sc; kk = k; } }
         M.prevK = kk; f = root * kk; while (f < 260) f *= 2;
-        play('hp', t, f, tesHpV(0.6 + dg * 0.4, 5.5), pan); soloNote(f, 'mode', 'hrn');
+        play('f6h', t, f, tesHpV(0.6 + dg * 0.4, 5.5), pan, 'solo'); soloNote(f, 'mode', 'hrn');
         var kr = 1 + Math.round((1 - playerY / (ROWS - 1)) * (RS_K - 1)); tesRissetLight(t, kr, ((rs && rs.lits[kr]) || 0) + 0.14);
       }
       TES.notes.push([TES.clock, f]);
@@ -6787,7 +6819,7 @@
       var p = TES.pt; if (!p) return;
       var dx = p.x - playerX, dy = p.y - playerY, pr = Math.max(0, 1 - Math.sqrt(dx * dx + dy * dy) / 16), k = TES_CODA[(p.ci = (p.ci || 0) + 1) % TES_CODA.length], f = 58.27 * k, v = 0.25 + 0.75 * pr;
       while (f > 1000) f /= 2; while (f < 200) f *= 2;
-      if (TES.singer) { try { TES.singer.note(t, f, v); } catch (x) {} } logEvAt(t, 'sng', f, v);
+      tesSingerNote(t, f, v);
       play('mal', t, f, 0.18 + 0.35 * pr, Math.max(-0.8, Math.min(0.8, p.x / (COLS - 1) * 2 - 1)));
     }
     function tesCodaLight(t) {   // the harmonics bloom as you close in
@@ -7120,14 +7152,13 @@
       TES.pt = { x: 9, y: 9, ox: 9, oy: 9, dir: 0, out: false, ci: 0 };
       tesQuiet(false);
       if (!TES.voices) TES.voices = tesVoicesMake();
-      var c = gameAudioCtx;
-      if (c) {
-        var t = c.currentTime + 0.05, M = TES.mu, tg;
-        if (!TES.singer && gameOut()) { try { TES.singer = makeSinger(c, gameOut(), t); logEvAt(t, 'sgon'); } catch (x) { TES.singer = null; } }
-        if (M) t = tesRgAt(M, t);
-        if (!TES.rs) tg = tesRissetMake(t); else { tg = t; try { TES.rs.root(t, 58.27, 0); } catch (x) {} logEvAt(t, 'rsroot', 58.27, 0); }
-        if (M) { M.rsRoot = 58.27; M.rg = 1.6; tg = tesRgAt(M, tg); }
-        if (TES.rs) { for (var k = 2; k <= RS_K; k++) tesRissetLight(t, k, 0); try { TES.rs.gain(tg, 1.6, 0.6); } catch (x) {} logEvAt(tg, 'rsgain', 1.6, 0.6); }   // (the coda's harmonics start from the fundamental alone, and bloom as you close in)
+      var c = gameAudioCtx, M = TES.mu;
+      if (c && M) {
+        var t = tesBusAt(M, c.currentTime + 0.05);
+        if (!TES.singer) tesSingerOn(t);
+        if (!TES.rs) tesRissetOn(t, 58.27);
+        for (var k = 2; k <= RS_K; k++) tesRissetLight(t, k, 0);   // (the coda's harmonics start from the fundamental alone, and bloom as you close in)
+        tesBusSync(t, 0.6);   // the singer's bus up, and the arpeggio onto the last note's root, then up
       }
     }
     function tesCodaStep(ox, oy) {
